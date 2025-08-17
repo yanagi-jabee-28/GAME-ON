@@ -133,9 +133,19 @@ const GameEventManager = {
             }
         ];
 
-        // 放課後（TURNS の '放課後'）なら購買に行く選択肢を追加
+        // 追加: 土日午前でもスーパーに行けるようにする
+        if (turnName === '午前' && ['土', '日'].includes(weekday)) {
+            const shop = (CONFIG && CONFIG.SHOPS && CONFIG.SHOPS['supermarket']) ? CONFIG.SHOPS['supermarket'] : null;
+            const shopLabel = shop && shop.label ? shop.label : 'スーパー';
+            choices.push({ text: `${shopLabel}に行く`, callback: () => this.openShop('supermarket') });
+        }
+
+        // 放課後（TURNS の '放課後'）なら購買/スーパーに行く選択肢を追加
         if (turnName === '放課後') {
-            choices.push({ text: '購買に行く', callback: () => this.goToSchoolShop() });
+            // 土日はスーパーに行くようにする
+            const shopId = (['土', '日'].includes(weekday)) ? 'supermarket' : 'school';
+            const shopLabel = (CONFIG && CONFIG.SHOPS && CONFIG.SHOPS[shopId] && CONFIG.SHOPS[shopId].label) ? CONFIG.SHOPS[shopId].label : '購買';
+            choices.push({ text: `${shopLabel}に行く`, callback: () => this.openShop(shopId) });
         }
 
         // 夜ならコンビニへ行く選択肢を追加
@@ -167,6 +177,11 @@ const GameEventManager = {
             return;
         }
 
+        // 履歴に「ショップ訪問」を記録
+        if (typeof gameManager !== 'undefined' && typeof gameManager.addHistory === 'function') {
+            gameManager.addHistory({ type: 'shop_visit', detail: { shopId: shopId, shopLabel: shop.label } });
+        }
+
         ui.displayMessage(`${shop.label}に行ってみよう。何を買う？`);
         await ui.waitForClick();
 
@@ -175,10 +190,18 @@ const GameEventManager = {
         const choices = items.map(id => ({
             text: `${ITEMS[id].name} - ${ITEMS[id].price}${unit}`,
             callback: async () => {
-                await this.attemptPurchase(id);
+                await this.attemptPurchase(id, shopId);
             }
         }));
-        choices.push({ text: '買わない', callback: () => { this.showMainActions(); } });
+        choices.push({
+            text: '買わない', callback: async () => {
+                // 履歴に「買わずに退店」を記録
+                if (typeof gameManager !== 'undefined' && typeof gameManager.addHistory === 'function') {
+                    gameManager.addHistory({ type: 'shop_leave', detail: { shopId: shopId, purchased: false } });
+                }
+                this.showMainActions();
+            }
+        });
 
         ui.displayChoices(choices);
     },
@@ -194,7 +217,7 @@ const GameEventManager = {
      * 購入処理の共通化
      * @param {string} itemId
      */
-    attemptPurchase: async function (itemId) {
+    attemptPurchase: async function (itemId, shopId) {
         const item = ITEMS[itemId];
         if (!item) return;
 
@@ -212,7 +235,9 @@ const GameEventManager = {
         console.log(`Purchase applied: -${item.price}. New money: ${gameManager.getStatus().money}`);
         // 購入履歴を残す
         if (typeof gameManager !== 'undefined' && typeof gameManager.addHistory === 'function') {
-            gameManager.addHistory({ type: 'purchase', detail: { itemId: itemId, itemName: item.name, price: item.price } });
+            gameManager.addHistory({ type: 'purchase', detail: { itemId: itemId, itemName: item.name, price: item.price, shopId: shopId } });
+            // 購入したので退店履歴を更新（購入あり）
+            gameManager.addHistory({ type: 'shop_leave', detail: { shopId: shopId, purchased: true, itemId: itemId, price: item.price } });
         }
         ui.updateStatusDisplay(gameManager.getStatus());
         ui.displayMessage(`${item.name} を購入した。`);

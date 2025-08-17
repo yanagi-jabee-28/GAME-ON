@@ -318,6 +318,63 @@ class UIManager {
                 }
             });
         }
+
+        // 履歴表示の更新
+        const historyListId = 'menu-history-list';
+        let historyList = document.getElementById(historyListId);
+        if (!historyList) {
+            historyList = document.createElement('ul');
+            historyList.id = historyListId;
+            const section = document.getElementById('menu-item-section');
+            if (section) {
+                // 履歴セクションはアイテムセクションの下に配置
+                const historySectionHeader = document.createElement('h3');
+                historySectionHeader.id = 'menu-history-heading';
+                historySectionHeader.textContent = labels.history || '行動履歴';
+                section.parentNode.insertBefore(historySectionHeader, section.nextSibling);
+                section.parentNode.insertBefore(historyList, historySectionHeader.nextSibling);
+            }
+        }
+        historyList.innerHTML = '';
+        const history = status.history || [];
+        if (history.length === 0) {
+            const li = document.createElement('li');
+            li.textContent = '(履歴はありません)';
+            historyList.appendChild(li);
+        } else {
+            // 最新が最後尾に入っている想定なので逆順で表示（最新が上）
+            const entries = history.slice().reverse();
+            entries.forEach(h => {
+                const li = document.createElement('li');
+                const time = `Day ${h.day} ${h.turn || ''}`;
+                let text = '';
+                switch (h.type) {
+                    case 'shop_visit':
+                        text = `${time}: ${h.detail && h.detail.shopLabel ? h.detail.shopLabel : h.detail && h.detail.shopId ? h.detail.shopId : '店'} に入店`;
+                        break;
+                    case 'shop_leave':
+                        if (h.detail && h.detail.purchased) {
+                            text = `${time}: ${h.detail.shopId} で購入して退店 (item:${h.detail.itemId}, price:${h.detail.price})`;
+                        } else {
+                            text = `${time}: ${h.detail.shopId} を訪れて何も買わず退店`;
+                        }
+                        break;
+                    case 'purchase':
+                        text = `${time}: ${h.detail.itemName} を ${h.detail.shopId || ''} で購入 (${h.detail.price}${(CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円'})`;
+                        break;
+                    case 'choice':
+                        text = `${time}: 選択 - ${h.detail && h.detail.label ? h.detail.label : ''}`;
+                        break;
+                    case 'use_item':
+                        text = `${time}: アイテム使用 - ${h.detail && h.detail.itemName ? h.detail.itemName : h.detail && h.detail.itemId ? h.detail.itemId : ''}`;
+                        break;
+                    default:
+                        text = `${time}: ${h.type}`;
+                }
+                li.textContent = text;
+                historyList.appendChild(li);
+            });
+        }
     }
 
     /**

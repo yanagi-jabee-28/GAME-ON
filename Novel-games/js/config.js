@@ -100,7 +100,8 @@ CONFIG.CONVENIENCE_ITEMS = ['instant_noodles', 'onigiri', 'energy_drink'];
 CONFIG.SHOPS = {
     school: { id: 'school', labelKey: 'shop', label: '購買', items: CONFIG.SCHOOL_SHOP_ITEMS },
     conveni: { id: 'conveni', labelKey: 'conveni', label: 'コンビニ', items: CONFIG.CONVENIENCE_ITEMS },
-    supermarket: { id: 'supermarket', labelKey: 'supermarket', label: 'スーパー', items: ['onigiri', 'sandwich', 'instant_noodles'] }
+    // ひとまずスーパーの品揃えはコンビニと同一にする（将来は別ラインナップや価格調整を想定）
+    supermarket: { id: 'supermarket', labelKey: 'supermarket', label: 'スーパー', items: CONFIG.CONVENIENCE_ITEMS }
 };
 
 // イベントデータ (将来の拡張用)
