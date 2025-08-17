@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高専"寮"サバイバル</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- ステータス表示エリア -->
+        <div id="status-display">
+            <p>日付: <span id="date-display">1日目</span></p>
+            <p>時間: <span id="time-of-day-display">午前</span></p>
+            <p>コンディション: <span id="condition-display">100</span></p>
+            <p>所持金: <span id="money-display">10000</span>G</p>
+            <p>人脈: <span id="cp-display">0</span></p>
+            <button id="menu-button">メニュー</button>
+        </div>
+
+        <!-- メイン画面 -->
+        <div id="main-screen">
+            <!-- メッセージウィンドウ -->
+            <div id="message-window">
+                <div id="character-name"></div>
+                <div id="message-text"></div>
+                <div id="click-indicator">▼</div>
+            </div>
+
+            <!-- 選択肢エリア -->
+            <div id="choices-area">
+                <!-- JavaScriptによって動的に生成されます -->
+            </div>
+        </div>
+
+        <!-- メニューオーバーレイ -->
+        <div id="menu-overlay" class="hidden">
+            <div id="menu-content">
+                <h2>メニュー</h2>
+                <div id="menu-status-section">
+                    <h3>ステータス</h3>
+                    <p>学力: <span id="menu-academic"></span></p>
+                    <p>フィジカル: <span id="menu-physical"></span></p>
+                    <p>メンタル: <span id="menu-mental"></span></p>
+                    <p>レポート負債: <span id="menu-report-debt"></span></p>
+                </div>
+                <div id="menu-item-section">
+                    <h3>アイテム</h3>
+                    <ul id="menu-item-list"></ul>
+                </div>
+                <button id="menu-close-button">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- スクリプトファイル -->
+    <script src="js/config.js"></script>
+    <script src="js/gameManager.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/events.js"></script>
+    <script src="js/main.js"></script>
+
+</body>
+</html>
