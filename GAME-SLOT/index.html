@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<!--
+  ファイル概要: 3x3スロットゲームの基本的なHTML構造を定義します。
+  このファイルは、ゲームの骨格となる部分です。
+  見た目の装飾はCSS (style.css) で、ゲームの複雑な動作はJavaScript (script.js) で制御されます。
+-->
+<html lang="ja">
+
+<head>
+      <!-- 文字エンコーディング: UTF-8を指定。これにより、日本語を含む様々な言語が正しく表示されます。 -->
+      <meta charset="UTF-8">
+      <!-- モバイル向けビューポート設定: スマホでの表示/ズームを最適化 -->
+      <meta name="viewport" content="width=device-width, initial-scale=0.45, viewport-fit=cover">
+      <!-- ページのタイトル: ブラウザのタブに表示されるテキストです。ユーザーにページの目的を伝えます。 -->
+      <title>3x3 スロットゲーム</title>
+      <!-- 外部スタイルシートの連携: style.cssを読み込み、このページの見た目を整えます。 -->
+      <link rel="stylesheet" href="style.css">
+      <!-- Use root favicon for all games -->
+      <link rel="icon" href="/favicon.ico">
+</head>
+
+<body>
+
+      <nav style="position:fixed;left:12px;top:12px;z-index:999;">
+            <a href="../index.html"
+                  style="background:#fff;padding:8px 10px;border-radius:6px;text-decoration:none;color:#333;box-shadow:0 2px 6px rgba(0,0,0,0.12);">ポータルへ戻る</a>
+      </nav>
+      <!-- ゲームのメインタイトル -->
+      <h1>🎰 3x3 スロットゲーム 🎰</h1>
+
+      <!-- 
+      スロットマシンのコンテナ:
+      この<div>の中に、JavaScriptによってスロットのリールが動的に生成・配置されます。
+      注意: id="slot-machine" は script.js 内でリールを配置する基準点として使用されています。
+            このidを変更する場合は、script.js内の関連する記述も必ず修正してください。
+    -->
+      <div class="slot-container" id="slot-machine">
+            <!-- リールはJavaScript (script.js) によって、このコメント部分に動的に追加されます -->
+      </div>
+
+      <!-- 右側レバー（棒+球の図形描画）: 本体は動かさず、右横に固定表示 -->
+      <button class="lever" id="slotLever" aria-label="レバー" title="スペースキーまたはクリックでスタート/停止">
+            <span class="lever-inner" aria-hidden="true">
+                  <span class="lever-knob"></span>
+                  <span class="lever-stick"></span>
+            </span>
+      </button>
+
+      <!-- 目押しボタン（スロットと配当表の間） -->
+      <div class="manual-controls" id="manualControls" aria-label="目押しボタン">
+            <button class="stop-btn" id="stopBtn0" title="左リールを止める (1)" aria-label="左リールを止める">1</button>
+            <button class="stop-btn" id="stopBtn1" title="中リールを止める (2)" aria-label="中リールを止める">2</button>
+            <button class="stop-btn" id="stopBtn2" title="右リールを止める (3)" aria-label="右リールを止める">3</button>
+      </div>
+
+      <!-- ゲームの操作ボタンをまとめるコンテナ -->
+      <div class="controls">
+            <div class="controls-top">
+                  <!-- 上段: スタートボタン（中央に独立配置） -->
+                  <button id="actionBtn">▶ スタート</button>
+            </div>
+            <div class="controls-bottom">
+                  <!-- 下段: その他の操作群 -->
+                  <button id="modeBtn">モード: 自動</button>
+
+                  <!-- 賭け金入力と残高表示 -->
+                  <div class="finance" style="display:inline-block; margin-left:16px; vertical-align:middle;">
+                        <label for="betInput" style="margin-right:6px;">賭け金</label>
+                        <input id="betInput" type="number" inputmode="numeric" pattern="[0-9]*" min="1" value="10"
+                              style="width:80px;">
+                        <span style="margin-left:12px;">残高: ¥<span id="balance" class="badge">1000</span></span>
+                        <span style="margin-left:12px;">借金: ¥<span id="debt" class="badge">0</span></span>
+                  </div>
+            </div>
+      </div>
+
+      <!-- 配当表表示エリア（ページ下部へ移動） -->
+      <div class="payout-area" style="margin-top:16px;">
+            <h3>配当表</h3>
+            <div id="payoutTable">(読み込み中...)</div>
+      </div>
+
+      <!-- 
+      外部JavaScriptファイルの読み込み:
+      defer属性は、HTMLの解析完了後にスクリプトを実行させるための重要な属性です。
+      これにより、ページの表示速度が向上します。
+
+      重要: スクリプトの読み込み順序は非常に重要です。
+            config.js には script.js が依存する設定値が定義されているため、
+            必ず config.js を先に読み込む必要があります。
+            この順序を変更すると、ゲームが正常に動作しなくなる可能性があります。
+    -->
+      <!-- config.js: ゲームの基本設定（リールの絵柄、速度など）を定義します -->
+      <script src="config.js" defer></script>
+      <!-- script.js: ゲームのメインロジック（開始、停止、モード切替など）を制御します -->
+      <script src="script.js" defer></script>
+
+</body>
+
+</html>

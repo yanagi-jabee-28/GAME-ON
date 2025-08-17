@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>3Dパチンコ Physics Test</title>
+        <link rel="stylesheet" href="src/css/style.css">
+</head>
+
+<body>
+
+    <!-- 3D描画領域となるキャンバス -->
+    <canvas id="myCanvas"></canvas>
+
+    <!-- ボールを打ち上げるためのボタン（現在未使用） -->
+    <!-- <button id="launchButton">ボールを落とす</button> -->
+    <!-- シミュレーション制御ボタン -->
+    <div class="sim-controls">
+        <button id="playBtn">再生</button>
+        <button id="pauseBtn">停止</button>
+        <button id="resetBtn">リセット</button>
+        <button id="resetViewBtn">視点リセット</button>
+    </div>
+
+    <!-- ES Moduleのimportmapを使用してライブラリを読み込む -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
+            }
+        }
+    </script>
+
+    <!-- メインのプログラム -->
+    <script type="module" src="src/js/main.js"></script>
+</body>
+
+</html>

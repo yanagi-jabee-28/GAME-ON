@@ -1,0 +1,604 @@
+/*
+  ファイル概要: スロットゲームの見た目を定義するスタイルシート
+  主な役割: レイアウト、色、フォント、アニメーション効果の指定
+*/
+
+/* :root疑似クラス: ドキュメント全体で利用可能なグローバル変数を定義します */
+:root {
+	/* 色に関する設定値: デザインの変更やテーマの切り替えを容易にします */
+	--background-color: #222;
+	/* ページ全体の背景色 */
+	--text-color: white;
+	/* 基本の文字色 */
+	--container-border-color: #555;
+	/* スロット外枠のボーダー色 */
+	--container-background-color: #000;
+	background: transparent;
+	--reel-border-color: #444;
+	/* 各リールのボーダー色 */
+	--reel-background-color: #111;
+	/* 各リールの背景色 */
+	--button-background-color: #f0f0f0;
+	/* ボタンの背景色 */
+	--button-text-color: #333;
+	/* ボタンの文字色 */
+
+	/* レバーは汎用 button:hover 等の背景色変更を無効化する */
+	.lever,
+	.lever:hover,
+	.lever:focus,
+	.lever:active,
+	.lever:disabled {
+		background: transparent !important;
+	}
+
+	--button-hover-background-color: #ddd;
+	/* ボタンホバー時の背景色 */
+	/* UIスケール: JSから --ui-scale を設定して全体を拡大/縮小できます */
+	--ui-scale: 1;
+
+	/* 基礎サイズ（px）: JSのconfig.symbolHeight と一致させること */
+	--base-symbol-height: 120px;
+	--base-reel-width: 120px;
+}
+
+/* body: ページ全体の基本的なスタイルを設定します */
+body {
+	background: var(--background-color);
+	/* 背景色をカスタムプロパティから設定 */
+	color: var(--text-color);
+	/* 文字色をカスタムプロパティから設定 */
+	font-family: sans-serif;
+	/* フォントは一般的なサンセリフ体を指定 */
+	text-align: center;
+	/* 全ての要素を中央揃えに */
+	margin: 0;
+	/* ブラウザデフォルトの余白をリセット */
+	padding-top: 20px;
+	/* ページ上部に余白を設ける */
+}
+
+/* .slot-container: スロットマシン全体を囲むコンテナ */
+.slot-container {
+	display: inline-flex;
+	/* 中のリールを横一列に並べるためflexboxを利用 */
+	border: 5px solid var(--container-border-color);
+	/* 枠線を設定 */
+	background: var(--container-background-color);
+	/* 背景色を設定 */
+	padding: 10px;
+	/* 内側の余白 */
+	margin: 20px auto;
+	/* 上下の余白と、左右の自動中央配置 */
+	border-radius: 10px;
+	/* 角を丸くして柔らかい印象に */
+	position: relative;
+	/* レバーをこのボックスの右外に絶対配置するための基準にする */
+}
+
+/* .reel: 個々のリール（シンボルが回転する列） */
+
+.reel {
+	width: calc(var(--base-reel-width) * var(--ui-scale));
+	/* リールの幅（スケーラブル） */
+	height: calc(var(--base-symbol-height) * 3 * var(--ui-scale));
+	/* リールの高さ。シンボル3つ分（symbolHeight * 3） */
+	overflow: hidden;
+	/* リールからはみ出たシンボルを非表示にする */
+	border: 2px solid var(--reel-border-color);
+	/* 枠線を設定 */
+	margin: 0 5px;
+	/* 隣のリールとの間隔 */
+	background: var(--reel-background-color);
+	/* 背景色を設定 */
+	position: relative;
+	/* 子要素(.symbols)の絶対位置指定の基準点とする */
+}
+
+/* .symbols: シンボル全体を縦に並べて保持するコンテナ */
+.symbols {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	/* transformプロパティの変更をブラウザに予告し、アニメーションの描画を最適化させます */
+	will-change: transform;
+}
+
+/* .symbol: 個々のシンボル（絵文字） */
+
+.symbol {
+	height: calc(var(--base-symbol-height) * var(--ui-scale));
+	/* 各シンボルの高さ（スケーラブル）。リールの高さの1/3 */
+	font-size: calc(80px * var(--ui-scale));
+	/* 絵文字のフォントサイズ（スケーラブル） */
+	line-height: calc(var(--base-symbol-height) * var(--ui-scale));
+	/* 高さとline-heightを合わせ、絵文字を垂直中央に配置 */
+	user-select: none;
+	/* ユーザーによるテキスト選択を無効化 */
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	overflow: hidden;
+	white-space: nowrap;
+	text-align: center;
+}
+
+/* .symbol.bar: BARシンボルにのみ適用する特別なスタイル */
+.symbol.bar {
+	/* BAR シンボルは絵文字サイズとは別に幅広で見せたいが、少しだけ小さくしてリールに収める */
+	font-size: calc(56px * var(--ui-scale));
+	font-weight: 800;
+	letter-spacing: 0.5px;
+	/* line-height を基礎のシンボル高さに合わせることで縦中央に調整 */
+	line-height: calc(var(--base-symbol-height) * var(--ui-scale));
+	/* BAR がリール幅を超えてはみ出すのを防ぐ */
+	max-width: 100%;
+	box-sizing: border-box;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	/* 横余白をわずかに与えてトリミング位置を安定させる */
+	padding: 0 6px;
+}
+
+/* .controls: 操作ボタン全体をまとめるコンテナ */
+.controls {
+	margin-top: 10px;
+	/* スロット本体との間に余白を設ける */
+	display: flex;
+	flex-direction: column;
+	/* 縦方向に並べる: 上段(スタート) / 下段(その他) */
+	/* 複数行に折り返す */
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+}
+
+/* スタートボタンは上段でセンタリングし、スロット本体の中心線と揃うようにする */
+.controls-top {
+	width: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.controls-bottom {
+	width: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: 12px;
+}
+
+/* スタートボタンの大きさを抑える (全体のボタンスタイルを上書き) */
+.controls>#actionBtn {
+	max-width: 320px;
+	/* モバイルも意識してやや広めに */
+	padding: 12px 18px;
+	font-size: 16px;
+	margin: 10px auto;
+}
+
+/* 他のコントロールは2列目以降に並ぶ */
+.controls>button:not(#actionBtn) {
+	flex: 0 0 auto;
+}
+
+/* 永続化ボタン群のラッパー */
+#persistenceControls {
+	display: inline-flex;
+	gap: 8px;
+	align-items: center;
+	margin-left: 8px;
+}
+
+#persistenceControls button {
+	padding: 8px 12px;
+	font-size: 14px;
+}
+
+/* button: 全てのボタンに共通のスタイル */
+button {
+	margin: 10px;
+	/* ボタン同士の間隔 */
+	padding: 12px 22px;
+	/* ベースのタップ領域をやや拡大 */
+	font-size: 16px;
+	/* 文字サイズ */
+	border: none;
+	/* デフォルトの枠線を削除 */
+	border-radius: 5px;
+	/* 角を5px分丸める */
+	cursor: pointer;
+	/* マウスカーソルを指の形に変更し、クリック可能であることを示す */
+	background-color: var(--button-background-color);
+	/* 背景色を設定 */
+	color: var(--button-text-color);
+	/* 文字色を設定 */
+	/* 背景色が0.2秒かけて滑らかに変化するアニメーション効果 */
+	transition: background-color 0.2s ease;
+	/* モバイルでの体感向上 */
+	-webkit-tap-highlight-color: transparent;
+	touch-action: manipulation;
+	user-select: none;
+}
+
+/* button:hover: ボタンにマウスカーソルが乗った時のスタイル */
+button:hover {
+	background-color: var(--button-hover-background-color);
+	/* 背景色を少し暗くする */
+}
+
+/* 汎用ボタンの押下視覚効果（レバーは除外） */
+button:active:not(.lever) {
+	transform: translateY(0.5px) scale(0.99);
+}
+
+button:focus-visible {
+	outline: 3px solid #8ab4f8;
+	outline-offset: 2px;
+}
+
+/* button:disabled: ボタンが無効化された時のスタイル */
+button:disabled {
+	opacity: 0.6;
+	/* 透明度を下げ、操作不可であることを視覚的に示す */
+	cursor: not-allowed;
+	/* カーソルを「禁止」アイコンに変更 */
+}
+
+/* --- 配当表・ファイナンス表示の共通スタイル --- */
+.finance {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 16px;
+	vertical-align: middle;
+}
+
+#betInput {
+	width: 90px;
+	padding: 6px 8px;
+	border-radius: 6px;
+	border: 1px solid var(--container-border-color);
+	background: var(--reel-background-color);
+	color: var(--text-color);
+	font-size: 15px;
+	box-sizing: border-box;
+}
+
+.finance .badge {
+	display: inline-block;
+	padding: 8px 12px;
+	border-radius: 10px;
+	background: var(--container-background-color);
+	border: 1px solid var(--container-border-color);
+	color: var(--text-color);
+	font-weight: 700;
+	min-width: 88px;
+	text-align: center;
+	font-size: 18px;
+}
+
+
+#balance {
+	color: #ffd166;
+	font-weight: 800;
+	font-size: 20px;
+}
+
+#debt {
+	color: #ff6b6b;
+	font-weight: 800;
+	font-size: 20px;
+}
+
+/* 配当表 */
+.payout-area {
+	max-width: 420px;
+	margin: 12px auto;
+	padding: 10px;
+	border-radius: 8px;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+	border: 1px solid var(--container-border-color);
+	color: var(--text-color);
+}
+
+.payout-area h3 {
+	margin: 0 0 8px 0;
+	font-size: 18px;
+	font-weight: 700;
+}
+
+.payout-list {
+	display: block;
+	max-height: 240px;
+	overflow: auto;
+	border-top: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.payout-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 6px 8px;
+	border-bottom: 1px dashed rgba(255, 255, 255, 0.03);
+	font-size: 16px;
+	line-height: 20px;
+}
+
+.payout-row:first-of-type {
+	border-top: none;
+}
+
+/* レスポンシブ微調整 */
+@media (max-width: 480px) {
+	.payout-area {
+		max-width: 96%;
+		padding: 10px;
+	}
+
+	#betInput {
+		width: 92px;
+		font-size: 18px;
+		padding: 10px 12px;
+	}
+
+	.payout-row {
+		font-size: 16px;
+	}
+
+	/* ボタンのタップ領域を拡大し、テキストを見やすく */
+	button {
+		font-size: 18px;
+		padding: 14px 18px;
+		margin: 12px;
+	}
+
+	.controls>#actionBtn {
+		font-size: 18px;
+		padding: 14px 18px;
+		max-width: 92%;
+	}
+
+	/* ストップボタンをさらに大きく */
+	.stop-btn {
+		width: calc(var(--base-reel-width) * var(--ui-scale));
+		height: calc(var(--base-reel-width) * var(--ui-scale));
+		font-size: calc(var(--base-reel-width) * var(--ui-scale) * 0.32);
+	}
+
+	/* 並びの間隔も少し広げる */
+	.manual-controls {
+		gap: 16px;
+	}
+
+	/* レバーをやや小回りよく、はみ出し抑制 */
+	.lever {
+		left: calc(100% + 8px);
+		width: 160px;
+		height: 200px;
+	}
+
+	.lever-stick {
+		width: 110px;
+		height: 12px;
+	}
+
+	.lever-knob {
+		left: 110px;
+		width: 48px;
+		height: 48px;
+	}
+}
+
+/* 勝利メッセージのスタイル: スロット本体の中央に重ねて表示（スマホでも一貫） */
+#winMessage {
+	position: absolute;
+	/* .slot-container（position:relative）を基準に配置 */
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%) scale(1);
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+	color: #fff;
+	padding: 18px 26px;
+	border-radius: 12px;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+	font-size: 30px;
+	font-weight: 800;
+	z-index: 10000;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 360ms ease, transform 360ms cubic-bezier(.2, .9, .2, 1);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	max-width: 90%;
+	text-align: center;
+}
+
+#winMessage.show {
+	opacity: 1;
+	transform: translate(-50%, -50%) scale(1.06);
+}
+
+#winMessage .amount {
+	color: #ffd166;
+	text-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+	display: block;
+	font-size: 36px;
+}
+
+#winMessage .sub {
+	font-size: 14px;
+	color: rgba(255, 255, 255, 0.9);
+	margin-top: 6px;
+	font-weight: 600;
+}
+
+/* --- 目押し用の赤い丸ボタン --- */
+.manual-controls {
+	margin: 8px auto 0 auto;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: 10px;
+}
+
+.stop-btn {
+	width: calc(var(--base-reel-width) * var(--ui-scale));
+	height: calc(var(--base-reel-width) * var(--ui-scale));
+	border-radius: 50%;
+	border: 2px solid #a00;
+	background: radial-gradient(circle at 30% 30%, #ff7373, #e02020 60%, #b40000 100%);
+	color: #fff;
+	font-weight: 800;
+	font-size: calc(var(--base-reel-width) * var(--ui-scale) * 0.32);
+	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), inset 0 2px 6px rgba(255, 255, 255, 0.25);
+	cursor: pointer;
+	transition: transform 0.05s ease, filter 0.15s ease, opacity 0.2s ease;
+}
+
+.stop-btn:hover {
+	filter: brightness(1.05);
+}
+
+.stop-btn:active {
+	transform: scale(0.96);
+}
+
+.stop-btn:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+	filter: grayscale(40%);
+}
+
+@media (max-width: 480px) {
+
+	/* 下部の重複定義を上書きし、サイズを統一 */
+	.stop-btn {
+		width: 72px;
+		height: 72px;
+		font-size: 22px;
+	}
+}
+
+/* --- スロット右側のレバー（図形描画: 棒+球） --- */
+.lever {
+	position: absolute;
+	top: 50%;
+	left: calc(100% + 24px);
+	/* スロット本体の右に固定配置（本体位置は不変） */
+	transform: translateY(-50%);
+	width: 210px;
+	/* アーム+ノブを含むクリック領域に拡張 */
+	height: 260px;
+	/* 描画領域 */
+	background: transparent;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	outline: none;
+	/* クリックしやすいように当たり判定を確保 */
+	display: inline-block;
+	user-select: none;
+}
+
+.lever:focus-visible {
+	outline: 2px solid #8ab4f8;
+	outline-offset: 2px;
+}
+
+.lever-inner {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	display: block;
+	will-change: transform;
+	/* 回転の支点を根本（左中央）に */
+	transform-origin: 0% 50%;
+	/* 初期角度: -30度（GPU合成のため translateZ(0) を加える） */
+	transform: translateZ(0) rotate(-30deg);
+}
+
+/* 根本の固定キャップ（スロットに固定されて見える） */
+.lever::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	background: radial-gradient(circle at 30% 30%, #e9eef1, #b7c0c6 60%, #8b949a 100%);
+	box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.6), 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* レバーの単発往復回転アニメーション（バウンドなし） */
+@keyframes lever-pull {
+	0% {
+		transform: translateZ(0) rotate(-30deg);
+	}
+
+	50% {
+		transform: translateZ(0) rotate(30deg);
+	}
+
+	100% {
+		transform: translateZ(0) rotate(-30deg);
+	}
+}
+
+/* トリガ中だけ回転アニメを付与（クリック時はJSでクラス付与） */
+.lever.is-pulling .lever-inner {
+	animation: lever-pull 520ms cubic-bezier(.45, .05, .55, .95);
+}
+
+/* 棒（アーム）: 根本から右方向へ伸びる横棒 */
+.lever-stick {
+	position: absolute;
+	left: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 150px;
+	height: 16px;
+	border-radius: 10px;
+	background: linear-gradient(180deg, #cfd8dd, #9aa4aa 40%, #7f8a90 60%, #6a7378 100%);
+	box-shadow: inset 0 0 2px rgba(255, 255, 255, 0.4), 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+/* 球（ノブ）: アーム先端の丸ノブ */
+.lever-knob {
+	position: absolute;
+	left: 150px;
+	/* アーム長に合わせる */
+	top: 50%;
+	transform: translate(-50%, -50%);
+	width: 58px;
+	height: 58px;
+	border-radius: 50%;
+	background: radial-gradient(circle at 30% 30%, #ff8d8d, #e43737 55%, #a80000 100%);
+	border: 2px solid #7a0000;
+	box-shadow: inset 0 6px 12px rgba(255, 255, 255, 0.25), 0 8px 18px rgba(0, 0, 0, 0.6);
+}
+
+@media (max-width: 640px) {
+	.lever {
+		left: calc(100% + 12px);
+		width: 180px;
+		height: 220px;
+	}
+
+	.lever-stick {
+		width: 130px;
+		height: 14px;
+	}
+
+	.lever-knob {
+		left: 130px;
+		width: 52px;
+		height: 52px;
+	}
+}
