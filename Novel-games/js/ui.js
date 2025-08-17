@@ -22,6 +22,16 @@ class UIManager {
         this.clickIndicator = document.getElementById('click-indicator');
 
         this.choicesArea = document.getElementById('choices-area');
+
+        // メニュー関連の要素
+        this.menuButton = document.getElementById('menu-button');
+        this.menuCloseButton = document.getElementById('menu-close-button');
+        this.menuOverlay = document.getElementById('menu-overlay');
+        this.menuAcademic = document.getElementById('menu-academic');
+        this.menuPhysical = document.getElementById('menu-physical');
+        this.menuMental = document.getElementById('menu-mental');
+        this.menuReportDebt = document.getElementById('menu-report-debt');
+        this.menuItemList = document.getElementById('menu-item-list');
     }
 
     /**
@@ -102,5 +112,61 @@ class UIManager {
      */
     clearChoices() {
         this.choicesArea.innerHTML = '';
+    }
+
+    // --- メニュー関連のメソッド ---
+
+    /**
+     * メニューを開く
+     */
+    openMenu() {
+        this.menuOverlay.classList.remove('hidden');
+        this.updateMenuDisplay(); // メニューを開く際に最新の情報を表示
+    }
+
+    /**
+     * メニューを閉じる
+     */
+    closeMenu() {
+        this.menuOverlay.classList.add('hidden');
+    }
+
+    /**
+     * メニューの表示内容を更新する
+     */
+    updateMenuDisplay() {
+        const status = gameManager.getAllStatus(); // GameManagerから全ステータスを取得
+
+        // ステータスセクションの更新
+        this.menuAcademic.textContent = status.stats.academic;
+        this.menuPhysical.textContent = status.stats.physical;
+        this.menuMental.textContent = status.stats.mental;
+        this.menuReportDebt.textContent = status.reportDebt;
+
+        // アイテムリストの更新
+        this.menuItemList.innerHTML = ''; // 一度クリア
+        if (status.items.length === 0) {
+            const li = document.createElement('li');
+            li.textContent = 'アイテムはありません。';
+            this.menuItemList.appendChild(li);
+        } else {
+            status.items.forEach(itemId => {
+                const item = ITEMS[itemId]; // config.jsからアイテム情報を取得
+                if (item) {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span>${item.name} - ${item.description}</span>`;
+                    // TODO: アイテム使用ボタンの追加（将来的な拡張）
+                    this.menuItemList.appendChild(li);
+                }
+            });
+        }
+    }
+
+    /**
+     * メニューボタンと閉じるボタンのイベントリスナーを設定する
+     */
+    initializeMenuListeners() {
+        this.menuButton.addEventListener('click', () => this.openMenu());
+        this.menuCloseButton.addEventListener('click', () => this.closeMenu());
     }
 }

@@ -9,6 +9,7 @@ body {
     justify-content: center;
     align-items: center;
     height: 100vh;
+    overflow: hidden; /* メニュー表示時にスクロールバーが出ないように */
 }
 
 /* ゲーム全体のコンテナ */
@@ -19,6 +20,7 @@ body {
     border-radius: 10px;
     overflow: hidden;
     background-color: #2a2a2a;
+    position: relative; /* メニューオーバーレイの基準点 */
 }
 
 /* ステータス表示エリア */
@@ -28,10 +30,27 @@ body {
     border-bottom: 2px solid #444;
     display: flex;
     justify-content: space-around;
+    align-items: center; /* 垂直方向中央揃え */
 }
 
 #status-display p {
     margin: 0;
+}
+
+/* メニューボタン */
+#menu-button {
+    background-color: #555;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.3s;
+}
+
+#menu-button:hover {
+    background-color: #777;
 }
 
 /* メイン画面 */
@@ -83,7 +102,6 @@ body {
     }
 }
 
-
 /* 選択肢エリア */
 #choices-area .choice-button {
     display: block;
@@ -106,4 +124,95 @@ body {
 
 #choices-area .choice-button:active {
     transform: scale(1);
+}
+
+/* メニューオーバーレイ */
+#menu-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8); /* 半透明の黒背景 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000; /* 他の要素より手前に表示 */
+}
+
+#menu-overlay.hidden {
+    display: none; /* 初期状態では非表示 */
+}
+
+#menu-content {
+    background-color: #333;
+    padding: 30px;
+    border-radius: 10px;
+    width: 600px;
+    max-height: 80vh; /* 画面の高さに合わせて調整 */
+    overflow-y: auto; /* 内容が多い場合にスクロール可能に */
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+#menu-content h2, #menu-content h3 {
+    color: #eee;
+    border-bottom: 1px solid #555;
+    padding-bottom: 5px;
+    margin-bottom: 15px;
+}
+
+#menu-status-section p {
+    margin: 8px 0;
+    font-size: 1.1em;
+}
+
+#menu-item-list {
+    list-style: none;
+    padding: 0;
+}
+
+#menu-item-list li {
+    background-color: #444;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#menu-item-list li span {
+    flex-grow: 1;
+}
+
+#menu-item-list li button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#menu-item-list li button:hover {
+    background-color: #0056b3;
+}
+
+#menu-close-button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    margin-top: 20px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1.1em;
+    transition: background-color 0.3s;
+}
+
+#menu-close-button:hover {
+    background-color: #c82333;
 }

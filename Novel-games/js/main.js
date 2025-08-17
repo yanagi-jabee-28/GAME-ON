@@ -20,6 +20,8 @@ function initializeGame() {
 
     // UIManagerを初期化
     ui = new UIManager();
+    // メニューボタンのイベントリスナーを設定
+    ui.initializeMenuListeners();
 
     console.log('ゲームの初期化が完了しました。');
 

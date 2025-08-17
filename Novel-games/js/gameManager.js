@@ -23,6 +23,14 @@ class GameManager {
     }
 
     /**
+     * プレイヤーの全ステータスを返す
+     * @returns {object} プレイヤーの全ステータスオブジェクト
+     */
+    getAllStatus() {
+        return this.playerStatus;
+    }
+
+    /**
      * 指定された値でステータスを更新する
      * @param {string} key - 更新するステータスのキー (例: 'money', 'condition')
      * @param {any} value - 新しい値

@@ -5,6 +5,7 @@
  */
 
 const GameEventManager = {
+    lastCheckedDay: 1, // 日付変更時の回復メッセージ表示用
 
     /**
      * ゲーム開始時のイベント
@@ -73,6 +74,19 @@ const GameEventManager = {
         // 処理が終わったら次のターンへ
         gameManager.nextTurn();
         ui.updateStatusDisplay(gameManager.getStatus());
+
+        // 日付が変わったかチェックし、回復処理とメッセージ表示
+        const currentStatus = gameManager.getStatus();
+        if (currentStatus.turnIndex === 0 && currentStatus.day > this.lastCheckedDay) {
+            // 回復処理
+            gameManager.changeStats({ physical: 5, mental: 5 });
+            ui.updateStatusDisplay(gameManager.getStatus()); // 回復後のステータスを更新
+
+            ui.displayMessage('夜が明け、少し体力が回復した。', 'システム');
+            await ui.waitForClick();
+            this.lastCheckedDay = currentStatus.day; // 日付を更新
+        }
+
         this.showMainActions();
     },
 
@@ -89,6 +103,19 @@ const GameEventManager = {
 
         gameManager.nextTurn();
         ui.updateStatusDisplay(gameManager.getStatus());
+
+        // 日付が変わったかチェックし、回復処理とメッセージ表示
+        const currentStatus = gameManager.getStatus();
+        if (currentStatus.turnIndex === 0 && currentStatus.day > this.lastCheckedDay) {
+            // 回復処理
+            gameManager.changeStats({ physical: 5, mental: 5 });
+            ui.updateStatusDisplay(gameManager.getStatus()); // 回復後のステータスを更新
+
+            ui.displayMessage('夜が明け、少し体力が回復した。', 'システム');
+            await ui.waitForClick();
+            this.lastCheckedDay = currentStatus.day; // 日付を更新
+        }
+
         this.showMainActions();
     },
 
@@ -105,6 +132,19 @@ const GameEventManager = {
 
         gameManager.nextTurn();
         ui.updateStatusDisplay(gameManager.getStatus());
+
+        // 日付が変わったかチェックし、回復処理とメッセージ表示
+        const currentStatus = gameManager.getStatus();
+        if (currentStatus.turnIndex === 0 && currentStatus.day > this.lastCheckedDay) {
+            // 回復処理
+            gameManager.changeStats({ physical: 5, mental: 5 });
+            ui.updateStatusDisplay(gameManager.getStatus()); // 回復後のステータスを更新
+
+            ui.displayMessage('夜が明け、少し体力が回復した。', 'システム');
+            await ui.waitForClick();
+            this.lastCheckedDay = currentStatus.day; // 日付を更新
+        }
+
         this.showMainActions();
     },
 
@@ -121,6 +161,19 @@ const GameEventManager = {
 
         gameManager.nextTurn();
         ui.updateStatusDisplay(gameManager.getStatus());
+
+        // 日付が変わったかチェックし、回復処理とメッセージ表示
+        const currentStatus = gameManager.getStatus();
+        if (currentStatus.turnIndex === 0 && currentStatus.day > this.lastCheckedDay) {
+            // 回復処理
+            gameManager.changeStats({ physical: 5, mental: 5 });
+            ui.updateStatusDisplay(gameManager.getStatus()); // 回復後のステータスを更新
+
+            ui.displayMessage('夜が明け、少し体力が回復した。', 'システム');
+            await ui.waitForClick();
+            this.lastCheckedDay = currentStatus.day; // 日付を更新
+        }
+
         this.showMainActions();
     }
 
