@@ -65,6 +65,17 @@ class UIManager {
      * @param {string} [characterName=''] - 表示するキャラクター名 (省略可能)
      */
     displayMessage(text, characterName = '') {
+        // メニューが開いている場合はメッセージウィンドウを前面に出す
+        if (this.menuOverlay && !this.menuOverlay.classList.contains('hidden')) {
+            // 元の zIndex を保存しておく
+            if (typeof this.messageWindow.dataset.origZ === 'undefined') {
+                this.messageWindow.dataset.origZ = this.messageWindow.style.zIndex || '';
+            }
+            this.messageWindow.style.zIndex = 10001; // menuより前面
+            // メッセージウィンドウが非表示になっている場合は表示する
+            this.messageWindow.style.display = 'block';
+        }
+
         this.characterName.textContent = characterName;
         this.messageText.textContent = text;
     }
@@ -75,6 +86,11 @@ class UIManager {
     clearMessage() {
         this.characterName.textContent = '';
         this.messageText.textContent = '';
+        // 保存してあった zIndex を復元
+        if (this.messageWindow && typeof this.messageWindow.dataset.origZ !== 'undefined') {
+            this.messageWindow.style.zIndex = this.messageWindow.dataset.origZ || '';
+            delete this.messageWindow.dataset.origZ;
+        }
     }
 
     /**
@@ -226,6 +242,23 @@ class UIManager {
                         } finally {
                             useButton.disabled = false;
                         }
+                        // 使用後はメニュー表示を更新してメニューを閉じ、行動選択に戻す
+                        try {
+                            this.updateMenuDisplay();
+                            this.closeMenu();
+                            if (typeof GameEventManager !== 'undefined' && typeof GameEventManager.showMainActions === 'function') {
+                                GameEventManager.showMainActions();
+                            } else if (typeof ui !== 'undefined') {
+                                ui.displayMessage('（アイテムを使用しました）');
+                                if (typeof ui.waitForClick === 'function') await ui.waitForClick();
+                                // 表示後の通常の選択肢に戻す
+                                if (typeof GameEventManager !== 'undefined' && typeof GameEventManager.showMainActions === 'function') {
+                                    GameEventManager.showMainActions();
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Post-use UI update error', e);
+                        }
                     };
                     li.appendChild(useButton);
                     this.menuItemList.appendChild(li);
@@ -279,6 +312,49 @@ class UIManager {
     clearMenuMessage() {
         const menuMsg = document.getElementById('menu-message');
         if (menuMsg) menuMsg.remove();
+    }
+
+    /**
+     * メニューの上に重ねて表示するフローティングメッセージ
+     * 複数行が与えられた場合は順に表示し、最後まで表示し終えたら自動で閉じる
+     * @param {string} text
+     * @param {{ lineDelay?: number }} [options]
+     * @returns {Promise<void>}
+     */
+    async showFloatingMessage(text, options = {}) {
+        const lines = ('' + text).split('\n');
+
+        // 保持しておく既存のスタイル
+        const origZ = this.messageWindow.style.zIndex;
+        const origDisplay = this.messageWindow.style.display;
+
+        try {
+            // メッセージウィンドウを最前面に出す
+            this.messageWindow.style.zIndex = 9999;
+            this.messageWindow.style.display = 'block';
+
+            for (const line of lines) {
+                this.characterName.textContent = 'システム';
+                this.messageText.textContent = line;
+                // クリックインジケーターを表示して、ユーザークリックで次へ進める
+                this.clickIndicator.style.display = 'block';
+
+                // waitForClick はクリック時にメッセージをクリアするため、次行表示に自然につながる
+                if (typeof this.waitForClick === 'function') {
+                    await this.waitForClick();
+                } else {
+                    // フォールバック: クリック待ちが無ければ単純に1秒待つ
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+            }
+        } finally {
+            // 表示をクリアして元に戻す
+            this.clearMessage();
+            this.messageWindow.style.zIndex = origZ;
+            this.messageWindow.style.display = origDisplay;
+            // クリックインジケーターを非表示にしておく
+            this.clickIndicator.style.display = 'none';
+        }
     }
 
     /**

@@ -350,14 +350,20 @@ class GameManager {
             const combined = [`${item.name} を使用した！`, ...messages].join('\n');
 
             if (typeof ui !== 'undefined') {
-                if (ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden') && typeof ui.displayMenuMessage === 'function') {
-                    ui.displayMenuMessage(combined);
-                    if (typeof ui.waitForMenuClick === 'function') {
-                        await ui.waitForMenuClick();
-                    } else if (typeof ui.waitForClick === 'function') {
-                        await ui.waitForClick();
+                if (ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden')) {
+                    // メニューが開いている場合はフローティングメッセージで上から被せる
+                    if (typeof ui.showFloatingMessage === 'function') {
+                        // showFloatingMessage は自動で閉じる
+                        await ui.showFloatingMessage(combined, { lineDelay: 800 });
+                    } else if (typeof ui.displayMenuMessage === 'function') {
+                        ui.displayMenuMessage(combined);
+                        if (typeof ui.waitForMenuClick === 'function') {
+                            await ui.waitForMenuClick();
+                        } else if (typeof ui.waitForClick === 'function') {
+                            await ui.waitForClick();
+                        }
+                        ui.clearMenuMessage && ui.clearMenuMessage();
                     }
-                    ui.clearMenuMessage && ui.clearMenuMessage();
                 } else if (typeof ui.displayMessage === 'function') {
                     ui.displayMessage(combined, 'システム');
                     if (typeof ui.waitForClick === 'function') await ui.waitForClick();
