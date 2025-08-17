@@ -337,6 +337,7 @@ class UIManager {
         }
         historyList.innerHTML = '';
         const history = status.history || [];
+        const unit = (CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円';
         if (history.length === 0) {
             const li = document.createElement('li');
             li.textContent = '(履歴はありません)';
@@ -346,31 +347,52 @@ class UIManager {
             const entries = history.slice().reverse();
             entries.forEach(h => {
                 const li = document.createElement('li');
-                const time = `Day ${h.day} ${h.turn || ''}`;
+                const time = `${h.day}日目 ${h.turn || ''}`.trim();
                 let text = '';
+
+                // ユーザー向けのラベルを優先して取得するユーティリティ
+                const resolveShopLabel = (shopId, detail) => {
+                    if (detail && detail.shopLabel) return detail.shopLabel;
+                    if (shopId && CONFIG && CONFIG.SHOPS && CONFIG.SHOPS[shopId] && CONFIG.SHOPS[shopId].label) return CONFIG.SHOPS[shopId].label;
+                    return shopId || '';
+                };
+
                 switch (h.type) {
-                    case 'shop_visit':
-                        text = `${time}: ${h.detail && h.detail.shopLabel ? h.detail.shopLabel : h.detail && h.detail.shopId ? h.detail.shopId : '店'} に入店`;
+                    case 'shop_visit': {
+                        const shopLabel = resolveShopLabel(h.detail && h.detail.shopId, h.detail);
+                        text = `${time}: ${shopLabel}に入店`;
                         break;
-                    case 'shop_leave':
+                    }
+                    case 'shop_leave': {
+                        const shopLabel = resolveShopLabel(h.detail && h.detail.shopId, h.detail);
                         if (h.detail && h.detail.purchased) {
-                            text = `${time}: ${h.detail.shopId} で購入して退店 (item:${h.detail.itemId}, price:${h.detail.price})`;
+                            const itemName = (h.detail.itemName) ? h.detail.itemName : (h.detail.itemId && ITEMS[h.detail.itemId] ? ITEMS[h.detail.itemId].name : h.detail.itemId || 'アイテム');
+                            text = `${time}: ${shopLabel}で購入して退店（${itemName}、${h.detail.price || ''}${unit}）`;
                         } else {
-                            text = `${time}: ${h.detail.shopId} を訪れて何も買わず退店`;
+                            text = `${time}: ${shopLabel}を訪れて何も買わず退店`;
                         }
                         break;
-                    case 'purchase':
-                        text = `${time}: ${h.detail.itemName} を ${h.detail.shopId || ''} で購入 (${h.detail.price}${(CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円'})`;
+                    }
+                    case 'purchase': {
+                        const shopLabel = resolveShopLabel(h.detail && h.detail.shopId, h.detail);
+                        const itemName = h.detail && h.detail.itemName ? h.detail.itemName : (h.detail && h.detail.itemId && ITEMS[h.detail.itemId] ? ITEMS[h.detail.itemId].name : h.detail && h.detail.itemId ? h.detail.itemId : 'アイテム');
+                        text = `${time}: ${itemName} を ${shopLabel}で購入（${h.detail.price || ''}${unit}）`;
                         break;
-                    case 'choice':
-                        text = `${time}: 選択 - ${h.detail && h.detail.label ? h.detail.label : ''}`;
+                    }
+                    case 'choice': {
+                        const label = h.detail && h.detail.label ? h.detail.label : '';
+                        text = `${time}: 選択 - ${label}`;
                         break;
-                    case 'use_item':
-                        text = `${time}: アイテム使用 - ${h.detail && h.detail.itemName ? h.detail.itemName : h.detail && h.detail.itemId ? h.detail.itemId : ''}`;
+                    }
+                    case 'use_item': {
+                        const itemName = h.detail && h.detail.itemName ? h.detail.itemName : (h.detail && h.detail.itemId && ITEMS[h.detail.itemId] ? ITEMS[h.detail.itemId].name : h.detail && h.detail.itemId ? h.detail.itemId : 'アイテム');
+                        text = `${time}: アイテム使用 - ${itemName}`;
                         break;
+                    }
                     default:
                         text = `${time}: ${h.type}`;
                 }
+
                 li.textContent = text;
                 historyList.appendChild(li);
             });

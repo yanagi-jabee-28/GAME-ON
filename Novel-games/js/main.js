@@ -32,7 +32,8 @@ function initializeGame() {
                 const condP = statusDisplay.querySelector('p:nth-child(3)');
                 if (condP) condP.innerHTML = `${CONFIG.LABELS.condition}: <span id="condition-display">100</span>`;
                 const moneyP = statusDisplay.querySelector('p:nth-child(4)');
-                if (moneyP) moneyP.innerHTML = `${CONFIG.LABELS.money}: <span id="money-display">10000</span>${CONFIG.LABELS.currencyUnit}`;
+                // 通貨単位は UI 側で付与するため、ここでは単に span を用意する
+                if (moneyP) moneyP.innerHTML = `${CONFIG.LABELS.money}: <span id="money-display">10000</span>`;
                 const cpP = statusDisplay.querySelector('p:nth-child(5)');
                 if (cpP) cpP.innerHTML = `${CONFIG.LABELS.cp}: <span id="cp-display">0</span>`;
             }
