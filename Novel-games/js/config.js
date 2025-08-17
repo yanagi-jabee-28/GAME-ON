@@ -55,7 +55,7 @@ CONFIG.LABELS = {
     date: '日付',
     timeOfDay: '時間',
     money: '所持金',
-    currencyUnit: 'ゼニー',
+    currencyUnit: '円',
     academic: '学力',
     condition: 'コンディション',
     physical: 'フィジカル',
