@@ -50,6 +50,30 @@ const CONFIG = {
     }
 };
 
+// 表示用ラベルをまとめて定義しておく（将来変更が簡単になる）
+CONFIG.LABELS = {
+    date: '日付',
+    timeOfDay: '時間',
+    money: '所持金',
+    currencyUnit: '円',
+    academic: '学力',
+    condition: 'コンディション',
+    physical: 'フィジカル',
+    mental: 'メンタル',
+    cp: '人脈',
+    reportDebt: 'レポート負債',
+    menu: 'メニュー',
+    menuTitle: 'メニュー',
+    items: 'アイテム',
+    ownedItems: '所持品',
+    shop: '購買',
+    history: '行動履歴',
+    useButton: '使用',
+    noReportsMessage: '進行中のレポートはありません。',
+    noItemsMessage: 'アイテムはありません。',
+    saveLoad: 'セーブ・ロード'
+};
+
 // キャラクターデータ (将来の拡張用)
 const CHARACTERS = {
     // 例:

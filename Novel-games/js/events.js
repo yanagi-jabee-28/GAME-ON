@@ -155,8 +155,9 @@ const GameEventManager = {
         await ui.waitForClick();
 
         const items = CONFIG.SCHOOL_SHOP_ITEMS || [];
+        const unit = (typeof CONFIG !== 'undefined' && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円';
         const choices = items.map(id => ({
-            text: `${ITEMS[id].name} - ${ITEMS[id].price}G`,
+            text: `${ITEMS[id].name} - ${ITEMS[id].price}${unit}`,
             callback: async () => {
                 await this.attemptPurchase(id);
             }
@@ -175,8 +176,9 @@ const GameEventManager = {
         await ui.waitForClick();
 
         const items = CONFIG.CONVENIENCE_ITEMS || [];
+        const unit = (typeof CONFIG !== 'undefined' && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円';
         const choices = items.map(id => ({
-            text: `${ITEMS[id].name} - ${ITEMS[id].price}G`,
+            text: `${ITEMS[id].name} - ${ITEMS[id].price}${unit}`,
             callback: async () => {
                 await this.attemptPurchase(id);
             }

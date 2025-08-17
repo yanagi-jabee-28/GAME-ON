@@ -99,7 +99,8 @@ class GameManager {
             if (typeof after.money === 'number' && after.money !== before.money) {
                 const delta = after.money - (before.money || 0);
                 const sign = delta > 0 ? '+' : '';
-                messages.push(`所持金: ${sign}${delta}G`);
+                const unit = (typeof CONFIG !== 'undefined' && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円';
+                messages.push(`所持金: ${sign}${delta}${unit}`);
             }
 
             // cp

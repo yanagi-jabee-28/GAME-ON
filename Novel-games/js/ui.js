@@ -60,7 +60,9 @@ class UIManager {
         this.dateDisplay.textContent = `${status.day}日目 (${weekday}曜日)`;
         this.timeOfDayDisplay.textContent = CONFIG.TURNS[status.turnIndex];
         this.conditionDisplay.textContent = status.condition;
-        this.moneyDisplay.textContent = `${status.money}G`;
+        // 通貨単位は CONFIG.LABELS.currencyUnit を優先
+        const unit = (CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円';
+        this.moneyDisplay.textContent = `${status.money}${unit}`;
         this.cpDisplay.textContent = status.cp;
     }
 
@@ -215,6 +217,19 @@ class UIManager {
     updateMenuDisplay() {
         const status = gameManager.getAllStatus(); // GameManagerから全ステータスを取得
 
+        // ラベル定義を取得（なければデフォルト）
+        const labels = (typeof CONFIG !== 'undefined' && CONFIG.LABELS) ? CONFIG.LABELS : {};
+
+        // メニューの見出しなど静的ラベルを設定（存在すれば）
+        const headerEl = document.getElementById('menu-header');
+        if (headerEl) headerEl.textContent = labels.menuTitle || 'メニュー';
+        const ownedEl = document.getElementById('menu-owned-heading');
+        if (ownedEl) ownedEl.textContent = labels.ownedItems || '所持品';
+        const shopEl = document.getElementById('menu-shop-heading');
+        if (shopEl) shopEl.textContent = labels.shop || '購買';
+        const historyEl = document.getElementById('menu-history-heading');
+        if (historyEl) historyEl.textContent = labels.history || '行動履歴';
+
         // ステータスセクションの更新
         this.menuAcademic.textContent = status.stats.academic;
         this.menuCondition.textContent = status.condition;
@@ -238,7 +253,7 @@ class UIManager {
             });
         } else {
             const li = document.createElement('li');
-            li.textContent = '進行中のレポートはありません。';
+            li.textContent = (labels.noReportsMessage || '進行中のレポートはありません。');
             reportList.appendChild(li);
         }
 
@@ -246,7 +261,7 @@ class UIManager {
         this.menuItemList.innerHTML = ''; // 一度クリア
         if (status.items.length === 0) {
             const li = document.createElement('li');
-            li.textContent = 'アイテムはありません。';
+            li.textContent = (labels.noItemsMessage || 'アイテムはありません。');
             this.menuItemList.appendChild(li);
         } else {
             status.items.forEach(itemId => {
