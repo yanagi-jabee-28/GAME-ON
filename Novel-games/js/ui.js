@@ -35,7 +35,13 @@ class UIManager {
         this.menuCloseFloating = document.getElementById('menu-close-floating');
         // GameManager のステータス変更を購読して自動的に表示を更新
         if (typeof gameManager !== 'undefined' && typeof gameManager.subscribe === 'function') {
-            gameManager.subscribe(status => this.updateStatusDisplay(status));
+            gameManager.subscribe(status => {
+                this.updateStatusDisplay(status);
+                // メニューが開いている場合はメニューの内容も更新する
+                if (this.menuOverlay && !this.menuOverlay.classList.contains('hidden')) {
+                    this.updateMenuDisplay();
+                }
+            });
         }
     }
 
@@ -64,6 +70,14 @@ class UIManager {
     }
 
     /**
+     * メッセージをクリアする
+     */
+    clearMessage() {
+        this.characterName.textContent = '';
+        this.messageText.textContent = '';
+    }
+
+    /**
      * ユーザーのクリックを待つ
      * @returns {Promise<void>} クリックされたら解決するPromise
      */
@@ -79,6 +93,9 @@ class UIManager {
                 this.clickIndicator.style.display = 'none';
                 // クリック音を鳴らす（存在すれば）
                 if (typeof soundManager !== 'undefined') soundManager.play('click');
+
+                this.clearMessage(); // メッセージをクリア
+
                 // Promiseを解決して、待機状態を終了する
                 resolve();
             };
@@ -193,11 +210,75 @@ class UIManager {
                 if (item) {
                     const li = document.createElement('li');
                     li.innerHTML = `<span>${item.name} - ${item.description}</span>`;
-                    // TODO: アイテム使用ボタンの追加（将来的な拡張）
+
+                    // アイテム使用ボタンの追加
+                    const useButton = document.createElement('button');
+                    useButton.textContent = '使用';
+                    useButton.onclick = async () => {
+                        if (typeof gameManager === 'undefined') return;
+                        // prevent double-trigger
+                        if (useButton.disabled) return;
+                        useButton.disabled = true;
+                        try {
+                            await gameManager.useItem(itemId);
+                        } catch (e) {
+                            console.error('useItem error', e);
+                        } finally {
+                            useButton.disabled = false;
+                        }
+                    };
+                    li.appendChild(useButton);
                     this.menuItemList.appendChild(li);
                 }
             });
         }
+    }
+
+    /**
+     * メニュー内にメッセージを表示する（アイテム使用などで使う）
+     * @param {string} text
+     */
+    displayMenuMessage(text) {
+        const menuContent = document.getElementById('menu-content');
+        if (!menuContent) return;
+        let menuMsg = document.getElementById('menu-message');
+        if (!menuMsg) {
+            menuMsg = document.createElement('div');
+            menuMsg.id = 'menu-message';
+            menuMsg.className = 'menu-message';
+            // メッセージはメニューの上部に表示
+            menuContent.insertBefore(menuMsg, menuContent.firstChild);
+        }
+        menuMsg.textContent = text;
+    }
+
+    /**
+     * メニュー内でのクリックを待つ
+     * @returns {Promise<void>}
+     */
+    waitForMenuClick() {
+        return new Promise(resolve => {
+            // デフォルトはメニューのコンテンツ部分でのクリックを待つ
+            const menuContent = document.getElementById('menu-content');
+            if (!menuContent) return resolve();
+
+            const listener = (e) => {
+                // クリックが発生したらリスナーを解除して解決
+                menuContent.removeEventListener('click', listener);
+                // preventDefault や stopPropagation はここでは不要
+                resolve();
+            };
+
+            menuContent.addEventListener('click', listener);
+        });
+    }
+
+    /**
+     * メニュー内メッセージをクリアする
+     */
+    clearMenuMessage() {
+        const menuMsg = document.getElementById('menu-message');
+        if (menuMsg) menuMsg.remove();
     }
 
     /**

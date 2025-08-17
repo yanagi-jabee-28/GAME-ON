@@ -28,7 +28,7 @@ class GameManager {
      * }
      * @param {object} changes
      */
-    applyChanges(changes = {}) {
+    applyChanges(changes = {}, options = {}) {
         // スナップショットを取り、差分を計算してメッセージを生成する
         const before = JSON.parse(JSON.stringify(this.playerStatus));
         let mutated = false;
@@ -119,10 +119,22 @@ class GameManager {
                 messages.push(`メニューロック: ${changes.menuLocked ? '有効' : '解除'}`);
             }
 
-            if (messages.length > 0 && typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') {
-                ui.displayMessage(messages.join('\n'), 'システム');
+            if (messages.length > 0 && typeof ui !== 'undefined') {
+                const text = messages.join('\n');
+                // 表示抑制オプションがある場合は UI 表示を行わない
+                if (!options.suppressDisplay) {
+                    // メニューが開いている場合はメニュー内メッセージを優先して表示
+                    if (ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden') && typeof ui.displayMenuMessage === 'function') {
+                        ui.displayMenuMessage(text);
+                    } else if (typeof ui.displayMessage === 'function') {
+                        ui.displayMessage(text, 'システム');
+                    }
+                }
             }
+            // 変更によるメッセージ配列を返す（呼び出し側で表示制御可能）
+            return messages;
         }
+        return [];
     }
 
     /**
@@ -291,9 +303,13 @@ class GameManager {
             message = `${report.title} の進捗が ${oldProgress} -> ${report.progress}/${report.required} になりました。`;
         }
 
-        // メッセージ表示
-        if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') {
-            ui.displayMessage(message, 'システム');
+        // メッセージ表示（メニュー開いているときはメニュー内表示を優先）
+        if (typeof ui !== 'undefined') {
+            if (ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden') && typeof ui.displayMenuMessage === 'function') {
+                ui.displayMenuMessage(message);
+            } else if (typeof ui.displayMessage === 'function') {
+                ui.displayMessage(message, 'システム');
+            }
         }
         // reportDebt を互換性のために更新
         this.playerStatus.reportDebt = this.playerStatus.reports.length;
@@ -305,6 +321,54 @@ class GameManager {
     }
 
     // --- 今後の拡張で追加する関数群 ---
+
+    /**
+     * アイテムを使用する
+     * @param {string} itemId - 使用するアイテムのID
+     */
+    async useItem(itemId) { // ここに async を追加
+        const item = ITEMS[itemId];
+        if (!item) {
+            console.error(`Item not found: ${itemId}`);
+            return false;
+        }
+
+        // プレイヤーがアイテムを所持しているか確認し、所持していれば削除
+        const itemIndex = this.playerStatus.items.indexOf(itemId);
+        if (itemIndex === -1) {
+            console.warn(`Player does not have item: ${itemId}`);
+            return false;
+        }
+        this.playerStatus.items.splice(itemIndex, 1); // アイテムを消費
+
+        // アイテムの効果を適用
+        if (item.effect && item.effect.changes) {
+            // applyChanges の自動表示は抑制して、ここでまとめて表示する
+            const messages = this.applyChanges(item.effect.changes, { suppressDisplay: true }) || [];
+
+            // 使用メッセージと差分をまとめる
+            const combined = [`${item.name} を使用した！`, ...messages].join('\n');
+
+            if (typeof ui !== 'undefined') {
+                if (ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden') && typeof ui.displayMenuMessage === 'function') {
+                    ui.displayMenuMessage(combined);
+                    if (typeof ui.waitForMenuClick === 'function') {
+                        await ui.waitForMenuClick();
+                    } else if (typeof ui.waitForClick === 'function') {
+                        await ui.waitForClick();
+                    }
+                    ui.clearMenuMessage && ui.clearMenuMessage();
+                } else if (typeof ui.displayMessage === 'function') {
+                    ui.displayMessage(combined, 'システム');
+                    if (typeof ui.waitForClick === 'function') await ui.waitForClick();
+                }
+            }
+        } else {
+            console.warn(`Item ${itemId} has no defined effect.`);
+        }
+        this._notifyListeners(); // ステータス変更を通知
+        return true;
+    }
 
     /**
      * コンディションを計算・更新する

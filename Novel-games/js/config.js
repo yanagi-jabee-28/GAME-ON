@@ -34,7 +34,7 @@ const CONFIG = {
             physical: 50, // 肉体
             mental: 50,   // 精神
         },
-        items: [], // 所持アイテム
+        items: ['energy_drink'], // 所持アイテムにエナジードリンクを追加
         reportDebt: 0, // レポート負債（互換性用の総数）
         reports: [ // 個別レポート管理のための配列（将来拡張用）
             { id: 'test_report_1', title: 'テストレポート', progress: 0, required: 3 }
@@ -58,12 +58,19 @@ const CHARACTERS = {
 
 // アイテムデータ (将来の拡張用)
 const ITEMS = {
-    // 例:
-    // 'energy_drink': {
-    //     name: 'エナジードリンク',
-    //     price: 300,
-    //     description: '次の1ターンの行動効率を上げるが、フィジカルを少し前借りする。'
-    // }
+    'energy_drink': {
+        name: 'エナジードリンク',
+        price: 300, // 購入価格（仮）
+        description: '一時的に体力を回復するが、後で反動が来る。',
+        effect: { // アイテム効果
+            changes: {
+                stats: {
+                    physical: 15, // 体力回復 (20 - 5 = 15)
+                    mental: 0     // 精神回復 (10 - 10 = 0)
+                }
+            }
+        }
+    }
 };
 
 // イベントデータ (将来の拡張用)
