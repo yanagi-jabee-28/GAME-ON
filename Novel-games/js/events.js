@@ -150,11 +150,27 @@ const GameEventManager = {
      * 学校の購買に行く（放課後の行動）
      */
     goToSchoolShop: async function () {
+        return await this.openShop('school');
+    },
+
+    /**
+     * 汎用ショップオープン関数
+     * @param {string} shopId
+     */
+    openShop: async function (shopId) {
         this.isInFreeAction = false;
-        ui.displayMessage('購買に行ってみよう。何を買う？');
+        const shop = (CONFIG && CONFIG.SHOPS && CONFIG.SHOPS[shopId]) ? CONFIG.SHOPS[shopId] : null;
+        if (!shop) {
+            ui.displayMessage('そのお店は現在利用できません。');
+            await ui.waitForClick();
+            this.showMainActions();
+            return;
+        }
+
+        ui.displayMessage(`${shop.label}に行ってみよう。何を買う？`);
         await ui.waitForClick();
 
-        const items = CONFIG.SCHOOL_SHOP_ITEMS || [];
+        const items = shop.items || [];
         const unit = (typeof CONFIG !== 'undefined' && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円';
         const choices = items.map(id => ({
             text: `${ITEMS[id].name} - ${ITEMS[id].price}${unit}`,
@@ -171,21 +187,7 @@ const GameEventManager = {
      * コンビニに行く（夜の行動）
      */
     goToConveni: async function () {
-        this.isInFreeAction = false;
-        ui.displayMessage('コンビニに立ち寄ろう。何を買う？');
-        await ui.waitForClick();
-
-        const items = CONFIG.CONVENIENCE_ITEMS || [];
-        const unit = (typeof CONFIG !== 'undefined' && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円';
-        const choices = items.map(id => ({
-            text: `${ITEMS[id].name} - ${ITEMS[id].price}${unit}`,
-            callback: async () => {
-                await this.attemptPurchase(id);
-            }
-        }));
-        choices.push({ text: '買わない', callback: () => { this.showMainActions(); } });
-
-        ui.displayChoices(choices);
+        return await this.openShop('conveni');
     },
 
     /**

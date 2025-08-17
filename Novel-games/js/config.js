@@ -67,6 +67,8 @@ CONFIG.LABELS = {
     items: 'アイテム',
     ownedItems: '所持品',
     shop: '購買',
+    conveni: 'コンビニ',
+    supermarket: 'スーパー',
     history: '行動履歴',
     useButton: '使用',
     noReportsMessage: '進行中のレポートはありません。',
@@ -93,6 +95,13 @@ const CHARACTERS = {
 // 店舗ごとの品揃え（IDの配列）
 CONFIG.SCHOOL_SHOP_ITEMS = ['onigiri', 'sandwich', 'energy_drink'];
 CONFIG.CONVENIENCE_ITEMS = ['instant_noodles', 'onigiri', 'energy_drink'];
+
+// ショップ定義を一元管理する（UIやイベントから参照するため）
+CONFIG.SHOPS = {
+    school: { id: 'school', labelKey: 'shop', label: '購買', items: CONFIG.SCHOOL_SHOP_ITEMS },
+    conveni: { id: 'conveni', labelKey: 'conveni', label: 'コンビニ', items: CONFIG.CONVENIENCE_ITEMS },
+    supermarket: { id: 'supermarket', labelKey: 'supermarket', label: 'スーパー', items: ['onigiri', 'sandwich', 'instant_noodles'] }
+};
 
 // イベントデータ (将来の拡張用)
 const EVENTS = {
