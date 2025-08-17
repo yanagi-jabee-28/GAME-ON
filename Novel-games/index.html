@@ -46,26 +46,27 @@
         <div id="menu-overlay" class="hidden">
             <div id="menu-content">
                 <h2>メニュー</h2>
-                <div id="menu-status-section">
-                    <h3>ステータス</h3>
-                    <p>学力: <span id="menu-academic"></span></p>
-                    <p>コンディション: <span id="menu-condition"></span></p>
-                    <p>レポート負債: <span id="menu-report-debt"></span></p>
-                </div>
-                <div id="menu-item-section">
-                    <h3>アイテム</h3>
-                    <ul id="menu-item-list"></ul>
-                </div>
-                <div id="menu-save-load-section">
-                    <h3>セーブ・ロード</h3>
-                    <button id="save-game-button">ゲームをセーブ</button>
-                    <input type="file" id="load-game-file-input" accept=".json" style="display: none;">
-                    <button id="load-game-button">ゲームをロード</button>
+                <button id="menu-close-floating" aria-label="閉じる">✕</button>
+                <div class="menu-scroll">
+                    <div id="menu-status-section">
+                        <h3>ステータス</h3>
+                        <p>学力: <span id="menu-academic"></span></p>
+                        <p>コンディション: <span id="menu-condition"></span></p>
+                        <p>レポート負債: <span id="menu-report-debt"></span></p>
+                    </div>
+                    <div id="menu-item-section">
+                        <h3>アイテム</h3>
+                        <ul id="menu-item-list"></ul>
+                    </div>
+                    <div id="menu-save-load-section">
+                        <h3>セーブ・ロード</h3>
+                        <button id="save-game-button">ゲームをセーブ</button>
+                        <input type="file" id="load-game-file-input" accept=".json" style="display: none;">
+                        <button id="load-game-button">ゲームをロード</button>
+                    </div>
                 </div>
                 <button id="menu-close-button">閉じる</button>
             </div>
-            <!-- 小さい画面でも物理的に押せるように常に表示される閉じるボタン -->
-            <button id="menu-close-floating" aria-label="閉じる">✕</button>
         </div>
     </div>
 

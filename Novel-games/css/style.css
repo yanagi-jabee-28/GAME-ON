@@ -19,7 +19,8 @@ body {
 #game-container {
     width: 800px;
     max-width: 100%;
-    min-height: 600px; /* 仮の最小高さを設定 */
+    min-height: 600px;
+    /* 仮の最小高さを設定 */
     border: 2px solid #444;
     border-radius: 10px;
     overflow: hidden;
@@ -62,10 +63,12 @@ body {
 /* メイン画面 */
 #main-screen {
     padding: 20px;
-    height: calc(600px - 80px); /* game-containerの高さ - status-displayの高さ - padding */
+    height: calc(600px - 80px);
+    /* game-containerの高さ - status-displayの高さ - padding */
     display: flex;
     flex-direction: column;
-    justify-content: space-between; /* メッセージと選択肢を上下に配置 */
+    justify-content: space-between;
+    /* メッセージと選択肢を上下に配置 */
 }
 
 /* メッセージウィンドウ */
@@ -163,57 +166,64 @@ body {
     /* 初期状態では非表示 */
 }
 
+/* メニュー全体をフレックスコンテナにして、ヘッダとフッタを固定し中身だけスクロールさせる */
 #menu-content {
     background-color: #333;
-    padding: 30px;
+    padding: 20px 30px;
     border-radius: 10px;
     width: 600px;
+    height: 600px;
+    /* 固定高さに変更 */
     max-height: 90vh;
-    /* 画面の高さに合わせて調整 */
-    overflow-y: auto;
-    /* 内容が多い場合にスクロール可能に */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* 外側は隠して内部でスクロールさせる */
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
-/* 浮かぶ閉じるボタン（常に視界に入る） */
+/* メニュー内部のスクロール可能領域 */
+.menu-scroll {
+    overflow-y: auto;
+    /* 高さはメニューの残り領域を埋めるように設定 */
+    flex: 1 1 auto;
+    padding-right: 8px;
+    /* スクロールバーと内容の余白 */
+}
+
+/* メニュー内の閉じるボタン（メニューコンテナ内に配置） */
 #menu-close-floating {
-    position: fixed;
-    /* ビューポート基準で固定 */
+    position: absolute;
     top: 12px;
     right: 12px;
-    z-index: 1100;
-    /* menu-overlay より手前に置く */
+    z-index: 1010;
+    /* メニュー内より前面 */
     background: rgba(220, 53, 69, 0.95);
     color: white;
     border: none;
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    display: none;
-    /* デフォルトは非表示。オーバーレイ表示時のみ表示 */
+    width: 36px;
+    height: 36px;
+    display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.1em;
+    font-size: 1.05em;
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-}
-
-/* オーバーレイが表示されているときに浮かぶボタンを表示 */
-#menu-overlay:not(.hidden)+#menu-close-floating,
-#menu-close-floating[aria-visible="true"] {
-    display: flex;
 }
 
 @media (max-width: 480px) {
     #menu-content {
         width: 92%;
-        padding: 20px;
+        padding: 16px;
+        height: 86vh;
+        /* 小画面では高さをvhで確保 */
         max-height: 86vh;
     }
 
     #menu-close-floating {
-        width: 36px;
-        height: 36px;
+        width: 32px;
+        height: 32px;
         top: 8px;
         right: 8px;
     }
