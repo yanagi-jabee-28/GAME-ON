@@ -105,6 +105,8 @@ class UIManager {
             button.textContent = choice.text;
             button.className = 'choice-button';
             button.onclick = () => {
+                // 効果音（存在すれば）
+                if (typeof soundManager !== 'undefined') soundManager.play('click');
                 // 選択肢をクリックしたら、コールバック関数を実行
                 if (choice.callback) {
                     choice.callback();
@@ -157,6 +159,28 @@ class UIManager {
         this.menuPhysical.textContent = status.stats.physical;
         this.menuMental.textContent = status.stats.mental;
         this.menuReportDebt.textContent = status.reportDebt;
+
+        // 個別レポートの表示（存在すれば）
+        const reportListId = 'menu-report-list';
+        let reportList = document.getElementById(reportListId);
+        if (!reportList) {
+            reportList = document.createElement('ul');
+            reportList.id = reportListId;
+            const section = document.getElementById('menu-status-section');
+            if (section) section.appendChild(reportList);
+        }
+        reportList.innerHTML = '';
+        if (status.reports && status.reports.length > 0) {
+            status.reports.forEach(r => {
+                const li = document.createElement('li');
+                li.textContent = `${r.title} (${r.progress}/${r.required})`;
+                reportList.appendChild(li);
+            });
+        } else {
+            const li = document.createElement('li');
+            li.textContent = '進行中のレポートはありません。';
+            reportList.appendChild(li);
+        }
 
         // アイテムリストの更新
         this.menuItemList.innerHTML = ''; // 一度クリア

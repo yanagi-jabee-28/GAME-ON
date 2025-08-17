@@ -151,9 +151,28 @@ const GameEventManager = {
     doReport: async function () {
         ui.displayMessage('溜まっているレポートを片付けないと...');
         await ui.waitForClick();
-        // TODO: レポート進捗管理、コンディション低下などの処理を実装
+        // レポートがあるかチェックして、先頭のレポートを1進捗させる
+        const reportsBefore = gameManager.getReports ? gameManager.getReports() : gameManager.getStatus().reports || [];
+        if (reportsBefore.length > 0) {
+            const target = reportsBefore[0];
+            ui.displayMessage(`${target.title} を進めます（${target.progress}/${target.required}）`);
+            await ui.waitForClick();
 
-        ui.displayMessage('一歩ずつでも進めることが大事だ。');
+            // 進捗を進める
+            gameManager.progressReport(target.id, 1);
+
+            // 進捗後の状態を取得
+            const reportsAfter = gameManager.getReports ? gameManager.getReports() : gameManager.getStatus().reports || [];
+            const still = reportsAfter.find(r => r.id === target.id);
+            if (!still) {
+                ui.displayMessage('レポートを提出した！');
+            } else {
+                ui.displayMessage(`${still.title} の進捗が ${still.progress}/${still.required} になりました。`);
+            }
+        } else {
+            ui.displayMessage('現在、進行中のレポートはありません。');
+        }
+
         await ui.waitForClick();
 
         gameManager.nextTurn();

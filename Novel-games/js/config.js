@@ -35,7 +35,8 @@ const CONFIG = {
             mental: 50,   // 精神
         },
         items: [], // 所持アイテム
-        reportDebt: 0, // レポート負債
+        reportDebt: 0, // レポート負債（互換性用の総数）
+        reports: [], // 個別レポート管理のための配列（将来拡張用）
         menuLocked: false // メニュー開閉が制御されるフェーズ用フラグ
     }
 };

@@ -156,7 +156,5 @@ class SoundManager {
 // export
 window.soundManager = new SoundManager();
 
-// Attempt to load project files; if missing, synthetic sounds will be used
-window.soundManager.load('click', 'assets/sounds/click.mp3');
-window.soundManager.load('open', 'assets/sounds/open.mp3');
-window.soundManager.load('close', 'assets/sounds/close.mp3');
+// 注意: サウンドファイルはプロジェクトに配置された時にのみ
+// 明示的に load() を呼んで読み込んでください。現在は自動読み込みは行いません。

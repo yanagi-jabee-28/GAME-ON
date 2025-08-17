@@ -28,6 +28,10 @@ function initializeGame() {
     // 初期状態を画面に反映
     ui.updateStatusDisplay(gameManager.getStatus());
 
+    // サンプル: 進行中のレポートを1件追加（将来の拡張テスト用）
+    gameManager.addReport({ id: 'report-1', title: 'プログラミング演習レポート', progress: 0, required: 3 });
+    ui.updateStatusDisplay(gameManager.getStatus());
+
     // 開始イベントを呼び出す
     GameEventManager.startGame();
 }
@@ -35,6 +39,6 @@ function initializeGame() {
 /**
  * Webページが読み込まれたら、ゲームを開始する
  */
-window.onload = function() {
+window.onload = function () {
     initializeGame();
 };
