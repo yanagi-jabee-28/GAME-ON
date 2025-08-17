@@ -32,6 +32,12 @@ class UIManager {
         this.menuReportDebt = document.getElementById('menu-report-debt');
         this.menuItemList = document.getElementById('menu-item-list');
         this.menuCloseFloating = document.getElementById('menu-close-floating');
+
+        // セーブ・ロード関連の要素
+        this.saveGameButton = document.getElementById('save-game-button');
+        this.loadGameButton = document.getElementById('load-game-button');
+        this.loadGameFileInput = document.getElementById('load-game-file-input');
+
         // GameManager のステータス変更を購読して自動的に表示を更新
         if (typeof gameManager !== 'undefined' && typeof gameManager.subscribe === 'function') {
             gameManager.subscribe(status => {
@@ -386,5 +392,90 @@ class UIManager {
         this.menuButton.addEventListener('click', () => this.openMenu());
         this.menuCloseButton.addEventListener('click', () => this.closeMenu());
         if (this.menuCloseFloating) this.menuCloseFloating.addEventListener('click', () => this.closeMenu());
+
+        // セーブ・ロードボタンのイベントリスナー
+        if (this.saveGameButton) {
+            this.saveGameButton.addEventListener('click', () => this.handleSaveGame());
+        }
+        if (this.loadGameButton) {
+            this.loadGameButton.addEventListener('click', () => this.loadGameFileInput && this.loadGameFileInput.click());
+        }
+        if (this.loadGameFileInput) {
+            this.loadGameFileInput.addEventListener('change', (event) => this.handleLoadGame(event));
+        }
+    }
+
+    /**
+     * ゲームのセーブ処理
+     */
+    handleSaveGame() {
+        if (typeof gameManager === 'undefined') return;
+        const saveData = gameManager.getAllStatus(); // 全ステータスを取得
+        const dataStr = JSON.stringify(saveData, null, 2); // 整形してJSON文字列に変換
+
+        this.createDownloadLink(dataStr, 'game_save.json', 'application/json');
+        this.displayMenuMessage('ゲームデータをセーブしました。ダウンロードリンクを確認してください。');
+    }
+
+    /**
+     * ゲームのロード処理
+     * @param {Event} event - ファイル入力のchangeイベント
+     */
+    handleLoadGame(event) {
+        if (typeof gameManager === 'undefined') return;
+        const file = event.target.files[0];
+        if (!file) {
+            this.displayMenuMessage('ファイルが選択されていません。');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const loadedData = JSON.parse(e.target.result);
+                gameManager.loadGame(loadedData); // GameManagerにロード処理を委譲
+                this.displayMenuMessage('ゲームデータをロードしました。');
+                this.closeMenu(); // メニューを閉じる
+                GameEventManager.showMainActions(); // メインアクションに戻る
+            } catch (error) {
+                console.error('Failed to load game data:', error);
+                this.displayMenuMessage('ゲームデータのロードに失敗しました。ファイルが破損しているか、形式が正しくありません。');
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    /**
+     * ダウンロードリンクを生成し、ユーザーに提示する
+     * @param {string} data - ダウンロードするデータ文字列
+     * @param {string} filename - ファイル名
+     * @param {string} type - MIMEタイプ
+     */
+    createDownloadLink(data, filename, type) {
+        const blob = new Blob([data], { type: type });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.textContent = `セーブデータをダウンロード (${filename})`;
+        a.style.display = 'block';
+        a.style.marginTop = '10px';
+        a.style.color = '#87CEEB';
+        a.style.textDecoration = 'underline';
+
+        const menuSaveLoadSection = document.getElementById('menu-save-load-section');
+        if (menuSaveLoadSection) {
+            // 既存のダウンロードリンクがあれば削除
+            const existingLink = menuSaveLoadSection.querySelector('a[download]');
+            if (existingLink) {
+                existingLink.remove();
+            }
+            menuSaveLoadSection.appendChild(a);
+        }
+
+        // オブジェクトURLは不要になったら解放する
+        a.addEventListener('click', () => {
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+        });
     }
 }

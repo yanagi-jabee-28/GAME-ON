@@ -483,4 +483,26 @@ class GameManager {
             this.playerStatus.condition = Math.max(0, Math.min(100, Math.round(this.playerStatus.condition || 0)));
         }
     }
+
+    /**
+     * ゲームデータをロードする
+     * @param {object} loadedData - ロードされたゲームデータオブジェクト
+     */
+    loadGame(loadedData) {
+        // ロードされたデータを現在のプレイヤーの状態に適用
+        this.playerStatus = loadedData;
+        // 履歴がなければ空の配列を初期化（古いセーブデータとの互換性のため）
+        if (!this.playerStatus.history) {
+            this.playerStatus.history = [];
+        }
+        // レポートがなければ空の配列を初期化
+        if (!this.playerStatus.reports) {
+            this.playerStatus.reports = [];
+        }
+        // コンディションを再計算・更新
+        this.updateCondition();
+        // UIに状態の変更を通知
+        this._notifyListeners();
+        console.log('Game data loaded successfully.');
+    }
 }
