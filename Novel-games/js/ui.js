@@ -166,6 +166,17 @@ class UIManager {
     openMenu() {
         const status = gameManager.getStatus();
         if (status.menuLocked) return; // メニューがロックされているフェーズでは開けない
+        // 自由行動時間のみメニューを開ける
+        if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
+            // ヒント表示: メニューは自由行動時間のみ開けます
+            if (typeof this.displayMenuMessage === 'function') {
+                this.displayMenuMessage('メニューは自由行動時間のみ開けます。');
+                // 1.2秒後に消す
+                setTimeout(() => this.clearMenuMessage(), 1200);
+            }
+            return;
+        }
+
         this.menuOverlay.classList.remove('hidden');
         if (this.menuCloseFloating) this.menuCloseFloating.setAttribute('aria-visible', 'true');
         this.updateMenuDisplay(); // メニューを開く際に最新の情報を表示

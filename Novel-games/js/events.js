@@ -6,12 +6,16 @@
 
 const GameEventManager = {
     lastCheckedDay: 1, // 日付変更時の回復メッセージ表示用
+    // 自由行動（選択肢表示）フラグ。メニューを開けるかどうかの判定に使う。
+    isInFreeAction: false,
 
     /**
      * 汎用的な行動実行関数
      * @param {string} actionId - config.jsのEVENTSに定義されたアクションID
      */
     executeAction: async function (actionId) {
+        // 行動が始まるので自由行動フラグを下ろす
+        this.isInFreeAction = false;
         const eventData = EVENTS[actionId];
         if (!eventData) {
             console.error(`Action data not found for ID: ${actionId}`);
@@ -91,6 +95,8 @@ const GameEventManager = {
         const turnName = gameManager.getCurrentTurnName();
 
         ui.displayMessage(`今日は何をしようか... (${turnName})`);
+        // 自由行動選択肢を表示している間はメニューを開ける
+        this.isInFreeAction = true;
 
         // ここでターンの種類や状況に応じて選択肢を動的に変更する
         // 午前かつ平日（月〜金）の場合、授業ターンとして専用の選択肢を出す
