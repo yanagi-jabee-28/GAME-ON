@@ -1,15 +1,18 @@
 /* 基本的なスタイル */
 body {
     font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
-    background-color: #1a1a1a; /* 暗い背景色 */
-    color: #ffffff; /* 白い文字色 */
+    background-color: #1a1a1a;
+    /* 暗い背景色 */
+    color: #ffffff;
+    /* 白い文字色 */
     margin: 0;
     padding: 0;
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
-    overflow: hidden; /* メニュー表示時にスクロールバーが出ないように */
+    overflow: hidden;
+    /* メニュー表示時にスクロールバーが出ないように */
 }
 
 /* ゲーム全体のコンテナ */
@@ -20,7 +23,8 @@ body {
     border-radius: 10px;
     overflow: hidden;
     background-color: #2a2a2a;
-    position: relative; /* メニューオーバーレイの基準点 */
+    position: relative;
+    /* メニューオーバーレイの基準点 */
 }
 
 /* ステータス表示エリア */
@@ -30,7 +34,8 @@ body {
     border-bottom: 2px solid #444;
     display: flex;
     justify-content: space-around;
-    align-items: center; /* 垂直方向中央揃え */
+    align-items: center;
+    /* 垂直方向中央揃え */
 }
 
 #status-display p {
@@ -66,14 +71,16 @@ body {
     min-height: 150px;
     margin-bottom: 20px;
     border-radius: 5px;
-    position: relative; /* インジケーターの位置の基準とする */
+    position: relative;
+    /* インジケーターの位置の基準とする */
 }
 
 #character-name {
     font-weight: bold;
     margin-bottom: 10px;
     font-size: 1.2em;
-    color: #87CEEB; /* キャラクター名の文字色 */
+    color: #87CEEB;
+    /* キャラクター名の文字色 */
 }
 
 #message-text {
@@ -88,15 +95,19 @@ body {
     font-size: 1.5em;
     color: #fff;
     animation: bounce 1.5s infinite;
-    display: none; /* デフォルトでは非表示 */
+    display: none;
+    /* デフォルトでは非表示 */
     cursor: pointer;
 }
 
 /* 簡単なバウンドアニメーション */
 @keyframes bounce {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translateY(0);
     }
+
     50% {
         transform: translateY(-10px);
     }
@@ -133,15 +144,18 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.8); /* 半透明の黒背景 */
+    background-color: rgba(0, 0, 0, 0.8);
+    /* 半透明の黒背景 */
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 1000; /* 他の要素より手前に表示 */
+    z-index: 1000;
+    /* 他の要素より手前に表示 */
 }
 
 #menu-overlay.hidden {
-    display: none; /* 初期状態では非表示 */
+    display: none;
+    /* 初期状態では非表示 */
 }
 
 #menu-content {
@@ -149,12 +163,59 @@ body {
     padding: 30px;
     border-radius: 10px;
     width: 600px;
-    max-height: 80vh; /* 画面の高さに合わせて調整 */
-    overflow-y: auto; /* 内容が多い場合にスクロール可能に */
+    max-height: 80vh;
+    /* 画面の高さに合わせて調整 */
+    overflow-y: auto;
+    /* 内容が多い場合にスクロール可能に */
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
-#menu-content h2, #menu-content h3 {
+/* 浮かぶ閉じるボタン（常に視界に入る） */
+#menu-close-floating {
+    position: fixed;
+    /* ビューポート基準で固定 */
+    top: 12px;
+    right: 12px;
+    z-index: 1100;
+    /* menu-overlay より手前に置く */
+    background: rgba(220, 53, 69, 0.95);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: none;
+    /* デフォルトは非表示。オーバーレイ表示時のみ表示 */
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1em;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* オーバーレイが表示されているときに浮かぶボタンを表示 */
+#menu-overlay:not(.hidden)+#menu-close-floating,
+#menu-close-floating[aria-visible="true"] {
+    display: flex;
+}
+
+@media (max-width: 480px) {
+    #menu-content {
+        width: 92%;
+        padding: 20px;
+        max-height: 86vh;
+    }
+
+    #menu-close-floating {
+        width: 36px;
+        height: 36px;
+        top: 8px;
+        right: 8px;
+    }
+}
+
+#menu-content h2,
+#menu-content h3 {
     color: #eee;
     border-bottom: 1px solid #555;
     padding-bottom: 5px;

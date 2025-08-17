@@ -9,6 +9,11 @@ const CONFIG = {
     // 1日のターン名
     TURNS: ['午前', '放課後', '夜'],
 
+    // 曜日表示（GAME開始の基準: day 1 = 水曜日）
+    WEEKDAYS: ['日', '月', '火', '水', '木', '金', '土'],
+    // WEEKDAYSのインデックスで、day=1 が何曜日かを指定する（'水' => index 3）
+    START_WEEKDAY_INDEX: 3,
+
     // コンディションの状態
     CONDITION_STATUS: {
         EXCELLENT: '絶好調',
@@ -31,6 +36,7 @@ const CONFIG = {
         },
         items: [], // 所持アイテム
         reportDebt: 0, // レポート負債
+        menuLocked: false // メニュー開閉が制御されるフェーズ用フラグ
     }
 };
 

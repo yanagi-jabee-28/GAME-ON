@@ -15,7 +15,7 @@ class UIManager {
         this.conditionDisplay = document.getElementById('condition-display');
         this.moneyDisplay = document.getElementById('money-display');
         this.cpDisplay = document.getElementById('cp-display');
-        
+
         this.messageWindow = document.getElementById('message-window');
         this.characterName = document.getElementById('character-name');
         this.messageText = document.getElementById('message-text');
@@ -32,6 +32,11 @@ class UIManager {
         this.menuMental = document.getElementById('menu-mental');
         this.menuReportDebt = document.getElementById('menu-report-debt');
         this.menuItemList = document.getElementById('menu-item-list');
+        this.menuCloseFloating = document.getElementById('menu-close-floating');
+        // GameManager のステータス変更を購読して自動的に表示を更新
+        if (typeof gameManager !== 'undefined' && typeof gameManager.subscribe === 'function') {
+            gameManager.subscribe(status => this.updateStatusDisplay(status));
+        }
     }
 
     /**
@@ -39,7 +44,9 @@ class UIManager {
      * @param {object} status - 表示するステータス情報 (GameManagerから取得)
      */
     updateStatusDisplay(status) {
-        this.dateDisplay.textContent = `${status.day}日目`;
+        // 日付表示に曜日を付与
+        const weekday = typeof gameManager.getWeekdayName === 'function' ? gameManager.getWeekdayName() : '';
+        this.dateDisplay.textContent = `${status.day}日目 (${weekday}曜日)`;
         this.timeOfDayDisplay.textContent = CONFIG.TURNS[status.turnIndex];
         this.conditionDisplay.textContent = status.condition;
         this.moneyDisplay.textContent = `${status.money}G`;
@@ -70,6 +77,8 @@ class UIManager {
                 this.messageWindow.removeEventListener('click', listener);
                 // インジケーターを非表示にする
                 this.clickIndicator.style.display = 'none';
+                // クリック音を鳴らす（存在すれば）
+                if (typeof soundManager !== 'undefined') soundManager.play('click');
                 // Promiseを解決して、待機状態を終了する
                 resolve();
             };
@@ -120,7 +129,10 @@ class UIManager {
      * メニューを開く
      */
     openMenu() {
+        const status = gameManager.getStatus();
+        if (status.menuLocked) return; // メニューがロックされているフェーズでは開けない
         this.menuOverlay.classList.remove('hidden');
+        if (this.menuCloseFloating) this.menuCloseFloating.setAttribute('aria-visible', 'true');
         this.updateMenuDisplay(); // メニューを開く際に最新の情報を表示
     }
 
@@ -128,7 +140,10 @@ class UIManager {
      * メニューを閉じる
      */
     closeMenu() {
+        const status = gameManager.getStatus();
+        if (status.menuLocked) return; // ロック中は閉じることもできない
         this.menuOverlay.classList.add('hidden');
+        if (this.menuCloseFloating) this.menuCloseFloating.setAttribute('aria-visible', 'false');
     }
 
     /**
@@ -168,5 +183,6 @@ class UIManager {
     initializeMenuListeners() {
         this.menuButton.addEventListener('click', () => this.openMenu());
         this.menuCloseButton.addEventListener('click', () => this.closeMenu());
+        if (this.menuCloseFloating) this.menuCloseFloating.addEventListener('click', () => this.closeMenu());
     }
 }

@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>高専"寮"サバイバル</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body>
 
     <div id="game-container">
@@ -51,15 +53,19 @@
                 </div>
                 <button id="menu-close-button">閉じる</button>
             </div>
+            <!-- 小さい画面でも物理的に押せるように常に表示される閉じるボタン -->
+            <button id="menu-close-floating" aria-label="閉じる">✕</button>
         </div>
     </div>
 
     <!-- スクリプトファイル -->
     <script src="js/config.js"></script>
     <script src="js/gameManager.js"></script>
+    <script src="js/soundManager.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/events.js"></script>
     <script src="js/main.js"></script>
 
 </body>
+
 </html>

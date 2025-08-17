@@ -12,6 +12,85 @@ class GameManager {
     constructor(initialStatus) {
         // config.jsから受け取った初期ステータスをディープコピーして設定
         this.playerStatus = JSON.parse(JSON.stringify(initialStatus));
+        // 変更リスナー (UIやイベントが購読可能)
+        this._listeners = [];
+    }
+
+    /**
+     * 汎用ステータス変更メソッド。
+     * changes のフォーマット例:
+     * {
+     *   stats: { academic: 5, physical: -3 },
+     *   money: 200,
+     *   cp: 1,
+     *   reportDebt: 1,
+     *   itemsAdd: ['energy_drink']
+     * }
+     * @param {object} changes
+     */
+    applyChanges(changes = {}) {
+        let mutated = false;
+
+        if (changes.stats) {
+            this.changeStats(changes.stats, { suppressUpdateCondition: true });
+            mutated = true;
+        }
+
+        if (typeof changes.money === 'number') {
+            this.playerStatus.money += changes.money;
+            mutated = true;
+        }
+
+        if (typeof changes.cp === 'number') {
+            this.playerStatus.cp += changes.cp;
+            mutated = true;
+        }
+
+        if (typeof changes.reportDebt === 'number') {
+            this.playerStatus.reportDebt += changes.reportDebt;
+            mutated = true;
+        }
+
+        if (Array.isArray(changes.itemsAdd)) {
+            changes.itemsAdd.forEach(itemId => this.playerStatus.items.push(itemId));
+            mutated = true;
+        }
+
+        if (typeof changes.menuLocked === 'boolean') {
+            this.playerStatus.menuLocked = changes.menuLocked;
+            mutated = true;
+        }
+
+        // changeStats の中で updateCondition を抑止している場合は最後に一回だけ実行
+        if (mutated) {
+            this.updateCondition();
+            this._notifyListeners();
+        }
+    }
+
+    /**
+     * 変更リスナーを登録する
+     * @param {function} listener - (newStatus) => void
+     */
+    subscribe(listener) {
+        if (typeof listener === 'function') this._listeners.push(listener);
+    }
+
+    _notifyListeners() {
+        this._listeners.forEach(fn => {
+            try { fn(this.getStatus()); } catch (e) { console.error('Listener error', e); }
+        });
+    }
+
+    /**
+     * 指定された日数から曜日名を返す
+     * @returns {string} 曜日名（例: '水'）
+     */
+    getWeekdayName() {
+        // dayは1始まり。START_WEEKDAY_INDEXはWEEKDAYS配列のインデックスでday=1が何曜日か
+        const startIndex = CONFIG.START_WEEKDAY_INDEX || 0;
+        const weekdayIndex = (startIndex + (this.playerStatus.day - 1)) % CONFIG.WEEKDAYS.length;
+        return CONFIG.WEEKDAYS[weekdayIndex];
     }
 
     /**
@@ -49,18 +128,24 @@ class GameManager {
      * @param {number} amount - 増減させる金額
      */
     addMoney(amount) {
-        this.playerStatus.money += amount;
+        this.applyChanges({ money: amount });
     }
 
     /**
      * 内部ステータス（学力、フィジカル、メンタルなど）を更新する
      * @param {object} changes - 更新内容。例: { academic: 5, mental: -10 }
      */
-    changeStats(changes) {
+    /**
+     * ステータスを変更する補助。通常は applyChanges を使う想定だが
+     * 個別に呼びたい場合はこのメソッドを使う。
+     * @param {object} changes
+     * @param {object} options
+     */
+    changeStats(changes, options = {}) {
         for (const key in changes) {
             if (key in this.playerStatus.stats) {
                 this.playerStatus.stats[key] += changes[key];
-                
+
                 // ステータスが0未満にならないように制御
                 if (this.playerStatus.stats[key] < 0) {
                     this.playerStatus.stats[key] = 0;
@@ -72,8 +157,11 @@ class GameManager {
                 }
             }
         }
-        // 内部ステータスの変更後にコンディションを再計算
-        this.updateCondition();
+
+        if (!options.suppressUpdateCondition) {
+            this.updateCondition();
+            this._notifyListeners();
+        }
     }
 
     /**
