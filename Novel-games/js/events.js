@@ -197,6 +197,7 @@ const GameEventManager = {
         if (!item) return;
 
         const status = gameManager.getStatus();
+        console.log(`Attempting purchase: ${itemId} (${item.name}) price=${item.price}, playerMoney=${status.money}`);
         if (status.money < item.price) {
             ui.displayMessage('所持金が足りません。');
             await ui.waitForClick();
@@ -206,6 +207,7 @@ const GameEventManager = {
 
         // お金を減らしてアイテムを所持に追加
         gameManager.applyChanges({ money: -item.price, itemsAdd: [itemId] });
+        console.log(`Purchase applied: -${item.price}. New money: ${gameManager.getStatus().money}`);
         // 購入履歴を残す
         if (typeof gameManager !== 'undefined' && typeof gameManager.addHistory === 'function') {
             gameManager.addHistory({ type: 'purchase', detail: { itemId: itemId, itemName: item.name, price: item.price } });

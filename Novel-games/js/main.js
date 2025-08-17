@@ -18,11 +18,6 @@ function initializeGame() {
     // 初期コンディションを計算
     gameManager.updateCondition();
 
-    // UIManagerを初期化
-    ui = new UIManager();
-    // メニューボタンのイベントリスナーを設定
-    ui.initializeMenuListeners();
-
     // CONFIG.LABELS が定義されていれば、固定テキストラベルを差し替える
     try {
         if (CONFIG && CONFIG.LABELS) {
@@ -51,6 +46,11 @@ function initializeGame() {
             if (saveLoadH3) saveLoadH3.textContent = CONFIG.LABELS.saveLoad || saveLoadH3.textContent;
         }
     } catch (e) { console.warn('Label injection failed', e); }
+
+    // UIManagerを初期化
+    ui = new UIManager();
+    // メニューボタンのイベントリスナーを設定
+    ui.initializeMenuListeners();
 
     console.log('ゲームの初期化が完了しました。');
 

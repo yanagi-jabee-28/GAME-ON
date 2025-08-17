@@ -155,8 +155,13 @@ class GameManager {
     }
 
     _notifyListeners() {
+        console.log(`_notifyListeners: notifying ${this._listeners.length} listeners`);
         this._listeners.forEach(fn => {
-            try { fn(this.getStatus()); } catch (e) { console.error('Listener error', e); }
+            try {
+                fn(this.getStatus());
+            } catch (e) {
+                console.error('Listener error', e);
+            }
         });
     }
 
@@ -273,6 +278,12 @@ class GameManager {
             this.playerStatus.day++;
         }
         console.log(`Turn advanced to: Day ${this.playerStatus.day}, ${this.getCurrentTurnName()}`);
+        // ターンが進んだことを購読者に通知してUIを最新化する
+        try {
+            this._notifyListeners();
+        } catch (e) {
+            console.warn('Failed to notify listeners after nextTurn', e);
+        }
     }
 
     /**

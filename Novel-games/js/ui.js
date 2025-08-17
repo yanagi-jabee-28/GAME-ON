@@ -55,11 +55,21 @@ class UIManager {
      * @param {object} status - 表示するステータス情報 (GameManagerから取得)
      */
     updateStatusDisplay(status) {
+        console.log('UI.updateStatusDisplay called with status:', status);
         // 日付表示に曜日を付与
         const weekday = typeof gameManager.getWeekdayName === 'function' ? gameManager.getWeekdayName() : '';
-        this.dateDisplay.textContent = `${status.day}日目 (${weekday}曜日)`;
-        this.timeOfDayDisplay.textContent = CONFIG.TURNS[status.turnIndex];
-        this.conditionDisplay.textContent = status.condition;
+        // DOM が差し替えられている可能性があるため、要素が document に存在するか確認して再取得する
+        try {
+            if (!this.dateDisplay || !document.contains(this.dateDisplay)) this.dateDisplay = document.getElementById('date-display');
+            if (!this.timeOfDayDisplay || !document.contains(this.timeOfDayDisplay)) this.timeOfDayDisplay = document.getElementById('time-of-day-display');
+            if (!this.conditionDisplay || !document.contains(this.conditionDisplay)) this.conditionDisplay = document.getElementById('condition-display');
+            if (!this.moneyDisplay || !document.contains(this.moneyDisplay)) this.moneyDisplay = document.getElementById('money-display');
+            if (!this.cpDisplay || !document.contains(this.cpDisplay)) this.cpDisplay = document.getElementById('cp-display');
+        } catch (e) { console.warn('Error checking status display elements', e); }
+
+        if (this.dateDisplay) this.dateDisplay.textContent = `${status.day}日目 (${weekday}曜日)`;
+        if (this.timeOfDayDisplay) this.timeOfDayDisplay.textContent = CONFIG.TURNS[status.turnIndex];
+        if (this.conditionDisplay) this.conditionDisplay.textContent = status.condition;
         // 通貨単位は CONFIG.LABELS.currencyUnit を優先
         const unit = (CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円';
         this.moneyDisplay.textContent = `${status.money}${unit}`;
