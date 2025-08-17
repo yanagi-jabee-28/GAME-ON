@@ -28,8 +28,7 @@ class UIManager {
         this.menuCloseButton = document.getElementById('menu-close-button');
         this.menuOverlay = document.getElementById('menu-overlay');
         this.menuAcademic = document.getElementById('menu-academic');
-        this.menuPhysical = document.getElementById('menu-physical');
-        this.menuMental = document.getElementById('menu-mental');
+        this.menuCondition = document.getElementById('menu-condition');
         this.menuReportDebt = document.getElementById('menu-report-debt');
         this.menuItemList = document.getElementById('menu-item-list');
         this.menuCloseFloating = document.getElementById('menu-close-floating');
@@ -199,8 +198,7 @@ class UIManager {
 
         // ステータスセクションの更新
         this.menuAcademic.textContent = status.stats.academic;
-        this.menuPhysical.textContent = status.stats.physical;
-        this.menuMental.textContent = status.stats.mental;
+        this.menuCondition.textContent = status.condition;
         this.menuReportDebt.textContent = status.reportDebt;
 
         // 個別レポートの表示（存在すれば）

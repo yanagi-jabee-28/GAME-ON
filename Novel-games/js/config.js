@@ -22,6 +22,12 @@ const CONFIG = {
         WORST: '疲労困憊'
     },
 
+    // ステータス定義。将来的にステータス名や最大/最小値が増えるときはここを編集する
+    STAT_DEFS: {
+        academic: { label: '学力', min: 0, max: 100, default: 10 },
+        condition: { label: 'コンディション', min: 0, max: 100, default: 100 }
+    },
+
     // 初期ステータス
     INITIAL_PLAYER_STATUS: {
         day: 1,
@@ -31,8 +37,8 @@ const CONFIG = {
         cp: 0,
         stats: {
             academic: 10, // 学力
-            physical: 50, // 肉体
-            mental: 50,   // 精神
+            // physical/mental を廃止し、condition に一本化
+            condition: 100
         },
         items: ['energy_drink'], // 所持アイテムにエナジードリンクを追加
         reportDebt: 0, // レポート負債（互換性用の総数）
@@ -64,9 +70,9 @@ const ITEMS = {
         description: '一時的に体力を回復するが、後で反動が来る。',
         effect: { // アイテム効果
             changes: {
+                // condition を直接増加させる
                 stats: {
-                    physical: 15, // 体力回復 (20 - 5 = 15)
-                    mental: 0     // 精神回復 (10 - 10 = 0)
+                    condition: 10
                 }
             }
         }
@@ -78,7 +84,7 @@ const EVENTS = {
     "STUDY_ACTION": {
         message: "よし、勉強に集中しよう。",
         changes: {
-            stats: { academic: 5, mental: -10 }
+            stats: { academic: 4, condition: -5 }
         },
         afterMessage: "少し疲れたが、知識は身についた。",
         nextAction: "showMainActions" // 次に実行するアクション
@@ -86,8 +92,8 @@ const EVENTS = {
     "WORK_ACTION": {
         message: "お金を稼ぎに行こう。",
         changes: {
-            money: 500,
-            stats: { mental: -20, physical: -10 }
+            money: 400,
+            stats: { condition: -8 }
         },
         afterMessage: "疲れた...でも、これで少しは生活が楽になるはずだ。",
         nextAction: "showMainActions"
@@ -97,8 +103,7 @@ const EVENTS = {
         // changes はレポート進捗で動的に変わるため、ここでは定義しない
         changes: {
             stats: { // stats オブジェクトを内包
-                mental: -5, // レポートによる精神的疲労
-                physical: -3 // レポートによる肉体的疲労
+                condition: -3 // レポートによる疲労
             }
         },
         afterMessage: "", // レポート進捗によってメッセージが変わるため空
@@ -108,8 +113,7 @@ const EVENTS = {
         message: "今日はゆっくり休んで、明日に備えよう。",
         changes: {
             stats: { // stats オブジェクトを内包
-                physical: 10, // 体力回復
-                mental: 10    // 精神回復
+                condition: 13
             }
         },
         afterMessage: "",
@@ -118,7 +122,7 @@ const EVENTS = {
     "ATTEND_CLASS_ACTION": {
         message: "授業に集中する。学びを吸収しよう。",
         changes: {
-            stats: { academic: 8, physical: -5, mental: -5 }
+            stats: { academic: 6, condition: -3 }
         },
         afterMessage: "", // 特にメッセージなし
         nextAction: "showMainActions"
@@ -126,8 +130,7 @@ const EVENTS = {
     "MOONLIGHT_WORK_ACTION": {
         message: "授業中に内職（レポートを進める）をする。授業の時間を使ってレポートを進めよう。",
         changes: {
-            mental: -8, // 内職による精神的疲労（授業中なのでより疲れる）
-            physical: -5 // 内職による肉体的疲労
+            stats: { condition: -5 }
         },
         afterMessage: "", // doReport に委譲するため特にメッセージなし
         nextAction: "showMainActions"
@@ -135,7 +138,7 @@ const EVENTS = {
     "DOZE_OFF_ACTION": {
         message: "うとうと... 居眠りをしてしまった。",
         changes: {
-            stats: { physical: 5 }
+            stats: { condition: 2 }
         },
         afterMessage: "", // 特にメッセージなし
         nextAction: "showMainActions"

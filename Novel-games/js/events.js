@@ -64,8 +64,8 @@ const GameEventManager = {
             ui.displayMessage('夜が明け、新しい一日が始まりました。', 'システム'); // 導入メッセージ
             await ui.waitForClick();
 
-            // 回復処理
-            gameManager.changeStats({ physical: 5, mental: 5 });
+            // 回復処理（condition に一本化）
+            gameManager.changeStats({ condition: 10 });
             ui.updateStatusDisplay(gameManager.getStatus()); // 回復後のステータスを更新
 
             await ui.waitForClick();

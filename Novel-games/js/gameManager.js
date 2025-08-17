@@ -14,6 +14,14 @@ class GameManager {
         this.playerStatus = JSON.parse(JSON.stringify(initialStatus));
         // 変更リスナー (UIやイベントが購読可能)
         this._listeners = [];
+        // STAT_DEFS に基づいて stats の欠損キーを初期化する
+        if (typeof CONFIG !== 'undefined' && CONFIG.STAT_DEFS && this.playerStatus.stats) {
+            for (const key of Object.keys(CONFIG.STAT_DEFS)) {
+                if (typeof this.playerStatus.stats[key] === 'undefined') {
+                    this.playerStatus.stats[key] = CONFIG.STAT_DEFS[key].default || 0;
+                }
+            }
+        }
     }
 
     /**
@@ -75,9 +83,9 @@ class GameManager {
             const after = this.playerStatus;
             const messages = [];
 
-            // stats の差分
+            // stats の差分（condition に一本化）
             if (before.stats && after.stats) {
-                const map = { academic: '学力', physical: 'フィジカル', mental: 'メンタル' };
+                const map = { academic: '学力', condition: 'コンディション' };
                 for (const key of Object.keys(after.stats)) {
                     const delta = after.stats[key] - (before.stats[key] || 0);
                     if (delta !== 0) {
@@ -226,9 +234,24 @@ class GameManager {
                 console.log(`Changing ${key}: ${this.playerStatus.stats[key]} + ${changes[key]}`); // デバッグ用ログ
                 this.playerStatus.stats[key] += changes[key];
 
-                if (this.playerStatus.stats[key] < 0) this.playerStatus.stats[key] = 0;
-                if ((key === 'physical' || key === 'mental') && this.playerStatus.stats[key] > 100) this.playerStatus.stats[key] = 100;
+                // clamp using STAT_DEFS if available
+                if (typeof CONFIG !== 'undefined' && CONFIG.STAT_DEFS && CONFIG.STAT_DEFS[key]) {
+                    const def = CONFIG.STAT_DEFS[key];
+                    if (typeof def.min === 'number') this.playerStatus.stats[key] = Math.max(def.min, this.playerStatus.stats[key]);
+                    if (typeof def.max === 'number') this.playerStatus.stats[key] = Math.min(def.max, this.playerStatus.stats[key]);
+                } else {
+                    if (this.playerStatus.stats[key] < 0) this.playerStatus.stats[key] = 0;
+                    if (this.playerStatus.stats[key] > 100) this.playerStatus.stats[key] = 100;
+                }
                 console.log(`New value for ${key}: ${this.playerStatus.stats[key]}`); // デバッグ用ログ
+            } else if (typeof CONFIG !== 'undefined' && CONFIG.STAT_DEFS && CONFIG.STAT_DEFS[key]) {
+                // 未定義だが STAT_DEFS にあれば新しく作る
+                const def = CONFIG.STAT_DEFS[key];
+                this.playerStatus.stats[key] = def.default || 0;
+                this.playerStatus.stats[key] += changes[key];
+                if (typeof def.min === 'number') this.playerStatus.stats[key] = Math.max(def.min, this.playerStatus.stats[key]);
+                if (typeof def.max === 'number') this.playerStatus.stats[key] = Math.min(def.max, this.playerStatus.stats[key]);
+                console.log(`Created and set ${key}: ${this.playerStatus.stats[key]}`);
             } else {
                 console.warn(`Attempted to change unknown stat: ${key}`); // デバッグ用ログ
             }
@@ -381,8 +404,13 @@ class GameManager {
      * (フィジカルとメンタルの状態から総合的なコンディションを算出するロジック)
      */
     updateCondition() {
-        const { physical, mental } = this.playerStatus.stats;
-        // フィジカルとメンタルの平均値をコンディションとする
-        this.playerStatus.condition = Math.round((physical + mental) / 2);
+        // stats.condition があればそれを clamp して condition に反映
+        const cond = this.playerStatus.stats.condition;
+        if (typeof cond === 'number') {
+            this.playerStatus.condition = Math.max(0, Math.min(100, Math.round(cond)));
+        } else {
+            // もし stats.condition が存在しなければ現状の値を clamp
+            this.playerStatus.condition = Math.max(0, Math.min(100, Math.round(this.playerStatus.condition || 0)));
+        }
     }
 }
