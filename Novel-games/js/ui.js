@@ -143,7 +143,6 @@ class UIManager {
      */
     closeMenu() {
         const status = gameManager.getStatus();
-        if (status.menuLocked) return; // ロック中は閉じることもできない
         this.menuOverlay.classList.add('hidden');
         if (this.menuCloseFloating) this.menuCloseFloating.setAttribute('aria-visible', 'false');
     }

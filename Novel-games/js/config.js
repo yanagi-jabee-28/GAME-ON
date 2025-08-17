@@ -36,7 +36,9 @@ const CONFIG = {
         },
         items: [], // 所持アイテム
         reportDebt: 0, // レポート負債（互換性用の総数）
-        reports: [], // 個別レポート管理のための配列（将来拡張用）
+        reports: [ // 個別レポート管理のための配列（将来拡張用）
+            { id: 'test_report_1', title: 'テストレポート', progress: 0, required: 3 }
+        ],
         menuLocked: false // メニュー開閉が制御されるフェーズ用フラグ
     }
 };
@@ -66,5 +68,64 @@ const ITEMS = {
 
 // イベントデータ (将来の拡張用)
 const EVENTS = {
-    // ここにイベントデータを定義していく
+    "STUDY_ACTION": {
+        message: "よし、勉強に集中しよう。",
+        changes: {
+            stats: { academic: 5, mental: -10 }
+        },
+        afterMessage: "少し疲れたが、知識は身についた。",
+        nextAction: "showMainActions" // 次に実行するアクション
+    },
+    "WORK_ACTION": {
+        message: "お金を稼ぎに行こう。",
+        changes: {
+            money: 500,
+            stats: { mental: -20, physical: -10 }
+        },
+        afterMessage: "疲れた...でも、これで少しは生活が楽になるはずだ。",
+        nextAction: "showMainActions"
+    },
+    "REPORT_ACTION": {
+        message: "溜まっているレポートを片付けないと...",
+        changes: {
+            mental: -5, // レポートによる精神的疲労
+            physical: -3 // レポートによる肉体的疲労
+        },
+        afterMessage: "", // レポート進捗によってメッセージが変わるため空
+        nextAction: "showMainActions"
+    },
+    "REST_ACTION": {
+        message: "今日はゆっくり休んで、明日に備えよう。",
+        changes: {
+            physical: 10, // 体力回復
+            mental: 10    // 精神回復
+        },
+        afterMessage: "体も心も、少し軽くなった気がする。",
+        nextAction: "showMainActions"
+    },
+    "ATTEND_CLASS_ACTION": {
+        message: "授業に集中する。学びを吸収しよう。",
+        changes: {
+            stats: { academic: 8, physical: -5, mental: -5 }
+        },
+        afterMessage: "", // 特にメッセージなし
+        nextAction: "showMainActions"
+    },
+    "MOONLIGHT_WORK_ACTION": {
+        message: "授業中に内職（レポートを進める）をする。授業の時間を使ってレポートを進めよう。",
+        changes: {
+            mental: -8, // 内職による精神的疲労（授業中なのでより疲れる）
+            physical: -5 // 内職による肉体的疲労
+        },
+        afterMessage: "", // doReport に委譲するため特にメッセージなし
+        nextAction: "showMainActions"
+    },
+    "DOZE_OFF_ACTION": {
+        message: "うとうと... 居眠りをしてしまった。",
+        changes: {
+            stats: { physical: 5 }
+        },
+        afterMessage: "", // 特にメッセージなし
+        nextAction: "showMainActions"
+    }
 };

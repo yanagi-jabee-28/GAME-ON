@@ -268,10 +268,22 @@ class GameManager {
         const idx = this.playerStatus.reports.findIndex(r => r.id === id);
         if (idx === -1) return;
         const report = this.playerStatus.reports[idx];
+        const oldProgress = report.progress; // 変更前の進捗を保持
         report.progress += amount;
+        console.log(`Report ${report.id} progress updated from ${oldProgress} to ${report.progress}`); // デバッグ用ログ
+
+        let message = '';
         if (report.progress >= report.required) {
             // 完了扱い: レポート配列から削除
             this.playerStatus.reports.splice(idx, 1);
+            message = `${report.title} を提出した！`;
+        } else {
+            message = `${report.title} の進捗が ${oldProgress} -> ${report.progress}/${report.required} になりました。`;
+        }
+
+        // メッセージ表示
+        if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') {
+            ui.displayMessage(message, 'システム');
         }
         // reportDebt を互換性のために更新
         this.playerStatus.reportDebt = this.playerStatus.reports.length;

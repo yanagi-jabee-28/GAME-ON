@@ -8,6 +8,68 @@ const GameEventManager = {
     lastCheckedDay: 1, // 日付変更時の回復メッセージ表示用
 
     /**
+     * 汎用的な行動実行関数
+     * @param {string} actionId - config.jsのEVENTSに定義されたアクションID
+     */
+    executeAction: async function (actionId) {
+        const eventData = EVENTS[actionId];
+        if (!eventData) {
+            console.error(`Action data not found for ID: ${actionId}`);
+            return;
+        }
+
+        // メッセージ表示
+        if (eventData.message) {
+            ui.displayMessage(eventData.message);
+            await ui.waitForClick();
+        }
+
+        // ステータス変動
+        if (eventData.changes) {
+            gameManager.applyChanges(eventData.changes);
+            ui.updateStatusDisplay(gameManager.getStatus());
+            await ui.waitForClick(); // ここに待機処理を追加
+        }
+
+        // 行動後のメッセージ表示
+        if (eventData.afterMessage) {
+            ui.displayMessage(eventData.afterMessage);
+            await ui.waitForClick();
+        }
+
+        // ターンを進める
+        gameManager.nextTurn();
+        ui.updateStatusDisplay(gameManager.getStatus());
+
+        // 日付が変わったかチェックし、回復処理とメッセージ表示
+        await this.checkAndApplyDailyRecovery();
+
+        // 次の行動へ
+        if (eventData.nextAction === "showMainActions") {
+            this.showMainActions();
+        }
+        // TODO: 他の nextAction の種類も考慮する
+    },
+
+    /**
+     * 日付が変わったかチェックし、回復処理とメッセージ表示を行う共通関数
+     */
+    checkAndApplyDailyRecovery: async function () {
+        const currentStatus = gameManager.getStatus();
+        if (currentStatus.turnIndex === 0 && currentStatus.day > this.lastCheckedDay) {
+            ui.displayMessage('夜が明け、新しい一日が始まりました。', 'システム'); // 導入メッセージ
+            await ui.waitForClick();
+
+            // 回復処理
+            gameManager.changeStats({ physical: 5, mental: 5 });
+            ui.updateStatusDisplay(gameManager.getStatus()); // 回復後のステータスを更新
+
+            await ui.waitForClick();
+            this.lastCheckedDay = currentStatus.day; // 日付を更新
+        }
+    },
+
+    /**
      * ゲーム開始時のイベント
      */
     startGame: async function () {
@@ -70,18 +132,7 @@ const GameEventManager = {
 
     // --- 授業ターン用の行動 ---
     doAttendClass: async function () {
-        ui.displayMessage('授業に集中する。学びを吸収しよう。');
-        await ui.waitForClick();
-
-        // 学力が上がるが、体力が少し下がる
-        gameManager.changeStats({ academic: 8, physical: -5, mental: -5 });
-        ui.updateStatusDisplay(gameManager.getStatus());
-
-        await ui.waitForClick();
-
-        gameManager.nextTurn();
-        ui.updateStatusDisplay(gameManager.getStatus());
-        this.showMainActions();
+        await this.executeAction("ATTEND_CLASS_ACTION");
     },
 
     doMoonlightWork: async function () {
@@ -93,19 +144,7 @@ const GameEventManager = {
     },
 
     doDozeOff: async function () {
-        ui.displayMessage('うとうと... 居眠りをしてしまった。');
-        await ui.waitForClick();
-
-        // 学力は上がらず、体力が少し回復するが、レポート負債が増える可能性
-        gameManager.changeStats({ physical: 5 });
-        gameManager.applyChanges({ reportDebt: 1 });
-        ui.updateStatusDisplay(gameManager.getStatus());
-
-        await ui.waitForClick();
-
-        gameManager.nextTurn();
-        ui.updateStatusDisplay(gameManager.getStatus());
-        this.showMainActions();
+        await this.executeAction("DOZE_OFF_ACTION");
     },
 
     // --- 以下、各行動の処理 --- //
@@ -114,56 +153,61 @@ const GameEventManager = {
      * 「勉強する」を選択したときの処理
      */
     doStudy: async function () {
-        ui.displayMessage('よし、勉強に集中しよう。');
+        await this.executeAction("STUDY_ACTION");
+    },
 
-        // ■■■ ステータス変動処理 ■■■
-        gameManager.changeStats({ academic: 5, mental: -10 });
-        ui.updateStatusDisplay(gameManager.getStatus());
-        // ■■■■■■■■■■■■■■■■■■
+    /**
+     * 「バイトに行く」を選択したときの処理
+     */
+    doWork: async function () {
+        await this.executeAction("WORK_ACTION");
+    },
 
-        await ui.waitForClick();
-
-        ui.displayMessage('少し疲れたが、知識は身についた。');
-        await ui.waitForClick();
-
-        // 処理が終わったら次のターンへ
-        gameManager.nextTurn();
-        ui.updateStatusDisplay(gameManager.getStatus());
-
-        // 日付が変わったかチェックし、回復処理とメッセージ表示
-        const currentStatus = gameManager.getStatus();
-        if (currentStatus.turnIndex === 0 && currentStatus.day > this.lastCheckedDay) {
-            // 回復処理
-            gameManager.changeStats({ physical: 5, mental: 5 });
-            ui.updateStatusDisplay(gameManager.getStatus()); // 回復後のステータスを更新
-
-            ui.displayMessage('夜が明け、少し体力が回復した。', 'システム');
-            await ui.waitForClick();
-            this.lastCheckedDay = currentStatus.day; // 日付を更新
-        }
-
-        this.showMainActions();
+    /**
+     * 「休む」を選択したときの処理
+     */
+    doRest: async function () {
+        await this.executeAction("REST_ACTION");
     },
 
     /**
      * 「レポートを進める」を選択したときの処理
      */
     doReport: async function () {
-        ui.displayMessage('溜まっているレポートを片付けないと...');
+        console.log("doReport function called."); // デバッグ用ログ
+        // config.jsからメッセージを読み込む
+        const eventData = EVENTS["REPORT_ACTION"];
+        if (eventData && eventData.message) {
+            ui.displayMessage(eventData.message);
+        } else {
+            ui.displayMessage('溜まっているレポートを片付けないと...'); // フォールバック
+        }
         await ui.waitForClick();
+
         // レポートがあるかチェックして、先頭のレポートを1進捗させる
         const reportsBefore = gameManager.getReports ? gameManager.getReports() : gameManager.getStatus().reports || [];
+        console.log("reportsBefore:", reportsBefore); // デバッグ用ログ
         if (reportsBefore.length > 0) {
             const target = reportsBefore[0];
+            console.log("target report:", target); // デバッグ用ログ
             ui.displayMessage(`${target.title} を進めます（${target.progress}/${target.required}）`);
             await ui.waitForClick();
 
             // 進捗を進める
             gameManager.progressReport(target.id, 1);
+            console.log("progressReport called for:", target.id); // デバッグ用ログ
+
+            // レポート進捗によるステータス変化を適用
+            if (eventData.changes) {
+                gameManager.applyChanges(eventData.changes);
+                ui.updateStatusDisplay(gameManager.getStatus());
+                await ui.waitForClick(); // ステータス変化メッセージ表示後の待機
+            }
 
             // 進捗後の状態を取得
             const reportsAfter = gameManager.getReports ? gameManager.getReports() : gameManager.getStatus().reports || [];
             const still = reportsAfter.find(r => r.id === target.id);
+            console.log("reportsAfter:", reportsAfter); // デバッグ用ログ
             if (!still) {
                 ui.displayMessage('レポートを提出した！');
             } else {
@@ -179,77 +223,10 @@ const GameEventManager = {
         ui.updateStatusDisplay(gameManager.getStatus());
 
         // 日付が変わったかチェックし、回復処理とメッセージ表示
-        const currentStatus = gameManager.getStatus();
-        if (currentStatus.turnIndex === 0 && currentStatus.day > this.lastCheckedDay) {
-            // 回復処理
-            gameManager.changeStats({ physical: 5, mental: 5 });
-            ui.updateStatusDisplay(gameManager.getStatus()); // 回復後のステータスを更新
-
-            ui.displayMessage('夜が明け、少し体力が回復した。', 'システム');
-            await ui.waitForClick();
-            this.lastCheckedDay = currentStatus.day; // 日付を更新
-        }
+        await this.checkAndApplyDailyRecovery();
 
         this.showMainActions();
     },
-
-    /**
-     * 「バイトに行く」を選択したときの処理
-     */
-    doWork: async function () {
-        ui.displayMessage('お金を稼ぎに行こう。');
-        await ui.waitForClick();
-        // TODO: 所持金アップ、コンディション大幅低下などの処理を実装
-
-        ui.displayMessage('疲れた...でも、これで少しは生活が楽になるはずだ。');
-        await ui.waitForClick();
-
-        gameManager.nextTurn();
-        ui.updateStatusDisplay(gameManager.getStatus());
-
-        // 日付が変わったかチェックし、回復処理とメッセージ表示
-        const currentStatus = gameManager.getStatus();
-        if (currentStatus.turnIndex === 0 && currentStatus.day > this.lastCheckedDay) {
-            // 回復処理
-            gameManager.changeStats({ physical: 5, mental: 5 });
-            ui.updateStatusDisplay(gameManager.getStatus()); // 回復後のステータスを更新
-
-            ui.displayMessage('夜が明け、少し体力が回復した。', 'システム');
-            await ui.waitForClick();
-            this.lastCheckedDay = currentStatus.day; // 日付を更新
-        }
-
-        this.showMainActions();
-    },
-
-    /**
-     * 「休む」を選択したときの処理
-     */
-    doRest: async function () {
-        ui.displayMessage('今日はゆっくり休んで、明日に備えよう。');
-        await ui.waitForClick();
-        // TODO: コンディション回復の処理を実装
-
-        ui.displayMessage('体も心も、少し軽くなった気がする。');
-        await ui.waitForClick();
-
-        gameManager.nextTurn();
-        ui.updateStatusDisplay(gameManager.getStatus());
-
-        // 日付が変わったかチェックし、回復処理とメッセージ表示
-        const currentStatus = gameManager.getStatus();
-        if (currentStatus.turnIndex === 0 && currentStatus.day > this.lastCheckedDay) {
-            // 回復処理
-            gameManager.changeStats({ physical: 5, mental: 5 });
-            ui.updateStatusDisplay(gameManager.getStatus()); // 回復後のステータスを更新
-
-            ui.displayMessage('夜が明け、少し体力が回復した。', 'システム');
-            await ui.waitForClick();
-            this.lastCheckedDay = currentStatus.day; // 日付を更新
-        }
-
-        this.showMainActions();
-    }
 
     // TODO: 今後、ランダムイベントなどをここに追加していく
 

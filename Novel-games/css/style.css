@@ -19,6 +19,7 @@ body {
 #game-container {
     width: 800px;
     max-width: 100%;
+    min-height: 600px; /* 仮の最小高さを設定 */
     border: 2px solid #444;
     border-radius: 10px;
     overflow: hidden;
@@ -61,6 +62,10 @@ body {
 /* メイン画面 */
 #main-screen {
     padding: 20px;
+    height: calc(600px - 80px); /* game-containerの高さ - status-displayの高さ - padding */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* メッセージと選択肢を上下に配置 */
 }
 
 /* メッセージウィンドウ */
@@ -163,7 +168,7 @@ body {
     padding: 30px;
     border-radius: 10px;
     width: 600px;
-    max-height: 80vh;
+    max-height: 90vh;
     /* 画面の高さに合わせて調整 */
     overflow-y: auto;
     /* 内容が多い場合にスクロール可能に */
