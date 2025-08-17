@@ -28,16 +28,16 @@ const GameEventManager = {
         if (eventData.changes) {
             gameManager.applyChanges(eventData.changes);
             ui.updateStatusDisplay(gameManager.getStatus());
-            await ui.waitForClick(); // ここに待機処理を追加
         }
 
-        // 行動後のメッセージ表示
-        if (eventData.afterMessage) {
-            ui.displayMessage(eventData.afterMessage);
-            await ui.waitForClick();
-        }
+        // 行動後のメッセージ表示 (eventData.afterMessage)
+        // if (eventData.afterMessage) {
+        //     ui.displayMessage(eventData.afterMessage);
+        //     await ui.waitForClick();
+        // }
 
         // ターンを進める
+        await ui.waitForClick(); // ここに待機処理を追加
         gameManager.nextTurn();
         ui.updateStatusDisplay(gameManager.getStatus());
 
@@ -199,6 +199,7 @@ const GameEventManager = {
 
             // レポート進捗によるステータス変化を適用
             if (eventData.changes) {
+                console.log("Applying changes for report:", eventData.changes); // デバッグ用ログ
                 gameManager.applyChanges(eventData.changes);
                 ui.updateStatusDisplay(gameManager.getStatus());
                 await ui.waitForClick(); // ステータス変化メッセージ表示後の待機

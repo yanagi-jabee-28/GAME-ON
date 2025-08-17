@@ -37,6 +37,8 @@ class GameManager {
             // 内部処理では updateCondition の呼び出しを抑制する
             this.changeStats(changes.stats, { suppressUpdateCondition: true });
             mutated = true;
+            console.log("Stats changes applied:", changes.stats); // デバッグ用ログ
+            console.log("Current player stats after changes:", this.playerStatus.stats); // デバッグ用ログ
         }
 
         if (typeof changes.money === 'number') {
@@ -204,14 +206,22 @@ class GameManager {
         }
 
         // suppressUpdateCondition が真の場合は低レベルで直接変更する
+        console.log("Entering changeStats. Changes:", changes); // デバッグ用ログ
+        console.log("Current playerStatus.stats before change:", this.playerStatus.stats); // デバッグ用ログ
+
         for (const key in changes) {
             if (key in this.playerStatus.stats) {
+                console.log(`Changing ${key}: ${this.playerStatus.stats[key]} + ${changes[key]}`); // デバッグ用ログ
                 this.playerStatus.stats[key] += changes[key];
 
                 if (this.playerStatus.stats[key] < 0) this.playerStatus.stats[key] = 0;
                 if ((key === 'physical' || key === 'mental') && this.playerStatus.stats[key] > 100) this.playerStatus.stats[key] = 100;
+                console.log(`New value for ${key}: ${this.playerStatus.stats[key]}`); // デバッグ用ログ
+            } else {
+                console.warn(`Attempted to change unknown stat: ${key}`); // デバッグ用ログ
             }
         }
+        console.log("Exiting changeStats. Final playerStatus.stats:", this.playerStatus.stats); // デバッグ用ログ
     }
 
     /**

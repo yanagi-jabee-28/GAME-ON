@@ -87,9 +87,12 @@ const EVENTS = {
     },
     "REPORT_ACTION": {
         message: "溜まっているレポートを片付けないと...",
+        // changes はレポート進捗で動的に変わるため、ここでは定義しない
         changes: {
-            mental: -5, // レポートによる精神的疲労
-            physical: -3 // レポートによる肉体的疲労
+            stats: { // stats オブジェクトを内包
+                mental: -5, // レポートによる精神的疲労
+                physical: -3 // レポートによる肉体的疲労
+            }
         },
         afterMessage: "", // レポート進捗によってメッセージが変わるため空
         nextAction: "showMainActions"
@@ -97,10 +100,12 @@ const EVENTS = {
     "REST_ACTION": {
         message: "今日はゆっくり休んで、明日に備えよう。",
         changes: {
-            physical: 10, // 体力回復
-            mental: 10    // 精神回復
+            stats: { // stats オブジェクトを内包
+                physical: 10, // 体力回復
+                mental: 10    // 精神回復
+            }
         },
-        afterMessage: "体も心も、少し軽くなった気がする。",
+        afterMessage: "",
         nextAction: "showMainActions"
     },
     "ATTEND_CLASS_ACTION": {
