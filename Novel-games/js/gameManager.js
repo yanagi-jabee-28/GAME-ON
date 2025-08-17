@@ -283,6 +283,48 @@ class GameManager {
     }
 
     /**
+     * ランダムイベントの発生をチェックし、条件に合致すればトリガーする
+     * @returns {boolean} イベントが発生したかどうか
+     */
+    async checkAndTriggerRandomEvent() {
+        // ここにランダムイベントの発生判定ロジックを記述
+        // - 現在のターン、曜日、ステータスなどを取得
+        // - RANDOM_EVENTS から条件に合致するイベントをフィルタリング
+        // - フィルタリングされたイベントの中からランダムに一つ選択
+        // - 選択されたイベントを GameEventManager.handleRandomEvent などに渡して実行
+        console.log("Checking for random events...");
+        const currentStatus = this.getStatus();
+        const currentTurnName = this.getCurrentTurnName();
+        const currentWeekdayName = this.getWeekdayName();
+
+        const availableEvents = Object.values(RANDOM_EVENTS).filter(event => {
+            // ターンの条件チェック
+            if (event.conditions.turn && !event.conditions.turn.includes(currentTurnName)) {
+                return false;
+            }
+            // 曜日の条件チェック (平日/休日など)
+            if (event.conditions.weekday && !['月', '火', '水', '木', '金'].includes(currentWeekdayName)) {
+                return false;
+            }
+            // TODO: その他の条件（ステータス、フラグなど）を追加
+
+            return true; // 一旦、条件に合致するものを全て返す
+        });
+
+        if (availableEvents.length > 0) {
+            // 発生可能なイベントの中からランダムに一つ選択
+            const randomIndex = Math.floor(Math.random() * availableEvents.length);
+            const selectedEvent = availableEvents[randomIndex];
+
+            console.log(`Random event triggered: ${selectedEvent.name}`);
+            // TODO: GameEventManager を使ってイベントを実行する
+            // await GameEventManager.handleRandomEvent(selectedEvent);
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * アイテムを追加する
      * @param {string} itemId - 追加するアイテムのID
      */
@@ -306,11 +348,18 @@ class GameManager {
 
     /**
      * 履歴を追加するユーティリティ
-     * @param {{ type: string, timestamp?: number, detail?: object }} entry
+     * @param {{ type: string, actionId?: string, eventId?: string, choiceId?: string, result?: string, changes?: object, detail?: object }} entry
      */
     addHistory(entry) {
         if (!this.playerStatus.history) this.playerStatus.history = [];
-        const e = Object.assign({ timestamp: Date.now() }, entry);
+        const e = Object.assign(
+            {
+                timestamp: Date.now(),
+                day: this.playerStatus.day, // 現在の日付を自動で追加
+                turn: CONFIG.TURNS[this.playerStatus.turnIndex] // 現在のターンを自動で追加
+            },
+            entry
+        );
         this.playerStatus.history.push(e);
         this._notifyListeners();
     }

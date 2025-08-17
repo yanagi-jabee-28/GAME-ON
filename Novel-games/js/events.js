@@ -323,4 +323,93 @@ const GameEventManager = {
 
     // TODO: 今後、ランダムイベントなどをここに追加していく
 
+    /**
+     * ランダムイベントを処理する汎用関数
+     * @param {object} eventData - randomEvents.js で定義されたイベントデータ
+     */
+    handleRandomEvent: async function (eventData) {
+        this.isInFreeAction = false; // イベント中は自由行動を制限
+
+        // イベントメッセージの表示
+        if (eventData.message) {
+            ui.displayMessage(eventData.message, eventData.name); // イベント名をキャラクター名として表示
+            await ui.waitForClick();
+        }
+
+        // 選択肢の表示
+        if (eventData.choices && eventData.choices.length > 0) {
+            const choices = eventData.choices.map(choice => ({
+                text: choice.text,
+                callback: async () => {
+                    // 選択肢の結果を処理
+                    await this.processRandomEventChoice(eventData.id, choice.text, choice.consequences); // eventData.id と choice.text を追加
+                    // 選択履歴を記録
+                    gameManager.recordChoice(choice.text); // 拡張された addHistory を利用
+                    // ターンを進める
+                    gameManager.nextTurn();
+                    ui.updateStatusDisplay(gameManager.getStatus());
+                    await this.checkAndApplyDailyRecovery();
+                    this.showMainActions(); // メインアクションに戻る
+                }
+            }));
+            ui.displayChoices(choices);
+        } else {
+            // 選択肢がない場合（直接結果が適用されるイベント）
+            // TODO: 直接結果を適用するロジックをここに追加する
+            // 現時点ではランダムイベントは選択肢を持つ前提で進める
+            console.warn(`Random event ${eventData.id} has no choices. Direct consequence handling not yet implemented.`);
+            // ターンを進める
+            gameManager.nextTurn();
+            ui.updateStatusDisplay(gameManager.getStatus());
+            await this.checkAndApplyDailyRecovery();
+            this.showMainActions(); // メインアクションに戻る
+        }
+    },
+
+    /**
+     * ランダムイベントの選択肢の結果を処理する
+     * @param {string} eventId - イベントのID
+     * @param {string} choiceText - 選択された選択肢のテキスト
+     * @param {object} consequences - 選択肢の結果データ
+     */
+    processRandomEventChoice: async function (eventId, choiceText, consequences) { // eventId と choiceText を引数に追加
+        if (consequences.probability) {
+            // 確率分岐がある場合
+            const rand = Math.random();
+            if (rand < consequences.probability) {
+                // 成功
+                if (consequences.success.message) {
+                    ui.displayMessage(consequences.success.message, 'システム');
+                    await ui.waitForClick();
+                }
+                if (consequences.success.changes) {
+                    gameManager.applyChanges(consequences.success.changes);
+                    // 履歴に結果を記録
+                    gameManager.addHistory({ type: 'random_event_result', eventId: eventId, choiceId: choiceText, result: 'success', changes: consequences.success.changes });
+                }
+            } else {
+                // 失敗
+                if (consequences.failure.message) {
+                    ui.displayMessage(consequences.failure.message, 'システム');
+                    await ui.waitForClick();
+                }
+                if (consequences.failure.changes) {
+                    gameManager.applyChanges(consequences.failure.changes);
+                    // 履歴に結果を記録
+                    gameManager.addHistory({ type: 'random_event_result', eventId: eventId, choiceId: choiceText, result: 'failure', changes: consequences.failure.changes });
+                }
+            }
+        } else {
+            // 確率分岐がない場合
+            if (consequences.message) {
+                ui.displayMessage(consequences.message, 'システム');
+                await ui.waitForClick();
+            }
+            if (consequences.changes) {
+                gameManager.applyChanges(consequences.changes);
+                // 履歴に結果を記録
+                gameManager.addHistory({ type: 'random_event_result', eventId: eventId, choiceId: choiceText, result: 'normal', changes: consequences.changes });
+            }
+        }
+    }
 };
