@@ -139,12 +139,25 @@ class UIManager {
             button.onclick = () => {
                 // 効果音（存在すれば）
                 if (typeof soundManager !== 'undefined') soundManager.play('click');
-                // 選択肢をクリックしたら、コールバック関数を実行
-                if (choice.callback) {
-                    choice.callback();
-                }
-                // 選択後は選択肢を非表示にする
+                // 選択肢をクリックしたら、選択履歴を記録
+                try {
+                    if (typeof gameManager !== 'undefined' && typeof gameManager.recordChoice === 'function') {
+                        gameManager.recordChoice(choice.text);
+                    }
+                } catch (e) { console.error('recordChoice error', e); }
+
+                // 先に既存の選択肢を消してからコールバックを実行する
+                // これにより、コールバック内で新しい選択肢を表示しても
+                // 直後に元のクリックハンドラがそれらを消してしまう問題を防ぐ
                 this.clearChoices();
+
+                try {
+                    if (choice.callback) {
+                        choice.callback();
+                    }
+                } catch (e) {
+                    console.error('choice callback error', e);
+                }
             };
             this.choicesArea.appendChild(button);
         });

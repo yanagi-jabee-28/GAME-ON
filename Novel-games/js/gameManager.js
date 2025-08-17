@@ -305,6 +305,25 @@ class GameManager {
     }
 
     /**
+     * 履歴を追加するユーティリティ
+     * @param {{ type: string, timestamp?: number, detail?: object }} entry
+     */
+    addHistory(entry) {
+        if (!this.playerStatus.history) this.playerStatus.history = [];
+        const e = Object.assign({ timestamp: Date.now() }, entry);
+        this.playerStatus.history.push(e);
+        this._notifyListeners();
+    }
+
+    /**
+     * 選択肢の選択を記録する
+     * @param {string} label - 選んだ選択肢の表示テキスト
+     */
+    recordChoice(label) {
+        this.addHistory({ type: 'choice', detail: { label, day: this.playerStatus.day, turn: CONFIG.TURNS[this.playerStatus.turnIndex] } });
+    }
+
+    /**
      * レポートの進捗を進める
      * @param {string} id
      * @param {number} amount
@@ -395,6 +414,8 @@ class GameManager {
         } else {
             console.warn(`Item ${itemId} has no defined effect.`);
         }
+        // 履歴に使用を記録
+        this.addHistory({ type: 'use_item', detail: { itemId: itemId, itemName: item.name } });
         this._notifyListeners(); // ステータス変更を通知
         return true;
     }

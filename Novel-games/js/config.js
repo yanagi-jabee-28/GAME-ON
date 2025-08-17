@@ -41,6 +41,7 @@ const CONFIG = {
             condition: 100
         },
         items: ['energy_drink'], // 所持アイテムにエナジードリンクを追加
+        history: [], // 行動履歴（選択やアイテム使用などを記録する配列）
         reportDebt: 0, // レポート負債（互換性用の総数）
         reports: [ // 個別レポート管理のための配列（将来拡張用）
             { id: 'test_report_1', title: 'テストレポート', progress: 0, required: 3 }
@@ -62,22 +63,12 @@ const CHARACTERS = {
     // }
 };
 
-// アイテムデータ (将来の拡張用)
-const ITEMS = {
-    'energy_drink': {
-        name: 'エナジードリンク',
-        price: 300, // 購入価格（仮）
-        description: '一時的に体力を回復するが、後で反動が来る。',
-        effect: { // アイテム効果
-            changes: {
-                // condition を直接増加させる
-                stats: {
-                    condition: 10
-                }
-            }
-        }
-    }
-};
+// アイテムデータは別ファイル `js/items.js` で管理します。
+// ここではアイテムのIDだけを参照する設計にし、具体的な定義は分離しました。
+
+// 店舗ごとの品揃え（IDの配列）
+CONFIG.SCHOOL_SHOP_ITEMS = ['onigiri', 'sandwich', 'energy_drink'];
+CONFIG.CONVENIENCE_ITEMS = ['instant_noodles', 'onigiri', 'energy_drink'];
 
 // イベントデータ (将来の拡張用)
 const EVENTS = {

@@ -133,7 +133,93 @@ const GameEventManager = {
             }
         ];
 
+        // 放課後（TURNS の '放課後'）なら購買に行く選択肢を追加
+        if (turnName === '放課後') {
+            choices.push({ text: '購買に行く', callback: () => this.goToSchoolShop() });
+        }
+
+        // 夜ならコンビニへ行く選択肢を追加
+        if (turnName === '夜') {
+            choices.push({ text: 'コンビニに行く', callback: () => this.goToConveni() });
+        }
+
         ui.displayChoices(choices);
+    },
+
+    /**
+     * 学校の購買に行く（放課後の行動）
+     */
+    goToSchoolShop: async function () {
+        this.isInFreeAction = false;
+        ui.displayMessage('購買に行ってみよう。何を買う？');
+        await ui.waitForClick();
+
+        const items = CONFIG.SCHOOL_SHOP_ITEMS || [];
+        const choices = items.map(id => ({
+            text: `${ITEMS[id].name} - ${ITEMS[id].price}G`,
+            callback: async () => {
+                await this.attemptPurchase(id);
+            }
+        }));
+        choices.push({ text: '買わない', callback: () => { this.showMainActions(); } });
+
+        ui.displayChoices(choices);
+    },
+
+    /**
+     * コンビニに行く（夜の行動）
+     */
+    goToConveni: async function () {
+        this.isInFreeAction = false;
+        ui.displayMessage('コンビニに立ち寄ろう。何を買う？');
+        await ui.waitForClick();
+
+        const items = CONFIG.CONVENIENCE_ITEMS || [];
+        const choices = items.map(id => ({
+            text: `${ITEMS[id].name} - ${ITEMS[id].price}G`,
+            callback: async () => {
+                await this.attemptPurchase(id);
+            }
+        }));
+        choices.push({ text: '買わない', callback: () => { this.showMainActions(); } });
+
+        ui.displayChoices(choices);
+    },
+
+    /**
+     * 購入処理の共通化
+     * @param {string} itemId
+     */
+    attemptPurchase: async function (itemId) {
+        const item = ITEMS[itemId];
+        if (!item) return;
+
+        const status = gameManager.getStatus();
+        if (status.money < item.price) {
+            ui.displayMessage('所持金が足りません。');
+            await ui.waitForClick();
+            this.showMainActions();
+            return;
+        }
+
+        // お金を減らしてアイテムを所持に追加
+        gameManager.applyChanges({ money: -item.price, itemsAdd: [itemId] });
+        // 購入履歴を残す
+        if (typeof gameManager !== 'undefined' && typeof gameManager.addHistory === 'function') {
+            gameManager.addHistory({ type: 'purchase', detail: { itemId: itemId, itemName: item.name, price: item.price } });
+        }
+        ui.updateStatusDisplay(gameManager.getStatus());
+        ui.displayMessage(`${item.name} を購入した。`);
+        await ui.waitForClick();
+
+        // 購入したアイテムはアイテム一覧に追加されます。
+        // 使用はメニューから行ってください（自動使用は行わない）。
+
+        // 購入後はターンを進める
+        gameManager.nextTurn();
+        ui.updateStatusDisplay(gameManager.getStatus());
+        await this.checkAndApplyDailyRecovery();
+        this.showMainActions();
     },
 
     // --- 授業ターン用の行動 ---
