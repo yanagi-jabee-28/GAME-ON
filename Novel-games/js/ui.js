@@ -120,6 +120,7 @@ class UIManager {
 									await this.openMenuWindow('item');
 								} else {
 									// 失敗（所持していない等）はトーストで通知して再描画
+									try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
 									this.showTransientNotice('アイテムを所持していません。', { duration: 1200 });
 									await this.openMenuWindow('item');
 								}
@@ -355,7 +356,7 @@ class UIManager {
 				// インジケーターを非表示にする
 				this.clickIndicator.style.display = 'none';
 				// クリック音を鳴らす（存在すれば）
-				try { if (typeof soundManager !== 'undefined') soundManager.play('click'); } catch (e) { }
+				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
 
 				this.clearMessage(); // メッセージをクリア
 
@@ -386,7 +387,7 @@ class UIManager {
 			button.className = 'choice-button';
 			button.onclick = () => {
 				// 効果音（存在すれば）
-				try { if (typeof soundManager !== 'undefined') soundManager.play('click'); } catch (e) { }
+				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
 				// 選択肢をクリックしたら、選択履歴を記録
 				try {
 					if (typeof gameManager !== 'undefined' && typeof gameManager.recordChoice === 'function') {
@@ -430,6 +431,7 @@ class UIManager {
 		if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
 			// メニューを開けない場合は一時的なダイアログで通知（イベントメッセージの上書きは避ける）
 			try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
+			try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
 			this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
 			return;
 		}
@@ -448,7 +450,7 @@ class UIManager {
 		try { if (this.menuOverlay) this.menuOverlay.dataset.userOpened = '1'; } catch (e) { }
 		if (this.menuCloseFloating) this.menuCloseFloating.setAttribute('aria-visible', 'true');
 		this.updateMenuDisplay(); // メニューを開く際に最新の情報を表示
-		try { if (typeof soundManager !== 'undefined') soundManager.play('open'); } catch (e) { }
+		try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
 	}
 
 	/**
@@ -478,7 +480,7 @@ class UIManager {
 		} catch (e) { }
 		// Clear the userOpened marker when the menu is explicitly closed
 		try { if (this.menuOverlay && this.menuOverlay.dataset && this.menuOverlay.dataset.userOpened) delete this.menuOverlay.dataset.userOpened; } catch (e) { }
-		try { if (typeof soundManager !== 'undefined') soundManager.play('close'); } catch (e) { }
+		try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
 	}
 
 	/**
@@ -915,7 +917,7 @@ class UIManager {
 					const listener = () => {
 						try {
 							// クリック音
-							if (typeof soundManager !== 'undefined') soundManager.play('click');
+							if (typeof soundManager !== 'undefined') soundManager.play('ui_action');
 						} catch (e) { }
 						// リスナーを外して進行
 						this.messageWindow.removeEventListener('click', listener);
@@ -952,16 +954,16 @@ class UIManager {
 	 */
 	initializeMenuListeners() {
 		this.menuButton.addEventListener('click', () => {
-			try { if (typeof soundManager !== 'undefined') soundManager.play('open'); } catch (e) { }
+			try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
 			this.openMenu();
 		});
 		this.menuCloseButton.addEventListener('click', () => {
+			try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
 			this.closeMenu();
-			try { if (typeof soundManager !== 'undefined') soundManager.play('close'); } catch (e) { }
 		});
 		if (this.menuCloseFloating) this.menuCloseFloating.addEventListener('click', () => {
+			try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
 			this.closeMenu();
-			try { if (typeof soundManager !== 'undefined') soundManager.play('close'); } catch (e) { }
 		});
 
 		//折りたたみトグル
@@ -970,20 +972,22 @@ class UIManager {
 			this.toggleItemsButton.addEventListener('click', async () => {
 				// If not in free action, show transient notice instead
 				if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
+					try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
 					this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
 					return;
 				}
-				try { if (typeof soundManager !== 'undefined') soundManager.play('open'); } catch (e) { }
+				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
 				await this.openMenuWindow('item');
 			});
 		}
 		if (this.toggleHistoryButton && this.menuHistorySection) {
 			this.toggleHistoryButton.addEventListener('click', async () => {
 				if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
+					try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
 					this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
 					return;
 				}
-				try { if (typeof soundManager !== 'undefined') soundManager.play('open'); } catch (e) { }
+				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
 				await this.openMenuWindow('history');
 			});
 		}
@@ -993,21 +997,21 @@ class UIManager {
 		winCloses.forEach(btn => {
 			btn.addEventListener('click', (e) => {
 				const win = e.target.closest('.menu-window');
+				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
 				this.closeMenuWindow(win);
-				try { if (typeof soundManager !== 'undefined') soundManager.play('close'); } catch (e) { }
 			});
 		});
 
 		// セーブ・ロードボタンのイベントリスナー
 		if (this.saveGameButton) {
 			this.saveGameButton.addEventListener('click', () => {
-				try { if (typeof soundManager !== 'undefined') soundManager.play('click'); } catch (e) { }
+				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
 				this.handleSaveGame();
 			});
 		}
 		if (this.loadGameButton) {
 			this.loadGameButton.addEventListener('click', () => {
-				try { if (typeof soundManager !== 'undefined') soundManager.play('open'); } catch (e) { }
+				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
 				this.loadGameFileInput && this.loadGameFileInput.click();
 			});
 		}
@@ -1143,6 +1147,7 @@ class UIManager {
 			} catch (error) {
 				console.error('Failed to load game data:', error);
 				const message = 'ゲームデータのロードに失敗しました。ファイルが破損しているか、形式が正しくありません。';
+				try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
 				if (isFromTitle) {
 					this.showTransientNotice(message);
 				} else {
