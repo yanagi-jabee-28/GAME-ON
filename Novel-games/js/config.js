@@ -118,15 +118,15 @@ const CHARACTERS = {
 // ここではアイテムのIDだけを参照する設計にし、具体的な定義は分離しました。
 
 // 店舗ごとの品揃え（IDの配列）
-CONFIG.SCHOOL_SHOP_ITEMS = ['onigiri', 'sandwich', 'energy_drink'];
-CONFIG.CONVENIENCE_ITEMS = ['instant_noodles', 'onigiri', 'energy_drink'];
+CONFIG.SCHOOL_SHOP_ITEMS = ['onigiri', 'sandwich', 'energy_drink', 'chocolate_bar'];
+CONFIG.CONVENIENCE_ITEMS = ['instant_noodles', 'onigiri', 'energy_drink', 'calming_tea', 'chocolate_bar'];
+CONFIG.SUPERMARKET_ITEMS = ['instant_noodles', 'onigiri', 'sandwich', 'calming_tea', 'chocolate_bar', 'relax_bath_salt'];
 
 // ショップ定義を一元管理する（UIやイベントから参照するため）
 CONFIG.SHOPS = {
 	school: { id: 'school', labelKey: 'shop', label: '購買', items: CONFIG.SCHOOL_SHOP_ITEMS },
 	conveni: { id: 'conveni', labelKey: 'conveni', label: 'コンビニ', items: CONFIG.CONVENIENCE_ITEMS },
-	// ひとまずスーパーの品揃えはコンビニと同一にする（将来は別ラインナップや価格調整を想定）
-	supermarket: { id: 'supermarket', labelKey: 'supermarket', label: 'スーパー', items: CONFIG.CONVENIENCE_ITEMS }
+	supermarket: { id: 'supermarket', labelKey: 'supermarket', label: 'スーパー', items: CONFIG.SUPERMARKET_ITEMS }
 };
 
 // EVENTS は js/eventsData.js に分離しました

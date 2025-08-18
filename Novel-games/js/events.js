@@ -152,7 +152,7 @@ const GameEventManager = {
 			// 回復処理（体力と精神力を少し回復）
 			// applyChanges を使って差分メッセージを取得し、他のステータス変化
 			// と同じフォーマットで表示する。
-			const recovery = { stats: { physical: 6, mental: 4 } };
+			const recovery = { stats: { physical: 4, mental: 3 } };
 			const msgs = (typeof gameManager.applyChanges === 'function') ? gameManager.applyChanges(recovery, { suppressDisplay: true }) : [];
 			ui.updateStatusDisplay(gameManager.getStatus()); // 回復後のステータスを更新
 			if (msgs && msgs.length > 0) {

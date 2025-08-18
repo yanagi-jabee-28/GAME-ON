@@ -19,7 +19,7 @@ const EVENTS = {
 		name: '主人公',
 		message: "自主的に机に向かい、黙々と勉強を始めた。",
 		changes: {
-			stats: { academic: 4, mental: -3, physical: -2 }
+			stats: { academic: 3, mental: -4, physical: -3 }
 		},
 		// After message should be shown without a speaker label
 		afterMessage: "勉強の手応えを感じた。少し疲れたが着実に力がついた。",
@@ -30,21 +30,21 @@ const EVENTS = {
 		name: '主人公',
 		message: "お金を稼ぎに行こう。",
 		changes: {
-			money: 400,
-			stats: { physical: -8 }
+			money: 350,
+			stats: { physical: -10 }
 		},
 		afterMessage: "疲れた...でも、これで少しは生活が楽になるはずだ。",
 		nextAction: "showMainActions"
 	},
 	"REPORT_ACTION": {
 		message: "溜まっているレポートを片付けないと...",
-		changes: { stats: { mental: -4 } },
+		changes: { stats: { mental: -5 } },
 		afterMessage: "", // レポート進捗によってメッセージが変わるため空
 		nextAction: "showMainActions"
 	},
 	"REST_ACTION": {
 		message: "今日はゆっくり休んで、明日に備えよう。",
-		changes: { stats: { physical: 8, mental: 8 } },
+		changes: { stats: { physical: 6, mental: 6 } },
 		afterMessage: "",
 		nextAction: "showMainActions"
 	},
@@ -52,7 +52,7 @@ const EVENTS = {
 		name: '主人公',
 		message: "授業に集中する。学びを吸収しよう。",
 		changes: {
-			stats: { academic: 6, mental: -2 }
+			stats: { academic: 4, mental: -3 }
 		},
 		afterMessage: "", // 特にメッセージなし
 		nextAction: "showMainActions"
@@ -98,7 +98,7 @@ const RANDOM_EVENTS = {
 		name: "教授の雑談、宇宙へ",
 		conditions: { turn: ["午前"], weekday: true },
 		message: "物理の教授の雑談が白熱し、授業そっちのけで宇宙の神秘について語り始めた...",
-				choices: [
+		choices: [
 			{ text: "興味深く聞く", consequences: { message: "宇宙の壮大さに思いを馳せ、少しだけ心が軽くなった。", changes: { stats: { mental: 5 } } } },
 			{ text: "内職して勉強する", consequences: { probability: 0.7, success: { message: "教授の話をBGMに、集中して勉強ができた。", changes: { stats: { academic: 5 } } }, failure: { message: "内職が教授にバレてしまい、気まずい思いをした...", changes: { stats: { mental: -10 } } } } }
 		]
