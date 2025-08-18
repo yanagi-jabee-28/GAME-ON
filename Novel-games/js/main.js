@@ -71,6 +71,9 @@ function initializeGame(protagonistName) {
 
 	console.log('ゲームの初期化が完了しました。');
 
+	// Play game start sound if available
+	try { if (typeof soundManager !== 'undefined') soundManager.play('game_start'); } catch (e) { }
+
 	// 初期状態を画面に反映
 	ui.updateStatusDisplay(gameManager.getStatus());
 
@@ -86,26 +89,26 @@ function initializeGame(protagonistName) {
  * タイトル画面を初期化する
  */
 function initializeTitleScreen() {
-    ui = new UIManager();
-    ui.showTitleScreen();
+	ui = new UIManager();
+	ui.showTitleScreen();
 
-    const newGameButton = document.getElementById('new-game-button');
-    const loadGameButton = document.getElementById('load-game-button-title');
-    const protagonistNameInput = document.getElementById('protagonist-name');
+	const newGameButton = document.getElementById('new-game-button');
+	const loadGameButton = document.getElementById('load-game-button-title');
+	const protagonistNameInput = document.getElementById('protagonist-name');
 
-    newGameButton.addEventListener('click', () => {
-        const name = protagonistNameInput.value.trim();
-        if (name) {
-            initializeGame(name);
-        } else {
-            ui.showTransientNotice('主人公の名前を入力してください。');
-        }
-    });
+	newGameButton.addEventListener('click', () => {
+		const name = protagonistNameInput.value.trim();
+		if (name) {
+			initializeGame(name);
+		} else {
+			ui.showTransientNotice('主人公の名前を入力してください。');
+		}
+	});
 
-    loadGameButton.addEventListener('click', () => {
-        // ui.jsにロード処理を実装し、それを呼び出す
-        ui.handleLoadGame(true); // isTitle=true を渡す
-    });
+	loadGameButton.addEventListener('click', () => {
+		// ui.jsにロード処理を実装し、それを呼び出す
+		ui.handleLoadGame(true); // isTitle=true を渡す
+	});
 }
 
 /**

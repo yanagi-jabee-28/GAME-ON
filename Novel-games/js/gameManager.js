@@ -824,6 +824,7 @@ class GameManager {
 		// 履歴に使用を記録
 		this.addHistory({ type: 'use_item', detail: { itemId: itemId, itemName: item.name } });
 		this._notifyListeners(); // ステータス変更を通知
+		try { if (typeof soundManager !== 'undefined') soundManager.play('item_use'); } catch (e) { }
 		return true;
 	}
 

@@ -397,6 +397,41 @@ class SoundManager {
 			o.start();
 			o.stop(now + 0.2);
 		};
+
+		// item use: short twinkle
+		this.synthetic['item_use'] = () => {
+			const ctx = this.ctx;
+			const now = ctx.currentTime;
+			const g = ctx.createGain();
+			g.gain.setValueAtTime(0.0001, now);
+			g.gain.exponentialRampToValueAtTime(0.12 * this.volume, now + 0.005);
+			[1000, 1400, 1800].forEach((f, i) => {
+				const o = ctx.createOscillator();
+				o.type = 'sine';
+				o.frequency.setValueAtTime(f, now + i * 0.03);
+				o.connect(g).connect(ctx.destination);
+				o.start(now + i * 0.03);
+				o.stop(now + i * 0.03 + 0.06);
+			});
+		};
+
+		// game start: pleasant rising arpeggio
+		this.synthetic['game_start'] = () => {
+			const ctx = this.ctx;
+			const now = ctx.currentTime;
+			const g = ctx.createGain();
+			g.gain.setValueAtTime(0.0001, now);
+			g.gain.exponentialRampToValueAtTime(0.14 * this.volume, now + 0.02);
+			const freqs = [520, 780, 1040];
+			freqs.forEach((f, i) => {
+				const o = ctx.createOscillator();
+				o.type = 'sine';
+				o.frequency.setValueAtTime(f, now + i * 0.08);
+				o.connect(g).connect(ctx.destination);
+				o.start(now + i * 0.08);
+				o.stop(now + i * 0.08 + 0.18);
+			});
+		};
 	}
 }
 
