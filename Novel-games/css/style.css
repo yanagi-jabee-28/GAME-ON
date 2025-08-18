@@ -1,294 +1,294 @@
 /* 基本的なスタイル */
 body {
-    font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
-    background-color: #1a1a1a;
-    /* 暗い背景色 */
-    color: #ffffff;
-    /* 白い文字色 */
-    margin: 0;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    overflow: hidden;
-    /* メニュー表示時にスクロールバーが出ないように */
+	font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+	background-color: #1a1a1a;
+	/* 暗い背景色 */
+	color: #ffffff;
+	/* 白い文字色 */
+	margin: 0;
+	padding: 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100vh;
+	overflow: hidden;
+	/* メニュー表示時にスクロールバーが出ないように */
 }
 
 /* ゲーム全体のコンテナ */
 #game-container {
-    width: 800px;
-    max-width: 100%;
-    min-height: 600px;
-    /* 仮の最小高さを設定 */
-    border: 2px solid #444;
-    border-radius: 10px;
-    overflow: hidden;
-    background-color: #2a2a2a;
-    position: relative;
-    /* メニューオーバーレイの基準点 */
+	width: 800px;
+	max-width: 100%;
+	min-height: 600px;
+	/* 仮の最小高さを設定 */
+	border: 2px solid #444;
+	border-radius: 10px;
+	overflow: hidden;
+	background-color: #2a2a2a;
+	position: relative;
+	/* メニューオーバーレイの基準点 */
 }
 
 /* ステータス表示エリア */
 #status-display {
-    padding: 10px 20px;
-    background-color: #222;
-    border-bottom: 2px solid #444;
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    /* 垂直方向中央揃え */
+	padding: 10px 20px;
+	background-color: #222;
+	border-bottom: 2px solid #444;
+	display: flex;
+	justify-content: space-around;
+	align-items: center;
+	/* 垂直方向中央揃え */
 }
 
 #status-display p {
-    margin: 0;
+	margin: 0;
 }
 
 /* メニューボタン */
 #menu-button {
-    background-color: #555;
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 1em;
-    transition: background-color 0.3s;
+	background-color: #555;
+	color: white;
+	border: none;
+	padding: 8px 15px;
+	border-radius: 5px;
+	cursor: pointer;
+	font-size: 1em;
+	transition: background-color 0.3s;
 }
 
 #menu-button:hover {
-    background-color: #777;
+	background-color: #777;
 }
 
 /* メイン画面 */
 #main-screen {
-    padding: 20px;
-    height: calc(600px - 80px);
-    /* game-containerの高さ - status-displayの高さ - padding */
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    /* メッセージと選択肢を上下に配置 */
+	padding: 20px;
+	height: calc(600px - 80px);
+	/* game-containerの高さ - status-displayの高さ - padding */
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	/* メッセージと選択肢を上下に配置 */
 }
 
 /* メッセージウィンドウ */
 #message-window {
-    border: 2px solid #444;
-    background-color: #333;
-    padding: 20px;
-    min-height: 150px;
-    margin-bottom: 20px;
-    border-radius: 5px;
-    position: relative;
-    /* インジケーターの位置の基準とする */
+	border: 2px solid #444;
+	background-color: #333;
+	padding: 20px;
+	min-height: 150px;
+	margin-bottom: 20px;
+	border-radius: 5px;
+	position: relative;
+	/* インジケーターの位置の基準とする */
 }
 
 #character-name {
-    font-weight: bold;
-    margin-bottom: 10px;
-    font-size: 1.2em;
-    color: #87CEEB;
-    /* キャラクター名の文字色 */
+	font-weight: bold;
+	margin-bottom: 10px;
+	font-size: 1.2em;
+	color: #87CEEB;
+	/* キャラクター名の文字色 */
 }
 
 #message-text {
-    line-height: 1.6;
+	line-height: 1.6;
 }
 
 /* クリック待ちのインジケーター */
 #click-indicator {
-    position: absolute;
-    bottom: 10px;
-    right: 20px;
-    font-size: 1.5em;
-    color: #fff;
-    animation: bounce 1.5s infinite;
-    display: none;
-    /* デフォルトでは非表示 */
-    cursor: pointer;
+	position: absolute;
+	bottom: 10px;
+	right: 20px;
+	font-size: 1.5em;
+	color: #fff;
+	animation: bounce 1.5s infinite;
+	display: none;
+	/* デフォルトでは非表示 */
+	cursor: pointer;
 }
 
 /* 簡単なバウンドアニメーション */
 @keyframes bounce {
 
-    0%,
-    100% {
-        transform: translateY(0);
-    }
+	0%,
+	100% {
+		transform: translateY(0);
+	}
 
-    50% {
-        transform: translateY(-10px);
-    }
+	50% {
+		transform: translateY(-10px);
+	}
 }
 
 /* 選択肢エリア */
 #choices-area .choice-button {
-    display: block;
-    width: 100%;
-    padding: 15px;
-    margin-bottom: 10px;
-    background-color: #4a4a4a;
-    border: 1px solid #666;
-    color: #ffffff;
-    text-align: center;
-    cursor: pointer;
-    border-radius: 5px;
-    transition: background-color 0.3s, transform 0.1s;
+	display: block;
+	width: 100%;
+	padding: 15px;
+	margin-bottom: 10px;
+	background-color: #4a4a4a;
+	border: 1px solid #666;
+	color: #ffffff;
+	text-align: center;
+	cursor: pointer;
+	border-radius: 5px;
+	transition: background-color 0.3s, transform 0.1s;
 }
 
 #choices-area .choice-button:hover {
-    background-color: #5a5a5a;
-    transform: scale(1.02);
+	background-color: #5a5a5a;
+	transform: scale(1.02);
 }
 
 #choices-area .choice-button:active {
-    transform: scale(1);
+	transform: scale(1);
 }
 
 /* メニューオーバーレイ */
 #menu-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
-    /* 半透明の黒背景 */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    /* 他の要素より手前に表示 */
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background-color: rgba(0, 0, 0, 0.8);
+	/* 半透明の黒背景 */
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	z-index: 1000;
+	/* 他の要素より手前に表示 */
 }
 
 #menu-overlay.hidden {
-    display: none;
-    /* 初期状態では非表示 */
+	display: none;
+	/* 初期状態では非表示 */
 }
 
 /* メニュー全体をフレックスコンテナにして、ヘッダとフッタを固定し中身だけスクロールさせる */
 #menu-content {
-    background-color: #333;
-    padding: 20px 30px;
-    border-radius: 10px;
-    width: 600px;
-    height: 600px;
-    /* 固定高さに変更 */
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    /* 外側は隠して内部でスクロールさせる */
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+	background-color: #333;
+	padding: 20px 30px;
+	border-radius: 10px;
+	width: 600px;
+	height: 600px;
+	/* 固定高さに変更 */
+	max-height: 90vh;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	/* 外側は隠して内部でスクロールさせる */
+	box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
 /* メニュー内部のスクロール可能領域 */
 .menu-scroll {
-    overflow-y: auto;
-    /* 高さはメニューの残り領域を埋めるように設定 */
-    flex: 1 1 auto;
-    padding-right: 8px;
-    /* スクロールバーと内容の余白 */
+	overflow-y: auto;
+	/* 高さはメニューの残り領域を埋めるように設定 */
+	flex: 1 1 auto;
+	padding-right: 8px;
+	/* スクロールバーと内容の余白 */
 }
 
 /* メニュー内の閉じるボタン（メニューコンテナ内に配置） */
 #menu-close-floating {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    z-index: 1010;
-    /* メニュー内より前面 */
-    background: rgba(220, 53, 69, 0.95);
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.05em;
-    cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	z-index: 1010;
+	/* メニュー内より前面 */
+	background: rgba(220, 53, 69, 0.95);
+	color: white;
+	border: none;
+	border-radius: 50%;
+	width: 36px;
+	height: 36px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1.05em;
+	cursor: pointer;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 @media (max-width: 480px) {
-    #menu-content {
-        width: 92%;
-        padding: 16px;
-        height: 86vh;
-        /* 小画面では高さをvhで確保 */
-        max-height: 86vh;
-    }
+	#menu-content {
+		width: 92%;
+		padding: 16px;
+		height: 86vh;
+		/* 小画面では高さをvhで確保 */
+		max-height: 86vh;
+	}
 
-    #menu-close-floating {
-        width: 32px;
-        height: 32px;
-        top: 8px;
-        right: 8px;
-    }
+	#menu-close-floating {
+		width: 32px;
+		height: 32px;
+		top: 8px;
+		right: 8px;
+	}
 }
 
 #menu-content h2,
 #menu-content h3 {
-    color: #eee;
-    border-bottom: 1px solid #555;
-    padding-bottom: 5px;
-    margin-bottom: 15px;
+	color: #eee;
+	border-bottom: 1px solid #555;
+	padding-bottom: 5px;
+	margin-bottom: 15px;
 }
 
 #menu-status-section p {
-    margin: 8px 0;
-    font-size: 1.1em;
+	margin: 8px 0;
+	font-size: 1.1em;
 }
 
 #menu-item-list {
-    list-style: none;
-    padding: 0;
+	list-style: none;
+	padding: 0;
 }
 
 #menu-item-list li {
-    background-color: #444;
-    margin-bottom: 10px;
-    padding: 10px;
-    border-radius: 5px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+	background-color: #444;
+	margin-bottom: 10px;
+	padding: 10px;
+	border-radius: 5px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
 }
 
 #menu-item-list li span {
-    flex-grow: 1;
+	flex-grow: 1;
 }
 
 #menu-item-list li button {
-    background-color: #007bff;
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: background-color 0.3s;
+	background-color: #007bff;
+	color: white;
+	border: none;
+	padding: 5px 10px;
+	border-radius: 3px;
+	cursor: pointer;
+	transition: background-color 0.3s;
 }
 
 #menu-item-list li button:hover {
-    background-color: #0056b3;
+	background-color: #0056b3;
 }
 
 #menu-close-button {
-    display: block;
-    width: 100%;
-    padding: 10px;
-    margin-top: 20px;
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 1.1em;
-    transition: background-color 0.3s;
+	display: block;
+	width: 100%;
+	padding: 10px;
+	margin-top: 20px;
+	background-color: #dc3545;
+	color: white;
+	border: none;
+	border-radius: 5px;
+	cursor: pointer;
+	font-size: 1.1em;
+	transition: background-color 0.3s;
 }
 
 #menu-close-button:hover {
-    background-color: #c82333;
+	background-color: #c82333;
 }
