@@ -284,6 +284,66 @@ class GameManager {
         } catch (e) {
             console.warn('Failed to notify listeners after nextTurn', e);
         }
+
+        // 日付が進んだ直後に期末試験の判定が必要かを確認
+        try {
+            this.runExamIfNeeded();
+        } catch (e) {
+            console.error('runExamIfNeeded error', e);
+        }
+    }
+
+
+    /**
+     * 指定日（CONFIG.EXAM.day）の到来時に学力を評価し、合否を判定する。
+     * 合格ならメッセージ表示と履歴記録、未達なら留年等のペナルティ処理を行う。
+     */
+    runExamIfNeeded() {
+        try {
+            if (!CONFIG || !CONFIG.EXAM) return;
+            // 週次繰り返し設定がある場合は曜日ベースで判定
+            const examDay = Number(CONFIG.EXAM.day) || 7;
+            const repeatWeekly = (CONFIG.EXAM_EXT && CONFIG.EXAM_EXT.repeatWeekly) ? true : false;
+            const targetWeekday = (CONFIG.EXAM_EXT && CONFIG.EXAM_EXT.weekday) ? CONFIG.EXAM_EXT.weekday : null;
+
+            // 既にその日で試験を実行済みなら二重実行を防止
+            if (this.playerStatus.lastExamRunDay && Number(this.playerStatus.lastExamRunDay) === Number(this.playerStatus.day)) {
+                return;
+            }
+
+            let shouldRun = false;
+            if (repeatWeekly && targetWeekday) {
+                const todayWeekday = this.getWeekdayName();
+                if (todayWeekday === targetWeekday) shouldRun = true;
+            }
+            // 明示的な日付指定も許容（例: day === 7）
+            if (Number(this.playerStatus.day) === examDay) shouldRun = true;
+            if (!shouldRun) return;
+
+            const academic = (this.playerStatus.stats && Number(this.playerStatus.stats.academic)) ? Number(this.playerStatus.stats.academic) : 0;
+            const threshold = Number(CONFIG.EXAM.passThreshold) || 50;
+
+            if (academic >= threshold) {
+                const msg = `期末試験: 学力 ${academic} — 合格しました。おめでとうございます。`;
+                if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') ui.displayMessage(msg, '試験官');
+                this.addHistory({ type: 'exam', detail: { result: 'pass', academic, threshold } });
+                const rewards = (CONFIG.EXAM_REWARDS && CONFIG.EXAM_REWARDS.pass) ? CONFIG.EXAM_REWARDS.pass : { money: 500, cp: 0 };
+                this.applyChanges({ money: Number(rewards.money) || 0, cp: Number(rewards.cp) || 0 });
+            } else {
+                const msg = `期末試験: 学力 ${academic} — 不合格です。留年の可能性があります。`;
+                if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') ui.displayMessage(msg, '試験官');
+                this.addHistory({ type: 'exam', detail: { result: 'fail', academic, threshold } });
+                const punish = (CONFIG.EXAM_REWARDS && CONFIG.EXAM_REWARDS.fail) ? CONFIG.EXAM_REWARDS.fail : { money: -200, cp: 0 };
+                this.applyChanges({ money: Number(punish.money) || 0, cp: Number(punish.cp) || 0 });
+                this.playerStatus.examFailed = (this.playerStatus.examFailed || 0) + 1;
+                this._notifyListeners();
+            }
+
+            // 実行済みフラグを記録して同日の重複実行を防止
+            this.playerStatus.lastExamRunDay = Number(this.playerStatus.day);
+        } catch (e) {
+            console.error('Error during exam evaluation', e);
+        }
     }
 
     /**

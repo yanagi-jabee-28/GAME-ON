@@ -28,6 +28,26 @@ const CONFIG = {
         condition: { label: 'コンディション', min: 0, max: 100, default: 100 }
     },
 
+    // 期末試験の設定: 何日目に試験があるかと合格基準値
+    EXAM: {
+        day: 7,
+        passThreshold: 50
+    },
+
+    // 試験報酬（合格時に付与するデフォルト報酬）
+    // cp はデフォルトで 0 にしておく（意図しない人脈増加を防止）
+    EXAM_REWARDS: {
+        pass: { money: 500, cp: 0 },
+        fail: { money: -200, cp: 0 }
+    },
+
+    // EXAM の拡張設定: repeatWeekly を true にすると指定曜日ごとに試験を実施
+    // weekday は '日','月',... のいずれか。デフォルトは '水'（START_WEEKDAY_INDEX に合わせる）
+    EXAM_EXT: {
+        repeatWeekly: true,
+        weekday: '水'
+    },
+
     // 初期ステータス
     INITIAL_PLAYER_STATUS: {
         day: 1,
