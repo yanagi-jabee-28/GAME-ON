@@ -29,46 +29,114 @@ body {
 	/* メニューオーバーレイの基準点 */
 }
 
-/* ステータス表示エリア */
+/* ステータス表示エリア（2行構成） */
 #status-display {
-	padding: 10px 20px;
-	background-color: #222;
-	border-bottom: 2px solid #444;
-	display: flex;
-	justify-content: space-around;
-	align-items: center;
-	/* 垂直方向中央揃え */
+	padding: 12px 20px 14px;
+	background-color: #202020;
+	border-bottom: 2px solid #3a3a3a;
 }
 
-#status-display p {
-	margin: 0;
+/* 上段: 日付/時間 + メニューボタン */
+#status-display .status-top {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+}
+
+#status-display .status-top-left {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	flex-wrap: wrap;
+	font-size: 15px;
+}
+
+#status-display .status-top-left .label {
+	color: #cfcfcf;
+}
+
+#status-display .status-top-left .sep {
+	opacity: 0.4;
+}
+
+/* 下段: ステータスのチップ群 */
+#status-display .status-stats {
+	margin-top: 10px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 10px;
+}
+
+.stat-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 10px;
+	border-radius: 999px;
+	background: #2f2f2f;
+	border: 1px solid #444;
+	font-size: 14px;
+}
+
+.stat-chip .label {
+	color: #e0e0e0;
+	opacity: 0.9;
+}
+
+.stat-chip span:last-child {
+	font-weight: 700;
+}
+
+.stat-physical {
+	box-shadow: inset 0 0 0 1px rgba(255, 99, 132, 0.2);
+}
+
+.stat-mental {
+	box-shadow: inset 0 0 0 1px rgba(54, 162, 235, 0.2);
+}
+
+.stat-technical {
+	box-shadow: inset 0 0 0 1px rgba(255, 206, 86, 0.2);
+}
+
+.stat-money {
+	box-shadow: inset 0 0 0 1px rgba(75, 192, 192, 0.2);
+}
+
+.stat-cp {
+	box-shadow: inset 0 0 0 1px rgba(153, 102, 255, 0.2);
 }
 
 /* メニューボタン */
+/* メニューボタン（トップ行の右側） */
 #menu-button {
-	background-color: #555;
-	color: white;
-	border: none;
-	padding: 8px 15px;
-	border-radius: 5px;
+	background: linear-gradient(180deg, #666, #4f4f4f);
+	color: #fff;
+	border: 1px solid #6d6d6d;
+	padding: 8px 14px;
+	border-radius: 8px;
 	cursor: pointer;
-	font-size: 1em;
-	transition: background-color 0.3s;
+	font-size: 14px;
+	transition: filter .15s ease, transform .05s ease;
 }
 
 #menu-button:hover {
-	background-color: #777;
+	filter: brightness(1.1);
+}
+
+#menu-button:active {
+	transform: translateY(1px);
 }
 
 /* メイン画面 */
 #main-screen {
 	padding: 20px;
-	height: calc(600px - 80px);
-	/* game-containerの高さ - status-displayの高さ - padding */
+	height: calc(600px - 100px);
+	/* header高さの増加に合わせて微調整 */
 	display: flex;
 	flex-direction: column;
 	justify-content: space-between;
-	/* メッセージと選択肢を上下に配置 */
 }
 
 /* メッセージウィンドウ */

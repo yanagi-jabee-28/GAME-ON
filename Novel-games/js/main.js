@@ -24,22 +24,23 @@ function initializeGame() {
 			// ステータス表示の静的ラベルを置換
 			const statusDisplay = document.getElementById('status-display');
 			if (statusDisplay) {
-				// date
-				const dateP = statusDisplay.querySelector('p:nth-child(1)');
-				if (dateP) dateP.innerHTML = `${CONFIG.LABELS.date}: <span id="date-display">1日目</span>`;
-				const timeP = statusDisplay.querySelector('p:nth-child(2)');
-				if (timeP) timeP.innerHTML = `${CONFIG.LABELS.timeOfDay}: <span id="time-of-day-display">午前</span>`;
-				const condP = statusDisplay.querySelector('p:nth-child(3)');
-				if (condP) condP.innerHTML = `${CONFIG.LABELS.physical}: <span id="physical-display">80</span>`;
-				const mentalP = statusDisplay.querySelector('p:nth-child(4)');
-				if (mentalP) mentalP.innerHTML = `${CONFIG.LABELS.mental}: <span id="mental-display">80</span>`;
-				const techP = statusDisplay.querySelector('p:nth-child(5)');
-				if (techP) techP.innerHTML = `${CONFIG.LABELS.technical}: <span id="technical-display">5</span>`;
-				const moneyP = statusDisplay.querySelector('p:nth-child(6)');
-				// 通貨単位は UI 側で付与するため、ここでは単に span を用意する
-				if (moneyP) moneyP.innerHTML = `${CONFIG.LABELS.money}: <span id="money-display">10000</span>`;
-				const cpP = statusDisplay.querySelector('p:nth-child(7)');
-				if (cpP) cpP.innerHTML = `${CONFIG.LABELS.cp}: <span id="cp-display">0</span>`;
+				// トップ行のラベル
+				const labelDate = document.getElementById('label-date');
+				if (labelDate) labelDate.textContent = CONFIG.LABELS.date || labelDate.textContent;
+				const labelTime = document.getElementById('label-time');
+				if (labelTime) labelTime.textContent = CONFIG.LABELS.timeOfDay || labelTime.textContent;
+
+				// 下段のチップのラベル
+				const labelPhysical = document.getElementById('label-physical');
+				if (labelPhysical) labelPhysical.textContent = CONFIG.LABELS.physical || labelPhysical.textContent;
+				const labelMental = document.getElementById('label-mental');
+				if (labelMental) labelMental.textContent = CONFIG.LABELS.mental || labelMental.textContent;
+				const labelTechnical = document.getElementById('label-technical');
+				if (labelTechnical) labelTechnical.textContent = CONFIG.LABELS.technical || labelTechnical.textContent;
+				const labelMoney = document.getElementById('label-money');
+				if (labelMoney) labelMoney.textContent = CONFIG.LABELS.money || labelMoney.textContent;
+				const labelCp = document.getElementById('label-cp');
+				if (labelCp) labelCp.textContent = CONFIG.LABELS.cp || labelCp.textContent;
 			}
 
 			// メニュー内の見出し

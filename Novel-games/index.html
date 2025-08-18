@@ -17,16 +17,40 @@
     </nav>
 
     <div id="game-container">
-        <!-- ステータス表示エリア -->
+        <!-- ステータス表示エリア（上段: 日付/時間、下段: ステータス群） -->
         <div id="status-display">
-            <p>日付: <span id="date-display">1日目</span></p>
-            <p>時間: <span id="time-of-day-display">午前</span></p>
-            <p>体力: <span id="physical-display">80</span></p>
-            <p>精神力: <span id="mental-display">80</span></p>
-            <p>技術力: <span id="technical-display">5</span></p>
-            <p>所持金: <span id="money-display">10000</span></p>
-            <p>人脈: <span id="cp-display">0</span></p>
-            <button id="menu-button">メニュー</button>
+            <div class="status-top">
+                <div class="status-top-left">
+                    <span class="label" id="label-date">日付</span>:
+                    <span id="date-display">1日目</span>
+                    <span class="sep">｜</span>
+                    <span class="label" id="label-time">時間</span>:
+                    <span id="time-of-day-display">午前</span>
+                </div>
+                <button id="menu-button">メニュー</button>
+            </div>
+            <div class="status-stats">
+                <div class="stat-chip stat-physical">
+                    <span class="label" id="label-physical">体力</span>:
+                    <span id="physical-display">80</span>
+                </div>
+                <div class="stat-chip stat-mental">
+                    <span class="label" id="label-mental">精神力</span>:
+                    <span id="mental-display">80</span>
+                </div>
+                <div class="stat-chip stat-technical">
+                    <span class="label" id="label-technical">技術力</span>:
+                    <span id="technical-display">5</span>
+                </div>
+                <div class="stat-chip stat-money">
+                    <span class="label" id="label-money">所持金</span>:
+                    <span id="money-display">10000</span>
+                </div>
+                <div class="stat-chip stat-cp">
+                    <span class="label" id="label-cp">人脈</span>:
+                    <span id="cp-display">0</span>
+                </div>
+            </div>
         </div>
 
         <!-- メイン画面 -->

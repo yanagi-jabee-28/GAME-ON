@@ -30,8 +30,14 @@ const GameEventManager = {
 
 		// ステータス変動
 		if (eventData.changes) {
-			gameManager.applyChanges(eventData.changes);
+			// applyChanges の内部表示は呼び出し側で制御して
+			// 明示的にメッセージを表示・待機するようにする
+			const msgs = gameManager.applyChanges(eventData.changes, { suppressDisplay: true }) || [];
 			ui.updateStatusDisplay(gameManager.getStatus());
+			if (msgs.length > 0) {
+				ui.displayMessage(msgs.join('\n'), 'システム');
+				if (typeof ui.waitForClick === 'function') await ui.waitForClick();
+			}
 		}
 
 		// 行動後のメッセージ表示 (eventData.afterMessage)
@@ -94,9 +100,15 @@ const GameEventManager = {
 				delete normalized.academic;
 			}
 			// applyChanges 側で表示制御が可能なのでここでは通常通り適用する
-			gameManager.applyChanges(normalized);
+			// suppress display in applyChanges and show messages here so the
+			// caller controls the click-wait timing and the player sees the
+			// money/stat deltas clearly.
+			const msgs = gameManager.applyChanges(normalized, { suppressDisplay: true }) || [];
 			ui.updateStatusDisplay(gameManager.getStatus());
-			await ui.waitForClick();
+			if (msgs.length > 0) {
+				ui.displayMessage(msgs.join('\n'), 'システム');
+				if (typeof ui.waitForClick === 'function') await ui.waitForClick();
+			}
 		}
 
 		if (eventData.afterMessage) {
