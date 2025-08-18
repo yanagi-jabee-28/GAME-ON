@@ -481,6 +481,15 @@ class SlotGame {
 		this.renderPayoutTable();
 		// 賭け金入力の自動サイズ調整を初期化
 		this.initBetInputAutoSize();
+		// トースト要素がなければ追加
+		if (!document.getElementById('toast')) {
+			const t = document.createElement('div');
+			t.id = 'toast';
+			t.className = 'toast';
+			document.body.appendChild(t);
+		}
+		// 新規要素キャッシュ
+		this._cacheFinanceElements();
 		// 目押しボタンの初期状態を反映
 		this.updateManualButtonsUI();
 		// 開発者モードパネルを準備（表示はトグル可能）
@@ -507,9 +516,14 @@ class SlotGame {
 			const w = Math.max(72, 72 + (len - 1) * 12);
 			el.style.width = `${w}px`;
 		};
-		el.addEventListener('input', resize);
-		// bet が変わったら開発者パネルを更新
-		el.addEventListener('input', () => this.updateDevPanel());
+		el.addEventListener('input', () => {
+			// リアルタイムでサイズ調整
+			resize();
+			// リアルタイムで有効上限を反映・切り詰め（SlotGame の状態を参照して計算）
+			try { this.updateBetConstraints(); } catch (e) { }
+			// dev panel 更新
+			this.updateDevPanel();
+		});
 
 		// 入力制約: min 属性のみは固定でセットし、max は残高/借入に応じて動的に設定する
 		try {
@@ -536,6 +550,8 @@ class SlotGame {
 			if (n > maxBet) n = maxBet;
 			el.value = String(Math.floor(n));
 			this.updateDevPanel();
+			// 値が変更されたら上限表示を更新
+			try { this.updateAvailableMaxDisplay(); } catch (e) { }
 		});
 		// 初期サイズ
 		resize();
@@ -576,17 +592,91 @@ class SlotGame {
 		if (!el) return;
 		const minBet = Number(this.config.minBet) || 1;
 		const configMax = Number(this.config.maxBet) || 1000000;
-		let available = 0;
-		if (this.creditConfig && this.creditConfig.enabled) {
-			available = Math.max(0, (this.creditConfig.creditLimit || 0) - (this.debt || 0));
+		// SlotGame インスタンスから残高・借入情報を取得して有効上限を計算
+		let effectiveMax = configMax;
+		try {
+			const sg = (window && window.activeSlotGame) ? window.activeSlotGame : null;
+			let available = 0;
+			let bal = 0;
+			if (sg) {
+				bal = Number(sg.balance) || 0;
+				if (sg.creditConfig && sg.creditConfig.enabled) {
+					available = Math.max(0, (sg.creditConfig.creditLimit || 0) - (sg.debt || 0));
+				}
+			}
+			effectiveMax = Math.max(minBet, Math.min(configMax, Math.floor(bal + available)));
+		} catch (e) {
+			// フォールバック: 設定のみ
+			effectiveMax = Math.max(minBet, Math.min(configMax, Number(this.config.maxBet) || 1000000));
 		}
-		const effectiveMax = Math.max(minBet, Math.min(configMax, Math.floor((this.balance || 0) + available)));
 		el.setAttribute('max', String(effectiveMax));
-		// 現在入力値が有効最大を超えていたら切り詰める
+		// 現在入力値が有効最大を超えていたら切り詰める（リアルタイム適用）
 		let cur = Number((el.value || '').replace(/[,\s]+/g, '')) || 0;
 		if (cur > effectiveMax) {
 			el.value = String(effectiveMax);
+			// 自動切り詰めが行われたことをユーザーに通知
+			try { this._showToast(`賭け金を利用可能上限 ¥${effectiveMax} に自動調整しました`); } catch (e) { }
 		}
+		// 利用可能上限の表示を更新
+		try { this.updateAvailableMaxDisplay(effectiveMax); } catch (e) { }
+	}
+
+	// キャッシュした要素とヘルパー
+
+	_cacheFinanceElements() {
+		this.elBet = document.getElementById('betInput');
+		this.elAvailable = document.getElementById('availableMax');
+		this.elStepUp = document.getElementById('betStepUp');
+		this.elStepDown = document.getElementById('betStepDown');
+		// ステップボタンの挙動: min/max/step を尊重
+		if (this.elStepUp) {
+			this.elStepUp.addEventListener('click', (e) => {
+				e.preventDefault();
+				this._adjustBetByStep(+1);
+			});
+		}
+		if (this.elStepDown) {
+			this.elStepDown.addEventListener('click', (e) => {
+				e.preventDefault();
+				this._adjustBetByStep(-1);
+			});
+		}
+	}
+
+	_adjustBetByStep(dir) {
+		if (!this.elBet) return;
+		const step = Number(this.elBet.getAttribute('step')) || 1;
+		const min = Number(this.elBet.getAttribute('min')) || 1;
+		const max = Number(this.elBet.getAttribute('max')) || Number(this.config.maxBet) || 1000000;
+		let cur = Math.floor(Number(this.elBet.value) || min);
+		cur = cur + dir * step;
+		cur = Math.max(min, Math.min(max, cur));
+		this.elBet.value = String(cur);
+		this.updateDevPanel();
+		this.updateAvailableMaxDisplay();
+	}
+
+	updateAvailableMaxDisplay(effectiveMax) {
+		if (!this.elAvailable) this.elAvailable = document.getElementById('availableMax');
+		if (!this.elAvailable) return;
+		let val = effectiveMax;
+		if (typeof val === 'undefined') {
+			// compute current effective max
+			const el = document.getElementById('betInput');
+			val = Number(el?.getAttribute('max')) || 0;
+		}
+		this.elAvailable.textContent = String(val);
+	}
+
+	_showToast(msg, timeout = 2200) {
+		const t = document.getElementById('toast');
+		if (!t) return;
+		t.textContent = msg;
+		t.classList.add('show');
+		clearTimeout(this._toastTimer);
+		this._toastTimer = setTimeout(() => {
+			t.classList.remove('show');
+		}, timeout);
 	}
 
 
