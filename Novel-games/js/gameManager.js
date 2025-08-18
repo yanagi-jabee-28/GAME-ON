@@ -312,29 +312,40 @@ class GameManager {
             }
 
             let shouldRun = false;
-            if (repeatWeekly && targetWeekday) {
+            // 明示的な日付指定（例: day === 7）は常に有効
+            if (Number(this.playerStatus.day) === examDay) shouldRun = true;
+            // 週次繰り返しは、ゲーム開始直後（day === 1）に誤実行しないよう day > 1 を要求する
+            if (repeatWeekly && targetWeekday && Number(this.playerStatus.day) > 1) {
                 const todayWeekday = this.getWeekdayName();
                 if (todayWeekday === targetWeekday) shouldRun = true;
             }
-            // 明示的な日付指定も許容（例: day === 7）
-            if (Number(this.playerStatus.day) === examDay) shouldRun = true;
             if (!shouldRun) return;
 
+            // 学力・閾値を取得
             const academic = (this.playerStatus.stats && Number(this.playerStatus.stats.academic)) ? Number(this.playerStatus.stats.academic) : 0;
             const threshold = Number(CONFIG.EXAM.passThreshold) || 50;
 
+            // ヘッダーメッセージ（いつ試験が実施されたかを明確にする）
+            const when = `日 ${this.playerStatus.day}（${this.getWeekdayName()}）`;
+            const header = `【期末試験実施】 ${when} に期末試験が行われました。学力を評価します。`;
+            if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') {
+                ui.displayMessage(header, '試験官');
+            }
+
+            // 合否判定と詳細メッセージの生成
             if (academic >= threshold) {
-                const msg = `期末試験: 学力 ${academic} — 合格しました。おめでとうございます。`;
-                if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') ui.displayMessage(msg, '試験官');
-                this.addHistory({ type: 'exam', detail: { result: 'pass', academic, threshold } });
                 const rewards = (CONFIG.EXAM_REWARDS && CONFIG.EXAM_REWARDS.pass) ? CONFIG.EXAM_REWARDS.pass : { money: 500, cp: 0 };
+                const detail = `判定: 合格\n学力: ${academic} / 合格基準: ${threshold}\n報酬: 所持金 ${rewards.money >= 0 ? '+' : ''}${rewards.money}円、人脈 ${rewards.cp >= 0 ? '+' : ''}${rewards.cp}`;
+                if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') ui.displayMessage(detail, '試験官');
+                this.addHistory({ type: 'exam', detail: { result: 'pass', academic, threshold } });
                 this.applyChanges({ money: Number(rewards.money) || 0, cp: Number(rewards.cp) || 0 });
             } else {
-                const msg = `期末試験: 学力 ${academic} — 不合格です。留年の可能性があります。`;
-                if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') ui.displayMessage(msg, '試験官');
-                this.addHistory({ type: 'exam', detail: { result: 'fail', academic, threshold } });
                 const punish = (CONFIG.EXAM_REWARDS && CONFIG.EXAM_REWARDS.fail) ? CONFIG.EXAM_REWARDS.fail : { money: -200, cp: 0 };
+                const detail = `判定: 不合格\n学力: ${academic} / 合格基準: ${threshold}\nペナルティ: 所持金 ${punish.money >= 0 ? '+' : ''}${punish.money}円、人脈 ${punish.cp >= 0 ? '+' : ''}${punish.cp}\n留年の可能性が発生しました。`;
+                if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') ui.displayMessage(detail, '試験官');
+                this.addHistory({ type: 'exam', detail: { result: 'fail', academic, threshold } });
                 this.applyChanges({ money: Number(punish.money) || 0, cp: Number(punish.cp) || 0 });
+                // 留年フラグ・回数を明確に保持
                 this.playerStatus.examFailed = (this.playerStatus.examFailed || 0) + 1;
                 this._notifyListeners();
             }

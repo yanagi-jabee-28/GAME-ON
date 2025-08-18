@@ -1,0 +1,462 @@
+main.js:56 ゲームの初期化が完了しました。
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 0, condition: 100, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 0, condition: 100, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 0, condition: 100, money: 10000, cp: 0, …}
+favicon.ico:1  GET http://127.0.0.1:5500/favicon.ico 404 (Not Found)
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 0, condition: 100, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 6, condition: -3}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 10, condition: 100}
+gameManager.js:240 Changing academic: 10 + 6
+gameManager.js:252 New value for academic: 16
+gameManager.js:240 Changing condition: 100 + -3
+gameManager.js:252 New value for condition: 97
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 16, condition: 97}
+gameManager.js:48 Stats changes applied: {academic: 6, condition: -3}
+gameManager.js:49 Current player stats after changes: {academic: 16, condition: 97}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 0, condition: 97, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 0, condition: 97, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 1, 放課後
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 1, condition: 97, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 1, condition: 97, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 1, condition: 97, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 16, condition: 97}
+gameManager.js:240 Changing academic: 16 + 4
+gameManager.js:252 New value for academic: 20
+gameManager.js:240 Changing condition: 97 + -5
+gameManager.js:252 New value for condition: 92
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 20, condition: 92}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 20, condition: 92}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 1, condition: 92, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 1, condition: 92, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 1, 夜
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 2, condition: 92, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 2, condition: 92, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 2, condition: 92, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 20, condition: 92}
+gameManager.js:240 Changing academic: 20 + 4
+gameManager.js:252 New value for academic: 24
+gameManager.js:240 Changing condition: 92 + -5
+gameManager.js:252 New value for condition: 87
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 24, condition: 87}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 24, condition: 87}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 2, condition: 87, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 1, turnIndex: 2, condition: 87, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 2, 午前
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 0, condition: 87, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 0, condition: 87, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {condition: 10}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 24, condition: 87}
+gameManager.js:240 Changing condition: 87 + 10
+gameManager.js:252 New value for condition: 97
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 24, condition: 97}
+gameManager.js:48 Stats changes applied: {condition: 10}
+gameManager.js:49 Current player stats after changes: {academic: 24, condition: 97}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 0, condition: 97, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 0, condition: 97, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 0, condition: 97, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 6, condition: -3}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 24, condition: 97}
+gameManager.js:240 Changing academic: 24 + 6
+gameManager.js:252 New value for academic: 30
+gameManager.js:240 Changing condition: 97 + -3
+gameManager.js:252 New value for condition: 94
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 30, condition: 94}
+gameManager.js:48 Stats changes applied: {academic: 6, condition: -3}
+gameManager.js:49 Current player stats after changes: {academic: 30, condition: 94}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 0, condition: 94, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 0, condition: 94, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 2, 放課後
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 1, condition: 94, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 1, condition: 94, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 1, condition: 94, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 30, condition: 94}
+gameManager.js:240 Changing academic: 30 + 4
+gameManager.js:252 New value for academic: 34
+gameManager.js:240 Changing condition: 94 + -5
+gameManager.js:252 New value for condition: 89
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 34, condition: 89}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 34, condition: 89}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 1, condition: 89, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 1, condition: 89, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 2, 夜
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 2, condition: 89, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 2, condition: 89, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 2, condition: 89, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 34, condition: 89}
+gameManager.js:240 Changing academic: 34 + 4
+gameManager.js:252 New value for academic: 38
+gameManager.js:240 Changing condition: 89 + -5
+gameManager.js:252 New value for condition: 84
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 38, condition: 84}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 38, condition: 84}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 2, condition: 84, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 2, turnIndex: 2, condition: 84, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 3, 午前
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 0, condition: 84, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 0, condition: 84, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {condition: 10}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 38, condition: 84}
+gameManager.js:240 Changing condition: 84 + 10
+gameManager.js:252 New value for condition: 94
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 38, condition: 94}
+gameManager.js:48 Stats changes applied: {condition: 10}
+gameManager.js:49 Current player stats after changes: {academic: 38, condition: 94}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 0, condition: 94, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 0, condition: 94, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 0, condition: 94, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 6, condition: -3}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 38, condition: 94}
+gameManager.js:240 Changing academic: 38 + 6
+gameManager.js:252 New value for academic: 44
+gameManager.js:240 Changing condition: 94 + -3
+gameManager.js:252 New value for condition: 91
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 44, condition: 91}
+gameManager.js:48 Stats changes applied: {academic: 6, condition: -3}
+gameManager.js:49 Current player stats after changes: {academic: 44, condition: 91}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 0, condition: 91, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 0, condition: 91, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 3, 放課後
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 1, condition: 91, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 1, condition: 91, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 1, condition: 91, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 44, condition: 91}
+gameManager.js:240 Changing academic: 44 + 4
+gameManager.js:252 New value for academic: 48
+gameManager.js:240 Changing condition: 91 + -5
+gameManager.js:252 New value for condition: 86
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 48, condition: 86}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 48, condition: 86}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 1, condition: 86, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 1, condition: 86, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 3, 夜
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 2, condition: 86, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 2, condition: 86, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 2, condition: 86, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 48, condition: 86}
+gameManager.js:240 Changing academic: 48 + 4
+gameManager.js:252 New value for academic: 52
+gameManager.js:240 Changing condition: 86 + -5
+gameManager.js:252 New value for condition: 81
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 52, condition: 81}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 52, condition: 81}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 2, condition: 81, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 3, turnIndex: 2, condition: 81, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 4, 午前
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 0, condition: 81, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 0, condition: 81, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {condition: 10}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 52, condition: 81}
+gameManager.js:240 Changing condition: 81 + 10
+gameManager.js:252 New value for condition: 91
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 52, condition: 91}
+gameManager.js:48 Stats changes applied: {condition: 10}
+gameManager.js:49 Current player stats after changes: {academic: 52, condition: 91}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 0, condition: 91, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 0, condition: 91, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 0, condition: 91, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 52, condition: 91}
+gameManager.js:240 Changing academic: 52 + 4
+gameManager.js:252 New value for academic: 56
+gameManager.js:240 Changing condition: 91 + -5
+gameManager.js:252 New value for condition: 86
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 56, condition: 86}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 56, condition: 86}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 0, condition: 86, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 0, condition: 86, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 4, 放課後
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 1, condition: 86, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 1, condition: 86, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 1, condition: 86, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 56, condition: 86}
+gameManager.js:240 Changing academic: 56 + 4
+gameManager.js:252 New value for academic: 60
+gameManager.js:240 Changing condition: 86 + -5
+gameManager.js:252 New value for condition: 81
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 60, condition: 81}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 60, condition: 81}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 1, condition: 81, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 1, condition: 81, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 4, 夜
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 2, condition: 81, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 2, condition: 81, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 2, condition: 81, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 60, condition: 81}
+gameManager.js:240 Changing academic: 60 + 4
+gameManager.js:252 New value for academic: 64
+gameManager.js:240 Changing condition: 81 + -5
+gameManager.js:252 New value for condition: 76
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 64, condition: 76}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 64, condition: 76}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 2, condition: 76, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 4, turnIndex: 2, condition: 76, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 5, 午前
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 0, condition: 76, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 0, condition: 76, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {condition: 10}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 64, condition: 76}
+gameManager.js:240 Changing condition: 76 + 10
+gameManager.js:252 New value for condition: 86
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 64, condition: 86}
+gameManager.js:48 Stats changes applied: {condition: 10}
+gameManager.js:49 Current player stats after changes: {academic: 64, condition: 86}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 0, condition: 86, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 0, condition: 86, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 0, condition: 86, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 64, condition: 86}
+gameManager.js:240 Changing academic: 64 + 4
+gameManager.js:252 New value for academic: 68
+gameManager.js:240 Changing condition: 86 + -5
+gameManager.js:252 New value for condition: 81
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 68, condition: 81}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 68, condition: 81}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 0, condition: 81, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 0, condition: 81, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 5, 放課後
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 1, condition: 81, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 1, condition: 81, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 1, condition: 81, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 68, condition: 81}
+gameManager.js:240 Changing academic: 68 + 4
+gameManager.js:252 New value for academic: 72
+gameManager.js:240 Changing condition: 81 + -5
+gameManager.js:252 New value for condition: 76
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 72, condition: 76}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 72, condition: 76}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 1, condition: 76, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 1, condition: 76, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 5, 夜
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 2, condition: 76, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 2, condition: 76, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 2, condition: 76, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 72, condition: 76}
+gameManager.js:240 Changing academic: 72 + 4
+gameManager.js:252 New value for academic: 76
+gameManager.js:240 Changing condition: 76 + -5
+gameManager.js:252 New value for condition: 71
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 76, condition: 71}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 76, condition: 71}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 2, condition: 71, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 5, turnIndex: 2, condition: 71, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 6, 午前
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 0, condition: 71, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 0, condition: 71, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {condition: 10}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 76, condition: 71}
+gameManager.js:240 Changing condition: 71 + 10
+gameManager.js:252 New value for condition: 81
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 76, condition: 81}
+gameManager.js:48 Stats changes applied: {condition: 10}
+gameManager.js:49 Current player stats after changes: {academic: 76, condition: 81}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 0, condition: 81, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 0, condition: 81, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 0, condition: 81, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 6, condition: -3}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 76, condition: 81}
+gameManager.js:240 Changing academic: 76 + 6
+gameManager.js:252 New value for academic: 82
+gameManager.js:240 Changing condition: 81 + -3
+gameManager.js:252 New value for condition: 78
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 82, condition: 78}
+gameManager.js:48 Stats changes applied: {academic: 6, condition: -3}
+gameManager.js:49 Current player stats after changes: {academic: 82, condition: 78}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 0, condition: 78, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 0, condition: 78, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 6, 放課後
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 1, condition: 78, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 1, condition: 78, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 1, condition: 78, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 82, condition: 78}
+gameManager.js:240 Changing academic: 82 + 4
+gameManager.js:252 New value for academic: 86
+gameManager.js:240 Changing condition: 78 + -5
+gameManager.js:252 New value for condition: 73
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 86, condition: 73}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 86, condition: 73}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 1, condition: 73, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 1, condition: 73, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 6, 夜
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 2, condition: 73, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 2, condition: 73, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 2, condition: 73, money: 10000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 86, condition: 73}
+gameManager.js:240 Changing academic: 86 + 4
+gameManager.js:252 New value for academic: 90
+gameManager.js:240 Changing condition: 73 + -5
+gameManager.js:252 New value for condition: 68
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 90, condition: 68}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 90, condition: 68}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 2, condition: 68, money: 10000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 6, turnIndex: 2, condition: 68, money: 10000, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 7, 午前
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 0, condition: 68, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 0, condition: 68, money: 10000, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 0, condition: 68, money: 10500, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 0, condition: 68, money: 10500, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {condition: 10}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 90, condition: 68}
+gameManager.js:240 Changing condition: 68 + 10
+gameManager.js:252 New value for condition: 78
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 90, condition: 78}
+gameManager.js:48 Stats changes applied: {condition: 10}
+gameManager.js:49 Current player stats after changes: {academic: 90, condition: 78}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 0, condition: 78, money: 10500, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 0, condition: 78, money: 10500, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 0, condition: 78, money: 10500, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 6, condition: -3}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 90, condition: 78}
+gameManager.js:240 Changing academic: 90 + 6
+gameManager.js:252 New value for academic: 96
+gameManager.js:240 Changing condition: 78 + -3
+gameManager.js:252 New value for condition: 75
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 96, condition: 75}
+gameManager.js:48 Stats changes applied: {academic: 6, condition: -3}
+gameManager.js:49 Current player stats after changes: {academic: 96, condition: 75}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 0, condition: 75, money: 10500, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 0, condition: 75, money: 10500, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 7, 放課後
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 1, condition: 75, money: 10500, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 1, condition: 75, money: 10500, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 1, condition: 75, money: 10500, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 96, condition: 75}
+gameManager.js:240 Changing academic: 96 + 4
+gameManager.js:252 New value for academic: 100
+gameManager.js:240 Changing condition: 75 + -5
+gameManager.js:252 New value for condition: 70
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 100, condition: 70}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 100, condition: 70}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 1, condition: 70, money: 10500, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 1, condition: 70, money: 10500, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 7, 夜
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 2, condition: 70, money: 10500, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 2, condition: 70, money: 10500, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 2, condition: 70, money: 10500, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {academic: 4, condition: -5}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 100, condition: 70}
+gameManager.js:240 Changing academic: 100 + 4
+gameManager.js:252 New value for academic: 100
+gameManager.js:240 Changing condition: 70 + -5
+gameManager.js:252 New value for condition: 65
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 100, condition: 65}
+gameManager.js:48 Stats changes applied: {academic: 4, condition: -5}
+gameManager.js:49 Current player stats after changes: {academic: 100, condition: 65}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 2, condition: 65, money: 10500, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 7, turnIndex: 2, condition: 65, money: 10500, cp: 0, …}
+gameManager.js:280 Turn advanced to: Day 8, 午前
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 8, turnIndex: 0, condition: 65, money: 10500, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 8, turnIndex: 0, condition: 65, money: 10500, cp: 0, …}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 8, turnIndex: 0, condition: 65, money: 11000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 8, turnIndex: 0, condition: 65, money: 11000, cp: 0, …}
+gameManager.js:235 Entering changeStats. Changes: {condition: 10}
+gameManager.js:236 Current playerStatus.stats before change: {academic: 100, condition: 65}
+gameManager.js:240 Changing condition: 65 + 10
+gameManager.js:252 New value for condition: 75
+gameManager.js:265 Exiting changeStats. Final playerStatus.stats: {academic: 100, condition: 75}
+gameManager.js:48 Stats changes applied: {condition: 10}
+gameManager.js:49 Current player stats after changes: {academic: 100, condition: 75}
+gameManager.js:158 _notifyListeners: notifying 1 listeners
+ui.js:58 UI.updateStatusDisplay called with status: {day: 8, turnIndex: 0, condition: 75, money: 11000, cp: 0, …}
+ui.js:58 UI.updateStatusDisplay called with status: {day: 8, turnIndex: 0, condition: 75, money: 11000, cp: 0, …}
