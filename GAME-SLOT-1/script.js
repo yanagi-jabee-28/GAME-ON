@@ -253,8 +253,13 @@ class SoundManager {
 	playSpinStart() {
 		if (!this.enabled) return;
 		if (this.buffers.spinStart) return this._playBuffer(this.buffers.spinStart);
-		// 合成: 低周波の短いノイズ的なサウンド
-		this._synthBeep(120, 0.12, 'sine');
+		// スロットらしい音に調整（高すぎない、温かみのある上昇トーン + 低域のモータ感）
+		// - 上昇トーンは低めの周波数で短く連続させる
+		// - 直後に低域の短いルンブルを入れて回り始めの“重さ”を表現
+		// 少し高めに調整（元のスロット感は維持）
+		this._synthSequence([210, 290, 370], 0.07);
+		// 低域ルンブルを少し遅らせて追加（周波数を上げてやや明るめに）
+		setTimeout(() => this._synthBeep(140, 0.08, 'sine', this.volume * 0.5), 140);
 	}
 
 	playReelStop() {
@@ -505,6 +510,33 @@ class SlotGame {
 		el.addEventListener('input', resize);
 		// bet が変わったら開発者パネルを更新
 		el.addEventListener('input', () => this.updateDevPanel());
+
+		// 入力制約: min 属性のみは固定でセットし、max は残高/借入に応じて動的に設定する
+		try {
+			const minBet = Number(this.config.minBet) || 1;
+			el.setAttribute('inputmode', 'numeric');
+			el.setAttribute('pattern', '\\d*');
+			el.setAttribute('min', String(minBet));
+		} catch (e) { /* ignore */ }
+
+		// 非数値や範囲外の入力をリアルタイムで修正するハンドラ
+		el.addEventListener('change', () => {
+			let v = el.value.trim();
+			if (v === '') return; // 空は placeholder に任せる
+			// カンマなどの区切りは除去
+			v = v.replace(/[,\s]+/g, '');
+			let n = Number(v);
+			if (!Number.isFinite(n) || n <= 0) {
+				// 不正な入力は最低ベットに戻す
+				n = Number(this.config.minBet) || 1;
+			}
+			const minBet = Number(this.config.minBet) || 1;
+			const maxBet = Number(this.config.maxBet) || 1000000;
+			if (n < minBet) n = minBet;
+			if (n > maxBet) n = maxBet;
+			el.value = String(Math.floor(n));
+			this.updateDevPanel();
+		});
 		// 初期サイズ
 		resize();
 	}
@@ -531,6 +563,30 @@ class SlotGame {
 			table.appendChild(row);
 		}
 		container.appendChild(table);
+		// 初回の動的制約反映
+		try { this.updateBetConstraints(); } catch (e) { }
+	}
+
+	/**
+	 * 現在の残高・借入で許容される最大ベットを計算し、入力フィールドの max 属性と
+	 * 値を必要に応じて調整します（UI側の制約）。
+	 */
+	updateBetConstraints() {
+		const el = document.getElementById('betInput');
+		if (!el) return;
+		const minBet = Number(this.config.minBet) || 1;
+		const configMax = Number(this.config.maxBet) || 1000000;
+		let available = 0;
+		if (this.creditConfig && this.creditConfig.enabled) {
+			available = Math.max(0, (this.creditConfig.creditLimit || 0) - (this.debt || 0));
+		}
+		const effectiveMax = Math.max(minBet, Math.min(configMax, Math.floor((this.balance || 0) + available)));
+		el.setAttribute('max', String(effectiveMax));
+		// 現在入力値が有効最大を超えていたら切り詰める
+		let cur = Number((el.value || '').replace(/[,\s]+/g, '')) || 0;
+		if (cur > effectiveMax) {
+			el.value = String(effectiveMax);
+		}
 	}
 
 
@@ -952,40 +1008,107 @@ class SlotGame {
 	 */
 	startGame() {
 		if (this.isSpinning) return; // 既に回転中であれば、多重起動を防ぐ
-		this.isSpinning = true;      // ゲーム全体が回転中であることを示すフラグを立てる
+		// NOTE: isSpinning は賭け金検証が通った後に立てる。
+		// これにより、検証で早期リターンした際に isSpinning が真になって
+		// 二度と開始できなくなる状態を防止する。
 		this.manualStopCount = 0;    // 目押しカウンターをリセット（互換のため保持）
 
 		// 現在のモードに応じたリール回転速度を設定
 		const speed = this.isAutoMode ? this.config.autoSpeed : this.config.manualSpeed;
 
-		// 賭け金の処理: 目押し/自動に関わらず、開始時に賭け金を引く
+		// 賭け金の処理: 入力値の検証と上限チェックを行う
 		const betInput = document.getElementById('betInput');
-		const bet = Math.max(Number(betInput?.value) || 0, this.config.minBet);
+		let rawBet = betInput?.value;
+		let parsedBet = Number(rawBet);
+		if (!Number.isFinite(parsedBet) || parsedBet <= 0) parsedBet = this.config.minBet || 1;
+		// 下限は config.minBet、上限は config.maxBet（未設定時は 1,000,000 を使用）
+		const minBet = this.config.minBet || 1;
+		const maxBet = this.config.maxBet || 1000000;
+		let bet = Math.max(parsedBet, minBet);
 
-		// 残高が足りない場合、借入で補填できるか試みる
+		// 利用可能な借入額を見積もる（まだ借入処理は行わない）
+		let available = 0;
+		if (this.creditConfig && this.creditConfig.enabled) {
+			available = Math.max(0, (this.creditConfig.creditLimit || 0) - (this.debt || 0));
+		}
+		const effectiveMax = Math.max(minBet, Math.min(maxBet, Math.floor((this.balance || 0) + available)));
+
+		// 要求ベットが効果的最大を超えていれば自動で切り詰めて通知する
+		if (bet > effectiveMax) {
+			const prev = bet;
+			bet = Math.floor(effectiveMax);
+			try {
+				if (this.ui && typeof this.ui.displayMessage === 'function') {
+					this.ui.displayMessage(`入力されたベット ${prev} は利用可能額を超えているため、${bet} に自動調整しました。`);
+				}
+			} catch (e) { /* ignore */ }
+			// もし切り詰め後も最低ベット未満なら開始不可
+			if (bet < minBet) {
+				console.warn('利用可能額が最低ベット未満: effectiveMax=', effectiveMax, 'minBet=', minBet);
+				this.ui.setActionBtnText('▶ スタート');
+				this.ui.setActionBtnDisabled(false);
+				try { this.updateManualButtonsUI(); } catch (e) { }
+				return;
+			}
+		}
+
+		// 残高が足りない場合、借入で補填できるかを厳格にチェックする（部分借入で不足のまま開始しない）
 		if (bet > this.balance) {
 			const need = bet - this.balance;
-			if (this.creditConfig.enabled) {
-				const available = Math.max(0, this.creditConfig.creditLimit - this.debt);
-				if (available <= 0) {
-					console.warn('借入上限に達しています。bet=', bet, 'balance=', this.balance, 'debt=', this.debt);
-					this.ui.setActionBtnText('▶ スタート');
-					this.ui.setActionBtnDisabled(false);
-					return;
-				}
-				const toBorrow = Math.min(need, available);
-				const interest = Math.ceil(toBorrow * (this.creditConfig.interestRate || 0));
-				this.debt += toBorrow + interest; // 利息込みで負債計上
-				this.balance += toBorrow; // 借入元本を残高に反映
-				console.info(`借入: ¥${toBorrow} 利息: ¥${interest} 借金合計: ¥${this.debt}`);
-				this.updateDebtUI();
-			} else {
+			if (!this.creditConfig.enabled) {
 				console.warn('残高不足かつ借入無効: bet=', bet, 'balance=', this.balance);
 				this.ui.setActionBtnText('▶ スタート');
 				this.ui.setActionBtnDisabled(false);
 				return;
 			}
+
+			const available = Math.max(0, (this.creditConfig.creditLimit || 0) - this.debt);
+			// 利用可能な借入額が不足している場合は、利用可能な最大額までベットを自動調整して続行する
+			if (available <= 0) {
+				console.warn('借入利用可能額が0です。bet=', bet, 'need=', need, 'available=', available, 'debt=', this.debt);
+				this.isSpinning = false;
+				this.ui.setActionBtnText('▶ スタート');
+				this.ui.setActionBtnDisabled(false);
+				try { this.updateManualButtonsUI(); } catch (e) { }
+				return;
+			}
+
+			// 最大で持てるベット額
+			const maxPossibleBet = this.balance + available;
+			// 最低ベット未満なら開始不可
+			if (maxPossibleBet < minBet) {
+				console.warn('利用可能額が最低ベット未満です。maxPossibleBet=', maxPossibleBet, 'minBet=', minBet);
+				this.isSpinning = false;
+				this.ui.setActionBtnText('▶ スタート');
+				this.ui.setActionBtnDisabled(false);
+				try { this.updateManualButtonsUI(); } catch (e) { }
+				return;
+			}
+
+			// 自動調整後のベットを決定（maxPossibleBet を上限とし、config.maxBet も尊重）
+			let adjustedBet = Math.min(maxPossibleBet, maxBet);
+			if (adjustedBet < minBet) adjustedBet = minBet; // 念のため
+			// 通知
+			const prevBet = bet;
+			bet = Math.floor(adjustedBet);
+			const newNeed = bet - this.balance; // 借入必要額（>0）
+			const toBorrow = newNeed;
+			const interest = Math.ceil(toBorrow * (this.creditConfig.interestRate || 0));
+			this.debt += toBorrow + interest;
+			this.balance += toBorrow;
+			console.info(`借入(自動調整): ¥${toBorrow} 利息: ¥${interest} 借金合計: ¥${this.debt}`);
+			this.updateDebtUI();
+			// ユーザーへ通知
+			try {
+				if (this.ui && typeof this.ui.displayMessage === 'function') {
+					this.ui.displayMessage(`所持金が不足しているため、ベットを ${prevBet} → ${bet} に自動調整しました。`);
+				}
+			} catch (e) { /* ignore */ }
 		}
+
+		// ここまで検証が済んだのでゲームを回転中状態にする
+		this.isSpinning = true;
+
 		// 賭け金を引く
 		this.balance -= bet;
 		this.currentBet = bet; // ラウンドごとの賭け金を保持
@@ -1615,6 +1738,7 @@ class SlotGame {
 	updateBalanceUI() {
 		const el = document.getElementById('balance');
 		if (el) el.textContent = this.formatCurrency(this.balance);
+		try { this.ui.updateBetConstraints(); } catch (e) { }
 	}
 
 	/**
@@ -1623,6 +1747,7 @@ class SlotGame {
 	updateDebtUI() {
 		const el = document.getElementById('debt');
 		if (el) el.textContent = this.formatCurrency(this.debt);
+		try { this.ui.updateBetConstraints(); } catch (e) { }
 	}
 
 	/**
