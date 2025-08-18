@@ -330,7 +330,7 @@ class UIManager {
 				// インジケーターを非表示にする
 				this.clickIndicator.style.display = 'none';
 				// クリック音を鳴らす（存在すれば）
-				if (typeof soundManager !== 'undefined') soundManager.play('click');
+				try { if (typeof soundManager !== 'undefined') soundManager.play('click'); } catch (e) { }
 
 				this.clearMessage(); // メッセージをクリア
 
@@ -361,7 +361,7 @@ class UIManager {
 			button.className = 'choice-button';
 			button.onclick = () => {
 				// 効果音（存在すれば）
-				if (typeof soundManager !== 'undefined') soundManager.play('click');
+				try { if (typeof soundManager !== 'undefined') soundManager.play('click'); } catch (e) { }
 				// 選択肢をクリックしたら、選択履歴を記録
 				try {
 					if (typeof gameManager !== 'undefined' && typeof gameManager.recordChoice === 'function') {
@@ -404,6 +404,7 @@ class UIManager {
 		// 自由行動時間のみメニューを開ける
 		if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
 			// メニューを開けない場合は一時的なダイアログで通知（イベントメッセージの上書きは避ける）
+			try { if (typeof soundManager !== 'undefined') soundManager.play('alert'); } catch (e) { }
 			this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
 			return;
 		}
@@ -422,6 +423,7 @@ class UIManager {
 		try { if (this.menuOverlay) this.menuOverlay.dataset.userOpened = '1'; } catch (e) { }
 		if (this.menuCloseFloating) this.menuCloseFloating.setAttribute('aria-visible', 'true');
 		this.updateMenuDisplay(); // メニューを開く際に最新の情報を表示
+		try { if (typeof soundManager !== 'undefined') soundManager.play('open'); } catch (e) { }
 	}
 
 	/**
@@ -440,6 +442,7 @@ class UIManager {
 		} catch (e) { }
 		// Clear the userOpened marker when the menu is explicitly closed
 		try { if (this.menuOverlay && this.menuOverlay.dataset && this.menuOverlay.dataset.userOpened) delete this.menuOverlay.dataset.userOpened; } catch (e) { }
+		try { if (typeof soundManager !== 'undefined') soundManager.play('close'); } catch (e) { }
 	}
 
 	/**
@@ -906,9 +909,18 @@ class UIManager {
 	 * メニューボタンと閉じるボタンのイベントリスナーを設定する
 	 */
 	initializeMenuListeners() {
-		this.menuButton.addEventListener('click', () => this.openMenu());
-		this.menuCloseButton.addEventListener('click', () => this.closeMenu());
-		if (this.menuCloseFloating) this.menuCloseFloating.addEventListener('click', () => this.closeMenu());
+		this.menuButton.addEventListener('click', () => {
+			try { if (typeof soundManager !== 'undefined') soundManager.play('open'); } catch (e) { }
+			this.openMenu();
+		});
+		this.menuCloseButton.addEventListener('click', () => {
+			this.closeMenu();
+			try { if (typeof soundManager !== 'undefined') soundManager.play('close'); } catch (e) { }
+		});
+		if (this.menuCloseFloating) this.menuCloseFloating.addEventListener('click', () => {
+			this.closeMenu();
+			try { if (typeof soundManager !== 'undefined') soundManager.play('close'); } catch (e) { }
+		});
 
 		//折りたたみトグル
 		if (this.toggleItemsButton && this.menuItemSection) {
@@ -919,6 +931,7 @@ class UIManager {
 					this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
 					return;
 				}
+				try { if (typeof soundManager !== 'undefined') soundManager.play('open'); } catch (e) { }
 				await this.openMenuWindow('item');
 			});
 		}
@@ -928,6 +941,7 @@ class UIManager {
 					this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
 					return;
 				}
+				try { if (typeof soundManager !== 'undefined') soundManager.play('open'); } catch (e) { }
 				await this.openMenuWindow('history');
 			});
 		}
@@ -938,15 +952,22 @@ class UIManager {
 			btn.addEventListener('click', (e) => {
 				const win = e.target.closest('.menu-window');
 				this.closeMenuWindow(win);
+				try { if (typeof soundManager !== 'undefined') soundManager.play('close'); } catch (e) { }
 			});
 		});
 
 		// セーブ・ロードボタンのイベントリスナー
 		if (this.saveGameButton) {
-			this.saveGameButton.addEventListener('click', () => this.handleSaveGame());
+			this.saveGameButton.addEventListener('click', () => {
+				try { if (typeof soundManager !== 'undefined') soundManager.play('click'); } catch (e) { }
+				this.handleSaveGame();
+			});
 		}
 		if (this.loadGameButton) {
-			this.loadGameButton.addEventListener('click', () => this.loadGameFileInput && this.loadGameFileInput.click());
+			this.loadGameButton.addEventListener('click', () => {
+				try { if (typeof soundManager !== 'undefined') soundManager.play('open'); } catch (e) { }
+				this.loadGameFileInput && this.loadGameFileInput.click();
+			});
 		}
 		if (this.loadGameFileInput) {
 			this.loadGameFileInput.addEventListener('change', (event) => this.handleLoadGame(event, false)); // メニューからは isFromTitle=false
@@ -956,18 +977,42 @@ class UIManager {
 		const volEl = document.getElementById('sound-volume');
 		const muteBtn = document.getElementById('sound-mute');
 		if (volEl) {
+			// Restore saved volume if present
+			try {
+				const saved = localStorage.getItem('game_sound_volume');
+				if (saved !== null) {
+					volEl.value = String(saved);
+					const v = parseFloat(saved);
+					if (typeof soundManager !== 'undefined' && typeof soundManager.setVolume === 'function') soundManager.setVolume(v);
+				}
+			} catch (e) { }
+
 			volEl.addEventListener('input', (e) => {
 				const v = parseFloat(e.target.value);
 				if (typeof soundManager !== 'undefined' && typeof soundManager.setVolume === 'function') {
 					soundManager.setVolume(v);
 				}
+				try { localStorage.setItem('game_sound_volume', String(v)); } catch (e) { }
 			});
 		}
 		if (muteBtn) {
+			// Restore mute state
+			try {
+				const savedMute = localStorage.getItem('game_sound_muted');
+				if (savedMute !== null) {
+					const m = savedMute === '1';
+					if (typeof soundManager !== 'undefined') {
+						soundManager.setMuted(m);
+						muteBtn.textContent = m ? 'ミュート解除' : 'ミュート';
+					}
+				}
+			} catch (e) { }
+
 			muteBtn.addEventListener('click', (e) => {
 				if (typeof soundManager === 'undefined') return;
 				soundManager.toggleMute();
 				muteBtn.textContent = soundManager.muted ? 'ミュート解除' : 'ミュート';
+				try { localStorage.setItem('game_sound_muted', soundManager.muted ? '1' : '0'); } catch (e) { }
 			});
 		}
 	}

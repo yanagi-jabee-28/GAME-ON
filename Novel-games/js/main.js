@@ -99,6 +99,7 @@ function initializeTitleScreen() {
 	newGameButton.addEventListener('click', () => {
 		const name = protagonistNameInput.value.trim();
 		if (name) {
+			try { if (typeof soundManager !== 'undefined') soundManager.play('game_start'); } catch (e) { }
 			initializeGame(name);
 		} else {
 			ui.showTransientNotice('主人公の名前を入力してください。');
