@@ -10,6 +10,9 @@ class UIManager {
 	 */
 	constructor() {
 		// UI要素を取得してプロパティに保持
+		this.titleScreen = document.getElementById('title-screen');
+		this.gameScreen = document.getElementById('game-screen');
+
 		this.dateDisplay = document.getElementById('date-display');
 		this.timeOfDayDisplay = document.getElementById('time-of-day-display');
 		this.physicalDisplay = document.getElementById('physical-display');
@@ -66,10 +69,20 @@ class UIManager {
 		}
 	}
 
+	showTitleScreen() {
+		if (this.titleScreen) this.titleScreen.style.display = 'flex';
+		if (this.gameScreen) this.gameScreen.style.display = 'none';
+	}
+
+	showGameScreen() {
+		if (this.titleScreen) this.titleScreen.style.display = 'none';
+		if (this.gameScreen) this.gameScreen.style.display = 'block';
+	}
+
 	/**
 	 * メニューの専用ウィンドウを開く
 	 * @param {'item'|'history'} type
-	 */
+	*/
 	async openMenuWindow(type) {
 		try {
 			// メニュー自体が閉じている場合は開く（ただしフリー行動チェックは openMenu が行う）
@@ -217,15 +230,13 @@ class UIManager {
 	updateFocusedCharacter(status) {
 		try {
 			if (!this.focusedCharacterWrap) return;
-			const chars = status.characters || [];
-			if (chars.length === 0) {
+			const player = gameManager.getCharacter('player');
+			if (!player) {
 				this.focusedCharacterWrap.style.display = 'none';
 				return;
 			}
-			// 現状は最初のキャラクターをフォーカスとする。将来的に選択機能を追加
-			const c = chars[0];
-			this.focusedCharacterName.textContent = c.name || '';
-			this.focusedCharacterTrust.textContent = (typeof c.trust === 'number') ? `${c.trust}` : '';
+			this.focusedCharacterName.textContent = player.name || '';
+			this.focusedCharacterTrust.textContent = (typeof player.trust === 'number') ? `${player.trust}` : '';
 			this.focusedCharacterWrap.style.display = 'flex';
 		} catch (e) { console.warn('updateFocusedCharacter error', e); }
 	}
@@ -244,7 +255,16 @@ class UIManager {
 			console.log('UI.displayMessage: ignoring empty message');
 			return;
 		}
-		console.log('UI.displayMessage called:', { characterName, text: txt });
+
+		let finalCharacterName = characterName;
+		if (characterName === '主人公' && typeof gameManager !== 'undefined') {
+			const player = gameManager.getCharacter('player');
+			if (player && player.name) {
+				finalCharacterName = player.name;
+			}
+		}
+
+		console.log('UI.displayMessage called:', { characterName: finalCharacterName, text: txt });
 		// メニューが開いている場合はメッセージウィンドウを前面に出す
 		// 常にメッセージウィンドウを前面に出しておく（overlay が残っている場合の救済策）
 		try {
@@ -260,7 +280,7 @@ class UIManager {
 			this.messageWindow.style.display = 'block';
 		}
 
-		this.characterName.textContent = characterName;
+		this.characterName.textContent = finalCharacterName;
 		this.messageText.textContent = text;
 		// 追加デバッグ: メッセージDOMの内容を確認
 		try { console.log('messageText.innerHTML:', this.messageText.innerHTML, 'computed display:', window.getComputedStyle(this.messageWindow).display, 'zIndex:', this.messageWindow.style.zIndex); } catch (e) { }
@@ -784,7 +804,8 @@ class UIManager {
 	/**
 	 * 短時間だけ画面上部に表示される非破壊的なお知らせ（トースト）
 	 * @param {string} text
-	 * @param {{ duration?: number }} options
+	 * @param {{ duration?: number }}
+ options
 	 */
 	showTransientNotice(text, options = {}) {
 		if (!text || ('' + text).trim() === '') return;
@@ -817,9 +838,10 @@ class UIManager {
 	 * メニューの上に重ねて表示するフローティングメッセージ
 	 * 複数行が与えられた場合は順に表示し、最後まで表示し終えたら自動で閉じる
 	 * @param {string} text
-	 * @param {{ lineDelay?: number }} [options]
+	 * @param {{ lineDelay?: number }}
+ [options]
 	 * @returns {Promise<void>}
-	 */
+	*/
 	async showFloatingMessage(text, options = {}) {
 		console.log('UI.showFloatingMessage called:', text);
 		const lines = ('' + text).split('\n');
@@ -888,7 +910,7 @@ class UIManager {
 		this.menuCloseButton.addEventListener('click', () => this.closeMenu());
 		if (this.menuCloseFloating) this.menuCloseFloating.addEventListener('click', () => this.closeMenu());
 
-		// 折りたたみトグル
+		//折りたたみトグル
 		if (this.toggleItemsButton && this.menuItemSection) {
 			// Primary behavior: open dedicated item window when clicked
 			this.toggleItemsButton.addEventListener('click', async () => {
@@ -927,7 +949,7 @@ class UIManager {
 			this.loadGameButton.addEventListener('click', () => this.loadGameFileInput && this.loadGameFileInput.click());
 		}
 		if (this.loadGameFileInput) {
-			this.loadGameFileInput.addEventListener('change', (event) => this.handleLoadGame(event));
+			this.loadGameFileInput.addEventListener('change', (event) => this.handleLoadGame(event, false)); // メニューからは isFromTitle=false
 		}
 	}
 
@@ -946,12 +968,14 @@ class UIManager {
 	/**
 	 * ゲームのロード処理
 	 * @param {Event} event - ファイル入力のchangeイベント
+	 * @param {boolean} [isFromTitle=false] - タイトル画面からの呼び出しかどうか
 	 */
-	handleLoadGame(event) {
-		if (typeof gameManager === 'undefined') return;
+	handleLoadGame(event, isFromTitle = false) {
 		const file = event.target.files[0];
 		if (!file) {
-			this.displayMenuMessage('ファイルが選択されていません。');
+			if (!isFromTitle) {
+				this.displayMenuMessage('ファイルが選択されていません。');
+			}
 			return;
 		}
 
@@ -959,13 +983,41 @@ class UIManager {
 		reader.onload = (e) => {
 			try {
 				const loadedData = JSON.parse(e.target.result);
-				gameManager.loadGame(loadedData); // GameManagerにロード処理を委譲
-				this.displayMenuMessage('ゲームデータをロードしました。');
-				this.closeMenu(); // メニューを閉じる
-				GameEventManager.showMainActions(); // メインアクションに戻る
+
+				// ロード直後にゲームを開始または再開する共通ロジック
+				const startGameAfterLoad = (loadedStatus) => {
+					const playerName = (loadedStatus.characters && loadedStatus.characters.find(c => c.id === 'player'))
+						? loadedStatus.characters.find(c => c.id === 'player').name
+						: '主人公';
+
+					// グローバルな gameManager/ui がなければ初期化
+					if (typeof initializeGame !== 'function') {
+						console.error('initializeGame is not defined');
+						return;
+					}
+					initializeGame(playerName);
+					gameManager.loadGame(loadedStatus);
+					this.showTransientNotice('ゲームデータをロードしました。');
+					GameEventManager.showMainActions();
+				};
+
+				if (isFromTitle) {
+					startGameAfterLoad(loadedData);
+				} else {
+					// メニューからのロード
+					gameManager.loadGame(loadedData);
+					this.displayMenuMessage('ゲームデータをロードしました。');
+					this.closeMenu();
+					GameEventManager.showMainActions();
+				}
 			} catch (error) {
 				console.error('Failed to load game data:', error);
-				this.displayMenuMessage('ゲームデータのロードに失敗しました。ファイルが破損しているか、形式が正しくありません。');
+				const message = 'ゲームデータのロードに失敗しました。ファイルが破損しているか、形式が正しくありません。';
+				if (isFromTitle) {
+					this.showTransientNotice(message);
+				} else {
+					this.displayMessage(message);
+				}
 			}
 		};
 		reader.readAsText(file);

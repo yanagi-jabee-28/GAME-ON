@@ -10,12 +10,25 @@ let ui;
 
 /**
  * ゲームを初期化して開始する関数
+ * @param {string} protagonistName - 主人公の名前
  */
-function initializeGame() {
+function initializeGame(protagonistName) {
+	// UIManagerがなければ初期化
+	if (!ui) {
+		ui = new UIManager();
+	}
+
+	// ゲーム画面を表示
+	ui.showGameScreen();
+
 	// GameManagerを初期化
-	// config.jsで定義した初期ステータスを渡す
-	gameManager = new GameManager(CONFIG.INITIAL_PLAYER_STATUS);
-	// 初期コンディションを計算
+	const initialStatus = JSON.parse(JSON.stringify(CONFIG.INITIAL_PLAYER_STATUS));
+	if (protagonistName) {
+		// 主人公の名前をキャラクターデータとして追加
+		if (!initialStatus.characters) initialStatus.characters = [];
+		initialStatus.characters.push({ id: 'player', name: protagonistName, trust: 50 });
+	}
+	gameManager = new GameManager(initialStatus);
 	gameManager.updateCondition();
 
 	// CONFIG.LABELS が定義されていれば、固定テキストラベルを差し替える
@@ -53,8 +66,6 @@ function initializeGame() {
 		}
 	} catch (e) { console.warn('Label injection failed', e); }
 
-	// UIManagerを初期化
-	ui = new UIManager();
 	// メニューボタンのイベントリスナーを設定
 	ui.initializeMenuListeners();
 
@@ -72,8 +83,34 @@ function initializeGame() {
 }
 
 /**
- * Webページが読み込まれたら、ゲームを開始する
+ * タイトル画面を初期化する
+ */
+function initializeTitleScreen() {
+    ui = new UIManager();
+    ui.showTitleScreen();
+
+    const newGameButton = document.getElementById('new-game-button');
+    const loadGameButton = document.getElementById('load-game-button-title');
+    const protagonistNameInput = document.getElementById('protagonist-name');
+
+    newGameButton.addEventListener('click', () => {
+        const name = protagonistNameInput.value.trim();
+        if (name) {
+            initializeGame(name);
+        } else {
+            ui.showTransientNotice('主人公の名前を入力してください。');
+        }
+    });
+
+    loadGameButton.addEventListener('click', () => {
+        // ui.jsにロード処理を実装し、それを呼び出す
+        ui.handleLoadGame(true); // isTitle=true を渡す
+    });
+}
+
+/**
+ * Webページが読み込まれたら、タイトル画面を開始する
  */
 window.onload = function () {
-	initializeGame();
+	initializeTitleScreen();
 };
