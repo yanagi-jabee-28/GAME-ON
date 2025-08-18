@@ -68,7 +68,7 @@ const GameEventManager = {
 	 * この関数はターン進行を直接行わないため、呼び出し側で nextTurn を制御できます。
 	 * @param {object} eventData - { message, name?, changes?, afterMessage? }
 	 */
-		executeEventInline: async function (eventData) {
+	executeEventInline: async function (eventData) {
 		this.isInFreeAction = false;
 		if (!eventData) return;
 
@@ -150,10 +150,15 @@ const GameEventManager = {
 			await ui.waitForClick();
 
 			// 回復処理（体力と精神力を少し回復）
-			gameManager.changeStats({ physical: 6, mental: 4 });
+			// applyChanges を使って差分メッセージを取得し、他のステータス変化
+			// と同じフォーマットで表示する。
+			const recovery = { stats: { physical: 6, mental: 4 } };
+			const msgs = (typeof gameManager.applyChanges === 'function') ? gameManager.applyChanges(recovery, { suppressDisplay: true }) : [];
 			ui.updateStatusDisplay(gameManager.getStatus()); // 回復後のステータスを更新
-
-			await ui.waitForClick();
+			if (msgs && msgs.length > 0) {
+				ui.displayMessage(msgs.join('\n'), 'システム');
+				if (typeof ui.waitForClick === 'function') await ui.waitForClick();
+			}
 			this.lastCheckedDay = currentStatus.day; // 日付を更新
 		}
 	},
@@ -324,7 +329,7 @@ const GameEventManager = {
 		// お金を減らしてアイテムを所持に追加し、差分メッセージを受け取る
 		const msgs = gameManager.applyChanges({ money: -item.price, itemsAdd: [itemId] });
 		console.log(`Purchase applied: -${item.price}. New money: ${gameManager.getStatus().money}`);
-		
+
 		// 購入履歴を残す
 		if (typeof gameManager !== 'undefined' && typeof gameManager.addHistory === 'function') {
 			gameManager.addHistory({ type: 'purchase', detail: { itemId: itemId, itemName: item.name, price: item.price, shopId: shopId } });
@@ -333,7 +338,7 @@ const GameEventManager = {
 		}
 
 		// 差分メッセージがあれば表示
-		if(msgs.length > 0) {
+		if (msgs.length > 0) {
 			ui.displayMessage(msgs.join('\n'), 'システム');
 			await ui.waitForClick();
 		}
