@@ -180,7 +180,7 @@ const GameEventManager = {
 		}
 		const turnName = gameManager.getCurrentTurnName();
 
-		ui.displayMessage(`今日は何をしようか... (${turnName})`);
+		ui.displayMessage(`今日は何をしようか... (${turnName})`, '主人公');
 		// 自由行動選択肢を表示している間はメニューを開ける
 		this.isInFreeAction = true;
 
@@ -193,7 +193,8 @@ const GameEventManager = {
 			const choices = [
 				{ text: '授業に集中する', callback: () => this.doAttendClass() },
 				{ text: '授業中に内職する', callback: () => this.doMoonlightWork() },
-				{ text: '授業中に居眠りする', callback: () => this.doDozeOff() }
+				{ text: '授業中に居眠りする', callback: () => this.doDozeOff() },
+				{ text: '授業中に隠れて遊ぶ', callback: () => this.doHidePlay() }
 			];
 
 			ui.displayChoices(choices);
@@ -354,6 +355,10 @@ const GameEventManager = {
 
 	doDozeOff: async function () {
 		await this.executeAction("DOZE_OFF_ACTION");
+	},
+
+	doHidePlay: async function () {
+		await this.executeAction("HIDE_PLAY_ACTION");
 	},
 
 	// --- 以下、各行動の処理 --- //

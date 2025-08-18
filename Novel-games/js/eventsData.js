@@ -61,7 +61,15 @@ const EVENTS = {
 	},
 	"DOZE_OFF_ACTION": {
 		message: "うとうと... 居眠りをしてしまった。",
-		changes: { stats: { mental: 2 } },
+		// 居眠りは体力のみを回復する仕様に変更
+		changes: { stats: { physical: 2 } },
+		afterMessage: "", // 特にメッセージなし
+		nextAction: "showMainActions"
+	},
+	"HIDE_PLAY_ACTION": {
+		message: "後ろの方でこっそりスマホで遊んだり、友達と小さく盛り上がった。気分転換になった。",
+		// 隠れて遊ぶは精神力を回復する
+		changes: { stats: { mental: 4 } },
 		afterMessage: "", // 特にメッセージなし
 		nextAction: "showMainActions"
 	},
