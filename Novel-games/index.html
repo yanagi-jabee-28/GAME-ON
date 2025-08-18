@@ -20,120 +20,139 @@
             style="background:#fff;padding:8px 10px;border-radius:6px;text-decoration:none;color:#333;box-shadow:0 2px 6px rgba(0,0,0,0.12);">ポータルへ戻る</a>
     </nav>
 
-    <div id="game-container">
-        <!-- ステータス表示エリア（上段: 日付/時間、下段: ステータス群） -->
-        <div id="status-display">
-            <div class="status-top">
-                <div class="status-top-left">
-                    <span class="label" id="label-date">日付</span>:
-                    <span id="date-display">1日目</span>
-                    <span class="sep">｜</span>
-                    <span class="label" id="label-time">時間</span>:
-                    <span id="time-of-day-display">午前</span>
+    <div id="screen-container">
+        <div id="title-screen">
+            <div class="title-content">
+                <h1>高専"寮"サバイバル</h1>
+                <p class="subtitle">～崖っぷちの7日間と学年末試験～</p>
+                <div class="protagonist-name-wrapper">
+                    <label for="protagonist-name">主人公の名前:</label>
+                    <input type="text" id="protagonist-name" value="田中" maxlength="10">
                 </div>
-                <button id="menu-button">メニュー</button>
-            </div>
-            <div class="status-stats">
-                <div class="stat-chip stat-academic">
-                    <span class="label" id="label-academic">学力</span>:
-                    <span id="academic-display">10</span>
-                </div>
-                <div class="stat-chip stat-physical">
-                    <span class="label" id="label-physical">体力</span>:
-                    <span id="physical-display">80</span>
-                </div>
-                <div class="stat-chip stat-mental">
-                    <span class="label" id="label-mental">精神力</span>:
-                    <span id="mental-display">80</span>
-                </div>
-                <div class="stat-chip stat-technical">
-                    <span class="label" id="label-technical">技術力</span>:
-                    <span id="technical-display">5</span>
-                </div>
-                <div class="stat-chip stat-money">
-                    <span class="label" id="label-money">所持金</span>:
-                    <span id="money-display">10000</span>
-                </div>
-                <div class="stat-chip stat-cp">
-                    <span class="label" id="label-cp">人脈</span>:
-                    <span id="cp-display">0</span>
+                <div class="title-buttons">
+                    <button id="new-game-button">はじめから</button>
+                    <button id="load-game-button-title">つづきから</button>
                 </div>
             </div>
         </div>
 
-        <!-- メイン画面 -->
-        <div id="main-screen">
-            <!-- メッセージウィンドウ -->
-            <div id="message-window">
-                <div id="character-name"></div>
-                <div id="message-text"></div>
-                <div id="click-indicator">▼</div>
-            </div>
-
-            <!-- フォーカス中のキャラクター表示 -->
-            <div id="focused-character" class="stat-chip" style="margin-bottom:12px; display:none;">
-                <span class="label" id="focused-character-label">フォーカス</span>:
-                <span id="focused-character-name"></span>
-                <span style="margin-left:10px;opacity:0.8;">信頼度:</span>
-                <span id="focused-character-trust"></span>
-            </div>
-
-            <!-- 選択肢エリア -->
-            <div id="choices-area">
-                <!-- JavaScriptによって動的に生成されます -->
-            </div>
-        </div>
-
-        <!-- メニューオーバーレイ -->
-        <div id="menu-overlay" class="hidden">
-            <div id="menu-content">
-                <h2>メニュー</h2>
-                <button id="menu-close-floating" aria-label="閉じる">✕</button>
-                <div class="menu-scroll">
-                    <div id="menu-controls" class="menu-controls">
-                        <button id="toggle-items-button" class="menu-toggle-btn">アイテム</button>
-                        <button id="toggle-history-button" class="menu-toggle-btn">行動履歴</button>
-                    </div>
-                    <div id="menu-status-section">
-                        <h3>ステータス</h3>
-                        <p>学力: <span id="menu-academic"></span></p>
-                        <p>体力: <span id="menu-physical"></span></p>
-                        <p>精神力: <span id="menu-mental"></span></p>
-                        <p>技術力: <span id="menu-technical"></span></p>
-                        <p>レポート負債: <span id="menu-report-debt"></span></p>
-                    </div>
-                    <div id="menu-item-section" class="collapsible is-hidden">
-                        <h3>アイテム</h3>
-                        <ul id="menu-item-list"></ul>
-                    </div>
-                    <!-- 専用ウィンドウ: アイテム -->
-                    <div id="menu-item-window" class="menu-window hidden">
-                        <button class="menu-window-close">✕</button>
-                        <h3>アイテム</h3>
-                        <div id="menu-item-window-body">
-                            <ul id="menu-item-window-list"></ul>
+        <div id="game-screen" style="display: none;">
+            <div id="game-container">
+                <!-- ステータス表示エリア（上段: 日付/時間、下段: ステータス群） -->
+                <div id="status-display">
+                    <div class="status-top">
+                        <div class="status-top-left">
+                            <span class="label" id="label-date">日付</span>:
+                            <span id="date-display">1日目</span>
+                            <span class="sep">｜</span>
+                            <span class="label" id="label-time">時間</span>:
+                            <span id="time-of-day-display">午前</span>
                         </div>
+                        <button id="menu-button">メニュー</button>
                     </div>
-                    <div id="menu-history-section" class="collapsible is-hidden">
-                        <h3 id="menu-history-heading">行動履歴</h3>
-                        <ul id="menu-history-list"></ul>
-                    </div>
-                    <!-- 専用ウィンドウ: 履歴 -->
-                    <div id="menu-history-window" class="menu-window hidden">
-                        <button class="menu-window-close">✕</button>
-                        <h3>行動履歴</h3>
-                        <div id="menu-history-window-body">
-                            <ul id="menu-history-window-list"></ul>
+                    <div class="status-stats">
+                        <div class="stat-chip stat-academic">
+                            <span class="label" id="label-academic">学力</span>:
+                            <span id="academic-display">10</span>
                         </div>
-                    </div>
-                    <div id="menu-save-load-section">
-                        <h3>セーブ・ロード</h3>
-                        <button id="save-game-button">ゲームをセーブ</button>
-                        <input type="file" id="load-game-file-input" accept=".json" style="display: none;">
-                        <button id="load-game-button">ゲームをロード</button>
+                        <div class="stat-chip stat-physical">
+                            <span class="label" id="label-physical">体力</span>:
+                            <span id="physical-display">80</span>
+                        </div>
+                        <div class="stat-chip stat-mental">
+                            <span class="label" id="label-mental">精神力</span>:
+                            <span id="mental-display">80</span>
+                        </div>
+                        <div class="stat-chip stat-technical">
+                            <span class="label" id="label-technical">技術力</span>:
+                            <span id="technical-display">5</span>
+                        </div>
+                        <div class="stat-chip stat-money">
+                            <span class="label" id="label-money">所持金</span>:
+                            <span id="money-display">10000</span>
+                        </div>
+                        <div class="stat-chip stat-cp">
+                            <span class="label" id="label-cp">人脈</span>:
+                            <span id="cp-display">0</span>
+                        </div>
                     </div>
                 </div>
-                <button id="menu-close-button">閉じる</button>
+
+                <!-- メイン画面 -->
+                <div id="main-screen">
+                    <!-- メッセージウィンドウ -->
+                    <div id="message-window">
+                        <div id="character-name"></div>
+                        <div id="message-text"></div>
+                        <div id="click-indicator">▼</div>
+                    </div>
+
+                    <!-- フォーカス中のキャラクター表示 -->
+                    <div id="focused-character" class="stat-chip" style="margin-bottom:12px; display:none;">
+                        <span class="label" id="focused-character-label">フォーカス</span>:
+                        <span id="focused-character-name"></span>
+                        <span style="margin-left:10px;opacity:0.8;">信頼度:</span>
+                        <span id="focused-character-trust"></span>
+                    </div>
+
+                    <!-- 選択肢エリア -->
+                    <div id="choices-area">
+                        <!-- JavaScriptによって動的に生成されます -->
+                    </div>
+                </div>
+
+                <!-- メニューオーバーレイ -->
+                <div id="menu-overlay" class="hidden">
+                    <div id="menu-content">
+                        <h2>メニュー</h2>
+                        <button id="menu-close-floating" aria-label="閉じる">✕</button>
+                        <div class="menu-scroll">
+                            <div id="menu-controls" class="menu-controls">
+                                <button id="toggle-items-button" class="menu-toggle-btn">アイテム</button>
+                                <button id="toggle-history-button" class="menu-toggle-btn">行動履歴</button>
+                            </div>
+                            <div id="menu-status-section">
+                                <h3>ステータス</h3>
+                                <p>学力: <span id="menu-academic"></span></p>
+                                <p>体力: <span id="menu-physical"></span></p>
+                                <p>精神力: <span id="menu-mental"></span></p>
+                                <p>技術力: <span id="menu-technical"></span></p>
+                                <p>レポート負債: <span id="menu-report-debt"></span></p>
+                            </div>
+                            <div id="menu-item-section" class="collapsible is-hidden">
+                                <h3>アイテム</h3>
+                                <ul id="menu-item-list"></ul>
+                            </div>
+                            <!-- 専用ウィンドウ: アイテム -->
+                            <div id="menu-item-window" class="menu-window hidden">
+                                <button class="menu-window-close">✕</button>
+                                <h3>アイテム</h3>
+                                <div id="menu-item-window-body">
+                                    <ul id="menu-item-window-list"></ul>
+                                </div>
+                            </div>
+                            <div id="menu-history-section" class="collapsible is-hidden">
+                                <h3 id="menu-history-heading">行動履歴</h3>
+                                <ul id="menu-history-list"></ul>
+                            </div>
+                            <!-- 専用ウィンドウ: 履歴 -->
+                            <div id="menu-history-window" class="menu-window hidden">
+                                <button class="menu-window-close">✕</button>
+                                <h3>行動履歴</h3>
+                                <div id="menu-history-window-body">
+                                    <ul id="menu-history-window-list"></ul>
+                                </div>
+                            </div>
+                            <div id="menu-save-load-section">
+                                <h3>セーブ・ロード</h3>
+                                <button id="save-game-button">ゲームをセーブ</button>
+                                <input type="file" id="load-game-file-input" accept=".json" style="display: none;">
+                                <button id="load-game-button">ゲームをロード</button>
+                            </div>
+                        </div>
+                        <button id="menu-close-button">閉じる</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

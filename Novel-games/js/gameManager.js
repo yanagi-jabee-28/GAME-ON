@@ -83,12 +83,12 @@ class GameManager {
 			mutated = true;
 		}
 
-		// 変更があればコンディション更新と通知、差分メッセージ表示
+		// 変更があればコンディション更新と通知、差分メッセージ生成
 		if (mutated) {
 			this.updateCondition();
 			this._notifyListeners();
 
-			// 差分を計算してユーザーに表示する
+			// 差分を計算してメッセージ配列を生成
 			const after = this.playerStatus;
 			const messages = [];
 
@@ -137,19 +137,6 @@ class GameManager {
 				messages.push(`メニューロック: ${changes.menuLocked ? '有効' : '解除'}`);
 			}
 
-			if (messages.length > 0 && typeof ui !== 'undefined') {
-				const text = messages.join('\n');
-				// 表示抑制オプションがある場合は UI 表示を行わない
-				if (!options.suppressDisplay) {
-					// メニューが開いている場合はメニュー内メッセージを優先して表示
-					if (ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden') && typeof ui.displayMenuMessage === 'function' && typeof GameEventManager !== 'undefined' && GameEventManager.isInFreeAction) {
-						ui.displayMenuMessage(text);
-					} else if (typeof ui.displayMessage === 'function') {
-						ui.displayMessage(text, 'システム');
-					}
-				}
-			}
-			// 変更によるメッセージ配列を返す（呼び出し側で表示制御可能）
 			return messages;
 		}
 		return [];
@@ -676,11 +663,11 @@ class GameManager {
 	 */
 	progressReport(id, amount = 1) {
 		const idx = this.playerStatus.reports.findIndex(r => r.id === id);
-		if (idx === -1) return;
+		if (idx === -1) return null; // 何も起きなかった
+
 		const report = this.playerStatus.reports[idx];
-		const oldProgress = report.progress; // 変更前の進捗を保持
+		const oldProgress = report.progress;
 		report.progress += amount;
-		console.log(`Report ${report.id} progress updated from ${oldProgress} to ${report.progress}`); // デバッグ用ログ
 
 		let message = '';
 		if (report.progress >= report.required) {
@@ -688,20 +675,13 @@ class GameManager {
 			this.playerStatus.reports.splice(idx, 1);
 			message = `${report.title} を提出した！`;
 		} else {
-			message = `${report.title} の進捗が ${oldProgress} -> ${report.progress}/${report.required} になりました。`;
+			message = `${report.title} の進捗が ${report.progress}/${report.required} になりました。`;
 		}
 
-		// メッセージ表示（メニュー開いているときはメニュー内表示を優先）
-		if (typeof ui !== 'undefined') {
-			if (ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden') && typeof ui.displayMenuMessage === 'function') {
-				ui.displayMenuMessage(message);
-			} else if (typeof ui.displayMessage === 'function') {
-				ui.displayMessage(message, 'システム');
-			}
-		}
 		// reportDebt を互換性のために更新
 		this.playerStatus.reportDebt = this.playerStatus.reports.length;
 		this._notifyListeners();
+		return message; // メッセージを返す
 	}
 
 	getReports() {

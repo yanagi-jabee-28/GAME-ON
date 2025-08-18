@@ -68,7 +68,7 @@ const GameEventManager = {
 	 * この関数はターン進行を直接行わないため、呼び出し側で nextTurn を制御できます。
 	 * @param {object} eventData - { message, name?, changes?, afterMessage? }
 	 */
-	executeEventInline: async function (eventData) {
+		executeEventInline: async function (eventData) {
 		this.isInFreeAction = false;
 		if (!eventData) return;
 
@@ -321,21 +321,22 @@ const GameEventManager = {
 			return;
 		}
 
-		// お金を減らしてアイテムを所持に追加
-		gameManager.applyChanges({ money: -item.price, itemsAdd: [itemId] });
+		// お金を減らしてアイテムを所持に追加し、差分メッセージを受け取る
+		const msgs = gameManager.applyChanges({ money: -item.price, itemsAdd: [itemId] });
 		console.log(`Purchase applied: -${item.price}. New money: ${gameManager.getStatus().money}`);
+		
 		// 購入履歴を残す
 		if (typeof gameManager !== 'undefined' && typeof gameManager.addHistory === 'function') {
 			gameManager.addHistory({ type: 'purchase', detail: { itemId: itemId, itemName: item.name, price: item.price, shopId: shopId } });
 			// 購入したので退店履歴を更新（購入あり）
 			gameManager.addHistory({ type: 'shop_leave', detail: { shopId: shopId, purchased: true, itemId: itemId, price: item.price } });
 		}
-		ui.updateStatusDisplay(gameManager.getStatus());
-		ui.displayMessage(`${item.name} を購入した。`, '主人公');
-		await ui.waitForClick();
 
-		// 購入したアイテムはアイテム一覧に追加されます。
-		// 使用はメニューから行ってください（自動使用は行わない）。
+		// 差分メッセージがあれば表示
+		if(msgs.length > 0) {
+			ui.displayMessage(msgs.join('\n'), 'システム');
+			await ui.waitForClick();
+		}
 
 		// 購入後はターンを進める
 		await gameManager.nextTurn();
@@ -371,49 +372,7 @@ const GameEventManager = {
 	 * 「勉強する」を選択したときの処理
 	 */
 	doStudy: async function () {
-		this.isInFreeAction = false;
-		const eventData = EVENTS['STUDY_ACTION'];
-		if (!eventData) {
-			console.error('STUDY_ACTION not defined');
-			this.showMainActions();
-			return;
-		}
-
-		// 最初のメッセージ
-		if (eventData.message) {
-			ui.displayMessage(eventData.message, eventData.name || '主人公');
-			await ui.waitForClick();
-		}
-
-		// 変更を適用（表示は suppress せず、applyChanges 内の表示を使うが
-		// ここで確実にクリック待ちを挟むため、applyChanges 実行後に待機する）
-		if (eventData.changes) {
-			// applyChanges の内部表示は menuOverlay の状態によって
-			// menu 内表示に回されることがあるため、ここでは抑制して
-			// 戻り値の差分メッセージを明示的に表示する。
-			const msgs = gameManager.applyChanges(eventData.changes, { suppressDisplay: true }) || [];
-			ui.updateStatusDisplay(gameManager.getStatus());
-			if (msgs.length > 0) {
-				ui.displayMessage(msgs.join('\n'), 'システム');
-				if (typeof ui.waitForClick === 'function') await ui.waitForClick();
-			}
-		}
-
-		// afterMessage があれば表示
-		if (eventData.afterMessage) {
-			ui.displayMessage(eventData.afterMessage, eventData.name || 'システム');
-			await ui.waitForClick();
-		}
-
-		// ターンを進める
-		await gameManager.nextTurn();
-		ui.updateStatusDisplay(gameManager.getStatus());
-
-		// 日次回復チェック
-		await this.checkAndApplyDailyRecovery();
-
-		// 次の選択肢に戻る
-		this.showMainActions();
+		await this.executeAction("STUDY_ACTION");
 	},
 
 	/**
@@ -434,58 +393,50 @@ const GameEventManager = {
 	 * 「レポートを進める」を選択したときの処理
 	 */
 	doReport: async function () {
-		console.log("doReport function called."); // デバッグ用ログ
-		// config.jsからメッセージを読み込む
+		this.isInFreeAction = false;
+		const reports = gameManager.getReports ? gameManager.getReports() : gameManager.getStatus().reports || [];
+
+		if (reports.length === 0) {
+			ui.displayMessage('現在、進行中のレポートはありません。');
+			await ui.waitForClick();
+			this.showMainActions(); // やることがないのでメインアクションに戻る
+			return;
+		}
+
 		const eventData = EVENTS["REPORT_ACTION"];
 		if (eventData && eventData.message) {
 			ui.displayMessage(eventData.message);
 		} else {
-			ui.displayMessage('溜まっているレポートを片付けないと...'); // フォールバック
+			ui.displayMessage('溜まっているレポートを片付けないと...');
 		}
 		await ui.waitForClick();
 
-		// レポートがあるかチェックして、先頭のレポートを1進捗させる
-		const reportsBefore = gameManager.getReports ? gameManager.getReports() : gameManager.getStatus().reports || [];
-		console.log("reportsBefore:", reportsBefore); // デバッグ用ログ
-		if (reportsBefore.length > 0) {
-			const target = reportsBefore[0];
-			console.log("target report:", target); // デバッグ用ログ
-			ui.displayMessage(`${target.title} を進めます（${target.progress}/${target.required}）`);
+		const targetReport = reports[0];
+		ui.displayMessage(`${targetReport.title} を進めます（${targetReport.progress}/${targetReport.required}）`);
+		await ui.waitForClick();
+
+		// レポート進捗処理
+		const progressMessage = gameManager.progressReport(targetReport.id, 1);
+		if (progressMessage) {
+			ui.displayMessage(progressMessage, 'システム');
 			await ui.waitForClick();
-
-			// 進捗を進める
-			gameManager.progressReport(target.id, 1);
-			console.log("progressReport called for:", target.id); // デバッグ用ログ
-
-			// レポート進捗によるステータス変化を適用
-			if (eventData.changes) {
-				console.log("Applying changes for report:", eventData.changes); // デバッグ用ログ
-				gameManager.applyChanges(eventData.changes);
-				ui.updateStatusDisplay(gameManager.getStatus());
-				await ui.waitForClick(); // ステータス変化メッセージ表示後の待機
-			}
-
-			// 進捗後の状態を取得
-			const reportsAfter = gameManager.getReports ? gameManager.getReports() : gameManager.getStatus().reports || [];
-			const still = reportsAfter.find(r => r.id === target.id);
-			console.log("reportsAfter:", reportsAfter); // デバッグ用ログ
-			if (!still) {
-				ui.displayMessage('レポートを提出した！');
-			} else {
-				ui.displayMessage(`${still.title} の進捗が ${still.progress}/${still.required} になりました。`);
-			}
-		} else {
-			ui.displayMessage('現在、進行中のレポートはありません。');
 		}
 
-		await ui.waitForClick();
+		// レポート進捗によるステータス変化を適用
+		if (eventData.changes) {
+			// ここは executeEventInline を使うとメッセージが二重に出るので、applyChanges を直接呼ぶ
+			const msgs = gameManager.applyChanges(eventData.changes, { suppressDisplay: true }) || [];
+			ui.updateStatusDisplay(gameManager.getStatus());
+			if (msgs.length > 0) {
+				ui.displayMessage(msgs.join('\n'), 'システム');
+				if (typeof ui.waitForClick === 'function') await ui.waitForClick();
+			}
+		}
 
-		gameManager.nextTurn();
+		// ターンを進める
+		await gameManager.nextTurn();
 		ui.updateStatusDisplay(gameManager.getStatus());
-
-		// 日付が変わったかチェックし、回復処理とメッセージ表示
 		await this.checkAndApplyDailyRecovery();
-
 		this.showMainActions();
 	},
 
@@ -551,7 +502,11 @@ const GameEventManager = {
 					await ui.waitForClick();
 				}
 				if (consequences.success.changes) {
-					gameManager.applyChanges(consequences.success.changes);
+					const msgs = gameManager.applyChanges(consequences.success.changes);
+					if (msgs.length > 0) {
+						ui.displayMessage(msgs.join('\n'), 'システム');
+						await ui.waitForClick();
+					}
 					// 履歴に結果を記録
 					gameManager.addHistory({ type: 'random_event_result', eventId: eventId, choiceId: choiceText, result: 'success', changes: consequences.success.changes });
 				}
@@ -562,7 +517,11 @@ const GameEventManager = {
 					await ui.waitForClick();
 				}
 				if (consequences.failure.changes) {
-					gameManager.applyChanges(consequences.failure.changes);
+					const msgs = gameManager.applyChanges(consequences.failure.changes);
+					if (msgs.length > 0) {
+						ui.displayMessage(msgs.join('\n'), 'システム');
+						await ui.waitForClick();
+					}
 					// 履歴に結果を記録
 					gameManager.addHistory({ type: 'random_event_result', eventId: eventId, choiceId: choiceText, result: 'failure', changes: consequences.failure.changes });
 				}
@@ -574,7 +533,11 @@ const GameEventManager = {
 				await ui.waitForClick();
 			}
 			if (consequences.changes) {
-				gameManager.applyChanges(consequences.changes);
+				const msgs = gameManager.applyChanges(consequences.changes);
+				if (msgs.length > 0) {
+					ui.displayMessage(msgs.join('\n'), 'システム');
+					await ui.waitForClick();
+				}
 				// 履歴に結果を記録
 				gameManager.addHistory({ type: 'random_event_result', eventId: eventId, choiceId: choiceText, result: 'normal', changes: consequences.changes });
 			}
