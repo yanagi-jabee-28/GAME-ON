@@ -269,6 +269,11 @@ class GameManager {
 	 * ターンを次に進める
 	 */
 	async nextTurn() {
+		// ゲームオーバーであればこれ以上進めない
+		if (this.playerStatus && this.playerStatus.gameOver) {
+			console.log('Game is over. nextTurn aborted.');
+			return;
+		}
 		// ターンインデックスを進める
 		this.playerStatus.turnIndex++;
 
@@ -367,12 +372,9 @@ class GameManager {
 
 			// 試験が目的なので終了処理を行う（合否に関わらずゲーム終了）
 			this.playerStatus.gameOver = true;
-			// 最終メッセージを表示して終了を明示
-			const finalMsg = '試験が終了しました。これで本作のプレイは終了します。お疲れさまでした。';
-			if (typeof ui !== 'undefined' && typeof ui.showFloatingMessage === 'function') {
-				await ui.showFloatingMessage(finalMsg).catch(e => console.warn('showFloatingMessage failed', e));
-			} else if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') {
-				ui.displayMessage(finalMsg, 'システム');
+			// 統一のゲームオーバー処理へ委譲
+			if (typeof GameEventManager !== 'undefined' && typeof GameEventManager.triggerGameOver === 'function') {
+				await GameEventManager.triggerGameOver('試験が終了しました。これで本作のプレイは終了します。お疲れさまでした。');
 			}
 		} catch (e) {
 			console.error('Error during exam evaluation', e);

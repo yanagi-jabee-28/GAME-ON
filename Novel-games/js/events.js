@@ -35,10 +35,10 @@ const GameEventManager = {
 		}
 
 		// 行動後のメッセージ表示 (eventData.afterMessage)
-		// if (eventData.afterMessage) {
-		//     ui.displayMessage(eventData.afterMessage);
-		//     await ui.waitForClick();
-		// }
+		if (eventData.afterMessage) {
+			ui.displayMessage(eventData.afterMessage, eventData.name || 'システム');
+			await ui.waitForClick();
+		}
 
 		// ターンを進める
 		await ui.waitForClick(); // ここに待機処理を追加
@@ -70,8 +70,25 @@ const GameEventManager = {
 		}
 
 		if (eventData.changes) {
+			// 旧仕様キーの正規化: connections->cp, mental/physical->(現仕様ではcondition一本化のため無視/将来拡張時はSTAT_DEFS追加)
+			const normalized = { ...eventData.changes };
+			if (typeof normalized.connections === 'number') {
+				normalized.cp = (normalized.cp || 0) + normalized.connections;
+				delete normalized.connections;
+			}
+			// mental/physical は現在のSTAT_DEFSに存在しないため直接は反映しない
+			// condition がトップレベルにある場合は stats.condition に寄せる
+			if (typeof normalized.condition === 'number') {
+				normalized.stats = Object.assign({}, normalized.stats, { condition: (normalized.stats && normalized.stats.condition ? normalized.stats.condition : 0) + normalized.condition });
+				delete normalized.condition;
+			}
+			// academic がトップレベルに来た場合も stats へ寄せる
+			if (typeof normalized.academic === 'number') {
+				normalized.stats = Object.assign({}, normalized.stats, { academic: (normalized.stats && normalized.stats.academic ? normalized.stats.academic : 0) + normalized.academic });
+				delete normalized.academic;
+			}
 			// applyChanges 側で表示制御が可能なのでここでは通常通り適用する
-			gameManager.applyChanges(eventData.changes);
+			gameManager.applyChanges(normalized);
 			ui.updateStatusDisplay(gameManager.getStatus());
 			await ui.waitForClick();
 		}
@@ -138,6 +155,11 @@ const GameEventManager = {
 	 */
 	showMainActions: function () {
 		const status = gameManager.getStatus();
+		// ゲームオーバー時は通常の選択肢を表示せず、ゲームオーバー処理へ
+		if (status && status.gameOver) {
+			if (typeof this.triggerGameOver === 'function') this.triggerGameOver();
+			return;
+		}
 		const turnName = gameManager.getCurrentTurnName();
 
 		ui.displayMessage(`今日は何をしようか... (${turnName})`);
@@ -402,7 +424,7 @@ const GameEventManager = {
 
 	/**
 	 * ランダムイベントを処理する汎用関数
-	 * @param {object} eventData - randomEvents.js で定義されたイベントデータ
+	 * @param {object} eventData - eventsData.js の RANDOM_EVENTS で定義されたイベントデータ
 	 */
 	handleRandomEvent: async function (eventData) {
 		this.isInFreeAction = false; // イベント中は自由行動を制限

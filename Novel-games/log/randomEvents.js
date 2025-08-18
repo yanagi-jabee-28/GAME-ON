@@ -1,6 +1,7 @@
 /**
  * @file randomEvents.js
- * @description ランダムイベントのデータ定義ファイル
+ * @deprecated このファイルは randomEventsData.js に移行しました。今後は js/randomEventsData.js を読み込んでください。
+ * @description ランダムイベントのデータ定義ファイル（旧）。
  * 各イベントの発生条件、メッセージ、選択肢、結果などを定義します。
  */
 
