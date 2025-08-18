@@ -398,21 +398,55 @@ class SoundManager {
 			o.stop(now + 0.2);
 		};
 
-		// item use: short twinkle
+		// item use: distinct short sound (noise whoosh + metallic chime + subtle low thud)
 		this.synthetic['item_use'] = () => {
 			const ctx = this.ctx;
 			const now = ctx.currentTime;
+			// short filtered noise whoosh
+			const bufLen = Math.floor(ctx.sampleRate * (0.04 + Math.random() * 0.03));
+			const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+			const data = buf.getChannelData(0);
+			for (let i = 0; i < data.length; i++) {
+				const env = 1 - i / data.length;
+				data[i] = (Math.random() * 2 - 1) * env * (0.45 + Math.random() * 0.35);
+			}
+			const src = ctx.createBufferSource();
+			src.buffer = buf;
+			const bp = ctx.createBiquadFilter();
+			bp.type = 'bandpass';
+			bp.frequency.value = 900 + Math.random() * 800;
+			bp.Q.value = 0.8 + Math.random() * 1.2;
 			const g = ctx.createGain();
 			g.gain.setValueAtTime(0.0001, now);
-			g.gain.exponentialRampToValueAtTime(0.12 * this.volume, now + 0.005);
-			[1000, 1400, 1800].forEach((f, i) => {
-				const o = ctx.createOscillator();
-				o.type = 'sine';
-				o.frequency.setValueAtTime(f, now + i * 0.03);
-				o.connect(g).connect(ctx.destination);
-				o.start(now + i * 0.03);
-				o.stop(now + i * 0.03 + 0.06);
-			});
+			g.gain.exponentialRampToValueAtTime(0.09 * this.volume, now + 0.004);
+			g.gain.exponentialRampToValueAtTime(0.0001, now + 0.06 + Math.random() * 0.03);
+			src.connect(bp).connect(g).connect(ctx.destination);
+			src.start(now);
+
+			// metallic chime: short descending triangle
+			const o = ctx.createOscillator();
+			o.type = 'triangle';
+			o.frequency.setValueAtTime(1700 + Math.random() * 400, now + 0.01);
+			o.frequency.exponentialRampToValueAtTime(900 + Math.random() * 300, now + 0.12);
+			const g2 = ctx.createGain();
+			g2.gain.setValueAtTime(0.0001, now);
+			g2.gain.exponentialRampToValueAtTime(0.07 * this.volume, now + 0.02);
+			g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+			o.connect(g2).connect(ctx.destination);
+			o.start(now + 0.01);
+			o.stop(now + 0.18);
+
+			// subtle low thud to add weight
+			const o2 = ctx.createOscillator();
+			o2.type = 'sine';
+			o2.frequency.setValueAtTime(110 + Math.random() * 40, now + 0.02);
+			const g3 = ctx.createGain();
+			g3.gain.setValueAtTime(0.0001, now);
+			g3.gain.exponentialRampToValueAtTime(0.035 * this.volume, now + 0.02);
+			g3.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+			o2.connect(g3).connect(ctx.destination);
+			o2.start(now + 0.02);
+			o2.stop(now + 0.12);
 		};
 
 		// game start: pleasant rising arpeggio
