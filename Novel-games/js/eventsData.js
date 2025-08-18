@@ -17,11 +17,11 @@
 
 const EVENTS = {
 	"STUDY_ACTION": {
-		message: "よし、勉強に集中しよう。",
+		message: "自主的に机に向かい、黙々と勉強を始めた。",
 		changes: {
 			stats: { academic: 4, condition: -5 }
 		},
-		afterMessage: "少し疲れたが、知識は身についた。",
+		afterMessage: "勉強の手応えを感じた。少し疲れたが着実に力がついた。",
 		nextAction: "showMainActions" // 次に実行するアクション
 	},
 	"WORK_ACTION": {

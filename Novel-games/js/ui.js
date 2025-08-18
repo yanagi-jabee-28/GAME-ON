@@ -225,6 +225,14 @@ class UIManager {
 			return;
 		}
 
+		// メニューを開く際、もしメッセージウィンドウが表示中であれば
+		// メニューとの重なりを防ぐため一時的に非表示にする
+		try {
+			if (this.messageWindow && window.getComputedStyle(this.messageWindow).display !== 'none') {
+				this.messageWindow.dataset.wasVisible = '1';
+				this.messageWindow.style.display = 'none';
+			}
+		} catch (e) { }
 		this.menuOverlay.classList.remove('hidden');
 		if (this.menuCloseFloating) this.menuCloseFloating.setAttribute('aria-visible', 'true');
 		this.updateMenuDisplay(); // メニューを開く際に最新の情報を表示
@@ -237,6 +245,13 @@ class UIManager {
 		const status = gameManager.getStatus();
 		this.menuOverlay.classList.add('hidden');
 		if (this.menuCloseFloating) this.menuCloseFloating.setAttribute('aria-visible', 'false');
+		// メッセージウィンドウを一時的に隠していた場合は復元する
+		try {
+			if (this.messageWindow && this.messageWindow.dataset.wasVisible) {
+				this.messageWindow.style.display = 'block';
+				delete this.messageWindow.dataset.wasVisible;
+			}
+		} catch (e) { }
 	}
 
 	/**

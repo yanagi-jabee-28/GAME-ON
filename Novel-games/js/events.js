@@ -344,8 +344,49 @@ const GameEventManager = {
 	 * 「勉強する」を選択したときの処理
 	 */
 	doStudy: async function () {
-		// 勉強アクションは既存の『授業に集中する』イベントを流用して実装
-		await this.executeAction("ATTEND_CLASS_ACTION");
+		this.isInFreeAction = false;
+		const eventData = EVENTS['STUDY_ACTION'];
+		if (!eventData) {
+			console.error('STUDY_ACTION not defined');
+			this.showMainActions();
+			return;
+		}
+
+		// 最初のメッセージ
+		if (eventData.message) {
+			ui.displayMessage(eventData.message, eventData.name || '主人公');
+			await ui.waitForClick();
+		}
+
+		// 変更を適用（表示は suppress せず、applyChanges 内の表示を使うが
+		// ここで確実にクリック待ちを挟むため、applyChanges 実行後に待機する）
+		if (eventData.changes) {
+			// applyChanges の内部表示は menuOverlay の状態によって
+			// menu 内表示に回されることがあるため、ここでは抑制して
+			// 戻り値の差分メッセージを明示的に表示する。
+			const msgs = gameManager.applyChanges(eventData.changes, { suppressDisplay: true }) || [];
+			ui.updateStatusDisplay(gameManager.getStatus());
+			if (msgs.length > 0) {
+				ui.displayMessage(msgs.join('\n'), 'システム');
+				if (typeof ui.waitForClick === 'function') await ui.waitForClick();
+			}
+		}
+
+		// afterMessage があれば表示
+		if (eventData.afterMessage) {
+			ui.displayMessage(eventData.afterMessage, eventData.name || 'システム');
+			await ui.waitForClick();
+		}
+
+		// ターンを進める
+		await gameManager.nextTurn();
+		ui.updateStatusDisplay(gameManager.getStatus());
+
+		// 日次回復チェック
+		await this.checkAndApplyDailyRecovery();
+
+		// 次の選択肢に戻る
+		this.showMainActions();
 	},
 
 	/**
