@@ -76,6 +76,8 @@ class UIManager {
 			if (this.menuOverlay && this.menuOverlay.classList.contains('hidden')) {
 				this.menuOverlay.classList.remove('hidden');
 			}
+			// Mark as user-opened because this is invoked from a user action
+			try { if (this.menuOverlay) this.menuOverlay.dataset.userOpened = '1'; } catch (e) { }
 
 			if (type === 'item') {
 				const win = document.getElementById('menu-item-window');
@@ -281,8 +283,13 @@ class UIManager {
 		// safety: イベントフロー中に menuOverlay が誤って残っている場合は
 		// 非自由行動フェーズなら閉じておく（誤って画面を覆わないようにする）
 		try {
+			// Only auto-hide the overlay when it's not opened by the user and
+			// we're not in a free-action phase. If the user explicitly opened the
+			// menu (dataset.userOpened === '1'), do not auto-hide here.
 			if (this.menuOverlay && typeof GameEventManager !== 'undefined' && !GameEventManager.isInFreeAction) {
-				this.menuOverlay.classList.add('hidden');
+				if (!this.menuOverlay.dataset || this.menuOverlay.dataset.userOpened !== '1') {
+					this.menuOverlay.classList.add('hidden');
+				}
 			}
 		} catch (e) { }
 	}
@@ -390,6 +397,9 @@ class UIManager {
 			}
 		} catch (e) { }
 		this.menuOverlay.classList.remove('hidden');
+		// Mark that the menu was opened by user action so automatic
+		// safety code does not hide it unexpectedly.
+		try { if (this.menuOverlay) this.menuOverlay.dataset.userOpened = '1'; } catch (e) { }
 		if (this.menuCloseFloating) this.menuCloseFloating.setAttribute('aria-visible', 'true');
 		this.updateMenuDisplay(); // メニューを開く際に最新の情報を表示
 	}
@@ -408,6 +418,8 @@ class UIManager {
 				delete this.messageWindow.dataset.wasVisible;
 			}
 		} catch (e) { }
+		// Clear the userOpened marker when the menu is explicitly closed
+		try { if (this.menuOverlay && this.menuOverlay.dataset && this.menuOverlay.dataset.userOpened) delete this.menuOverlay.dataset.userOpened; } catch (e) { }
 	}
 
 	/**
@@ -812,9 +824,12 @@ class UIManager {
 		console.log('UI.showFloatingMessage called:', text);
 		const lines = ('' + text).split('\n');
 
-		// 保持しておく既存のスタイル
+		// 保持しておく既存の表示とスタイル
 		const origZ = this.messageWindow.style.zIndex;
 		const origDisplay = this.messageWindow.style.display;
+		const prevChar = this.characterName.textContent;
+		const prevMsg = this.messageText.textContent;
+		const prevClick = this.clickIndicator.style.display;
 
 		try {
 			// メッセージウィンドウを最前面に出す
@@ -828,21 +843,40 @@ class UIManager {
 				// クリックインジケーターを表示して、ユーザークリックで次へ進める
 				this.clickIndicator.style.display = 'block';
 
-				// waitForClick はクリック時にメッセージをクリアするため、次行表示に自然につながる
-				if (typeof this.waitForClick === 'function') {
-					await this.waitForClick();
-				} else {
-					// フォールバック: クリック待ちが無ければ単純に1秒待つ
-					await new Promise(r => setTimeout(r, 1000));
-				}
+				// ローカルのクリック待ち（this.waitForClick を使わない）
+				await new Promise(resolve => {
+					const listener = () => {
+						try {
+							// クリック音
+							if (typeof soundManager !== 'undefined') soundManager.play('click');
+						} catch (e) { }
+						// リスナーを外して進行
+						this.messageWindow.removeEventListener('click', listener);
+						// クリックインジケーターは次行表示前に消す
+						this.clickIndicator.style.display = 'none';
+						resolve();
+					};
+					this.messageWindow.addEventListener('click', listener);
+					// タイムアウトフォールバック: lineDelay が正の数の場合のみタイムアウトを設定する。
+					// lineDelay === 0 は「クリック待ちのみ」を意味する。
+					if (options && typeof options.lineDelay === 'number' && options.lineDelay > 0) {
+						setTimeout(() => {
+							this.messageWindow.removeEventListener('click', listener);
+							try { this.clickIndicator.style.display = 'none'; } catch (e) { }
+							resolve();
+						}, options.lineDelay);
+					}
+				});
 			}
 		} finally {
-			// 表示をクリアして元に戻す
-			this.clearMessage();
+			// ループ後: 元の表示内容を復元して、メッセージウィンドウが空白になるのを防ぐ
+			try {
+				this.characterName.textContent = prevChar || '';
+				this.messageText.textContent = prevMsg || '';
+			} catch (e) { }
 			this.messageWindow.style.zIndex = origZ;
 			this.messageWindow.style.display = origDisplay;
-			// クリックインジケーターを非表示にしておく
-			this.clickIndicator.style.display = 'none';
+			this.clickIndicator.style.display = prevClick || 'none';
 		}
 	}
 
