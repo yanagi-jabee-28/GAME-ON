@@ -42,7 +42,7 @@ const GameEventManager = {
 
         // ターンを進める
         await ui.waitForClick(); // ここに待機処理を追加
-        gameManager.nextTurn();
+        await gameManager.nextTurn();
         ui.updateStatusDisplay(gameManager.getStatus());
 
         // 日付が変わったかチェックし、回復処理とメッセージ表示
@@ -53,6 +53,52 @@ const GameEventManager = {
             this.showMainActions();
         }
         // TODO: 他の nextAction の種類も考慮する
+    },
+
+    /**
+     * イベントデータを受け取り、メッセージ表示とステータス変化を同期的に実行する。
+     * この関数はターン進行を直接行わないため、呼び出し側で nextTurn を制御できます。
+     * @param {object} eventData - { message, name?, changes?, afterMessage? }
+     */
+    executeEventInline: async function (eventData) {
+        this.isInFreeAction = false;
+        if (!eventData) return;
+
+        if (eventData.message) {
+            ui.displayMessage(eventData.message, eventData.name || 'システム');
+            await ui.waitForClick();
+        }
+
+        if (eventData.changes) {
+            // applyChanges 側で表示制御が可能なのでここでは通常通り適用する
+            gameManager.applyChanges(eventData.changes);
+            ui.updateStatusDisplay(gameManager.getStatus());
+            await ui.waitForClick();
+        }
+
+        if (eventData.afterMessage) {
+            ui.displayMessage(eventData.afterMessage, eventData.name || 'システム');
+            await ui.waitForClick();
+        }
+    },
+
+    /**
+     * 汎用的に changes を受け取りイベントとして実行するラッパー。
+     * gameManager など外部からはこの関数を通してイベント表示と changes を適用する。
+     * @param {{ name?:string, message?:string, changes?:object, afterMessage?:string }} eventData
+     */
+    performChangesEvent: async function (eventData) {
+        // イベントとしての実行は executeEventInline に委譲
+        try {
+            await this.executeEventInline(eventData);
+        } catch (e) {
+            console.warn('performChangesEvent failed', e);
+            // フォールバック: 直接 applyChanges を呼ぶ
+            if (eventData && eventData.changes && typeof gameManager !== 'undefined') {
+                gameManager.applyChanges(eventData.changes);
+                if (typeof ui !== 'undefined' && typeof ui.waitForClick === 'function') await ui.waitForClick();
+            }
+        }
     },
 
     /**
@@ -247,7 +293,7 @@ const GameEventManager = {
         // 使用はメニューから行ってください（自動使用は行わない）。
 
         // 購入後はターンを進める
-        gameManager.nextTurn();
+        await gameManager.nextTurn();
         ui.updateStatusDisplay(gameManager.getStatus());
         await this.checkAndApplyDailyRecovery();
         this.showMainActions();
@@ -377,7 +423,7 @@ const GameEventManager = {
                     // 選択履歴を記録
                     gameManager.recordChoice(choice.text); // 拡張された addHistory を利用
                     // ターンを進める
-                    gameManager.nextTurn();
+                    await gameManager.nextTurn();
                     ui.updateStatusDisplay(gameManager.getStatus());
                     await this.checkAndApplyDailyRecovery();
                     this.showMainActions(); // メインアクションに戻る
@@ -390,7 +436,7 @@ const GameEventManager = {
             // 現時点ではランダムイベントは選択肢を持つ前提で進める
             console.warn(`Random event ${eventData.id} has no choices. Direct consequence handling not yet implemented.`);
             // ターンを進める
-            gameManager.nextTurn();
+            await gameManager.nextTurn();
             ui.updateStatusDisplay(gameManager.getStatus());
             await this.checkAndApplyDailyRecovery();
             this.showMainActions(); // メインアクションに戻る
@@ -442,5 +488,48 @@ const GameEventManager = {
                 gameManager.addHistory({ type: 'random_event_result', eventId: eventId, choiceId: choiceText, result: 'normal', changes: consequences.changes });
             }
         }
+    }
+
+    ,
+
+    /**
+     * ゲームオーバー処理を統一して扱うユーティリティ
+     * 表示: GAME_OVER_EVENT の message, afterMessage を表示し、
+     * 選択肢でリスタート or タイトルへ戻るを選ばせる
+     */
+    triggerGameOver: async function (customMessage) {
+        // フラグを立てる
+        if (typeof gameManager !== 'undefined') gameManager.playerStatus.gameOver = true;
+
+        const eventData = Object.assign({}, EVENTS['GAME_OVER_EVENT']);
+        if (customMessage) eventData.message = customMessage;
+
+        // メッセージ表示
+        if (eventData.message) {
+            ui.displayMessage(eventData.message, 'システム');
+            await ui.waitForClick();
+        }
+        if (eventData.afterMessage) {
+            ui.displayMessage(eventData.afterMessage, 'システム');
+            await ui.waitForClick();
+        }
+
+        // リスタート / タイトルへ戻る 選択肢
+        const choices = [
+            {
+                text: 'リスタート', callback: () => {
+                    // 単純にページをリロードして初期化（簡易実装）
+                    location.reload();
+                }
+            },
+            {
+                text: 'タイトルへ戻る', callback: () => {
+                    // トップページへ移動。index.html がトップならばそれをロード
+                    window.location.href = '../index.html';
+                }
+            }
+        ];
+
+        ui.displayChoices(choices);
     }
 };

@@ -268,7 +268,7 @@ class GameManager {
     /**
      * ターンを次に進める
      */
-    nextTurn() {
+    async nextTurn() {
         // ターンインデックスを進める
         this.playerStatus.turnIndex++;
 
@@ -287,7 +287,7 @@ class GameManager {
 
         // 日付が進んだ直後に期末試験の判定が必要かを確認
         try {
-            this.runExamIfNeeded();
+            await this.runExamIfNeeded();
         } catch (e) {
             console.error('runExamIfNeeded error', e);
         }
@@ -298,7 +298,7 @@ class GameManager {
      * 指定日（CONFIG.EXAM.day）の到来時に学力を評価し、合否を判定する。
      * 合格ならメッセージ表示と履歴記録、未達なら留年等のペナルティ処理を行う。
      */
-    runExamIfNeeded() {
+    async runExamIfNeeded() {
         try {
             if (!CONFIG || !CONFIG.EXAM) return;
             // 週次繰り返し設定がある場合は曜日ベースで判定
@@ -328,30 +328,52 @@ class GameManager {
             // ヘッダーメッセージ（いつ試験が実施されたかを明確にする）
             const when = `日 ${this.playerStatus.day}（${this.getWeekdayName()}）`;
             const header = `【期末試験実施】 ${when} に期末試験が行われました。学力を評価します。`;
-            if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') {
-                ui.displayMessage(header, '試験官');
-            }
 
-            // 合否判定と詳細メッセージの生成
+            // 合否判定と eventData の組立
+            let eventData = { name: '試験官', message: header, changes: {}, afterMessage: '' };
             if (academic >= threshold) {
                 const rewards = (CONFIG.EXAM_REWARDS && CONFIG.EXAM_REWARDS.pass) ? CONFIG.EXAM_REWARDS.pass : { money: 500, cp: 0 };
                 const detail = `判定: 合格\n学力: ${academic} / 合格基準: ${threshold}\n報酬: 所持金 ${rewards.money >= 0 ? '+' : ''}${rewards.money}円、人脈 ${rewards.cp >= 0 ? '+' : ''}${rewards.cp}`;
-                if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') ui.displayMessage(detail, '試験官');
+                eventData.message = header + '\n' + detail;
+                eventData.changes = { money: Number(rewards.money) || 0, cp: Number(rewards.cp) || 0 };
                 this.addHistory({ type: 'exam', detail: { result: 'pass', academic, threshold } });
-                this.applyChanges({ money: Number(rewards.money) || 0, cp: Number(rewards.cp) || 0 });
             } else {
                 const punish = (CONFIG.EXAM_REWARDS && CONFIG.EXAM_REWARDS.fail) ? CONFIG.EXAM_REWARDS.fail : { money: -200, cp: 0 };
                 const detail = `判定: 不合格\n学力: ${academic} / 合格基準: ${threshold}\nペナルティ: 所持金 ${punish.money >= 0 ? '+' : ''}${punish.money}円、人脈 ${punish.cp >= 0 ? '+' : ''}${punish.cp}\n留年の可能性が発生しました。`;
-                if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') ui.displayMessage(detail, '試験官');
+                eventData.message = header + '\n' + detail;
+                eventData.changes = { money: Number(punish.money) || 0, cp: Number(punish.cp) || 0 };
                 this.addHistory({ type: 'exam', detail: { result: 'fail', academic, threshold } });
-                this.applyChanges({ money: Number(punish.money) || 0, cp: Number(punish.cp) || 0 });
-                // 留年フラグ・回数を明確に保持
+                // 留年フラグ・回数を明確に保持 (失敗時のみ)
                 this.playerStatus.examFailed = (this.playerStatus.examFailed || 0) + 1;
-                this._notifyListeners();
+            }
+
+            // イベントフローで実行してUIのクリック待ちを正しく挟む
+            try {
+                await GameEventManager.performChangesEvent(eventData);
+            } catch (e) {
+                console.warn('performChangesEvent failed', e);
+                const applied = this.applyChanges(eventData.changes, { suppressDisplay: true }) || [];
+                const combined = eventData.message + (applied.length ? '\n---\n' + applied.join('\n') : '');
+                if (typeof ui !== 'undefined' && typeof ui.showFloatingMessage === 'function') {
+                    await ui.showFloatingMessage(combined).catch(e => console.warn('showFloatingMessage failed', e));
+                } else if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') {
+                    ui.displayMessage(combined, eventData.name || '試験官');
+                    if (typeof ui.waitForClick === 'function') await ui.waitForClick();
+                }
             }
 
             // 実行済みフラグを記録して同日の重複実行を防止
             this.playerStatus.lastExamRunDay = Number(this.playerStatus.day);
+
+            // 試験が目的なので終了処理を行う（合否に関わらずゲーム終了）
+            this.playerStatus.gameOver = true;
+            // 最終メッセージを表示して終了を明示
+            const finalMsg = '試験が終了しました。これで本作のプレイは終了します。お疲れさまでした。';
+            if (typeof ui !== 'undefined' && typeof ui.showFloatingMessage === 'function') {
+                await ui.showFloatingMessage(finalMsg).catch(e => console.warn('showFloatingMessage failed', e));
+            } else if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') {
+                ui.displayMessage(finalMsg, 'システム');
+            }
         } catch (e) {
             console.error('Error during exam evaluation', e);
         }
@@ -448,6 +470,29 @@ class GameManager {
     }
 
     /**
+     * 任意の changes を inline なイベントとして実行するユーティリティ。
+     * message や name を渡すことで、UI 表示を一元化する。
+     * @param {object} changes
+     * @param {string} [name]
+     * @param {string} [message]
+     */
+    async triggerInlineChanges(changes, name, message) {
+        const eventData = { name: name || 'システム', message: message || '', changes: changes };
+        try {
+            await GameEventManager.performChangesEvent(eventData);
+        } catch (e) {
+            console.warn('performChangesEvent fallback', e);
+            // フォールバックは直接 applyChanges して UI を表示
+            const msgs = this.applyChanges(changes, { suppressDisplay: true }) || [];
+            const combined = (message ? message + '\n' : '') + (msgs.length ? msgs.join('\n') : '');
+            if (typeof ui !== 'undefined') {
+                if (typeof ui.showFloatingMessage === 'function') await ui.showFloatingMessage(combined).catch(() => { });
+                else if (typeof ui.displayMessage === 'function') ui.displayMessage(combined, name || 'システム');
+            }
+        }
+    }
+
+    /**
      * 選択肢の選択を記録する
      * @param {string} label - 選んだ選択肢の表示テキスト
      */
@@ -517,30 +562,38 @@ class GameManager {
 
         // アイテムの効果を適用
         if (item.effect && item.effect.changes) {
-            // applyChanges の自動表示は抑制して、ここでまとめて表示する
-            const messages = this.applyChanges(item.effect.changes, { suppressDisplay: true }) || [];
+            // 汎用イベントデータを作成してイベントフローで実行する
+            const eventData = {
+                name: item.name,
+                message: `${item.name} を使用した！\n${item.description || ''}`,
+                changes: item.effect.changes,
+                afterMessage: ''
+            };
 
-            // 使用メッセージと差分をまとめる
-            const combined = [`${item.name} を使用した！`, ...messages].join('\n');
-
-            if (typeof ui !== 'undefined') {
-                if (ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden')) {
-                    // メニューが開いている場合はフローティングメッセージで上から被せる
-                    if (typeof ui.showFloatingMessage === 'function') {
-                        // showFloatingMessage は自動で閉じる
-                        await ui.showFloatingMessage(combined, { lineDelay: 800 });
-                    } else if (typeof ui.displayMenuMessage === 'function') {
-                        ui.displayMenuMessage(combined);
-                        if (typeof ui.waitForMenuClick === 'function') {
-                            await ui.waitForMenuClick();
-                        } else if (typeof ui.waitForClick === 'function') {
-                            await ui.waitForClick();
+            try {
+                await GameEventManager.performChangesEvent(eventData);
+            } catch (e) {
+                console.warn('performChangesEvent failed for useItem', e);
+                // フォールバック: 直接適用して差分をまとめて表示
+                const messages = this.applyChanges(item.effect.changes, { suppressDisplay: true }) || [];
+                const combined = [`${item.name} を使用した！`, ...messages].join('\n');
+                if (typeof ui !== 'undefined') {
+                    if (ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden')) {
+                        if (typeof ui.showFloatingMessage === 'function') {
+                            await ui.showFloatingMessage(combined, { lineDelay: 800 });
+                        } else if (typeof ui.displayMenuMessage === 'function') {
+                            ui.displayMenuMessage(combined);
+                            if (typeof ui.waitForMenuClick === 'function') {
+                                await ui.waitForMenuClick();
+                            } else if (typeof ui.waitForClick === 'function') {
+                                await ui.waitForClick();
+                            }
+                            ui.clearMenuMessage && ui.clearMenuMessage();
                         }
-                        ui.clearMenuMessage && ui.clearMenuMessage();
+                    } else if (typeof ui.displayMessage === 'function') {
+                        ui.displayMessage(combined, 'システム');
+                        if (typeof ui.waitForClick === 'function') await ui.waitForClick();
                     }
-                } else if (typeof ui.displayMessage === 'function') {
-                    ui.displayMessage(combined, 'システム');
-                    if (typeof ui.waitForClick === 'function') await ui.waitForClick();
                 }
             }
         } else {
