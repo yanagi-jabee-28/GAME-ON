@@ -130,12 +130,47 @@ class GameManager {
 			if (Array.isArray(changes.itemsAdd) && changes.itemsAdd.length > 0) {
 				const itemNames = changes.itemsAdd.map(id => (ITEMS[id] && ITEMS[id].name) ? ITEMS[id].name : id);
 				messages.push(`アイテム入手: ${itemNames.join(', ')}`);
+				// play item get sound
+				try { if (typeof soundManager !== 'undefined') soundManager.play('item_get'); } catch (e) { }
 			}
 
 			// menuLocked
 			if (typeof changes.menuLocked === 'boolean') {
 				messages.push(`メニューロック: ${changes.menuLocked ? '有効' : '解除'}`);
 			}
+
+			// Play sounds based on deltas
+			try {
+				// stats
+				if (before.stats && after.stats) {
+					for (const key of Object.keys(after.stats)) {
+						const delta = after.stats[key] - (before.stats[key] || 0);
+						if (delta > 0) {
+							if (typeof soundManager !== 'undefined') soundManager.play('stat_up');
+						} else if (delta < 0) {
+							if (typeof soundManager !== 'undefined') soundManager.play('stat_down');
+						}
+					}
+				}
+				// money
+				if (typeof after.money === 'number' && after.money !== before.money) {
+					const delta = after.money - (before.money || 0);
+					if (delta > 0) {
+						if (typeof soundManager !== 'undefined') soundManager.play('money_up');
+					} else if (delta < 0) {
+						if (typeof soundManager !== 'undefined') soundManager.play('money_down');
+					}
+				}
+				// cp
+				if (typeof after.cp === 'number' && after.cp !== before.cp) {
+					const delta = after.cp - (before.cp || 0);
+					if (delta > 0) {
+						if (typeof soundManager !== 'undefined') soundManager.play('cp_up');
+					} else if (delta < 0) {
+						if (typeof soundManager !== 'undefined') soundManager.play('cp_down');
+					}
+				}
+			} catch (e) { /* ignore sound errors */ }
 
 			return messages;
 		}

@@ -268,6 +268,135 @@ class SoundManager {
 			osc.start();
 			osc.stop(now + 0.2);
 		};
+
+		// --- status / feedback sounds ---
+		this.synthetic['stat_up'] = () => {
+			const ctx = this.ctx;
+			const now = ctx.currentTime;
+			const o = ctx.createOscillator();
+			const g = ctx.createGain();
+			o.type = 'sine';
+			o.frequency.setValueAtTime(600, now);
+			o.frequency.exponentialRampToValueAtTime(900, now + 0.08);
+			g.gain.setValueAtTime(0.0001, now);
+			g.gain.exponentialRampToValueAtTime(0.12 * this.volume, now + 0.01);
+			g.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+			o.connect(g).connect(ctx.destination);
+			o.start();
+			o.stop(now + 0.14);
+		};
+
+		this.synthetic['stat_down'] = () => {
+			const ctx = this.ctx;
+			const now = ctx.currentTime;
+			const o = ctx.createOscillator();
+			const g = ctx.createGain();
+			o.type = 'sawtooth';
+			o.frequency.setValueAtTime(400, now);
+			o.frequency.exponentialRampToValueAtTime(200, now + 0.12);
+			g.gain.setValueAtTime(0.0001, now);
+			g.gain.exponentialRampToValueAtTime(0.1 * this.volume, now + 0.01);
+			g.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+			o.connect(g).connect(ctx.destination);
+			o.start();
+			o.stop(now + 0.16);
+		};
+
+		this.synthetic['money_up'] = () => {
+			const ctx = this.ctx;
+			const now = ctx.currentTime;
+			const g = ctx.createGain();
+			g.gain.setValueAtTime(0.0001, now);
+			g.gain.linearRampToValueAtTime(0.12 * this.volume, now + 0.005);
+			const freqs = [900, 1100, 1300];
+			freqs.forEach((f, i) => {
+				const o = ctx.createOscillator();
+				o.type = 'triangle';
+				o.frequency.setValueAtTime(f, now + i * 0.03);
+				o.connect(g).connect(ctx.destination);
+				o.start(now + i * 0.03);
+				o.stop(now + i * 0.03 + 0.06);
+			});
+		};
+
+		this.synthetic['money_down'] = () => {
+			const ctx = this.ctx;
+			const now = ctx.currentTime;
+			const o = ctx.createOscillator();
+			const g = ctx.createGain();
+			o.type = 'sine';
+			o.frequency.setValueAtTime(300, now);
+			g.gain.setValueAtTime(0.0001, now);
+			g.gain.linearRampToValueAtTime(0.08 * this.volume, now + 0.01);
+			g.gain.linearRampToValueAtTime(0.0001, now + 0.12);
+			o.connect(g).connect(ctx.destination);
+			o.start();
+			o.stop(now + 0.12);
+		};
+
+		this.synthetic['cp_up'] = () => {
+			const ctx = this.ctx;
+			const now = ctx.currentTime;
+			const o = ctx.createOscillator();
+			const g = ctx.createGain();
+			o.type = 'sine';
+			o.frequency.setValueAtTime(700, now);
+			o.frequency.exponentialRampToValueAtTime(1000, now + 0.06);
+			g.gain.setValueAtTime(0.0001, now);
+			g.gain.exponentialRampToValueAtTime(0.11 * this.volume, now + 0.01);
+			g.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+			o.connect(g).connect(ctx.destination);
+			o.start();
+			o.stop(now + 0.14);
+		};
+
+		this.synthetic['cp_down'] = () => {
+			const ctx = this.ctx;
+			const now = ctx.currentTime;
+			const o = ctx.createOscillator();
+			const g = ctx.createGain();
+			o.type = 'triangle';
+			o.frequency.setValueAtTime(450, now);
+			o.frequency.exponentialRampToValueAtTime(350, now + 0.08);
+			g.gain.setValueAtTime(0.0001, now);
+			g.gain.exponentialRampToValueAtTime(0.08 * this.volume, now + 0.01);
+			g.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+			o.connect(g).connect(ctx.destination);
+			o.start();
+			o.stop(now + 0.14);
+		};
+
+		this.synthetic['item_get'] = () => {
+			const ctx = this.ctx;
+			const now = ctx.currentTime;
+			const freqs = [1200, 1500];
+			const g = ctx.createGain();
+			g.gain.setValueAtTime(0.0001, now);
+			g.gain.exponentialRampToValueAtTime(0.12 * this.volume, now + 0.005);
+			freqs.forEach((f, i) => {
+				const o = ctx.createOscillator();
+				o.type = 'square';
+				o.frequency.setValueAtTime(f, now + i * 0.03);
+				o.connect(g).connect(ctx.destination);
+				o.start(now + i * 0.03);
+				o.stop(now + i * 0.03 + 0.06);
+			});
+		};
+
+		this.synthetic['alert'] = () => {
+			const ctx = this.ctx;
+			const now = ctx.currentTime;
+			const o = ctx.createOscillator();
+			const g = ctx.createGain();
+			o.type = 'sawtooth';
+			o.frequency.setValueAtTime(400, now);
+			g.gain.setValueAtTime(0.0001, now);
+			g.gain.exponentialRampToValueAtTime(0.14 * this.volume, now + 0.01);
+			g.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+			o.connect(g).connect(ctx.destination);
+			o.start();
+			o.stop(now + 0.2);
+		};
 	}
 }
 
