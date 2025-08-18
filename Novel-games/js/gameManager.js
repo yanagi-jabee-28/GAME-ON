@@ -12,6 +12,8 @@ class GameManager {
 	constructor(initialStatus) {
 		// config.jsから受け取った初期ステータスをディープコピーして設定
 		this.playerStatus = JSON.parse(JSON.stringify(initialStatus));
+		// 持続効果を管理するためのオブジェクト（例: { energy_boost: { turns: 3 } } ）
+		if (!this.playerStatus.effects) this.playerStatus.effects = {};
 		// 変更リスナー (UIやイベントが購読可能)
 		this._listeners = [];
 		// STAT_DEFS に基づいて stats の欠損キーを初期化する
@@ -290,11 +292,32 @@ class GameManager {
 			console.warn('Failed to notify listeners after nextTurn', e);
 		}
 
+
 		// 日付が進んだ直後に期末試験の判定が必要かを確認
 		try {
 			await this.runExamIfNeeded();
 		} catch (e) {
 			console.error('runExamIfNeeded error', e);
+		}
+
+		// --- ターン経過に伴う持続効果のデクリメント処理 ---
+		try {
+			if (this.playerStatus.effects) {
+				for (const key of Object.keys(this.playerStatus.effects)) {
+					const ef = this.playerStatus.effects[key];
+					if (ef && typeof ef.turns === 'number') {
+						ef.turns = Math.max(0, ef.turns - 1);
+						if (ef.turns === 0) {
+							delete this.playerStatus.effects[key];
+							this.addHistory({ type: 'effect_expired', detail: { effect: key } });
+						}
+					}
+				}
+				// 持続効果の変化があれば UI に通知
+				this._notifyListeners();
+			}
+		} catch (e) {
+			console.warn('Effect decrement error', e);
 		}
 	}
 
@@ -573,7 +596,33 @@ class GameManager {
 			};
 
 			try {
-				await GameEventManager.performChangesEvent(eventData);
+				// If the menu is currently open, show the item message inside the menu
+				// instead of using the main message window. This prevents the main
+				// message window from being pulled above the menu overlay.
+				if (typeof ui !== 'undefined' && ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden')) {
+					// Menu is open: apply changes silently and show a floating overlay above the menu.
+					const messages = this.applyChanges(item.effect.changes, { suppressDisplay: true }) || [];
+					const combined = [eventData.message, ...messages].join('\n');
+					try {
+						if (typeof ui.showFloatingMessage === 'function') {
+							await ui.showFloatingMessage(combined, { lineDelay: 0 });
+						} else if (typeof ui.displayMenuMessage === 'function') {
+							// Fallback: show inside the menu area.
+							ui.displayMenuMessage(combined);
+							if (typeof ui.waitForMenuClick === 'function') {
+								await ui.waitForMenuClick();
+							} else if (typeof ui.waitForClick === 'function') {
+								await ui.waitForClick();
+							}
+							if (typeof ui.clearMenuMessage === 'function') ui.clearMenuMessage();
+						}
+					} catch (innerErr) {
+						console.warn('Menu-display item use flow failed', innerErr);
+					}
+				} else {
+					// Default: use the normal event flow which shows messages in the main window
+					await GameEventManager.performChangesEvent(eventData);
+				}
 			} catch (e) {
 				console.warn('performChangesEvent failed for useItem', e);
 				// フォールバック: 直接適用して差分をまとめて表示
@@ -597,6 +646,18 @@ class GameManager {
 						if (typeof ui.waitForClick === 'function') await ui.waitForClick();
 					}
 				}
+			}
+
+			// 持続効果（duration / flagId）が定義されていれば登録する
+			try {
+				if (item.effect && typeof item.effect.duration === 'number' && item.effect.flagId) {
+					this.playerStatus.effects[item.effect.flagId] = { turns: Number(item.effect.duration), displayName: item.effect.displayName || item.name };
+					this.addHistory({ type: 'effect_applied', detail: { effect: item.effect.flagId, turns: Number(item.effect.duration) } });
+					this._notifyListeners();
+					console.log('Effect applied:', item.effect.flagId, this.playerStatus.effects[item.effect.flagId]);
+				}
+			} catch (e) {
+				console.warn('Failed to apply item effect flag', e);
 			}
 		} else {
 			console.warn(`Item ${itemId} has no defined effect.`);

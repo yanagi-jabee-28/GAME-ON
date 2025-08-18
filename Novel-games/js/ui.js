@@ -430,6 +430,40 @@ class UIManager {
 				historyList.appendChild(li);
 			});
 		}
+
+		// --- 効果表示 (effects) ---
+		const effectsSectionId = 'menu-effects-section';
+		let effectsSection = document.getElementById(effectsSectionId);
+		if (!effectsSection) {
+			effectsSection = document.createElement('div');
+			effectsSection.id = effectsSectionId;
+			const header = document.createElement('h3');
+			header.textContent = '効果';
+			// 場所: スクロール可能なコンテンツ領域 (.menu-scroll) に追加
+			const scroll = document.querySelector('.menu-scroll');
+			if (scroll) scroll.appendChild(effectsSection);
+			else {
+				const menuContent = document.getElementById('menu-content');
+				if (menuContent) menuContent.appendChild(effectsSection);
+			}
+		}
+		effectsSection.innerHTML = '';
+		const effects = status.effects || {};
+		console.log('UI.updateMenuDisplay effects:', effects);
+		if (Object.keys(effects).length === 0) {
+			const p = document.createElement('p');
+			p.textContent = '(現在、効果はありません)';
+			effectsSection.appendChild(p);
+		} else {
+			const ul = document.createElement('ul');
+			for (const key of Object.keys(effects)) {
+				const li = document.createElement('li');
+				const display = effects[key].displayName || key;
+				li.textContent = `${display} (${effects[key].turns}ターン)`;
+				ul.appendChild(li);
+			}
+			effectsSection.appendChild(ul);
+		}
 	}
 
 	/**
@@ -447,7 +481,18 @@ class UIManager {
 			// メッセージはメニューの上部に表示
 			menuContent.insertBefore(menuMsg, menuContent.firstChild);
 		}
+		// If the menu overlay is present but currently hidden, temporarily show it
+		// so the menu message becomes visible. Remember the original state and
+		// restore it in clearMenuMessage.
+		try {
+			if (this.menuOverlay && this.menuOverlay.classList.contains('hidden')) {
+				this.menuOverlay.classList.remove('hidden');
+				this.menuOverlay.dataset._tempShown = '1';
+			}
+		} catch (e) { }
+
 		menuMsg.textContent = text;
+		menuMsg.style.display = 'block';
 	}
 
 	/**
@@ -472,12 +517,24 @@ class UIManager {
 	}
 
 	/**
-	 * メニュー内メッセージをクリアする
+	 * メニュー内のメッセージをクリアする
 	 */
 	clearMenuMessage() {
 		const menuMsg = document.getElementById('menu-message');
-		if (menuMsg) menuMsg.remove();
+		if (menuMsg) {
+			menuMsg.textContent = '';
+			menuMsg.style.display = 'none';
+		}
+		// restore any temporary menu overlay visibility change
+		try {
+			if (this.menuOverlay && this.menuOverlay.dataset && this.menuOverlay.dataset._tempShown) {
+				this.menuOverlay.classList.add('hidden');
+				delete this.menuOverlay.dataset._tempShown;
+			}
+		} catch (e) { }
 	}
+
+
 
 	/**
 	 * メニューの上に重ねて表示するフローティングメッセージ

@@ -9,7 +9,9 @@ const ITEMS = {
 		name: 'エナジードリンク',
 		price: 300,
 		description: '一時的に体力を回復するが、後で反動が来る。',
-		effect: { changes: { stats: { condition: 10 } } }
+		// duration: 効果が続くターン数（使用ターンもカウントする）
+		// flagId: 内部識別子、displayName: メニュー表示向けの名前
+		effect: { changes: { stats: { condition: 10 } }, duration: 3, flagId: 'energy_drink_effect', displayName: 'エナジードリンク効果' }
 	},
 	'onigiri': {
 		name: 'おにぎり',
