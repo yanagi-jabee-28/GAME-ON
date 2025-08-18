@@ -24,7 +24,7 @@ const GameEventManager = {
 
 		// メッセージ表示
 		if (eventData.message) {
-			ui.displayMessage(eventData.message);
+			ui.displayMessage(eventData.message, eventData.name || 'システム');
 			await ui.waitForClick();
 		}
 
@@ -163,7 +163,7 @@ const GameEventManager = {
 
 		// TODO: ここから初期設定診断のイベントを開始する
 
-		ui.displayMessage('（これからどうしようか...）');
+		ui.displayMessage('（これからどうしようか...）', '主人公');
 		// 最初の行動選択へ
 		this.showMainActions();
 	},
@@ -258,7 +258,7 @@ const GameEventManager = {
 		this.isInFreeAction = false;
 		const shop = (CONFIG && CONFIG.SHOPS && CONFIG.SHOPS[shopId]) ? CONFIG.SHOPS[shopId] : null;
 		if (!shop) {
-			ui.displayMessage('そのお店は現在利用できません。');
+			ui.displayMessage('そのお店は現在利用できません。', 'システム');
 			await ui.waitForClick();
 			this.showMainActions();
 			return;
@@ -269,7 +269,7 @@ const GameEventManager = {
 			gameManager.addHistory({ type: 'shop_visit', detail: { shopId: shopId, shopLabel: shop.label } });
 		}
 
-		ui.displayMessage(`${shop.label}に行ってみよう。何を買う？`);
+		ui.displayMessage(`${shop.label}に行ってみよう。何を買う？`, '主人公');
 		await ui.waitForClick();
 
 		const items = shop.items || [];
@@ -311,7 +311,7 @@ const GameEventManager = {
 		const status = gameManager.getStatus();
 		console.log(`Attempting purchase: ${itemId} (${item.name}) price=${item.price}, playerMoney=${status.money}`);
 		if (status.money < item.price) {
-			ui.displayMessage('所持金が足りません。');
+			ui.displayMessage('所持金が足りません。', 'システム');
 			await ui.waitForClick();
 			this.showMainActions();
 			return;
@@ -327,7 +327,7 @@ const GameEventManager = {
 			gameManager.addHistory({ type: 'shop_leave', detail: { shopId: shopId, purchased: true, itemId: itemId, price: item.price } });
 		}
 		ui.updateStatusDisplay(gameManager.getStatus());
-		ui.displayMessage(`${item.name} を購入した。`);
+		ui.displayMessage(`${item.name} を購入した。`, '主人公');
 		await ui.waitForClick();
 
 		// 購入したアイテムはアイテム一覧に追加されます。

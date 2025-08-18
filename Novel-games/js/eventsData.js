@@ -17,6 +17,7 @@
 
 const EVENTS = {
 	"STUDY_ACTION": {
+		name: '主人公',
 		message: "自主的に机に向かい、黙々と勉強を始めた。",
 		changes: {
 			stats: { academic: 4, mental: -3, physical: -2 }
@@ -46,6 +47,7 @@ const EVENTS = {
 		nextAction: "showMainActions"
 	},
 	"ATTEND_CLASS_ACTION": {
+		name: '主人公',
 		message: "授業に集中する。学びを吸収しよう。",
 		changes: {
 			stats: { academic: 6, mental: -2 }
