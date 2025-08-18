@@ -951,6 +951,25 @@ class UIManager {
 		if (this.loadGameFileInput) {
 			this.loadGameFileInput.addEventListener('change', (event) => this.handleLoadGame(event, false)); // メニューからは isFromTitle=false
 		}
+
+		// Audio controls in menu (volume slider and mute button)
+		const volEl = document.getElementById('sound-volume');
+		const muteBtn = document.getElementById('sound-mute');
+		if (volEl) {
+			volEl.addEventListener('input', (e) => {
+				const v = parseFloat(e.target.value);
+				if (typeof soundManager !== 'undefined' && typeof soundManager.setVolume === 'function') {
+					soundManager.setVolume(v);
+				}
+			});
+		}
+		if (muteBtn) {
+			muteBtn.addEventListener('click', (e) => {
+				if (typeof soundManager === 'undefined') return;
+				soundManager.toggleMute();
+				muteBtn.textContent = soundManager.muted ? 'ミュート解除' : 'ミュート';
+			});
+		}
 	}
 
 	/**
