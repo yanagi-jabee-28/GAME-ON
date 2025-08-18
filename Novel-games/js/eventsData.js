@@ -6,20 +6,20 @@
  * @typedef {Object} EventData
  * @property {string} [name]        - 話者名（ウィンドウ左上に表示）
  * @property {string} [message]     - 最初に表示するメッセージ
- * @property {Object} [changes]     - 状態変化。基本は { stats:{ academic?, condition? }, money?, cp?, reportDebt?, itemsAdd? }
+ * @property {Object} [changes]     - 状態変化。基本は { stats:{ academic?, physical?, mental?, technical? }, money?, cp?, reportDebt?, itemsAdd? }
  * @property {string} [afterMessage]- 変化後に表示する追いメッセージ
  * @property {string} [nextAction]  - 次に実行するアクション（例: "showMainActions"）
  *
  * 注意:
- * - 旧仕様のキー（connections/mental/physical/condition のトップレベル）はロジック側で正規化されます。
- * - 可能であれば changes.stats 内に academic/condition を入れる形で記述してください。
+ * - 旧仕様のキー（connections/condition のトップレベル）はロジック側で正規化されます。
+ * - 可能であれば changes.stats 内に academic/physical/mental/technical を入れる形で記述してください。
  */
 
 const EVENTS = {
 	"STUDY_ACTION": {
 		message: "自主的に机に向かい、黙々と勉強を始めた。",
 		changes: {
-			stats: { academic: 4, condition: -5 }
+			stats: { academic: 4, mental: -3, physical: -2 }
 		},
 		afterMessage: "勉強の手応えを感じた。少し疲れたが着実に力がついた。",
 		nextAction: "showMainActions" // 次に実行するアクション
@@ -28,52 +28,40 @@ const EVENTS = {
 		message: "お金を稼ぎに行こう。",
 		changes: {
 			money: 400,
-			stats: { condition: -8 }
+			stats: { physical: -8 }
 		},
 		afterMessage: "疲れた...でも、これで少しは生活が楽になるはずだ。",
 		nextAction: "showMainActions"
 	},
 	"REPORT_ACTION": {
 		message: "溜まっているレポートを片付けないと...",
-		changes: {
-			stats: { // stats オブジェクトを内包
-				condition: -3 // レポートによる疲労
-			}
-		},
+		changes: { stats: { mental: -4 } },
 		afterMessage: "", // レポート進捗によってメッセージが変わるため空
 		nextAction: "showMainActions"
 	},
 	"REST_ACTION": {
 		message: "今日はゆっくり休んで、明日に備えよう。",
-		changes: {
-			stats: { // stats オブジェクトを内包
-				condition: 13
-			}
-		},
+		changes: { stats: { physical: 8, mental: 8 } },
 		afterMessage: "",
 		nextAction: "showMainActions"
 	},
 	"ATTEND_CLASS_ACTION": {
 		message: "授業に集中する。学びを吸収しよう。",
 		changes: {
-			stats: { academic: 6, condition: -3 }
+			stats: { academic: 6, mental: -2 }
 		},
 		afterMessage: "", // 特にメッセージなし
 		nextAction: "showMainActions"
 	},
 	"MOONLIGHT_WORK_ACTION": {
 		message: "授業中に内職（レポートを進める）をする。授業の時間を使ってレポートを進めよう。",
-		changes: {
-			stats: { condition: -5 }
-		},
+		changes: { stats: { mental: -3 } },
 		afterMessage: "", // doReport に委譲するため特にメッセージなし
 		nextAction: "showMainActions"
 	},
 	"DOZE_OFF_ACTION": {
 		message: "うとうと... 居眠りをしてしまった。",
-		changes: {
-			stats: { condition: 2 }
-		},
+		changes: { stats: { mental: 2 } },
 		afterMessage: "", // 特にメッセージなし
 		nextAction: "showMainActions"
 	},
@@ -111,7 +99,7 @@ const RANDOM_EVENTS = {
 	"MIDNIGHT_RAMEN": {
 		id: "MIDNIGHT_RAMEN",
 		name: "深夜のラーメンの誘惑",
-		conditions: { turn: ["夜"], status: { condition: { max: 40 } } },
+		conditions: { turn: ["夜"], status: { physical: { max: 40 } } },
 		message: "友人から「禁断の夜食ラーメンに行かないか？」と誘われた。",
 		choices: [
 			{ text: "誘いに乗る", consequences: { message: "背徳感と共にすするラーメンは格別だった。明日から頑張ろう...", changes: { money: -500, mental: 15, physical: -10 } } },

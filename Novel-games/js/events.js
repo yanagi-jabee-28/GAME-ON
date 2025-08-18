@@ -70,14 +70,20 @@ const GameEventManager = {
 		}
 
 		if (eventData.changes) {
-			// 旧仕様キーの正規化: connections->cp, mental/physical->(現仕様ではcondition一本化のため無視/将来拡張時はSTAT_DEFS追加)
+			// 旧仕様キーの正規化: connections->cp
 			const normalized = { ...eventData.changes };
 			if (typeof normalized.connections === 'number') {
 				normalized.cp = (normalized.cp || 0) + normalized.connections;
 				delete normalized.connections;
 			}
-			// mental/physical は現在のSTAT_DEFSに存在しないため直接は反映しない
-			// condition がトップレベルにある場合は stats.condition に寄せる
+			// physical/mental/technical がトップレベルに来た場合は stats へ寄せる
+			['physical', 'mental', 'technical', 'academic'].forEach(k => {
+				if (typeof normalized[k] === 'number') {
+					normalized.stats = Object.assign({}, normalized.stats, { [k]: (normalized.stats && normalized.stats[k] ? normalized.stats[k] : 0) + normalized[k] });
+					delete normalized[k];
+				}
+			});
+			// legacy: condition がトップレベルにある場合は stats.condition に寄せる（互換用）
 			if (typeof normalized.condition === 'number') {
 				normalized.stats = Object.assign({}, normalized.stats, { condition: (normalized.stats && normalized.stats.condition ? normalized.stats.condition : 0) + normalized.condition });
 				delete normalized.condition;
@@ -127,8 +133,8 @@ const GameEventManager = {
 			ui.displayMessage('夜が明け、新しい一日が始まりました。', 'システム'); // 導入メッセージ
 			await ui.waitForClick();
 
-			// 回復処理（condition に一本化）
-			gameManager.changeStats({ condition: 10 });
+			// 回復処理（体力と精神力を少し回復）
+			gameManager.changeStats({ physical: 6, mental: 4 });
 			ui.updateStatusDisplay(gameManager.getStatus()); // 回復後のステータスを更新
 
 			await ui.waitForClick();

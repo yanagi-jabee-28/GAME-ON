@@ -12,7 +12,9 @@ class UIManager {
 		// UI要素を取得してプロパティに保持
 		this.dateDisplay = document.getElementById('date-display');
 		this.timeOfDayDisplay = document.getElementById('time-of-day-display');
-		this.conditionDisplay = document.getElementById('condition-display');
+		this.physicalDisplay = document.getElementById('physical-display');
+		this.mentalDisplay = document.getElementById('mental-display');
+		this.technicalDisplay = document.getElementById('technical-display');
 		this.moneyDisplay = document.getElementById('money-display');
 		this.cpDisplay = document.getElementById('cp-display');
 
@@ -28,7 +30,9 @@ class UIManager {
 		this.menuCloseButton = document.getElementById('menu-close-button');
 		this.menuOverlay = document.getElementById('menu-overlay');
 		this.menuAcademic = document.getElementById('menu-academic');
-		this.menuCondition = document.getElementById('menu-condition');
+		this.menuPhysical = document.getElementById('menu-physical');
+		this.menuMental = document.getElementById('menu-mental');
+		this.menuTechnical = document.getElementById('menu-technical');
 		this.menuReportDebt = document.getElementById('menu-report-debt');
 		this.menuItemList = document.getElementById('menu-item-list');
 		this.menuCloseFloating = document.getElementById('menu-close-floating');
@@ -62,14 +66,18 @@ class UIManager {
 		try {
 			if (!this.dateDisplay || !document.contains(this.dateDisplay)) this.dateDisplay = document.getElementById('date-display');
 			if (!this.timeOfDayDisplay || !document.contains(this.timeOfDayDisplay)) this.timeOfDayDisplay = document.getElementById('time-of-day-display');
-			if (!this.conditionDisplay || !document.contains(this.conditionDisplay)) this.conditionDisplay = document.getElementById('condition-display');
 			if (!this.moneyDisplay || !document.contains(this.moneyDisplay)) this.moneyDisplay = document.getElementById('money-display');
 			if (!this.cpDisplay || !document.contains(this.cpDisplay)) this.cpDisplay = document.getElementById('cp-display');
+			if (!this.physicalDisplay || !document.contains(this.physicalDisplay)) this.physicalDisplay = document.getElementById('physical-display');
+			if (!this.mentalDisplay || !document.contains(this.mentalDisplay)) this.mentalDisplay = document.getElementById('mental-display');
+			if (!this.technicalDisplay || !document.contains(this.technicalDisplay)) this.technicalDisplay = document.getElementById('technical-display');
 		} catch (e) { console.warn('Error checking status display elements', e); }
 
 		if (this.dateDisplay) this.dateDisplay.textContent = `${status.day}日目 (${weekday}曜日)`;
 		if (this.timeOfDayDisplay) this.timeOfDayDisplay.textContent = CONFIG.TURNS[status.turnIndex];
-		if (this.conditionDisplay) this.conditionDisplay.textContent = status.condition;
+		if (this.physicalDisplay) this.physicalDisplay.textContent = status.stats && typeof status.stats.physical !== 'undefined' ? status.stats.physical : '';
+		if (this.mentalDisplay) this.mentalDisplay.textContent = status.stats && typeof status.stats.mental !== 'undefined' ? status.stats.mental : '';
+		if (this.technicalDisplay) this.technicalDisplay.textContent = status.stats && typeof status.stats.technical !== 'undefined' ? status.stats.technical : '';
 		// 通貨単位は CONFIG.LABELS.currencyUnit を優先
 		const unit = (CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円';
 		this.moneyDisplay.textContent = `${status.money}${unit}`;
@@ -275,7 +283,9 @@ class UIManager {
 
 		// ステータスセクションの更新
 		this.menuAcademic.textContent = status.stats.academic;
-		this.menuCondition.textContent = status.condition;
+		this.menuPhysical.textContent = status.stats.physical;
+		this.menuMental.textContent = status.stats.mental;
+		this.menuTechnical.textContent = status.stats.technical;
 		this.menuReportDebt.textContent = status.reportDebt;
 
 		// 個別レポートの表示（存在すれば）

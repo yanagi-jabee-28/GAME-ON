@@ -25,7 +25,9 @@ const CONFIG = {
 	// ステータス定義。将来的にステータス名や最大/最小値が増えるときはここを編集する
 	STAT_DEFS: {
 		academic: { label: '学力', min: 0, max: 100, default: 10 },
-		condition: { label: 'コンディション', min: 0, max: 100, default: 100 }
+		physical: { label: '体力', min: 0, max: 100, default: 80 },
+		mental: { label: '精神力', min: 0, max: 100, default: 80 },
+		technical: { label: '技術力', min: 0, max: 100, default: 5 }
 	},
 
 	// 期末試験の設定: 何日目に試験があるかと合格基準値
@@ -53,13 +55,14 @@ const CONFIG = {
 	INITIAL_PLAYER_STATUS: {
 		day: 1,
 		turnIndex: 0, // TURNS配列のインデックス
-		condition: 100,
+		condition: 100, // 互換性のために残す（体力・精神力から算出）
 		money: 10000,
 		cp: 0,
 		stats: {
 			academic: 10, // 学力
-			// physical/mental を廃止し、condition に一本化
-			condition: 100
+			physical: 80,
+			mental: 80,
+			technical: 5
 		},
 		items: ['energy_drink'], // 所持アイテムにエナジードリンクを追加
 		history: [], // 行動履歴（選択やアイテム使用などを記録する配列）
@@ -79,8 +82,9 @@ CONFIG.LABELS = {
 	currencyUnit: '円',
 	academic: '学力',
 	condition: 'コンディション',
-	physical: 'フィジカル',
-	mental: 'メンタル',
+	physical: '体力',
+	mental: '精神力',
+	technical: '技術力',
 	cp: '人脈',
 	reportDebt: 'レポート負債',
 	menu: 'メニュー',

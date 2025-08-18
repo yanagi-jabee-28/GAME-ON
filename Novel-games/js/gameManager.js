@@ -24,6 +24,13 @@ class GameManager {
 				}
 			}
 		}
+		// 念のため stats オブジェクトが無い旧データに対応
+		if (!this.playerStatus.stats) this.playerStatus.stats = {};
+		['academic', 'physical', 'mental', 'technical'].forEach(k => {
+			if (typeof this.playerStatus.stats[k] === 'undefined' && CONFIG.STAT_DEFS[k]) {
+				this.playerStatus.stats[k] = CONFIG.STAT_DEFS[k].default || 0;
+			}
+		});
 	}
 
 	/**
@@ -85,9 +92,9 @@ class GameManager {
 			const after = this.playerStatus;
 			const messages = [];
 
-			// stats の差分（condition に一本化）
+			// stats の差分（physical/mental/technical/academic を個別に表示）
 			if (before.stats && after.stats) {
-				const map = { academic: '学力', condition: 'コンディション' };
+				const map = { academic: '学力', physical: '体力', mental: '精神力', technical: '技術力', condition: 'コンディション' };
 				for (const key of Object.keys(after.stats)) {
 					const delta = after.stats[key] - (before.stats[key] || 0);
 					if (delta !== 0) {
@@ -673,14 +680,22 @@ class GameManager {
 	 * (フィジカルとメンタルの状態から総合的なコンディションを算出するロジック)
 	 */
 	updateCondition() {
-		// stats.condition があればそれを clamp して condition に反映
-		const cond = this.playerStatus.stats.condition;
-		if (typeof cond === 'number') {
-			this.playerStatus.condition = Math.max(0, Math.min(100, Math.round(cond)));
+		// 新仕様: 体力(physical)と精神力(mental)の平均からコンディションを推定
+		const p = this.playerStatus.stats && typeof this.playerStatus.stats.physical === 'number' ? this.playerStatus.stats.physical : undefined;
+		const m = this.playerStatus.stats && typeof this.playerStatus.stats.mental === 'number' ? this.playerStatus.stats.mental : undefined;
+		let cond = undefined;
+		if (typeof p === 'number' && typeof m === 'number') {
+			cond = Math.round((p + m) / 2);
+		} else if (typeof p === 'number') {
+			cond = p;
+		} else if (typeof m === 'number') {
+			cond = m;
 		} else {
-			// もし stats.condition が存在しなければ現状の値を clamp
-			this.playerStatus.condition = Math.max(0, Math.min(100, Math.round(this.playerStatus.condition || 0)));
+			// 後方互換: 旧 stats.condition or 既存の condition を使用
+			const legacy = this.playerStatus.stats ? this.playerStatus.stats.condition : undefined;
+			cond = typeof legacy === 'number' ? legacy : (this.playerStatus.condition || 0);
 		}
+		this.playerStatus.condition = Math.max(0, Math.min(100, cond));
 	}
 
 	/**

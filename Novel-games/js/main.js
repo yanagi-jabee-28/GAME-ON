@@ -30,11 +30,15 @@ function initializeGame() {
 				const timeP = statusDisplay.querySelector('p:nth-child(2)');
 				if (timeP) timeP.innerHTML = `${CONFIG.LABELS.timeOfDay}: <span id="time-of-day-display">午前</span>`;
 				const condP = statusDisplay.querySelector('p:nth-child(3)');
-				if (condP) condP.innerHTML = `${CONFIG.LABELS.condition}: <span id="condition-display">100</span>`;
-				const moneyP = statusDisplay.querySelector('p:nth-child(4)');
+				if (condP) condP.innerHTML = `${CONFIG.LABELS.physical}: <span id="physical-display">80</span>`;
+				const mentalP = statusDisplay.querySelector('p:nth-child(4)');
+				if (mentalP) mentalP.innerHTML = `${CONFIG.LABELS.mental}: <span id="mental-display">80</span>`;
+				const techP = statusDisplay.querySelector('p:nth-child(5)');
+				if (techP) techP.innerHTML = `${CONFIG.LABELS.technical}: <span id="technical-display">5</span>`;
+				const moneyP = statusDisplay.querySelector('p:nth-child(6)');
 				// 通貨単位は UI 側で付与するため、ここでは単に span を用意する
 				if (moneyP) moneyP.innerHTML = `${CONFIG.LABELS.money}: <span id="money-display">10000</span>`;
-				const cpP = statusDisplay.querySelector('p:nth-child(5)');
+				const cpP = statusDisplay.querySelector('p:nth-child(7)');
 				if (cpP) cpP.innerHTML = `${CONFIG.LABELS.cp}: <span id="cp-display">0</span>`;
 			}
 
