@@ -398,21 +398,25 @@ class SoundManager {
 			o.stop(now + 0.2);
 		};
 
-		// generic ui action: reuse click variations or a short tick
+		// generic ui action: softer, short pluck to avoid harsh 'click' sounds
 		this.synthetic['ui_action'] = () => {
 			const ctx = this.ctx;
 			const now = ctx.currentTime;
-			// simple short tick (sine with fast decay)
-			const o = ctx.createOscillator();
-			const g = ctx.createGain();
-			o.type = Math.random() > 0.5 ? 'sine' : 'triangle';
-			o.frequency.setValueAtTime(900 + Math.random() * 600, now);
-			g.gain.setValueAtTime(0.0001, now);
-			g.gain.exponentialRampToValueAtTime(0.09 * this.volume, now + 0.002);
-			g.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
-			o.connect(g).connect(ctx.destination);
-			o.start();
-			o.stop(now + 0.06);
+			// gentle sine pluck with lowpass to keep it soft
+			const osc = ctx.createOscillator();
+			const gain = ctx.createGain();
+			const filter = ctx.createBiquadFilter();
+			osc.type = 'sine';
+			osc.frequency.setValueAtTime(580 + Math.random() * 140, now);
+			gain.gain.setValueAtTime(0.0001, now);
+			// soft attack then gradual decay
+			gain.gain.linearRampToValueAtTime(0.045 * this.volume, now + 0.01);
+			gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+			filter.type = 'lowpass';
+			filter.frequency.value = 1400;
+			osc.connect(filter).connect(gain).connect(ctx.destination);
+			osc.start(now);
+			osc.stop(now + 0.14);
 		};
 
 		// error / buzzer: short descending sawtooth with slightly aggressive envelope
@@ -515,8 +519,7 @@ try {
 		if (sm.synthetic && typeof sm.synthetic[k] === 'function') variations.push(sm.synthetic[k].bind(sm));
 	});
 	if (variations.length > 0) sm.registerVariations('click', variations);
-	// reuse click variations for a generic ui action alias
-	try { if (variations.length > 0) sm.registerVariations('ui_action', variations); } catch (e) { }
+	// Note: ui_action intentionally uses a softer synthetic sound defined above
 } catch (e) { console.warn('Failed to register click variations', e); }
 
 // 注意: サウンドファイルはプロジェクトに配置された時にのみ
