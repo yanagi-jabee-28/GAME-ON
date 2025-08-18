@@ -36,6 +36,10 @@ class UIManager {
 		this.menuReportDebt = document.getElementById('menu-report-debt');
 		this.menuItemList = document.getElementById('menu-item-list');
 		this.menuCloseFloating = document.getElementById('menu-close-floating');
+		this.menuItemSection = document.getElementById('menu-item-section');
+		this.menuHistorySection = document.getElementById('menu-history-section');
+		this.toggleItemsButton = document.getElementById('toggle-items-button');
+		this.toggleHistoryButton = document.getElementById('toggle-history-button');
 
 		// キャラクター関連 UI 要素
 		this.focusedCharacterWrap = document.getElementById('focused-character');
@@ -60,6 +64,116 @@ class UIManager {
 				this.updateFocusedCharacter(status);
 			});
 		}
+	}
+
+	/**
+	 * メニューの専用ウィンドウを開く
+	 * @param {'item'|'history'} type
+	 */
+	async openMenuWindow(type) {
+		try {
+			// メニュー自体が閉じている場合は開く（ただしフリー行動チェックは openMenu が行う）
+			if (this.menuOverlay && this.menuOverlay.classList.contains('hidden')) {
+				this.menuOverlay.classList.remove('hidden');
+			}
+
+			if (type === 'item') {
+				const win = document.getElementById('menu-item-window');
+				if (!win) return;
+				const list = document.getElementById('menu-item-window-list');
+				list.innerHTML = '';
+				const status = gameManager.getAllStatus();
+				if (!status.items || status.items.length === 0) {
+					const li = document.createElement('li');
+					li.textContent = '(アイテムはありません)';
+					list.appendChild(li);
+				} else {
+					status.items.forEach(itemId => {
+						const item = ITEMS[itemId];
+						const li = document.createElement('li');
+						li.innerHTML = `<span>${item ? item.name : itemId} - ${item ? item.description : ''}</span>`;
+
+						const useBtn = document.createElement('button');
+						useBtn.textContent = '使用';
+						useBtn.onclick = async () => {
+							if (useBtn.disabled) return;
+							useBtn.disabled = true;
+							try {
+								const ok = await gameManager.useItem(itemId);
+								// 使用が成功していればこのウィンドウを再描画して所持数を反映する
+								if (ok) {
+									await this.openMenuWindow('item');
+								} else {
+									// 失敗（所持していない等）はトーストで通知して再描画
+									this.showTransientNotice('アイテムを所持していません。', { duration: 1200 });
+									await this.openMenuWindow('item');
+								}
+							} catch (e) {
+								console.error('useItem error (window)', e);
+							} finally {
+								useBtn.disabled = false;
+							}
+						};
+						li.appendChild(useBtn);
+						list.appendChild(li);
+					});
+				}
+				win.classList.remove('hidden');
+				return;
+			}
+
+			if (type === 'history') {
+				const win = document.getElementById('menu-history-window');
+				if (!win) return;
+				const list = document.getElementById('menu-history-window-list');
+				list.innerHTML = '';
+				const status = gameManager.getAllStatus();
+				const history = status.history || [];
+				if (history.length === 0) {
+					const li = document.createElement('li');
+					li.textContent = '(履歴はありません)';
+					list.appendChild(li);
+				} else {
+					const entries = history.slice().reverse();
+					entries.forEach(h => {
+						const li = document.createElement('li');
+						const time = `${h.day}日目 ${h.turn || ''}`.trim();
+						let text = '';
+
+						// If a human-readable label was attached by gameManager.addHistory, prefer it.
+						if (h && h._label) {
+							li.textContent = `${time}: ${h._label}`;
+							list.appendChild(li);
+							return;
+						}
+						if (h.type === 'use_item') {
+							const itemName = h.detail && h.detail.itemName ? h.detail.itemName : (h.detail && h.detail.itemId && ITEMS[h.detail.itemId] ? ITEMS[h.detail.itemId].name : h.detail && h.detail.itemId ? h.detail.itemId : 'アイテム');
+							text = `${time}: アイテム使用 - ${itemName}`;
+						} else if (h.type === 'choice') {
+							const label = h.detail && h.detail.label ? h.detail.label : '';
+							text = `${time}: 選択 - ${label}`;
+						} else {
+							text = `${time}: ${h.type}`;
+						}
+						li.textContent = text;
+						list.appendChild(li);
+					});
+				}
+				win.classList.remove('hidden');
+				return;
+			}
+		} catch (e) {
+			console.error('openMenuWindow error', e);
+		}
+	}
+
+	/**
+	 * メニュー専用ウィンドウを閉じる
+	 * @param {HTMLElement} winEl
+	 */
+	closeMenuWindow(winEl) {
+		if (!winEl) return;
+		winEl.classList.add('hidden');
 	}
 
 	/**
@@ -362,32 +476,32 @@ class UIManager {
 					useButton.textContent = '使用';
 					useButton.onclick = async () => {
 						if (typeof gameManager === 'undefined') return;
-						// prevent double-trigger
 						if (useButton.disabled) return;
 						useButton.disabled = true;
 						try {
-							await gameManager.useItem(itemId);
+							const ok = await gameManager.useItem(itemId);
+							// 使用が成功していればメニューを再描画して反映
+							if (ok) {
+								this.updateMenuDisplay();
+								this.closeMenu();
+								if (typeof GameEventManager !== 'undefined' && typeof GameEventManager.showMainActions === 'function') {
+									GameEventManager.showMainActions();
+								} else if (typeof ui !== 'undefined') {
+									ui.displayMessage('（アイテムを使用しました）');
+									if (typeof ui.waitForClick === 'function') await ui.waitForClick();
+									if (typeof GameEventManager !== 'undefined' && typeof GameEventManager.showMainActions === 'function') {
+										GameEventManager.showMainActions();
+									}
+								}
+							} else {
+								// 使用に失敗した場合はトーストで通知し、メニューを再描画
+								this.showTransientNotice('アイテムを所持していません。', { duration: 1200 });
+								this.updateMenuDisplay();
+							}
 						} catch (e) {
 							console.error('useItem error', e);
 						} finally {
 							useButton.disabled = false;
-						}
-						// 使用後はメニュー表示を更新してメニューを閉じ、行動選択に戻す
-						try {
-							this.updateMenuDisplay();
-							this.closeMenu();
-							if (typeof GameEventManager !== 'undefined' && typeof GameEventManager.showMainActions === 'function') {
-								GameEventManager.showMainActions();
-							} else if (typeof ui !== 'undefined') {
-								ui.displayMessage('（アイテムを使用しました）');
-								if (typeof ui.waitForClick === 'function') await ui.waitForClick();
-								// 表示後の通常の選択肢に戻す
-								if (typeof GameEventManager !== 'undefined' && typeof GameEventManager.showMainActions === 'function') {
-									GameEventManager.showMainActions();
-								}
-							}
-						} catch (e) {
-							console.error('Post-use UI update error', e);
 						}
 					};
 					li.appendChild(useButton);
@@ -739,6 +853,37 @@ class UIManager {
 		this.menuButton.addEventListener('click', () => this.openMenu());
 		this.menuCloseButton.addEventListener('click', () => this.closeMenu());
 		if (this.menuCloseFloating) this.menuCloseFloating.addEventListener('click', () => this.closeMenu());
+
+		// 折りたたみトグル
+		if (this.toggleItemsButton && this.menuItemSection) {
+			// Primary behavior: open dedicated item window when clicked
+			this.toggleItemsButton.addEventListener('click', async () => {
+				// If not in free action, show transient notice instead
+				if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
+					this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
+					return;
+				}
+				await this.openMenuWindow('item');
+			});
+		}
+		if (this.toggleHistoryButton && this.menuHistorySection) {
+			this.toggleHistoryButton.addEventListener('click', async () => {
+				if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
+					this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
+					return;
+				}
+				await this.openMenuWindow('history');
+			});
+		}
+
+		// menu-window close buttons
+		const winCloses = document.querySelectorAll('.menu-window .menu-window-close');
+		winCloses.forEach(btn => {
+			btn.addEventListener('click', (e) => {
+				const win = e.target.closest('.menu-window');
+				this.closeMenuWindow(win);
+			});
+		});
 
 		// セーブ・ロードボタンのイベントリスナー
 		if (this.saveGameButton) {

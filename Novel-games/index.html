@@ -86,6 +86,10 @@
                 <h2>メニュー</h2>
                 <button id="menu-close-floating" aria-label="閉じる">✕</button>
                 <div class="menu-scroll">
+                    <div id="menu-controls" class="menu-controls">
+                        <button id="toggle-items-button" class="menu-toggle-btn">アイテム</button>
+                        <button id="toggle-history-button" class="menu-toggle-btn">行動履歴</button>
+                    </div>
                     <div id="menu-status-section">
                         <h3>ステータス</h3>
                         <p>学力: <span id="menu-academic"></span></p>
@@ -94,9 +98,29 @@
                         <p>技術力: <span id="menu-technical"></span></p>
                         <p>レポート負債: <span id="menu-report-debt"></span></p>
                     </div>
-                    <div id="menu-item-section">
+                    <div id="menu-item-section" class="collapsible is-hidden">
                         <h3>アイテム</h3>
                         <ul id="menu-item-list"></ul>
+                    </div>
+                    <!-- 専用ウィンドウ: アイテム -->
+                    <div id="menu-item-window" class="menu-window hidden">
+                        <button class="menu-window-close">✕</button>
+                        <h3>アイテム</h3>
+                        <div id="menu-item-window-body">
+                            <ul id="menu-item-window-list"></ul>
+                        </div>
+                    </div>
+                    <div id="menu-history-section" class="collapsible is-hidden">
+                        <h3 id="menu-history-heading">行動履歴</h3>
+                        <ul id="menu-history-list"></ul>
+                    </div>
+                    <!-- 専用ウィンドウ: 履歴 -->
+                    <div id="menu-history-window" class="menu-window hidden">
+                        <button class="menu-window-close">✕</button>
+                        <h3>行動履歴</h3>
+                        <div id="menu-history-window-body">
+                            <ul id="menu-history-window-list"></ul>
+                        </div>
                     </div>
                     <div id="menu-save-load-section">
                         <h3>セーブ・ロード</h3>

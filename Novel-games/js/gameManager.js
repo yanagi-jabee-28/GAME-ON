@@ -545,6 +545,95 @@ class GameManager {
 			},
 			entry
 		);
+
+		// Generate a human-readable label for common internal types to avoid
+		// showing raw internal IDs like 'effect_applied' in the history UI.
+		try {
+			switch (e.type) {
+				case 'effect_applied': {
+					const flag = e.detail && e.detail.effect;
+					let name = flag || '';
+					// Try to read displayName from current effects (if already registered)
+					if (flag && this.playerStatus.effects && this.playerStatus.effects[flag] && this.playerStatus.effects[flag].displayName) {
+						name = this.playerStatus.effects[flag].displayName;
+					} else {
+						// Fallback: search ITEMS for an effect with matching flagId
+						for (const id of Object.keys(ITEMS || {})) {
+							const it = ITEMS[id];
+							if (it && it.effect && it.effect.flagId === flag) {
+								name = it.effect.displayName || it.name || flag;
+								break;
+							}
+						}
+					}
+					e._label = `効果付与: ${name}` + (e.detail && typeof e.detail.turns === 'number' ? ` (${e.detail.turns}ターン)` : '');
+					break;
+				}
+				case 'effect_expired': {
+					const flag = e.detail && e.detail.effect;
+					let name = flag || '';
+					if (flag && this.playerStatus.effects && this.playerStatus.effects[flag] && this.playerStatus.effects[flag].displayName) {
+						name = this.playerStatus.effects[flag].displayName;
+					} else {
+						for (const id of Object.keys(ITEMS || {})) {
+							const it = ITEMS[id];
+							if (it && it.effect && it.effect.flagId === flag) {
+								name = it.effect.displayName || it.name || flag;
+								break;
+							}
+						}
+					}
+					e._label = `効果終了: ${name}`;
+					break;
+				}
+				case 'use_item': {
+					const itemName = e.detail && (e.detail.itemName || (e.detail.itemId && ITEMS[e.detail.itemId] ? ITEMS[e.detail.itemId].name : e.detail.itemId));
+					e._label = itemName ? `アイテム使用 - ${itemName}` : 'アイテム使用';
+					break;
+				}
+				case 'add_character': {
+					e._label = e.detail && e.detail.name ? `キャラクター追加 - ${e.detail.name}` : 'キャラクター追加';
+					break;
+				}
+				case 'trust_change': {
+					const ch = e.detail || {};
+					const who = ch.id && this.getCharacter(ch.id) ? this.getCharacter(ch.id).name : (ch.id || 'キャラクター');
+					e._label = `信頼度変動 - ${who}: ${ch.delta > 0 ? '+' + ch.delta : ch.delta}`;
+					break;
+				}
+				case 'choice': {
+					e._label = e.detail && e.detail.label ? `選択 - ${e.detail.label}` : '選択';
+					break;
+				}
+				case 'shop_visit': {
+					e._label = e.detail && e.detail.shopLabel ? `${e.detail.shopLabel}に入店` : '店に入店';
+					break;
+				}
+				case 'purchase': {
+					const itemName = e.detail && (e.detail.itemName || (e.detail.itemId && ITEMS[e.detail.itemId] ? ITEMS[e.detail.itemId].name : e.detail.itemId));
+					e._label = itemName ? `購入 - ${itemName}` : '購入';
+					break;
+				}
+				case 'shop_leave': {
+					const shopId = e.detail && e.detail.shopId;
+					const purchased = e.detail && !!e.detail.purchased;
+					let shopLabel = (e.detail && e.detail.shopLabel) ? e.detail.shopLabel : (shopId && CONFIG && CONFIG.SHOPS && CONFIG.SHOPS[shopId] && CONFIG.SHOPS[shopId].label ? CONFIG.SHOPS[shopId].label : shopId || '店');
+					if (purchased) {
+						const itemName = e.detail && (e.detail.itemName || (e.detail.itemId && ITEMS[e.detail.itemId] ? ITEMS[e.detail.itemId].name : e.detail.itemId));
+						e._label = itemName ? `${shopLabel}で購入して退店（${itemName}、${e.detail.price || ''}${(CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : ''}）` : `${shopLabel}で購入して退店`;
+					} else {
+						e._label = `${shopLabel}を訪れて何も買わず退店`;
+					}
+					break;
+				}
+				default: {
+					// leave as-is; UI will fallback to type if no label exists
+				}
+			}
+		} catch (err) {
+			console.warn('addHistory label generation failed', err);
+		}
+
 		this.playerStatus.history.push(e);
 		this._notifyListeners();
 	}

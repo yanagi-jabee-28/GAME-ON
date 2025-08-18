@@ -282,6 +282,113 @@ body {
 	box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
+.menu-controls {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.menu-toggle-btn {
+	background: #4e4e4e;
+	color: #eee;
+	border: 1px solid #666;
+	border-radius: 8px;
+	padding: 6px 10px;
+	cursor: pointer;
+}
+
+.menu-toggle-btn:active {
+	transform: translateY(1px);
+}
+
+.collapsible.is-hidden {
+	display: none;
+}
+
+/* メニュー内専用ウィンドウ (ポップアップ風) */
+.menu-window {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	width: 520px;
+	min-width: 360px;
+	width: 520px;
+	min-height: 220px;
+	max-height: 70vh;
+	background: #2f2f2f;
+	border: 1px solid #444;
+	border-radius: 10px;
+	padding: 12px;
+	z-index: 1300;
+	box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+	/* 外枠は固定して中身だけスクロールさせる方針 */
+	overflow: hidden;
+}
+
+.menu-window.hidden {
+	display: none;
+}
+
+.menu-window .menu-window-close {
+	position: absolute;
+	right: 8px;
+	top: 8px;
+	background: rgba(220, 53, 69, 0.9);
+	color: white;
+	border: none;
+	width: 32px;
+	height: 32px;
+	border-radius: 6px;
+	cursor: pointer;
+}
+
+.menu-window h3 {
+	margin-top: 4px;
+}
+
+/* 専用ウィンドウの本文領域 (スクロール可能) */
+.menu-window #menu-item-window-body,
+.menu-window #menu-history-window-body,
+.menu-window .menu-window-body {
+	max-height: calc(60vh - 120px);
+	/* 余裕を持った高さ: タイトル・ボタン分を差し引いたサイズ */
+	overflow-y: auto;
+	padding: 8px 6px;
+}
+
+/* リストの見栄えを整える */
+.menu-window ul {
+	list-style: none;
+	margin: 0;
+	padding: 0 6px;
+}
+
+.menu-window li {
+	padding: 8px 6px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.menu-window li:last-child {
+	border-bottom: none;
+}
+
+/* 小さい画面でも窓が横幅を取り過ぎないよう調整 */
+@media (max-width: 520px) {
+	.menu-window {
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: 92%;
+		min-width: unset;
+		max-height: 86vh;
+	}
+
+	.menu-window #menu-item-window-body,
+	.menu-window #menu-history-window-body {
+		max-height: calc(86vh - 120px);
+	}
+}
+
 /* メニュー内部のスクロール可能領域 */
 .menu-scroll {
 	overflow-y: auto;
