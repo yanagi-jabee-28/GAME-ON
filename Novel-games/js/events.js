@@ -344,7 +344,8 @@ const GameEventManager = {
 	 * 「勉強する」を選択したときの処理
 	 */
 	doStudy: async function () {
-		await this.executeAction("STUDY_ACTION");
+		// 勉強アクションは既存の『授業に集中する』イベントを流用して実装
+		await this.executeAction("ATTEND_CLASS_ACTION");
 	},
 
 	/**

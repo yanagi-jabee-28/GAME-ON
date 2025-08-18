@@ -82,7 +82,12 @@ class UIManager {
 	 * @param {string} [characterName=''] - 表示するキャラクター名 (省略可能)
 	 */
 	displayMessage(text, characterName = '') {
+		console.log('UI.displayMessage called:', { characterName, text });
 		// メニューが開いている場合はメッセージウィンドウを前面に出す
+		// 常にメッセージウィンドウを前面に出しておく（overlay が残っている場合の救済策）
+		try {
+			this.messageWindow.style.zIndex = 2000; // overlay (1000) より高くしておく
+		} catch (e) { }
 		if (this.menuOverlay && !this.menuOverlay.classList.contains('hidden')) {
 			// 元の zIndex を保存しておく
 			if (typeof this.messageWindow.dataset.origZ === 'undefined') {
@@ -95,19 +100,31 @@ class UIManager {
 
 		this.characterName.textContent = characterName;
 		this.messageText.textContent = text;
+		// 追加デバッグ: メッセージDOMの内容を確認
+		try { console.log('messageText.innerHTML:', this.messageText.innerHTML, 'computed display:', window.getComputedStyle(this.messageWindow).display, 'zIndex:', this.messageWindow.style.zIndex); } catch (e) { }
 	}
 
 	/**
 	 * メッセージをクリアする
 	 */
 	clearMessage() {
+		console.log('UI.clearMessage called');
 		this.characterName.textContent = '';
 		this.messageText.textContent = '';
+		// クリックインジケーターを確実に消す
+		try { this.clickIndicator.style.display = 'none'; } catch (e) { }
 		// 保存してあった zIndex を復元
 		if (this.messageWindow && typeof this.messageWindow.dataset.origZ !== 'undefined') {
 			this.messageWindow.style.zIndex = this.messageWindow.dataset.origZ || '';
 			delete this.messageWindow.dataset.origZ;
 		}
+		// safety: イベントフロー中に menuOverlay が誤って残っている場合は
+		// 非自由行動フェーズなら閉じておく（誤って画面を覆わないようにする）
+		try {
+			if (this.menuOverlay && typeof GameEventManager !== 'undefined' && !GameEventManager.isInFreeAction) {
+				this.menuOverlay.classList.add('hidden');
+			}
+		} catch (e) { }
 	}
 
 	/**
@@ -120,6 +137,7 @@ class UIManager {
 			this.clickIndicator.style.display = 'block';
 
 			const listener = () => {
+				console.log('UI.waitForClick: click detected, resolving');
 				// イベントリスナーを一度実行したら削除する
 				this.messageWindow.removeEventListener('click', listener);
 				// インジケーターを非表示にする
@@ -454,6 +472,7 @@ class UIManager {
 	 * @returns {Promise<void>}
 	 */
 	async showFloatingMessage(text, options = {}) {
+		console.log('UI.showFloatingMessage called:', text);
 		const lines = ('' + text).split('\n');
 
 		// 保持しておく既存のスタイル
@@ -466,6 +485,7 @@ class UIManager {
 			this.messageWindow.style.display = 'block';
 
 			for (const line of lines) {
+				console.log('UI.showFloatingMessage line:', line);
 				this.characterName.textContent = 'システム';
 				this.messageText.textContent = line;
 				// クリックインジケーターを表示して、ユーザークリックで次へ進める
