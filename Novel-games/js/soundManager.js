@@ -398,6 +398,40 @@ class SoundManager {
 			o.stop(now + 0.2);
 		};
 
+		// generic ui action: reuse click variations or a short tick
+		this.synthetic['ui_action'] = () => {
+			const ctx = this.ctx;
+			const now = ctx.currentTime;
+			// simple short tick (sine with fast decay)
+			const o = ctx.createOscillator();
+			const g = ctx.createGain();
+			o.type = Math.random() > 0.5 ? 'sine' : 'triangle';
+			o.frequency.setValueAtTime(900 + Math.random() * 600, now);
+			g.gain.setValueAtTime(0.0001, now);
+			g.gain.exponentialRampToValueAtTime(0.09 * this.volume, now + 0.002);
+			g.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+			o.connect(g).connect(ctx.destination);
+			o.start();
+			o.stop(now + 0.06);
+		};
+
+		// error / buzzer: short descending sawtooth with slightly aggressive envelope
+		this.synthetic['error'] = () => {
+			const ctx = this.ctx;
+			const now = ctx.currentTime;
+			const o = ctx.createOscillator();
+			const g = ctx.createGain();
+			o.type = 'sawtooth';
+			o.frequency.setValueAtTime(700, now);
+			o.frequency.exponentialRampToValueAtTime(280, now + 0.12);
+			g.gain.setValueAtTime(0.0001, now);
+			g.gain.exponentialRampToValueAtTime(0.14 * this.volume, now + 0.01);
+			g.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+			o.connect(g).connect(ctx.destination);
+			o.start();
+			o.stop(now + 0.2);
+		};
+
 		// item use: distinct short sound (noise whoosh + metallic chime + subtle low thud)
 		this.synthetic['item_use'] = () => {
 			const ctx = this.ctx;
@@ -481,6 +515,8 @@ try {
 		if (sm.synthetic && typeof sm.synthetic[k] === 'function') variations.push(sm.synthetic[k].bind(sm));
 	});
 	if (variations.length > 0) sm.registerVariations('click', variations);
+	// reuse click variations for a generic ui action alias
+	try { if (variations.length > 0) sm.registerVariations('ui_action', variations); } catch (e) { }
 } catch (e) { console.warn('Failed to register click variations', e); }
 
 // 注意: サウンドファイルはプロジェクトに配置された時にのみ

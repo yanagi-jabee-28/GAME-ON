@@ -134,6 +134,8 @@ class UIManager {
 					});
 				}
 				win.classList.remove('hidden');
+				// When the item window is open, disable the main menu close controls to avoid accidental closure
+				this._setMenuCloseEnabled(false);
 				return;
 			}
 
@@ -189,6 +191,29 @@ class UIManager {
 	closeMenuWindow(winEl) {
 		if (!winEl) return;
 		winEl.classList.add('hidden');
+		// If the closed window was an item window, re-enable main menu close controls
+		try {
+			const itemWin = document.getElementById('menu-item-window');
+			const stillOpen = itemWin && !itemWin.classList.contains('hidden');
+			if (!stillOpen) this._setMenuCloseEnabled(true);
+		} catch (e) { }
+	}
+
+	/**
+	 * Enable or disable the main menu close controls while modal-like windows are open
+	 * @param {boolean} enabled
+	 */
+	_setMenuCloseEnabled(enabled) {
+		try {
+			if (this.menuCloseButton) {
+				this.menuCloseButton.disabled = !enabled;
+				if (!enabled) this.menuCloseButton.classList.add('disabled'); else this.menuCloseButton.classList.remove('disabled');
+			}
+			if (this.menuCloseFloating) {
+				this.menuCloseFloating.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+				if (!enabled) this.menuCloseFloating.classList.add('disabled'); else this.menuCloseFloating.classList.remove('disabled');
+			}
+		} catch (e) { }
 	}
 
 	/**
@@ -404,7 +429,7 @@ class UIManager {
 		// 自由行動時間のみメニューを開ける
 		if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
 			// メニューを開けない場合は一時的なダイアログで通知（イベントメッセージの上書きは避ける）
-			try { if (typeof soundManager !== 'undefined') soundManager.play('alert'); } catch (e) { }
+			try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
 			this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
 			return;
 		}
@@ -430,6 +455,17 @@ class UIManager {
 	 * メニューを閉じる
 	 */
 	closeMenu() {
+		// Prevent closing the menu while item window (effect display) is open
+		try {
+			const itemWin = document.getElementById('menu-item-window');
+			if (itemWin && !itemWin.classList.contains('hidden')) {
+				// keep menu open and notify user
+				this.showTransientNotice('アイテム効果表示中はメニューを閉じられません。', { duration: 1200 });
+				// ensure close controls remain disabled
+				this._setMenuCloseEnabled(false);
+				return;
+			}
+		} catch (e) { }
 		const status = gameManager.getStatus();
 		this.menuOverlay.classList.add('hidden');
 		if (this.menuCloseFloating) this.menuCloseFloating.setAttribute('aria-visible', 'false');
@@ -518,6 +554,12 @@ class UIManager {
 							// 使用が成功していればメニューを再描画して反映
 							if (ok) {
 								this.updateMenuDisplay();
+								// Ensure item window is hidden and re-enable close controls before closing the menu
+								try {
+									const itemWin = document.getElementById('menu-item-window');
+									if (itemWin) itemWin.classList.add('hidden');
+									this._setMenuCloseEnabled(true);
+								} catch (e) { }
 								this.closeMenu();
 								if (typeof GameEventManager !== 'undefined' && typeof GameEventManager.showMainActions === 'function') {
 									GameEventManager.showMainActions();
