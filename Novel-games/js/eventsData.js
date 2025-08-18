@@ -22,10 +22,13 @@ const EVENTS = {
 		changes: {
 			stats: { academic: 4, mental: -3, physical: -2 }
 		},
+		// After message should be shown without a speaker label
 		afterMessage: "勉強の手応えを感じた。少し疲れたが着実に力がついた。",
+		noSpeakerForAfterMessage: true,
 		nextAction: "showMainActions" // 次に実行するアクション
 	},
 	"WORK_ACTION": {
+		name: '主人公',
 		message: "お金を稼ぎに行こう。",
 		changes: {
 			money: 400,
@@ -56,6 +59,7 @@ const EVENTS = {
 		nextAction: "showMainActions"
 	},
 	"MOONLIGHT_WORK_ACTION": {
+		name: '主人公',
 		message: "授業中に内職（レポートを進める）をする。授業の時間を使ってレポートを進めよう。",
 		changes: { stats: { mental: -3 } },
 		afterMessage: "", // doReport に委譲するため特にメッセージなし
@@ -65,6 +69,8 @@ const EVENTS = {
 		message: "うとうと... 居眠りをしてしまった。",
 		// 居眠りは体力のみを回復する仕様に変更
 		changes: { stats: { physical: 2 } },
+		// 居眠りのメッセージは発話者を表示しない
+		noSpeaker: true,
 		afterMessage: "", // 特にメッセージなし
 		nextAction: "showMainActions"
 	},
@@ -72,7 +78,9 @@ const EVENTS = {
 		message: "後ろの方でこっそりスマホで遊んだり、友達と小さく盛り上がった。気分転換になった。",
 		// 隠れて遊ぶは精神力を回復する
 		changes: { stats: { mental: 4 } },
-		afterMessage: "", // 特にメッセージなし
+		// このメッセージは発話者を表示しない
+		noSpeaker: true,
+		afterMessage: "",
 		nextAction: "showMainActions"
 	},
 	// 汎用のゲームオーバー用イベントテンプレート

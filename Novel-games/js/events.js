@@ -24,7 +24,8 @@ const GameEventManager = {
 
 		// メッセージ表示
 		if (eventData.message) {
-			ui.displayMessage(eventData.message, eventData.name || 'システム');
+			const speaker = eventData.noSpeaker ? undefined : (eventData.name || 'システム');
+			ui.displayMessage(eventData.message, speaker);
 			await ui.waitForClick();
 		}
 
@@ -42,7 +43,8 @@ const GameEventManager = {
 
 		// 行動後のメッセージ表示 (eventData.afterMessage)
 		if (eventData.afterMessage) {
-			ui.displayMessage(eventData.afterMessage, eventData.name || 'システム');
+			const afterSpeaker = eventData.noSpeakerForAfterMessage || eventData.noSpeaker ? undefined : (eventData.name || 'システム');
+			ui.displayMessage(eventData.afterMessage, afterSpeaker);
 			await ui.waitForClick();
 		}
 
@@ -71,7 +73,8 @@ const GameEventManager = {
 		if (!eventData) return;
 
 		if (eventData.message) {
-			ui.displayMessage(eventData.message, eventData.name || 'システム');
+			const speaker = eventData.noSpeaker ? undefined : (eventData.name || 'システム');
+			ui.displayMessage(eventData.message, speaker);
 			await ui.waitForClick();
 		}
 
@@ -112,7 +115,8 @@ const GameEventManager = {
 		}
 
 		if (eventData.afterMessage) {
-			ui.displayMessage(eventData.afterMessage, eventData.name || 'システム');
+			const afterSpeaker = eventData.noSpeakerForAfterMessage || eventData.noSpeaker ? undefined : (eventData.name || 'システム');
+			ui.displayMessage(eventData.afterMessage, afterSpeaker);
 			await ui.waitForClick();
 		}
 	},
@@ -163,7 +167,7 @@ const GameEventManager = {
 
 		// TODO: ここから初期設定診断のイベントを開始する
 
-		ui.displayMessage('（これからどうしようか...）', '主人公');
+		ui.displayMessage('（これからどうしようか...）');
 		// 最初の行動選択へ
 		this.showMainActions();
 	},

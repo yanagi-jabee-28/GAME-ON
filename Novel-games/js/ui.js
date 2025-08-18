@@ -499,7 +499,7 @@ class UIManager {
 								if (typeof GameEventManager !== 'undefined' && typeof GameEventManager.showMainActions === 'function') {
 									GameEventManager.showMainActions();
 								} else if (typeof ui !== 'undefined') {
-									ui.displayMessage('（アイテムを使用しました）', 'システム');
+									ui.displayMessage('（アイテムを使用しました）');
 									if (typeof ui.waitForClick === 'function') await ui.waitForClick();
 									if (typeof GameEventManager !== 'undefined' && typeof GameEventManager.showMainActions === 'function') {
 										GameEventManager.showMainActions();
