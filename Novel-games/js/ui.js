@@ -970,8 +970,32 @@ class UIManager {
 	 * @param {Event} event - ファイル入力のchangeイベント
 	 * @param {boolean} [isFromTitle=false] - タイトル画面からの呼び出しかどうか
 	 */
-	handleLoadGame(event, isFromTitle = false) {
-		const file = event.target.files[0];
+	handleLoadGame(eventOrIsFromTitle, isFromTitle = false) {
+		// Backwards-compatible support:
+		// - Called as handleLoadGame(changeEvent, boolean) from file input (menu)
+		// - Called as handleLoadGame(true) from title screen (legacy call). In that
+		//   case we create a temporary file input, open the picker and delegate to
+		//   this function when a file is chosen.
+		if (typeof eventOrIsFromTitle === 'boolean') {
+			isFromTitle = eventOrIsFromTitle;
+			// create temporary input
+			const tempInput = document.createElement('input');
+			tempInput.type = 'file';
+			tempInput.accept = '.json,application/json';
+			tempInput.style.display = 'none';
+			document.body.appendChild(tempInput);
+			const cleanup = () => { try { tempInput.remove(); } catch (e) { /* ignore */ } };
+			tempInput.addEventListener('change', (ev) => {
+				this.handleLoadGame(ev, isFromTitle);
+				setTimeout(cleanup, 500);
+			}, { once: true });
+			// trigger file picker
+			tempInput.click();
+			return;
+		}
+
+		const event = eventOrIsFromTitle;
+		const file = event && event.target && event.target.files ? event.target.files[0] : null;
 		if (!file) {
 			if (!isFromTitle) {
 				this.displayMenuMessage('ファイルが選択されていません。');
