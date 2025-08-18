@@ -19,7 +19,9 @@ body {
 #game-container {
 	width: 800px;
 	max-width: 100%;
-	min-height: 600px;
+	/* デフォルトの表示領域を広げて、選択肢が増えても
+		 購買に行くまでスクロールが出ないようにする */
+	min-height: 720px;
 	/* 仮の最小高さを設定 */
 	border: 2px solid #444;
 	border-radius: 10px;
@@ -108,6 +110,10 @@ body {
 	box-shadow: inset 0 0 0 1px rgba(153, 102, 255, 0.2);
 }
 
+.stat-academic {
+	box-shadow: inset 0 0 0 1px rgba(120, 200, 120, 0.18);
+}
+
 /* メニューボタン */
 /* メニューボタン（トップ行の右側） */
 #menu-button {
@@ -132,11 +138,26 @@ body {
 /* メイン画面 */
 #main-screen {
 	padding: 20px;
-	height: calc(600px - 100px);
+	/* コンテナの min-height を反映してメイン領域の高さを調整 */
+	height: calc(720px - 120px);
 	/* header高さの増加に合わせて微調整 */
 	display: flex;
 	flex-direction: column;
-	justify-content: space-between;
+	justify-content: flex-start;
+	/* 選択肢を上揃えにする */
+	align-items: stretch;
+	gap: 16px;
+}
+
+/* 小さいウィンドウではビューポートに合わせて高さを収める */
+@media (max-height: 760px) {
+	#game-container {
+		min-height: 92vh;
+	}
+
+	#main-screen {
+		height: calc(92vh - 120px);
+	}
 }
 
 /* メッセージウィンドウ */
@@ -189,12 +210,23 @@ body {
 	}
 }
 
-/* 選択肢エリア */
+#choices-area {
+	/* 選択肢群は上揃え。要素が増えたらスクロールで対応 */
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	max-height: 40vh;
+	/* 必要に応じてスクロール */
+	overflow-y: auto;
+	align-items: stretch;
+}
+
 #choices-area .choice-button {
 	display: block;
 	width: 100%;
 	padding: 15px;
-	margin-bottom: 10px;
+	margin: 0;
+	/* gap で間隔を取る */
 	background-color: #4a4a4a;
 	border: 1px solid #666;
 	color: #ffffff;
@@ -303,6 +335,63 @@ body {
 	border-bottom: 1px solid #555;
 	padding-bottom: 5px;
 	margin-bottom: 15px;
+}
+
+/* 一時的なダイアログ（トースト） */
+.transient-notice {
+	position: absolute;
+	left: 50%;
+	top: 18px;
+	transform: translateX(-50%);
+	background: rgba(30, 30, 30, 0.95);
+	color: #eee;
+	padding: 10px 14px;
+	border-radius: 8px;
+	border: 1px solid #444;
+	z-index: 12000;
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+	cursor: pointer;
+	transition: opacity .22s ease, transform .18s ease;
+}
+
+.transient-notice.fadeout {
+	opacity: 0;
+	transform: translateX(-50%) translateY(-8px);
+}
+
+/* キャラクター表示用スタイル */
+#focused-character {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+#menu-characters-section {
+	margin-top: 12px;
+}
+
+#menu-characters-list {
+	list-style: none;
+	padding: 0;
+}
+
+#menu-characters-list li {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background: #3a3a3a;
+	padding: 8px;
+	margin-bottom: 8px;
+	border-radius: 6px;
+}
+
+.char-trust-btn {
+	background: #6c757d;
+	color: white;
+	border: none;
+	padding: 6px 8px;
+	border-radius: 4px;
+	cursor: pointer;
 }
 
 #menu-status-section p {

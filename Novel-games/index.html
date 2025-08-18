@@ -30,6 +30,10 @@
                 <button id="menu-button">メニュー</button>
             </div>
             <div class="status-stats">
+                <div class="stat-chip stat-academic">
+                    <span class="label" id="label-academic">学力</span>:
+                    <span id="academic-display">10</span>
+                </div>
                 <div class="stat-chip stat-physical">
                     <span class="label" id="label-physical">体力</span>:
                     <span id="physical-display">80</span>
@@ -60,6 +64,14 @@
                 <div id="character-name"></div>
                 <div id="message-text"></div>
                 <div id="click-indicator">▼</div>
+            </div>
+
+            <!-- フォーカス中のキャラクター表示 -->
+            <div id="focused-character" class="stat-chip" style="margin-bottom:12px; display:none;">
+                <span class="label" id="focused-character-label">フォーカス</span>:
+                <span id="focused-character-name"></span>
+                <span style="margin-left:10px;opacity:0.8;">信頼度:</span>
+                <span id="focused-character-trust"></span>
             </div>
 
             <!-- 選択肢エリア -->

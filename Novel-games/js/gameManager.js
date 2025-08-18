@@ -142,7 +142,7 @@ class GameManager {
 				// 表示抑制オプションがある場合は UI 表示を行わない
 				if (!options.suppressDisplay) {
 					// メニューが開いている場合はメニュー内メッセージを優先して表示
-					if (ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden') && typeof ui.displayMenuMessage === 'function') {
+					if (ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden') && typeof ui.displayMenuMessage === 'function' && typeof GameEventManager !== 'undefined' && GameEventManager.isInFreeAction) {
 						ui.displayMenuMessage(text);
 					} else if (typeof ui.displayMessage === 'function') {
 						ui.displayMessage(text, 'システム');
@@ -172,6 +172,54 @@ class GameManager {
 				console.error('Listener error', e);
 			}
 		});
+	}
+
+	/**
+	 * キャラクター管理関連のユーティリティ
+	 */
+	addCharacter(character) {
+		// character は少なくとも { id?, name, trust?, status? } を想定
+		if (!character) return null;
+		if (!this.playerStatus.characters) this.playerStatus.characters = [];
+		const id = character.id || (`char_${Date.now()}_${Math.floor(Math.random() * 1000)}`);
+		const entry = Object.assign({ id: id, name: character.name || '名無し', trust: typeof character.trust === 'number' ? character.trust : 50, status: character.status || {} }, character);
+		// trust を 0-100 にクランプ
+		entry.trust = Math.max(0, Math.min(100, Number(entry.trust) || 0));
+		this.playerStatus.characters.push(entry);
+		this._notifyListeners();
+		this.addHistory({ type: 'add_character', detail: { id: entry.id, name: entry.name } });
+		return entry.id;
+	}
+
+	getCharacters() {
+		return this.playerStatus.characters || [];
+	}
+
+	getCharacter(id) {
+		if (!this.playerStatus.characters) return null;
+		return this.playerStatus.characters.find(c => c.id === id) || null;
+	}
+
+	updateCharacterTrust(id, delta) {
+		const c = this.getCharacter(id);
+		if (!c) return null;
+		const before = Number(c.trust || 0);
+		c.trust = Math.max(0, Math.min(100, before + Number(delta || 0)));
+		this._notifyListeners();
+		this.addHistory({ type: 'trust_change', detail: { id, delta, before, after: c.trust } });
+		return c.trust;
+	}
+
+	setCharacterStatus(id, statusChanges) {
+		const c = this.getCharacter(id);
+		if (!c) return false;
+		if (!c.status) c.status = {};
+		for (const k of Object.keys(statusChanges || {})) {
+			c.status[k] = statusChanges[k];
+		}
+		this._notifyListeners();
+		this.addHistory({ type: 'char_status_change', detail: { id, changes: statusChanges } });
+		return true;
 	}
 
 	/**
@@ -606,7 +654,7 @@ class GameManager {
 				// If the menu is currently open, show the item message inside the menu
 				// instead of using the main message window. This prevents the main
 				// message window from being pulled above the menu overlay.
-				if (typeof ui !== 'undefined' && ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden')) {
+				if (typeof ui !== 'undefined' && ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden') && typeof GameEventManager !== 'undefined' && GameEventManager.isInFreeAction) {
 					// Menu is open: apply changes silently and show a floating overlay above the menu.
 					const messages = this.applyChanges(item.effect.changes, { suppressDisplay: true }) || [];
 					const combined = [eventData.message, ...messages].join('\n');
@@ -636,7 +684,7 @@ class GameManager {
 				const messages = this.applyChanges(item.effect.changes, { suppressDisplay: true }) || [];
 				const combined = [`${item.name} を使用した！`, ...messages].join('\n');
 				if (typeof ui !== 'undefined') {
-					if (ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden')) {
+					if (ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden') && typeof GameEventManager !== 'undefined' && GameEventManager.isInFreeAction) {
 						if (typeof ui.showFloatingMessage === 'function') {
 							await ui.showFloatingMessage(combined, { lineDelay: 800 });
 						} else if (typeof ui.displayMenuMessage === 'function') {

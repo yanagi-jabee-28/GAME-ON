@@ -37,6 +37,12 @@ class UIManager {
 		this.menuItemList = document.getElementById('menu-item-list');
 		this.menuCloseFloating = document.getElementById('menu-close-floating');
 
+		// キャラクター関連 UI 要素
+		this.focusedCharacterWrap = document.getElementById('focused-character');
+		this.focusedCharacterName = document.getElementById('focused-character-name');
+		this.focusedCharacterTrust = document.getElementById('focused-character-trust');
+
+
 		// セーブ・ロード関連の要素
 		this.saveGameButton = document.getElementById('save-game-button');
 		this.loadGameButton = document.getElementById('load-game-button');
@@ -50,6 +56,8 @@ class UIManager {
 				if (this.menuOverlay && !this.menuOverlay.classList.contains('hidden')) {
 					this.updateMenuDisplay();
 				}
+				// キャラクター表示の更新
+				this.updateFocusedCharacter(status);
 			});
 		}
 	}
@@ -71,12 +79,15 @@ class UIManager {
 			if (!this.physicalDisplay || !document.contains(this.physicalDisplay)) this.physicalDisplay = document.getElementById('physical-display');
 			if (!this.mentalDisplay || !document.contains(this.mentalDisplay)) this.mentalDisplay = document.getElementById('mental-display');
 			if (!this.technicalDisplay || !document.contains(this.technicalDisplay)) this.technicalDisplay = document.getElementById('technical-display');
+			// academic may be added in the header chips
+			if (!this.academicDisplay || !document.contains(this.academicDisplay)) this.academicDisplay = document.getElementById('academic-display');
 		} catch (e) { console.warn('Error checking status display elements', e); }
 
 		if (this.dateDisplay) this.dateDisplay.textContent = `${status.day}日目 (${weekday}曜日)`;
 		if (this.timeOfDayDisplay) this.timeOfDayDisplay.textContent = CONFIG.TURNS[status.turnIndex];
 		if (this.physicalDisplay) this.physicalDisplay.textContent = status.stats && typeof status.stats.physical !== 'undefined' ? status.stats.physical : '';
 		if (this.mentalDisplay) this.mentalDisplay.textContent = status.stats && typeof status.stats.mental !== 'undefined' ? status.stats.mental : '';
+		if (this.academicDisplay) this.academicDisplay.textContent = status.stats && typeof status.stats.academic !== 'undefined' ? status.stats.academic : '';
 		if (this.technicalDisplay) this.technicalDisplay.textContent = status.stats && typeof status.stats.technical !== 'undefined' ? status.stats.technical : '';
 		// 通貨単位は CONFIG.LABELS.currencyUnit を優先
 		const unit = (CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円';
@@ -85,12 +96,39 @@ class UIManager {
 	}
 
 	/**
+	 * フォーカス中のキャラクター表示を更新する
+	 */
+	updateFocusedCharacter(status) {
+		try {
+			if (!this.focusedCharacterWrap) return;
+			const chars = status.characters || [];
+			if (chars.length === 0) {
+				this.focusedCharacterWrap.style.display = 'none';
+				return;
+			}
+			// 現状は最初のキャラクターをフォーカスとする。将来的に選択機能を追加
+			const c = chars[0];
+			this.focusedCharacterName.textContent = c.name || '';
+			this.focusedCharacterTrust.textContent = (typeof c.trust === 'number') ? `${c.trust}` : '';
+			this.focusedCharacterWrap.style.display = 'flex';
+		} catch (e) { console.warn('updateFocusedCharacter error', e); }
+	}
+
+	/**
 	 * メッセージとキャラクター名を表示する
 	 * @param {string} text - 表示するメッセージ本文
 	 * @param {string} [characterName=''] - 表示するキャラクター名 (省略可能)
 	 */
 	displayMessage(text, characterName = '') {
-		console.log('UI.displayMessage called:', { characterName, text });
+		// Guard: ignore empty or whitespace-only messages to avoid showing
+		// an empty message window that only waits for a click.
+		if (text === null || typeof text === 'undefined') return;
+		const txt = String(text);
+		if (txt.trim() === '') {
+			console.log('UI.displayMessage: ignoring empty message');
+			return;
+		}
+		console.log('UI.displayMessage called:', { characterName, text: txt });
 		// メニューが開いている場合はメッセージウィンドウを前面に出す
 		// 常にメッセージウィンドウを前面に出しておく（overlay が残っている場合の救済策）
 		try {
@@ -224,12 +262,8 @@ class UIManager {
 		if (status.menuLocked) return; // メニューがロックされているフェーズでは開けない
 		// 自由行動時間のみメニューを開ける
 		if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
-			// ヒント表示: メニューは自由行動時間のみ開けます
-			if (typeof this.displayMenuMessage === 'function') {
-				this.displayMenuMessage('メニューは自由行動時間のみ開けます。');
-				// 1.2秒後に消す
-				setTimeout(() => this.clearMenuMessage(), 1200);
-			}
+			// メニューを開けない場合は一時的なダイアログで通知（イベントメッセージの上書きは避ける）
+			this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
 			return;
 		}
 
@@ -457,6 +491,71 @@ class UIManager {
 				if (menuContent) menuContent.appendChild(effectsSection);
 			}
 		}
+
+		// --- キャラクター表示 ---
+		const charsSectionId = 'menu-characters-section';
+		let charsSection = document.getElementById(charsSectionId);
+		if (!charsSection) {
+			charsSection = document.createElement('div');
+			charsSection.id = charsSectionId;
+			const header = document.createElement('h3');
+			header.textContent = 'キャラクター';
+			const scroll = document.querySelector('.menu-scroll');
+			if (scroll) scroll.appendChild(charsSection);
+			else {
+				const menuContent = document.getElementById('menu-content');
+				if (menuContent) menuContent.appendChild(charsSection);
+			}
+		}
+		charsSection.innerHTML = '';
+		const addBtn = document.createElement('button');
+		addBtn.textContent = 'キャラクターを追加';
+		addBtn.className = 'char-trust-btn';
+		addBtn.onclick = () => {
+			const name = prompt('キャラクター名を入力してください');
+			if (name && typeof gameManager !== 'undefined') {
+				const id = gameManager.addCharacter({ name: name, trust: 50 });
+				// 再描画
+				this.updateMenuDisplay();
+			}
+		};
+		charsSection.appendChild(addBtn);
+
+		const ulId = 'menu-characters-list';
+		let ul = document.getElementById(ulId);
+		if (!ul) {
+			ul = document.createElement('ul');
+			ul.id = ulId;
+			charsSection.appendChild(ul);
+		}
+		ul.innerHTML = '';
+		const chars = status.characters || [];
+		if (chars.length === 0) {
+			const li = document.createElement('li');
+			li.textContent = '(キャラクターが登録されていません)';
+			ul.appendChild(li);
+		} else {
+			chars.forEach(c => {
+				const li = document.createElement('li');
+				const left = document.createElement('span');
+				left.textContent = `${c.name} (信頼: ${c.trust})`;
+				li.appendChild(left);
+				const btnWrap = document.createElement('span');
+				// 信頼度 + ボタン
+				const plus = document.createElement('button');
+				plus.textContent = '+5';
+				plus.className = 'char-trust-btn';
+				plus.onclick = async () => { if (typeof gameManager !== 'undefined') { gameManager.updateCharacterTrust(c.id, 5); this.updateMenuDisplay(); } };
+				const minus = document.createElement('button');
+				minus.textContent = '-5';
+				minus.className = 'char-trust-btn';
+				minus.onclick = async () => { if (typeof gameManager !== 'undefined') { gameManager.updateCharacterTrust(c.id, -5); this.updateMenuDisplay(); } };
+				btnWrap.appendChild(plus);
+				btnWrap.appendChild(minus);
+				li.appendChild(btnWrap);
+				ul.appendChild(li);
+			});
+		}
 		effectsSection.innerHTML = '';
 		const effects = status.effects || {};
 		console.log('UI.updateMenuDisplay effects:', effects);
@@ -483,6 +582,10 @@ class UIManager {
 	displayMenuMessage(text) {
 		const menuContent = document.getElementById('menu-content');
 		if (!menuContent) return;
+		// Guard: do not show empty menu messages
+		if (text === null || typeof text === 'undefined') return;
+		const mtxt = String(text);
+		if (mtxt.trim() === '') return;
 		let menuMsg = document.getElementById('menu-message');
 		if (!menuMsg) {
 			menuMsg = document.createElement('div');
@@ -495,9 +598,19 @@ class UIManager {
 		// so the menu message becomes visible. Remember the original state and
 		// restore it in clearMenuMessage.
 		try {
+			// Important: do NOT unhide the full menu overlay here. The menu must only
+			// be opened during自由行動 (free action) periods. If the menu is
+			// currently hidden, fall back to showing the message in the main message
+			// area so the UI does not briefly reveal the overlay.
 			if (this.menuOverlay && this.menuOverlay.classList.contains('hidden')) {
-				this.menuOverlay.classList.remove('hidden');
-				this.menuOverlay.dataset._tempShown = '1';
+				if (typeof this.showFloatingMessage === 'function') {
+					// showFloatingMessage already handles click waits and visibility.
+					this.showFloatingMessage(text).catch(() => { });
+					return;
+				} else if (typeof this.displayMessage === 'function') {
+					this.displayMessage(text, 'システム');
+					return;
+				}
 			}
 		} catch (e) { }
 
@@ -537,11 +650,39 @@ class UIManager {
 		}
 		// restore any temporary menu overlay visibility change
 		try {
-			if (this.menuOverlay && this.menuOverlay.dataset && this.menuOverlay.dataset._tempShown) {
-				this.menuOverlay.classList.add('hidden');
-				delete this.menuOverlay.dataset._tempShown;
-			}
+			// No-op: do not restore or toggle menu overlay here. Menu visibility is
+			// strictly controlled via openMenu/closeMenu and GameEventManager.isInFreeAction.
 		} catch (e) { }
+	}
+
+	/**
+	 * 短時間だけ画面上部に表示される非破壊的なお知らせ（トースト）
+	 * @param {string} text
+	 * @param {{ duration?: number }} options
+	 */
+	showTransientNotice(text, options = {}) {
+		if (!text || ('' + text).trim() === '') return;
+		const dur = typeof options.duration === 'number' ? options.duration : 1200;
+		let el = document.getElementById('transient-notice');
+		if (!el) {
+			el = document.createElement('div');
+			el.id = 'transient-notice';
+			el.className = 'transient-notice';
+			document.getElementById('game-container').appendChild(el);
+			el.addEventListener('click', () => {
+				el.classList.add('fadeout');
+				setTimeout(() => el.remove(), 220);
+			});
+		}
+		el.textContent = text;
+		el.classList.remove('fadeout');
+		// 自動で消す
+		setTimeout(() => {
+			if (el && el.parentNode) {
+				el.classList.add('fadeout');
+				setTimeout(() => { try { el.remove(); } catch (e) { } }, 220);
+			}
+		}, dur);
 	}
 
 

@@ -47,7 +47,7 @@ const GameEventManager = {
 		}
 
 		// ターンを進める
-		await ui.waitForClick(); // ここに待機処理を追加
+		// 次の処理へ（必要なクリック待ちは個々の表示で行っているためここでは直接進める）
 		await gameManager.nextTurn();
 		ui.updateStatusDisplay(gameManager.getStatus());
 
