@@ -426,27 +426,31 @@ class SlotGame {
 	_startContinuousAdjust(dir) {
 		// dir: +1 or -1
 		this._continuousDir = dir;
-		if (this._continuousTimer) return; // 既に動作中
-		// 初期遅延 (ms)
-		let delay = 300;
+		// 既にスターターまたはタイマーがある場合は無視
+		if (this._continuousTimer || this._continuousStarter) return;
+		// 初期遅延 (ms) — 単押しと区別するためやや長めに設定
+		const delay = 420;
 		// 最小間隔 (ms) と減衰率（時間経過で間隔を短くする）
-		const minInterval = 40;
-		const accelFactor = 0.85; // 連打間隔を毎ステップでこの係数で短縮
-		this._continuousInterval = 180; // 初回インターバル
-		// 最初のステップは即時に1回行う
-		this._adjustBetByStep(dir);
-		// 300ms 後に連続処理を開始
-		this._continuousTimer = setTimeout(() => {
+		const minInterval = 60;
+		const accelFactor = 0.85;
+		this._continuousInterval = 260;
+		this._continuousStarted = false;
+		// 遅延後に連続処理を開始（このタイミングで最初の適応ステップを実行）
+		this._continuousStarter = setTimeout(() => {
+			this._continuousStarted = true;
+			// 最初の適応ステップ
+			this._adjustBetByAdaptiveStep(dir);
+			// 継続インターバル開始
 			this._continuousTimer = setInterval(() => {
-				this._adjustBetByStep(dir);
-				// 加速: インターバルを徐々に短くする
+				this._adjustBetByAdaptiveStep(dir);
+				// 加速処理: インターバルを短くする
 				this._continuousInterval = Math.max(minInterval, Math.round(this._continuousInterval * accelFactor));
-				// interval を入れ替えるため一度クリアして再設定
 				clearInterval(this._continuousTimer);
 				this._continuousTimer = setInterval(() => {
-					this._adjustBetByStep(dir);
+					this._adjustBetByAdaptiveStep(dir);
 				}, this._continuousInterval);
 			}, this._continuousInterval);
+			this._continuousStarter = null;
 		}, delay);
 	}
 
@@ -461,6 +465,7 @@ class SlotGame {
 		}
 		this._continuousInterval = null;
 		this._continuousDir = 0;
+		this._continuousStarted = false;
 	}
 
 	/**
@@ -673,7 +678,8 @@ class SlotGame {
 		if (this.elStepUp) {
 			this.elStepUp.addEventListener('click', (e) => {
 				e.preventDefault();
-				this._adjustBetByStep(+1);
+				if (this._suppressNextClick) { this._suppressNextClick = false; return; }
+				this._adjustBetByAdaptiveStep(+1);
 			});
 			// 長押しで加速度的に増やす: pointer イベントで統一的に扱う
 			this.elStepUp.addEventListener('pointerdown', (e) => {
@@ -683,6 +689,7 @@ class SlotGame {
 				this._startContinuousAdjust && this._startContinuousAdjust(+1);
 			});
 			this.elStepUp.addEventListener('pointerup', (e) => {
+				this._suppressNextClick = !!this._continuousStarted;
 				const el = e.currentTarget;
 				if (el.releasePointerCapture) try { el.releasePointerCapture(e.pointerId); } catch (err) { }
 				this._stopContinuousAdjust && this._stopContinuousAdjust();
@@ -693,7 +700,8 @@ class SlotGame {
 		if (this.elStepDown) {
 			this.elStepDown.addEventListener('click', (e) => {
 				e.preventDefault();
-				this._adjustBetByStep(-1);
+				if (this._suppressNextClick) { this._suppressNextClick = false; return; }
+				this._adjustBetByAdaptiveStep(-1);
 			});
 			this.elStepDown.addEventListener('pointerdown', (e) => {
 				e.preventDefault();
@@ -702,10 +710,13 @@ class SlotGame {
 				this._startContinuousAdjust && this._startContinuousAdjust(-1);
 			});
 			this.elStepDown.addEventListener('pointerup', (e) => {
+				this._suppressNextClick = !!this._continuousStarted;
 				const el = e.currentTarget;
 				if (el.releasePointerCapture) try { el.releasePointerCapture(e.pointerId); } catch (err) { }
 				this._stopContinuousAdjust && this._stopContinuousAdjust();
 			});
+			this.elStepDown.addEventListener('pointercancel', () => { this._suppressNextClick = !!this._continuousStarted; this._stopContinuousAdjust && this._stopContinuousAdjust(); });
+			this.elStepDown.addEventListener('pointerleave', () => { this._suppressNextClick = !!this._continuousStarted; this._stopContinuousAdjust && this._stopContinuousAdjust(); });
 			this.elStepDown.addEventListener('pointercancel', () => { this._stopContinuousAdjust && this._stopContinuousAdjust(); });
 			this.elStepDown.addEventListener('pointerleave', () => { this._stopContinuousAdjust && this._stopContinuousAdjust(); });
 		}
@@ -720,6 +731,30 @@ class SlotGame {
 		cur = cur + dir * step;
 		cur = Math.max(min, Math.min(max, cur));
 		this.elBet.value = String(cur);
+		this.updateDevPanel();
+		this.updateAvailableMaxDisplay();
+	}
+
+	/**
+	 * 長押し用の適応ステップで賭け金を調整する
+	 * ルール:
+	 * - 0 <= val < 100  : step = 10
+	 * - 100 <= val < 1000 : step = 100
+	 * - 1000 <= val < 10000 : step = 1000
+	 */
+	_adjustBetByAdaptiveStep(dir) {
+		if (!this.elBet) return;
+		const min = Number(this.elBet.getAttribute('min')) || 1;
+		const max = Number(this.elBet.getAttribute('max')) || Number(this.config.maxBet) || 1000000;
+		let cur = Math.floor(Number(this.elBet.value) || 0);
+		let absCur = Math.max(0, cur);
+		let step = 1;
+		if (absCur < 100) step = 10;
+		else if (absCur < 1000) step = 100;
+		else step = 1000; // 1000以上は常に1000刻み（10000以上も含む）
+		let next = cur + dir * step;
+		next = Math.max(min, Math.min(max, next));
+		this.elBet.value = String(next);
 		this.updateDevPanel();
 		this.updateAvailableMaxDisplay();
 	}
@@ -1243,8 +1278,10 @@ class SlotGame {
 				return;
 			}
 
-			// 自動調整後のベットを決定（maxPossibleBet を上限とし、config.maxBet も尊重）
-			let adjustedBet = Math.min(maxPossibleBet, maxBet);
+			// 自動調整後のベットを決定:
+			// - 要求ベットを増やして maxPossibleBet に合わせるのではなく、
+			//   要求ベットを上限として、利用可能な最大額で切り詰める。
+			let adjustedBet = Math.min(bet, maxPossibleBet, maxBet);
 			if (adjustedBet < minBet) adjustedBet = minBet; // 念のため
 			// 通知
 			const prevBet = bet;
