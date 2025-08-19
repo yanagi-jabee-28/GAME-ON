@@ -78,10 +78,30 @@ class UIManager {
 		// 初期フォーカスをタイトルの最初のボタンに移す（キーボード操作を容易にする）
 		setTimeout(() => {
 			try {
-				const first = document.querySelector('#title-screen .title-buttons button');
-				if (first) first.focus();
+				const buttons = Array.from(document.querySelectorAll('#title-screen .title-buttons button'));
+				if (buttons.length > 0) {
+					buttons.forEach(b => b.classList.remove('focused'));
+					buttons[0].classList.add('focused');
+					try { buttons[0].focus(); } catch (e) { }
+				}
 			} catch (e) { }
 		}, 40);
+	}
+
+	/**
+	 * タイトル画面のボタンに対してフォーカス表示を設定する
+	 * @param {HTMLElement[]} buttons
+	 * @param {number} index
+	 */
+	_setTitleButtonFocus(buttons, index) {
+		buttons.forEach((b, i) => {
+			if (i === index) {
+				b.classList.add('focused');
+				try { b.focus(); } catch (e) { }
+			} else {
+				b.classList.remove('focused');
+			}
+		});
 	}
 
 	showGameScreen() {
@@ -1347,13 +1367,13 @@ class UIManager {
 					if (key === 'ArrowDown' || key === 'ArrowRight') {
 						e.preventDefault();
 						const next = (tIdx + 1) >= titleButtons.length ? 0 : tIdx + 1;
-						titleButtons[next].focus();
+						this._setTitleButtonFocus(titleButtons, next);
 						return;
 					}
 					if (key === 'ArrowUp' || key === 'ArrowLeft') {
 						e.preventDefault();
 						const prev = (tIdx - 1) < 0 ? titleButtons.length - 1 : tIdx - 1;
-						titleButtons[prev].focus();
+						this._setTitleButtonFocus(titleButtons, prev);
 						return;
 					}
 					if (key === 'Enter') {

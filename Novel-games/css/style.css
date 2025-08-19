@@ -300,6 +300,15 @@ body {
 	box-sizing: border-box;
 }
 
+/* Title buttons should show focused state similarly to choice buttons */
+#title-screen .title-buttons button.focused,
+#title-screen .title-buttons button:focus {
+	outline: 3px solid rgba(135, 206, 235, 0.18);
+	box-shadow: 0 0 0 6px rgba(135, 206, 235, 0.04) inset;
+	transform: translateY(-2px);
+	background-color: #5a5a5a;
+}
+
 #menu-overlay.hidden {
 	display: none;
 	/* 初期状態では非表示 */
