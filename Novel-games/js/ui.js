@@ -1234,6 +1234,17 @@ class UIManager {
 			const overlay = document.getElementById('menu-overlay');
 			const menuOpen = overlay && !overlay.classList.contains('hidden');
 			if (menuOpen) {
+				// If an inner menu-window (item/history/character detail) is open,
+				// Escape should close that window first instead of the whole menu.
+				if (key === 'Escape') {
+					const openWindows = Array.from(document.querySelectorAll('.menu-window')).filter(w => !w.classList.contains('hidden'));
+					if (openWindows.length > 0) {
+						const last = openWindows[openWindows.length - 1];
+						try { this.closeMenuWindow(last); } catch (e) { console.warn('closeMenuWindow error', e); }
+						return;
+					}
+				}
+
 				const menuContent = document.getElementById('menu-content');
 				if (menuContent) {
 					const focusable = Array.from(menuContent.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
