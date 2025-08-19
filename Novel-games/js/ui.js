@@ -74,6 +74,14 @@ class UIManager {
 	showTitleScreen() {
 		if (this.titleScreen) this.titleScreen.style.display = 'flex';
 		if (this.gameScreen) this.gameScreen.style.display = 'none';
+
+		// 初期フォーカスをタイトルの最初のボタンに移す（キーボード操作を容易にする）
+		setTimeout(() => {
+			try {
+				const first = document.querySelector('#title-screen .title-buttons button');
+				if (first) first.focus();
+			} catch (e) { }
+		}, 40);
 	}
 
 	showGameScreen() {
@@ -1330,6 +1338,40 @@ class UIManager {
 			} catch (e) { console.warn('enter-advance guard error', e); }
 
 			// Toggle menu with Escape or 'm'/'M'
+			// If title screen is visible, handle title navigation first
+			const titleVisible = this.titleScreen && window.getComputedStyle(this.titleScreen).display !== 'none';
+			if (titleVisible) {
+				const titleButtons = Array.from(document.querySelectorAll('#title-screen .title-buttons button'));
+				if (titleButtons.length > 0) {
+					let tIdx = titleButtons.findIndex(b => b === document.activeElement || b.classList.contains('focused'));
+					if (key === 'ArrowDown' || key === 'ArrowRight') {
+						e.preventDefault();
+						const next = (tIdx + 1) >= titleButtons.length ? 0 : tIdx + 1;
+						titleButtons[next].focus();
+						return;
+					}
+					if (key === 'ArrowUp' || key === 'ArrowLeft') {
+						e.preventDefault();
+						const prev = (tIdx - 1) < 0 ? titleButtons.length - 1 : tIdx - 1;
+						titleButtons[prev].focus();
+						return;
+					}
+					if (key === 'Enter') {
+						e.preventDefault();
+						// If protagonist name input is focused, pressing Enter should start game
+						const active = document.activeElement;
+						if (active && active.id === 'protagonist-name') {
+							const btn = document.getElementById('new-game-button');
+							if (btn) btn.click();
+							return;
+						}
+						const target = (tIdx >= 0) ? titleButtons[tIdx] : titleButtons[0];
+						if (target) target.click();
+						return;
+					}
+				}
+			}
+
 			if (key === 'Escape' || key === 'm' || key === 'M') {
 				// If menu is open, close it; otherwise try to open it (respecting free action)
 				const overlay = document.getElementById('menu-overlay');

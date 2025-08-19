@@ -278,8 +278,8 @@ const GameEventManager = {
 			gameManager.addHistory({ type: 'shop_visit', detail: { shopId: shopId, shopLabel: shop.label } });
 		}
 
+		// Show prompt above choices (do not wait for click so message stays visible while choices are shown)
 		ui.displayMessage(`${shop.label}に行ってみよう。何を買う？`, '主人公');
-		await ui.waitForClick();
 
 		const items = shop.items || [];
 		const unit = (typeof CONFIG !== 'undefined' && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円';
