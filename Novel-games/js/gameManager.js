@@ -742,7 +742,10 @@ class GameManager {
 		this.playerStatus.reportDebt = this.playerStatus.reports.length;
 		this._notifyListeners();
 
-		return outMsgs.join('\n'); // 以前のAPIと互換性を保つ
+		// 戻り値をオブジェクトにして、表示側で「本文」と「差分メッセージ」を分けて扱えるようにする
+		const message = outMsgs.length > 0 ? outMsgs.shift() : '';
+		const changeMsgs = outMsgs; // 残りは差分メッセージ
+		return { message: message, changeMsgs: changeMsgs };
 	}
 
 	getReports() {

@@ -443,21 +443,27 @@ const GameEventManager = {
 				if (typeof ui.waitForClick === 'function') await ui.waitForClick();
 				// 進行処理
 				console.log('[doReport.choice] progressReport start');
-				const progressMessage = gameManager.progressReport(r.id, 1);
-				console.log('[doReport.choice] progressReport msg:', progressMessage);
-				if (progressMessage) {
-					ui.displayMessage(progressMessage, 'システム');
+				const progressResult = gameManager.progressReport(r.id, 1);
+				console.log('[doReport.choice] progressReport result:', progressResult);
+				// progressResult: { message, changeMsgs }
+				if (progressResult && progressResult.message) {
+					ui.displayMessage(progressResult.message, 'システム');
 					if (typeof ui.waitForClick === 'function') await ui.waitForClick();
 				}
-				// レポート進捗によるステータス変化を適用
+				// レポート進捗によるステータス変化（report.changeMsgs）とイベント側の changes をまとめて表示
+				const combinedMsgs = [];
+				if (progressResult && Array.isArray(progressResult.changeMsgs) && progressResult.changeMsgs.length > 0) {
+					combinedMsgs.push(...progressResult.changeMsgs);
+				}
 				if (eventData && eventData.changes) {
 					console.log('[doReport.choice] apply changes:', eventData.changes);
 					const msgs = gameManager.applyChanges(eventData.changes, { suppressDisplay: true }) || [];
 					ui.updateStatusDisplay(gameManager.getStatus());
-					if (msgs.length > 0) {
-						ui.displayMessage(msgs.join('\n'), 'システム');
-						if (typeof ui.waitForClick === 'function') await ui.waitForClick();
-					}
+					if (msgs.length > 0) combinedMsgs.push(...msgs);
+				}
+				if (combinedMsgs.length > 0) {
+					ui.displayMessage(combinedMsgs.join('\n'), 'システム');
+					if (typeof ui.waitForClick === 'function') await ui.waitForClick();
 				}
 				// ターンを進める
 				console.log('[doReport.choice] nextTurn');

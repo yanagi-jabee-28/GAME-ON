@@ -261,6 +261,33 @@ body {
 	/* 他の要素より手前に表示 */
 }
 
+.title-buttons {
+	display: flex;
+	flex-direction: column;
+	gap: 15px;
+	align-items: center;
+	/* 子要素（ボタン）を中央揃えにする */
+	width: 100%;
+	max-width: 320px;
+	/* 必要に応じてボタン群の最大幅を指定 */
+	margin: 0 auto;
+	/* 親内で中央配置 */
+}
+
+.title-buttons button {
+	padding: 15px;
+	font-size: 1.2em;
+	color: #fff;
+	background: linear-gradient(180deg, #666, #4f4f4f);
+	border: 1px solid #6d6d6d;
+	border-radius: 8px;
+	cursor: pointer;
+	transition: filter .15s ease, transform .05s ease;
+	width: 100%;
+	/* コンテナ幅に合わせてボタンを横幅いっぱいにする */
+	box-sizing: border-box;
+}
+
 #menu-overlay.hidden {
 	display: none;
 	/* 初期状態では非表示 */
