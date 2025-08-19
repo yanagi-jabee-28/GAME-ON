@@ -221,6 +221,16 @@ body {
 	align-items: stretch;
 }
 
+/* Prevent layout shift when vertical scrollbar appears: reserve gutter space */
+#choices-area,
+.menu-scroll,
+#menu-content {
+	scrollbar-gutter: stable both-edges;
+	/* Fallback for browsers without scrollbar-gutter support: keep small right padding */
+	padding-right: 10px;
+	box-sizing: border-box;
+}
+
 #choices-area .choice-button {
 	display: block;
 	width: 100%;
@@ -247,17 +257,19 @@ body {
 
 /* メニューオーバーレイ */
 #menu-overlay {
-	position: absolute;
+	/* Use fixed so the overlay is not clipped by parent containers */
+	position: fixed;
 	top: 0;
 	left: 0;
 	width: 100%;
-	height: 100%;
+	height: 100vh;
 	background-color: rgba(0, 0, 0, 0.8);
 	/* 半透明の黒背景 */
 	display: flex;
 	justify-content: center;
 	align-items: center;
 	z-index: 1000;
+	box-sizing: border-box;
 	/* 他の要素より手前に表示 */
 }
 
@@ -523,6 +535,55 @@ body {
 		padding-right: 6px;
 	}
 }
+
+/* Scrollbar theming - WebKit and Firefox fallback
+   Make scrollbars thin and dark to fit the game's UI. Placed late to win cascade. */
+/* WebKit browsers (Chrome, Edge, Safari) */
+*::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+	background: rgba(255, 255, 255, 0.03);
+	border-radius: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+	background: linear-gradient(180deg, rgba(120, 120, 120, 0.9), rgba(60, 60, 60, 0.9));
+	border-radius: 8px;
+	border: 2px solid rgba(0, 0, 0, 0.25);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+	background: linear-gradient(180deg, rgba(150, 150, 150, 0.95), rgba(80, 80, 80, 0.95));
+}
+
+/* Firefox */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(120, 120, 120, 0.9) rgba(0, 0, 0, 0.06);
+}
+
+/* Specific tweaks for choice/menu areas to avoid horizontal bar and improve contrast */
+#choices-area {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(120, 120, 120, 0.9) rgba(0, 0, 0, 0.06);
+}
+
+#menu-overlay,
+#menu-content,
+.menu-scroll {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(120, 120, 120, 0.9) rgba(0, 0, 0, 0.06);
+}
+
+/* Hide default horizontal scrollbar if any (keep vertical) */
+#choices-area::-webkit-scrollbar:horizontal,
+#menu-content::-webkit-scrollbar:horizontal {
+	height: 8px;
+}
+
 
 /* メニュー内部のスクロール可能領域 */
 .menu-scroll {
