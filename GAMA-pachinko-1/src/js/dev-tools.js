@@ -3,7 +3,7 @@
 	'use strict';
 
 	// runBatchDrop and drop2500 expect the page to expose dropBall, updateStats, Composite, world, and related globals.
-	function runBatchDrop(count, intervalMs = 10, settleMs = 5000, options = {}) {
+	function runBatchDrop(count, intervalMs, settleMs = 5000, options = {}) {
 		if (!count || count <= 0) return Promise.resolve(null);
 		// reset internal counters if main exposes a reset helper
 		if (typeof window.resetCounters === 'function') window.resetCounters();
@@ -26,6 +26,12 @@
 			window.__BATCH_NO_RESPAWN = !allowRespawn;
 			// force respawn override for main.js to consult
 			if (allowRespawn) window.__FORCE_RESPAWN = true;
+			// determine base interval (use config DROP_INTERVAL_MS by default)
+			const baseInterval = (typeof intervalMs === 'number' && intervalMs > 0) ? intervalMs : ((window.CONFIG && window.CONFIG.DROP_INTERVAL_MS) || 80);
+			const sim = (window.__SIM_SPEED && window.__SIM_SPEED > 0) ? window.__SIM_SPEED : 1;
+			const usedInterval = Math.max(1, Math.round(baseInterval / sim));
+			const usedSettle = Math.max(0, Math.round(settleMs / sim));
+
 			const iv = setInterval(() => {
 				if (typeof window.dropBall === 'function') window.dropBall(options);
 				dropped++;
@@ -55,9 +61,9 @@
 						window.__BATCH_NO_RESPAWN = false;
 						if (allowRespawn) window.__FORCE_RESPAWN = false;
 						resolve(stats);
-					}, settleMs);
+					}, usedSettle);
 				}
-			}, intervalMs);
+			}, usedInterval);
 		});
 	}
 
@@ -65,7 +71,15 @@
 	window.drop2500 = function () {
 		window.CONFIG = window.CONFIG || {};
 		window.CONFIG.BALLS_INTERACT = false;
-		return runBatchDrop(2500, 8, 8000, { allowRespawn: true });
+		// Temporarily speed up simulation while running the batch
+		const prevSim = (window.__SIM_SPEED || 1);
+		if (typeof window.setSimSpeed === 'function') window.setSimSpeed(Math.max(2, prevSim * 6));
+		// call runBatchDrop without explicit intervalMs so it uses config DROP_INTERVAL_MS
+		return runBatchDrop(2500, undefined, 8000, { allowRespawn: true }).then((s) => {
+			// restore sim speed
+			if (typeof window.setSimSpeed === 'function') window.setSimSpeed(prevSim);
+			return s;
+		}).catch((e) => { if (typeof window.setSimSpeed === 'function') window.setSimSpeed(prevSim); throw e; });
 	};
 
 	// Simple convenience wrapper used from the console: window.dorop(n)

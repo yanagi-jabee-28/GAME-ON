@@ -478,9 +478,9 @@
 	function simTimeout(fn, ms) { return setTimeout(fn, simDelay(ms)); }
 	// Expose setter so dev-tools can change engine.timeScale and the delay scaler
 	window.setSimSpeed = function (factor) {
+		// adjust only our sim speed scalar and do NOT touch engine.timing.timeScale
 		const prev = (window.__SIM_SPEED || 1);
 		window.__SIM_SPEED = (factor && factor > 0) ? factor : 1;
-		try { engine.timing.timeScale = window.__SIM_SPEED; } catch (e) { }
 		return prev;
 	};
 
