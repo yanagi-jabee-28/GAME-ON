@@ -29,6 +29,9 @@
 		.game-links {
 			display: flex;
 			gap: 2rem;
+			flex-wrap: wrap;
+			justify-content: center;
+			padding: 1rem;
 		}
 
 		.game-card {
@@ -38,6 +41,15 @@
 			box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 			text-align: center;
 			transition: transform 0.2s, box-shadow 0.2s;
+			flex: 1 1 220px;
+			/* responsive column sizing */
+			max-width: 320px;
+			min-width: 200px;
+			min-height: 72px;
+			/* larger tap target for touch */
+			display: flex;
+			align-items: center;
+			justify-content: center;
 		}
 
 		.game-card:hover {
@@ -46,10 +58,52 @@
 		}
 
 		.game-card a {
+			display: block;
+			width: 100%;
+			height: 100%;
 			color: #00e0ff;
 			text-decoration: none;
 			font-size: 1.5rem;
 			font-weight: bold;
+			padding: 0.25rem 0.5rem;
+			/* ensure inner spacing for tap */
+		}
+
+		.game-card a:focus,
+		.game-card a:focus-visible {
+			outline: 3px solid rgba(0, 224, 255, 0.35);
+			outline-offset: 4px;
+			border-radius: 8px;
+		}
+
+		.game-card p {
+			margin: 0.5rem 0 0 0;
+			font-size: 0.95rem;
+			color: #ccc;
+		}
+
+		/* Small screens: stack cards and increase tap target */
+		@media (max-width: 600px) {
+			h1 {
+				font-size: 1.5rem;
+				margin-bottom: 1rem;
+			}
+
+			.game-links {
+				gap: 1rem;
+				padding: 0.5rem;
+			}
+
+			.game-card {
+				padding: 1.25rem;
+				border-radius: 0.75rem;
+				max-width: 90vw;
+				min-width: unset;
+			}
+
+			.game-card a {
+				font-size: 1.25rem;
+			}
 		}
 	</style>
 </head>

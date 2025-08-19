@@ -422,6 +422,47 @@ class SlotGame {
 		this.init();
 	}
 
+	// 長押しで賭け金を加速度的に増減するユーティリティ
+	_startContinuousAdjust(dir) {
+		// dir: +1 or -1
+		this._continuousDir = dir;
+		if (this._continuousTimer) return; // 既に動作中
+		// 初期遅延 (ms)
+		let delay = 300;
+		// 最小間隔 (ms) と減衰率（時間経過で間隔を短くする）
+		const minInterval = 40;
+		const accelFactor = 0.85; // 連打間隔を毎ステップでこの係数で短縮
+		this._continuousInterval = 180; // 初回インターバル
+		// 最初のステップは即時に1回行う
+		this._adjustBetByStep(dir);
+		// 300ms 後に連続処理を開始
+		this._continuousTimer = setTimeout(() => {
+			this._continuousTimer = setInterval(() => {
+				this._adjustBetByStep(dir);
+				// 加速: インターバルを徐々に短くする
+				this._continuousInterval = Math.max(minInterval, Math.round(this._continuousInterval * accelFactor));
+				// interval を入れ替えるため一度クリアして再設定
+				clearInterval(this._continuousTimer);
+				this._continuousTimer = setInterval(() => {
+					this._adjustBetByStep(dir);
+				}, this._continuousInterval);
+			}, this._continuousInterval);
+		}, delay);
+	}
+
+	_stopContinuousAdjust() {
+		if (this._continuousTimer) {
+			clearInterval(this._continuousTimer);
+			this._continuousTimer = null;
+		}
+		if (this._continuousStarter) {
+			clearTimeout(this._continuousStarter);
+			this._continuousStarter = null;
+		}
+		this._continuousInterval = null;
+		this._continuousDir = 0;
+	}
+
 	/**
 	 * ゲームの初期化処理。
 	 * リールの構築、初期位置の設定、イベントリスナーの登録を行います。
@@ -634,12 +675,39 @@ class SlotGame {
 				e.preventDefault();
 				this._adjustBetByStep(+1);
 			});
+			// 長押しで加速度的に増やす: pointer イベントで統一的に扱う
+			this.elStepUp.addEventListener('pointerdown', (e) => {
+				e.preventDefault();
+				const el = e.currentTarget;
+				if (el.setPointerCapture) try { el.setPointerCapture(e.pointerId); } catch (err) { }
+				this._startContinuousAdjust && this._startContinuousAdjust(+1);
+			});
+			this.elStepUp.addEventListener('pointerup', (e) => {
+				const el = e.currentTarget;
+				if (el.releasePointerCapture) try { el.releasePointerCapture(e.pointerId); } catch (err) { }
+				this._stopContinuousAdjust && this._stopContinuousAdjust();
+			});
+			this.elStepUp.addEventListener('pointercancel', () => { this._stopContinuousAdjust && this._stopContinuousAdjust(); });
+			this.elStepUp.addEventListener('pointerleave', () => { this._stopContinuousAdjust && this._stopContinuousAdjust(); });
 		}
 		if (this.elStepDown) {
 			this.elStepDown.addEventListener('click', (e) => {
 				e.preventDefault();
 				this._adjustBetByStep(-1);
 			});
+			this.elStepDown.addEventListener('pointerdown', (e) => {
+				e.preventDefault();
+				const el = e.currentTarget;
+				if (el.setPointerCapture) try { el.setPointerCapture(e.pointerId); } catch (err) { }
+				this._startContinuousAdjust && this._startContinuousAdjust(-1);
+			});
+			this.elStepDown.addEventListener('pointerup', (e) => {
+				const el = e.currentTarget;
+				if (el.releasePointerCapture) try { el.releasePointerCapture(e.pointerId); } catch (err) { }
+				this._stopContinuousAdjust && this._stopContinuousAdjust();
+			});
+			this.elStepDown.addEventListener('pointercancel', () => { this._stopContinuousAdjust && this._stopContinuousAdjust(); });
+			this.elStepDown.addEventListener('pointerleave', () => { this._stopContinuousAdjust && this._stopContinuousAdjust(); });
 		}
 	}
 
