@@ -460,6 +460,70 @@ body {
 	}
 }
 
+/* Broader mobile safety overrides (up to tablet width) */
+@media (max-width: 768px) {
+
+	/* Restore normal document flow to avoid centering-driven overflow */
+	body {
+		display: block !important;
+		align-items: initial !important;
+		justify-content: initial !important;
+		height: auto !important;
+		overflow-x: hidden !important;
+	}
+
+	html {
+		overflow-x: hidden;
+	}
+
+	/* Make the top-level screen container adapt to viewport */
+	#screen-container {
+		width: 100%;
+		box-sizing: border-box;
+		padding-left: 8px;
+		padding-right: 8px;
+	}
+
+	/* Make game container fluid and allow vertical scrolling */
+	#game-container {
+		width: 100% !important;
+		max-width: 100% !important;
+		min-height: auto !important;
+		overflow: visible !important;
+		border-radius: 6px;
+		padding: 0 !important;
+	}
+
+	/* Main screen should grow naturally; prevent fixed heights */
+	#main-screen {
+		height: auto !important;
+		padding: 12px !important;
+	}
+
+	/* Ensure message window scales to container width */
+	#message-window {
+		width: 100% !important;
+		box-sizing: border-box !important;
+		margin-right: 0 !important;
+	}
+
+	/* Choices and buttons fit the width */
+	#choices-area {
+		padding-left: 0;
+		padding-right: 0;
+	}
+
+	#choices-area .choice-button {
+		width: 100%;
+	}
+
+	/* Menu overlay should not force horizontal space */
+	#menu-overlay {
+		padding-left: 6px;
+		padding-right: 6px;
+	}
+}
+
 /* メニュー内部のスクロール可能領域 */
 .menu-scroll {
 	overflow-y: auto;
@@ -504,6 +568,138 @@ body {
 		height: 32px;
 		top: 8px;
 		right: 8px;
+	}
+}
+
+/* --- Mobile specific improvements for novel-game readability and touch targets --- */
+@media (max-width: 520px) {
+
+	/* allow the whole page to scroll on small devices */
+	body {
+		height: auto;
+		overflow-y: auto;
+		padding: 18px 0;
+	}
+
+	/* Make the game container fill most of the viewport with comfortable margins */
+	#game-container,
+	#title-screen {
+		width: 96vw;
+		min-height: calc(100vh - 40px);
+		box-sizing: border-box;
+		border-radius: 8px;
+		padding: 12px;
+	}
+
+	/* Reduce clutter in the status area while keeping important info readable */
+	#status-display {
+		padding: 8px 12px;
+	}
+
+	#status-display .status-top-left {
+		font-size: 13px;
+	}
+
+	.stat-chip {
+		padding: 6px 8px;
+		font-size: 13px;
+	}
+
+	/* Message window: make text larger and easier to read, reduce min-height */
+	#message-window {
+		min-height: 120px;
+		padding: 16px;
+		border-radius: 6px;
+	}
+
+	#message-text {
+		font-size: 16px;
+		line-height: 1.6;
+	}
+
+	#character-name {
+		font-size: 1.05em;
+	}
+
+	/* Click indicator larger for touch guidance */
+	#click-indicator {
+		right: 12px;
+		bottom: 8px;
+		font-size: 1.6em;
+		display: block;
+		/* show on mobile to make it clear */
+	}
+
+	/* Choices: bigger touch targets and scrollable area */
+	#choices-area {
+		max-height: 36vh;
+	}
+
+	#choices-area .choice-button {
+		padding: 18px 14px;
+		font-size: 18px;
+		border-radius: 10px;
+	}
+
+	/* Title screen buttons: ensure comfortable tap area */
+	.title-content h1 {
+		font-size: 2.8em;
+	}
+
+	.title-content .subtitle {
+		font-size: 1em;
+	}
+
+	.title-buttons {
+		max-width: 360px;
+		padding: 0 12px;
+	}
+
+	.title-buttons button {
+		font-size: 1.05em;
+		padding: 14px;
+	}
+
+	/* Menu overlay fills viewport and uses full width for readability */
+	#menu-overlay {
+		align-items: flex-start;
+		padding-top: 18px;
+	}
+
+	#menu-content {
+		width: 96vw;
+		height: auto;
+		max-height: 92vh;
+		padding: 14px;
+	}
+
+	/* Menu inner scroll area improved spacing for touch */
+	.menu-scroll {
+		padding-right: 6px;
+	}
+
+	/* Ensure menu-window fits and remains centered when used */
+	.menu-window {
+		width: 92%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+	}
+
+	/* Make input fields easier to tap */
+	.protagonist-name-wrapper input {
+		width: 64vw;
+		max-width: 260px;
+	}
+
+	/* Small tweaks for readability on small heights */
+	@media (max-height: 680px) {
+		#message-window {
+			min-height: 100px;
+		}
+
+		#choices-area {
+			max-height: 30vh;
+		}
 	}
 }
 
@@ -628,6 +824,20 @@ body {
 	background-color: #c82333;
 }
 
+.portal-link {
+	display: inline-block;
+	background: #fff;
+	color: #333;
+	padding: 8px 10px;
+	border-radius: 6px;
+	text-decoration: none;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.portal-link:hover {
+	opacity: 0.95;
+}
+
 /* --- Title Screen --- */
 #title-screen {
 	width: 800px;
@@ -706,4 +916,44 @@ body {
 #game-screen {
 	display: none;
 	/* Initially hidden */
+}
+
+/* Final small-screen overrides to prevent accidental horizontal overflow
+   and to override earlier fixed-width rules (e.g. 800px) that may be later
+   in the file. These rules are placed late to ensure they win the cascade. */
+@media (max-width: 520px) {
+
+	/* Avoid any horizontal scroll on small devices */
+	body,
+	html {
+		max-width: 100%;
+		overflow-x: hidden;
+		box-sizing: border-box;
+	}
+
+	/* Ensure title and game containers never exceed viewport width */
+	#title-screen,
+	#game-container {
+		width: 96vw !important;
+		max-width: 96vw !important;
+		min-width: 0 !important;
+		box-sizing: border-box !important;
+		padding-left: 8px !important;
+		padding-right: 8px !important;
+	}
+
+	/* Title button group: use percentage width so buttons don't overflow */
+	.title-buttons {
+		width: 90% !important;
+		max-width: 360px !important;
+		padding-left: 0 !important;
+		padding-right: 0 !important;
+		align-items: center;
+	}
+
+	/* Ensure input fields fit */
+	.protagonist-name-wrapper input {
+		width: calc(100% - 80px) !important;
+		max-width: 260px !important;
+	}
 }
