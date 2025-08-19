@@ -30,7 +30,7 @@
 		TOP_ROW_YS: [20, 50],
 		// Balls
 		BALL_RADIUS: 5,
-		DROP_INTERVAL_MS: 80,
+		DROP_INTERVAL_MS: 50,
 		// Audio
 		MASTER_VOLUME: 0.4,
 		MUTED: false,
