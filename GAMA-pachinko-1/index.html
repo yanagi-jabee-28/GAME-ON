@@ -267,13 +267,13 @@
 		// open/closed の角度を再調整して上方向に大きく開くようにする
 		const OPEN_ANGLE = (window.CONFIG && window.CONFIG.GATE_OPEN_ANGLE) || 2.3;
 		const CLOSED_ANGLE = (window.CONFIG && window.CONFIG.GATE_CLOSED_ANGLE) || 0.3;
-		// 再配置：センター位置を OPEN_ANGLE に合わせて再計算
-		const leftCenter2 = { x: leftPivot.x + Math.sin(-OPEN_ANGLE) * gateHalf, y: leftPivot.y - Math.cos(-OPEN_ANGLE) * gateHalf };
+		// 再配置：起動時はゲートを「閉」の角度に合わせて配置する
+		const leftCenter2 = { x: leftPivot.x + Math.sin(-CLOSED_ANGLE) * gateHalf, y: leftPivot.y - Math.cos(-CLOSED_ANGLE) * gateHalf };
 		Body.setPosition(leftGate, leftCenter2);
-		Body.setAngle(leftGate, -OPEN_ANGLE);
-		const rightCenter2 = { x: rightPivot.x + Math.sin(OPEN_ANGLE) * gateHalf, y: rightPivot.y - Math.cos(OPEN_ANGLE) * gateHalf };
+		Body.setAngle(leftGate, -CLOSED_ANGLE);
+		const rightCenter2 = { x: rightPivot.x + Math.sin(CLOSED_ANGLE) * gateHalf, y: rightPivot.y - Math.cos(CLOSED_ANGLE) * gateHalf };
 		Body.setPosition(rightGate, rightCenter2);
-		Body.setAngle(rightGate, OPEN_ANGLE);
+		Body.setAngle(rightGate, CLOSED_ANGLE);
 		gates.push({ body: leftGate, pivot: leftPivot, length: gateLength, targetAngle: -OPEN_ANGLE, closedAngle: -CLOSED_ANGLE, openAngle: -OPEN_ANGLE });
 		gates.push({ body: rightGate, pivot: rightPivot, length: gateLength, targetAngle: OPEN_ANGLE, closedAngle: CLOSED_ANGLE, openAngle: OPEN_ANGLE });
 
@@ -284,15 +284,20 @@
 			gates.forEach(g => { g.targetAngle = open ? g.openAngle : g.closedAngle; });
 		}
 		function startGateCycle() {
-			// start by ensuring gates are open
-			setGatesOpen(true);
+			// サイクルは「閉 → 短く開 → 閉」にする。
+			// まず閉にしてから少し遅延して開き、開いたらすぐ閉めて次サイクルへ移行する。
+			setGatesOpen(false);
+			// わずかな遅延の後に短く開く
 			setTimeout(() => {
-				// close after short open period
-				setGatesOpen(false);
-				// schedule next open after closed period
-				setTimeout(startGateCycle, GATE_CLOSED_MS);
-			}, GATE_OPEN_MS);
+				setGatesOpen(true);
+				setTimeout(() => {
+					setGatesOpen(false);
+					// 閉じている時間の後に次のサイクルを開始
+					setTimeout(startGateCycle, GATE_CLOSED_MS);
+				}, GATE_OPEN_MS);
+			}, 120);
 		}
+		// 初回呼び出しはサイクル開始を遅らせず実行
 		startGateCycle();
 
 		// --- 画面中央あたりの "外れゾーン"（センサー）を追加 ---
