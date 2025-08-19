@@ -484,7 +484,7 @@
 		const randomX = GAME_WIDTH / 2 + (Math.random() - 0.5) * 100;
 		const color = options.isNavy ? '#ffd700' : (options.fromBlue ? '#3498db' : '#ecf0f1');
 		// ボール同士の干渉を切り替えるフラグ（true = 衝突あり）
-		const BALLS_INTERACT = (window.CONFIG && typeof window.CONFIG.BALLS_INTERACT !== 'undefined') ? window.CONFIG.BALLS_INTERACT : false;
+		const BALLS_INTERACT = (window.CONFIG && typeof window.CONFIG.BALLS_INTERACT !== 'undefined') ? window.CONFIG.BALLS_INTERACT : true;
 		// 衝突グループ: 衝突を無効にする場合は負の同一グループを与える
 		const ballCollision = BALLS_INTERACT ? {} : { collisionFilter: { group: -Math.max(1, Math.floor((window.CONFIG && window.CONFIG.BALL_GROUP_ID) || 1000)) } };
 		const ball = Bodies.circle(randomX, -20, (window.CONFIG && window.CONFIG.BALL_RADIUS) || 5, Object.assign({
