@@ -22,6 +22,10 @@
 	let blueHits = 0;   // tulip
 	let missHits = 0;   // ハズレ（missZone）
 
+	// バッチ実行中に自動再投下を抑止した回数（dev-tools が参照する）
+	window.__BATCH_NO_RESPAWN = window.__BATCH_NO_RESPAWN || false;
+	window.__BATCH_SUPPRESSED_COUNT = window.__BATCH_SUPPRESSED_COUNT || 0;
+
 	// 比率表示要素を作る
 	const statsEl = document.createElement('div');
 	statsEl.style.pointerEvents = 'none';
@@ -556,6 +560,7 @@
 						try { Composite.remove(world, ball); } catch (e) { }
 						try { if (window.AudioBus && window.CONFIG) { AudioBus.sfxSimple(window.CONFIG.SFX.chucker); } } catch (e) { }
 						if (!window.__BATCH_NO_RESPAWN) setTimeout(() => { dropBall({ fromBlue: true, isNavy: true }); }, 200);
+						else window.__BATCH_SUPPRESSED_COUNT++;
 					}
 					break;
 				}
@@ -569,6 +574,7 @@
 						const opts = { fromBlue: true };
 						if (ball.isNavy) { opts.isNavy = true; }
 						if (!window.__BATCH_NO_RESPAWN) setTimeout(() => { dropBall(opts); }, 200);
+						else window.__BATCH_SUPPRESSED_COUNT++;
 					}
 					break;
 				}
@@ -610,6 +616,13 @@
 		statsEl.textContent = `投入:${totalDrops}  オレンジ:${orangeHits}(${orangeRatio}%)  青:${blueHits}(${blueRatio}%)  ハズレ:${missHits}`;
 	}
 
+	// sync counters to global window so dev-tools can read/reset them
+	window.updateStats = function () { updateStats(); window.totalDrops = totalDrops; window.orangeHits = orangeHits; window.blueHits = blueHits; window.missHits = missHits; window.__BATCH_SUPPRESSED_COUNT = window.__BATCH_SUPPRESSED_COUNT || 0; };
+
+	// expose dropBall for dev-tools and provide a helper to reset suppressed counter
+	window.dropBall = dropBall;
+	window.resetBatchSuppressedCount = function () { window.__BATCH_SUPPRESSED_COUNT = 0; };
+
 	// スイープ判定 + 画面外回収 + 前位置記録
 	Events.on(engine, 'afterUpdate', () => {
 		const targets = [
@@ -642,6 +655,7 @@
 							createDebris(b.position.x, b.position.y, '#e67e22');
 							try { Composite.remove(world, b); } catch (e) { }
 							if (!window.__BATCH_NO_RESPAWN) setTimeout(() => { dropBall({ fromBlue: true, isNavy: true }); }, 200);
+							else window.__BATCH_SUPPRESSED_COUNT++;
 						} else {
 							blueHits++; updateStats();
 							createDebris(b.position.x, b.position.y, '#3498db');
@@ -649,6 +663,7 @@
 							if (b.isNavy) opts.isNavy = true;
 							try { Composite.remove(world, b); } catch (e) { }
 							if (!window.__BATCH_NO_RESPAWN) setTimeout(() => { dropBall(opts); }, 200);
+							else window.__BATCH_SUPPRESSED_COUNT++;
 						}
 						break;
 					}
@@ -674,6 +689,7 @@
 		ball.render.fillStyle = '#3498db';
 		try { Composite.remove(world, ball); } catch (e) { }
 		if (!window.__BATCH_NO_RESPAWN) setTimeout(() => { dropBall({ fromBlue: true }); }, 200);
+		else window.__BATCH_SUPPRESSED_COUNT++;
 	}
 
 	function showMessage(text, duration = 2000) {
