@@ -342,11 +342,11 @@
 	}
 	function startGateCycle() {
 		setGatesOpen(false);
-		setTimeout(() => {
+		simTimeout(() => {
 			setGatesOpen(true);
-			setTimeout(() => {
+			simTimeout(() => {
 				setGatesOpen(false);
-				setTimeout(startGateCycle, GATE_CLOSED_MS);
+				simTimeout(startGateCycle, GATE_CLOSED_MS);
 			}, GATE_OPEN_MS);
 		}, 120);
 	}
@@ -468,8 +468,21 @@
 		}
 		Composite.add(world, debris);
 		try { if (window.AudioBus) { AudioBus.sfxSimple({ freq: 200, type: 'triangle', gain: 0.15, dur: 0.04 }); } } catch (e) { }
-		setTimeout(() => { Composite.remove(world, debris); }, 200);
+		// remove debris after a short time, scaled by simulation speed
+		simTimeout(() => { Composite.remove(world, debris); }, 200);
 	}
+
+	// Simulation time scaling helpers. window.__SIM_SPEED defaults to 1 (real-time)
+	window.__SIM_SPEED = window.__SIM_SPEED || 1;
+	function simDelay(ms) { const s = (window.__SIM_SPEED && window.__SIM_SPEED > 0) ? window.__SIM_SPEED : 1; return Math.max(0, ms / s); }
+	function simTimeout(fn, ms) { return setTimeout(fn, simDelay(ms)); }
+	// Expose setter so dev-tools can change engine.timeScale and the delay scaler
+	window.setSimSpeed = function (factor) {
+		const prev = (window.__SIM_SPEED || 1);
+		window.__SIM_SPEED = (factor && factor > 0) ? factor : 1;
+		try { engine.timing.timeScale = window.__SIM_SPEED; } catch (e) { }
+		return prev;
+	};
 
 	function startDropping() {
 		if (dropInterval) return;
@@ -560,7 +573,7 @@
 						try { Composite.remove(world, ball); } catch (e) { }
 						try { if (window.AudioBus && window.CONFIG) { AudioBus.sfxSimple(window.CONFIG.SFX.chucker); } } catch (e) { }
 						if (!window.__BATCH_NO_RESPAWN || window.__FORCE_RESPAWN) {
-							setTimeout(() => { dropBall({ fromBlue: true, isNavy: true }); }, 200);
+							simTimeout(() => { dropBall({ fromBlue: true, isNavy: true }); }, 200);
 						} else {
 							window.__BATCH_SUPPRESSED_COUNT++;
 						}
@@ -577,7 +590,7 @@
 						const opts = { fromBlue: true };
 						if (ball.isNavy) { opts.isNavy = true; }
 						if (!window.__BATCH_NO_RESPAWN || window.__FORCE_RESPAWN) {
-							setTimeout(() => { dropBall(opts); }, 200);
+							simTimeout(() => { dropBall(opts); }, 200);
 						} else {
 							window.__BATCH_SUPPRESSED_COUNT++;
 						}
@@ -678,7 +691,7 @@
 							createDebris(b.position.x, b.position.y, '#e67e22');
 							try { Composite.remove(world, b); } catch (e) { }
 							if (!window.__BATCH_NO_RESPAWN || window.__FORCE_RESPAWN) {
-								setTimeout(() => { dropBall({ fromBlue: true, isNavy: true }); }, 200);
+								simTimeout(() => { dropBall({ fromBlue: true, isNavy: true }); }, 200);
 							} else {
 								window.__BATCH_SUPPRESSED_COUNT++;
 							}
@@ -689,7 +702,7 @@
 							if (b.isNavy) opts.isNavy = true;
 							try { Composite.remove(world, b); } catch (e) { }
 							if (!window.__BATCH_NO_RESPAWN || window.__FORCE_RESPAWN) {
-								setTimeout(() => { dropBall(opts); }, 200);
+								simTimeout(() => { dropBall(opts); }, 200);
 							} else {
 								window.__BATCH_SUPPRESSED_COUNT++;
 							}
@@ -708,7 +721,7 @@
 		if (!ball || ball.isHitting) return;
 		ball.isHitting = true;
 		ball.render.fillStyle = color;
-		setTimeout(() => { Composite.remove(world, ball); }, 100);
+		simTimeout(() => { Composite.remove(world, ball); }, 100);
 	}
 
 	function handleTulipHit(ball) {
@@ -718,7 +731,7 @@
 		ball.render.fillStyle = '#3498db';
 		try { Composite.remove(world, ball); } catch (e) { }
 		if (!window.__BATCH_NO_RESPAWN || window.__FORCE_RESPAWN) {
-			setTimeout(() => { dropBall({ fromBlue: true }); }, 200);
+			simTimeout(() => { dropBall({ fromBlue: true }); }, 200);
 		} else {
 			window.__BATCH_SUPPRESSED_COUNT++;
 		}
@@ -727,6 +740,6 @@
 	function showMessage(text, duration = 2000) {
 		messageBox.textContent = text;
 		messageBox.style.visibility = 'visible';
-		setTimeout(() => { messageBox.style.visibility = 'hidden'; }, duration);
+		simTimeout(() => { messageBox.style.visibility = 'hidden'; }, duration);
 	}
 })();

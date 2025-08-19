@@ -89,4 +89,14 @@
 		return Promise.resolve(null);
 	};
 
+	// Convenience alias to control simulation speed from console: window.simSpeed(factor)
+	// Example: window.simSpeed(4) -> 4x faster; window.simSpeed(1) -> normal
+	window.simSpeed = function (factor) {
+		if (typeof window.setSimSpeed === 'function') return window.setSimSpeed(factor);
+		// fallback: set a global and try to update engine.timing if present
+		window.__SIM_SPEED = factor;
+		try { if (window.engine && window.engine.timing) window.engine.timing.timeScale = factor; } catch (e) { }
+		return factor;
+	};
+
 })();
