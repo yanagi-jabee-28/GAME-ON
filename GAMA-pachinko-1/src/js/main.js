@@ -469,7 +469,7 @@
 
 	function startDropping() {
 		if (dropInterval) return;
-		dropInterval = setInterval(dropBall, (window.CONFIG && window.CONFIG.DROP_INTERVAL_MS) || 80);
+		dropInterval = setInterval(dropBall, (window.CONFIG && window.CONFIG.DROP_INTERVAL_MS) || 100);
 	}
 	function stopDropping() {
 		clearInterval(dropInterval);
@@ -480,7 +480,7 @@
 		const randomX = GAME_WIDTH / 2 + (Math.random() - 0.5) * 100;
 		const color = options.isNavy ? '#ffd700' : (options.fromBlue ? '#3498db' : '#ecf0f1');
 		// ボール同士の干渉を切り替えるフラグ（true = 衝突あり）
-		const BALLS_INTERACT = (window.CONFIG && typeof window.CONFIG.BALLS_INTERACT !== 'undefined') ? window.CONFIG.BALLS_INTERACT : true;
+		const BALLS_INTERACT = (window.CONFIG && typeof window.CONFIG.BALLS_INTERACT !== 'undefined') ? window.CONFIG.BALLS_INTERACT : false;
 		// 衝突グループ: 衝突を無効にする場合は負の同一グループを与える
 		const ballCollision = BALLS_INTERACT ? {} : { collisionFilter: { group: -Math.max(1, Math.floor((window.CONFIG && window.CONFIG.BALL_GROUP_ID) || 1000)) } };
 		const ball = Bodies.circle(randomX, -20, (window.CONFIG && window.CONFIG.BALL_RADIUS) || 5, Object.assign({
@@ -500,6 +500,8 @@
 		totalDrops++;
 		updateStats();
 	}
+
+	// runBatchDrop and drop2500 moved to src/js/dev-tools.js
 
 	dropButton.addEventListener('mousedown', startDropping);
 	dropButton.addEventListener('mouseup', stopDropping);
@@ -553,7 +555,7 @@
 						createDebris(ball.position.x, ball.position.y, '#e67e22');
 						try { Composite.remove(world, ball); } catch (e) { }
 						try { if (window.AudioBus && window.CONFIG) { AudioBus.sfxSimple(window.CONFIG.SFX.chucker); } } catch (e) { }
-						setTimeout(() => { dropBall({ fromBlue: true, isNavy: true }); }, 200);
+						if (!window.__BATCH_NO_RESPAWN) setTimeout(() => { dropBall({ fromBlue: true, isNavy: true }); }, 200);
 					}
 					break;
 				}
@@ -566,7 +568,7 @@
 						try { if (window.AudioBus && window.CONFIG) { AudioBus.sfxSimple(window.CONFIG.SFX.tulip); } } catch (e) { }
 						const opts = { fromBlue: true };
 						if (ball.isNavy) { opts.isNavy = true; }
-						setTimeout(() => { dropBall(opts); }, 200);
+						if (!window.__BATCH_NO_RESPAWN) setTimeout(() => { dropBall(opts); }, 200);
 					}
 					break;
 				}
@@ -639,14 +641,14 @@
 							orangeHits++; updateStats();
 							createDebris(b.position.x, b.position.y, '#e67e22');
 							try { Composite.remove(world, b); } catch (e) { }
-							setTimeout(() => { dropBall({ fromBlue: true, isNavy: true }); }, 200);
+							if (!window.__BATCH_NO_RESPAWN) setTimeout(() => { dropBall({ fromBlue: true, isNavy: true }); }, 200);
 						} else {
 							blueHits++; updateStats();
 							createDebris(b.position.x, b.position.y, '#3498db');
 							const opts = { fromBlue: true };
 							if (b.isNavy) opts.isNavy = true;
 							try { Composite.remove(world, b); } catch (e) { }
-							setTimeout(() => { dropBall(opts); }, 200);
+							if (!window.__BATCH_NO_RESPAWN) setTimeout(() => { dropBall(opts); }, 200);
 						}
 						break;
 					}
@@ -671,7 +673,7 @@
 		ball.isFromBlue = true;
 		ball.render.fillStyle = '#3498db';
 		try { Composite.remove(world, ball); } catch (e) { }
-		setTimeout(() => { dropBall({ fromBlue: true }); }, 200);
+		if (!window.__BATCH_NO_RESPAWN) setTimeout(() => { dropBall({ fromBlue: true }); }, 200);
 	}
 
 	function showMessage(text, duration = 2000) {
