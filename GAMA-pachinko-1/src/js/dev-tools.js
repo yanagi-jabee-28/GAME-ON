@@ -5,13 +5,18 @@
 	// runBatchDrop and drop2500 expect the page to expose dropBall, updateStats, Composite, world, and related globals.
 	function runBatchDrop(count, intervalMs = 10, settleMs = 5000, options = {}) {
 		if (!count || count <= 0) return Promise.resolve(null);
-    		// reset counters if present
-		if (typeof window.totalDrops !== 'undefined') { window.totalDrops = 0; }
-		if (typeof window.orangeHits !== 'undefined') { window.orangeHits = 0; }
-		if (typeof window.blueHits !== 'undefined') { window.blueHits = 0; }
-		if (typeof window.missHits !== 'undefined') { window.missHits = 0; }
+		// reset internal counters if main exposes a reset helper
+		if (typeof window.resetCounters === 'function') window.resetCounters();
+		else {
+			if (typeof window.totalDrops !== 'undefined') { window.totalDrops = 0; }
+			if (typeof window.orangeHits !== 'undefined') { window.orangeHits = 0; }
+			if (typeof window.blueHits !== 'undefined') { window.blueHits = 0; }
+			if (typeof window.missHits !== 'undefined') { window.missHits = 0; }
+		}
 		// reset suppressed count tracker if available
 		if (typeof window.resetBatchSuppressedCount === 'function') window.resetBatchSuppressedCount();
+		// reset drop call counter and push an initial sync
+		window.__DROP_CALLS = 0;
 		if (typeof window.updateStats === 'function') window.updateStats();
 
 		let dropped = 0;
@@ -19,17 +24,22 @@
 			// allowRespawn option: when true, do not suppress automatic respawns
 			const allowRespawn = !!options.allowRespawn;
 			window.__BATCH_NO_RESPAWN = !allowRespawn;
+			// force respawn override for main.js to consult
+			if (allowRespawn) window.__FORCE_RESPAWN = true;
 			const iv = setInterval(() => {
 				if (typeof window.dropBall === 'function') window.dropBall(options);
 				dropped++;
 				if (dropped >= count) {
 					clearInterval(iv);
 					setTimeout(() => {
+						// ensure latest stats from main are propagated
+						if (typeof window.updateStats === 'function') window.updateStats();
 						const stats = {
 							total: window.totalDrops || 0,
 							orange: window.orangeHits || 0,
 							blue: window.blueHits || 0,
 							miss: window.missHits || 0,
+							dropCalls: window.__DROP_CALLS || 0,
 							suppressedRespawns: window.__BATCH_SUPPRESSED_COUNT || 0,
 							hitCount: (window.orangeHits || 0) + (window.blueHits || 0),
 							hitRate: ((window.orangeHits || 0) + (window.blueHits || 0)) / Math.max(1, (window.totalDrops || 0))
@@ -43,6 +53,7 @@
 						setTimeout(() => o.remove(), 4000);
 						// restore default: allow respawn
 						window.__BATCH_NO_RESPAWN = false;
+						if (allowRespawn) window.__FORCE_RESPAWN = false;
 						resolve(stats);
 					}, settleMs);
 				}
@@ -54,7 +65,7 @@
 	window.drop2500 = function () {
 		window.CONFIG = window.CONFIG || {};
 		window.CONFIG.BALLS_INTERACT = false;
-		return runBatchDrop(2500, 8, 8000);
+		return runBatchDrop(2500, 8, 8000, { allowRespawn: true });
 	};
 
 })();
