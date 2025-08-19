@@ -68,4 +68,25 @@
 		return runBatchDrop(2500, 8, 8000, { allowRespawn: true });
 	};
 
+	// Simple convenience wrapper used from the console: window.dorop(n)
+	// Calls runBatchDrop with reasonable defaults and returns the Promise.
+	// Usage: window.dorop(100) or window.dorop(100, { intervalMs: 12, settleMs: 6000, allowRespawn: false })
+	window.dorop = function (count, opts) {
+		if (!count || count <= 0) return Promise.resolve(null);
+		opts = opts || {};
+		const intervalMs = typeof opts.intervalMs === 'number' ? opts.intervalMs : 10;
+		const settleMs = typeof opts.settleMs === 'number' ? opts.settleMs : 5000;
+		const allowRespawn = !!opts.allowRespawn;
+		return runBatchDrop(count, intervalMs, settleMs, { allowRespawn });
+	};
+
+	// Short alias for convenience: window.drop(n) -> forwards to window.dorop
+	// Keeps backwards/typo-friendly console usage working.
+	window.drop = function (count, opts) {
+		if (typeof window.dorop === 'function') return window.dorop(count, opts);
+		// fallback: if dorop isn't present, try runBatchDrop directly
+		if (typeof window.runBatchDrop === 'function') return window.runBatchDrop(count, (opts && opts.intervalMs) || 10, (opts && opts.settleMs) || 5000, { allowRespawn: !!(opts && opts.allowRespawn) });
+		return Promise.resolve(null);
+	};
+
 })();
