@@ -112,6 +112,7 @@ class UIManager {
 
 						const useBtn = document.createElement('button');
 						useBtn.textContent = '使用';
+						useBtn.className = 'item-use-btn';
 						useBtn.onclick = async () => {
 							if (useBtn.disabled) return;
 							useBtn.disabled = true;
