@@ -146,7 +146,7 @@ const GameEventManager = {
 	checkAndApplyDailyRecovery: async function () {
 		const currentStatus = gameManager.getStatus();
 		if (currentStatus.turnIndex === 0 && currentStatus.day > this.lastCheckedDay) {
-			ui.displayMessage('夜が明け、新しい一日が始まりました。', 'システム'); // 導入メッセージ
+			ui.displayMessage('夜が明け、新しい一日が始まりました。'); // 導入メッセージ（発話者オフ）
 			await ui.waitForClick();
 
 			// 回復処理（体力と精神力を少し回復）
