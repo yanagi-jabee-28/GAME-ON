@@ -204,6 +204,22 @@
 	});
 	Composite.add(world, filteredExtraPegs);
 
+	// チューリップ上部のガイド釘を追加（オレンジの startChucker 上のガイドに似せる）
+	// これにより青玉がチューリップ入口に入りやすく誘導される。
+	(function addTulipGuides() {
+		const guideRadius = 4;
+		const guideYOffset = 12; // チューリップ上方からのオフセット
+		const guideSpacing = 14;
+		const guides = [];
+		// 左チューリップ上部ガイド
+		guides.push(Bodies.circle(tulipLeftX - guideSpacing, tulipY - guideYOffset, guideRadius, pegOptions));
+		guides.push(Bodies.circle(tulipLeftX + guideSpacing, tulipY - guideYOffset, guideRadius, pegOptions));
+		// 右チューリップ上部ガイド
+		guides.push(Bodies.circle(tulipRightX - guideSpacing, tulipY - guideYOffset, guideRadius, pegOptions));
+		guides.push(Bodies.circle(tulipRightX + guideSpacing, tulipY - guideYOffset, guideRadius, pegOptions));
+		Composite.add(world, guides);
+	})();
+
 	// --- 左右の回転ゲート（ピンボール風） ---
 	const gates = [];
 	const gateY = 520; // 役物上部
