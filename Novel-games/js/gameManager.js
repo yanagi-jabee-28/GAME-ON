@@ -704,19 +704,45 @@ class GameManager {
 		const oldProgress = report.progress;
 		report.progress += amount;
 
-		let message = '';
+		// Collect messages: allow per-report custom messages and per-progress/complete changes
+		const outMsgs = [];
+
+		// If the report defines 'changes', apply them each time progress is made
+		if (report.changes) {
+			try {
+				const msgs = this.applyChanges(report.changes, { suppressDisplay: true }) || [];
+				if (msgs && msgs.length) outMsgs.push(...msgs);
+			} catch (e) {
+				console.warn('report.changes apply failed', e);
+			}
+		}
+
 		if (report.progress >= report.required) {
+			// Completion: optionally apply completeChanges and use completeMessage
+			if (report.completeChanges) {
+				try {
+					const msgs2 = this.applyChanges(report.completeChanges, { suppressDisplay: true }) || [];
+					if (msgs2 && msgs2.length) outMsgs.push(...msgs2);
+				} catch (e) {
+					console.warn('report.completeChanges apply failed', e);
+				}
+			}
+
+			const completeMsg = report.completeMessage || `${report.title} を提出した！`;
+			// show completion message first
+			outMsgs.unshift(completeMsg);
 			// 完了扱い: レポート配列から削除
 			this.playerStatus.reports.splice(idx, 1);
-			message = `${report.title} を提出した！`;
 		} else {
-			message = `${report.title} の進捗が ${report.progress}/${report.required} になりました。`;
+			const progMsg = report.progressMessage || `${report.title} の進捗が ${report.progress}/${report.required} になりました。`;
+			outMsgs.unshift(progMsg);
 		}
 
 		// reportDebt を互換性のために更新
 		this.playerStatus.reportDebt = this.playerStatus.reports.length;
 		this._notifyListeners();
-		return message; // メッセージを返す
+
+		return outMsgs.join('\n'); // 以前のAPIと互換性を保つ
 	}
 
 	getReports() {

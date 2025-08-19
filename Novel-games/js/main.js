@@ -83,7 +83,7 @@ function initializeGame(protagonistName) {
 	ui.updateStatusDisplay(gameManager.getStatus());
 
 	// サンプル: 進行中のレポートを1件追加（将来の拡張テスト用）
-	gameManager.addReport({ id: 'report-1', title: 'プログラミング演習レポート', progress: 0, required: 3 });
+	gameManager.addReport({ id: 'report-1', title: 'プログラミング演習レポート', progress: 0, required: 2 });
 	ui.updateStatusDisplay(gameManager.getStatus());
 
 	// 開始イベントを呼び出す

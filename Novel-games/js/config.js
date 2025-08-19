@@ -68,7 +68,15 @@ const CONFIG = {
 		history: [], // 行動履歴（選択やアイテム使用などを記録する配列）
 		reportDebt: 0, // レポート負債（互換性用の総数）
 		reports: [ // 個別レポート管理のための配列（将来拡張用）
-			{ id: 'test_report_1', title: 'テストレポート', progress: 0, required: 3 }
+			{
+				id: 'test_report_1',
+				title: '問題演習',
+				progress: 0,
+				required: 3,
+				// 進捗ごとに学力が上がるように設定
+				changes: { stats: { academic: 2 } },
+				progressMessage: '問題演習を進めた。学力が少し上がった。'
+			}
 		],
 		menuLocked: false // メニュー開閉が制御されるフェーズ用フラグ
 	}
