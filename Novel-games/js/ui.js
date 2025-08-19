@@ -69,6 +69,12 @@ class UIManager {
 				this.updateFocusedCharacter(status);
 			});
 		}
+
+		// グローバルキーハンドラを早期に登録しておく（タイトル画面でも有効にするため）
+		if (!this._boundKeyboardHandler) {
+			this._boundKeyboardHandler = this._handleGlobalKeydown.bind(this);
+			window.addEventListener('keydown', this._boundKeyboardHandler);
+		}
 	}
 
 	showTitleScreen() {
@@ -1273,9 +1279,11 @@ class UIManager {
 					}
 				}
 
-				const menuContent = document.getElementById('menu-content');
-				if (menuContent) {
-					const focusable = Array.from(menuContent.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+				// If a dedicated menu-window (item/history/detail) is open, navigate inside it
+				const openWindows = Array.from(document.querySelectorAll('.menu-window')).filter(w => !w.classList.contains('hidden'));
+				const container = (openWindows.length > 0) ? openWindows[openWindows.length - 1] : document.getElementById('menu-content');
+				if (container) {
+					const focusable = Array.from(container.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
 						.filter(el => el.offsetParent !== null); // visible only
 					if (focusable.length > 0) {
 						let idx = focusable.findIndex(el => el === document.activeElement);
@@ -1283,18 +1291,23 @@ class UIManager {
 							e.preventDefault();
 							const next = (idx + 1) >= focusable.length ? 0 : idx + 1;
 							focusable[next].focus();
+							// visual sync
+							focusable.forEach((el, i) => { if (i === next) el.classList.add('focused'); else el.classList.remove('focused'); });
 							return;
 						}
 						if (key === 'ArrowUp' || key === 'ArrowLeft') {
 							e.preventDefault();
 							const prev = (idx - 1) < 0 ? focusable.length - 1 : idx - 1;
 							focusable[prev].focus();
+							focusable.forEach((el, i) => { if (i === prev) el.classList.add('focused'); else el.classList.remove('focused'); });
 							return;
 						}
 						if (key === 'Enter') {
 							e.preventDefault();
 							const target = (idx >= 0) ? focusable[idx] : focusable[0];
 							if (target) target.click();
+							// ensure focused class on activation
+							focusable.forEach((el, i) => { if (el === target) el.classList.add('focused'); else el.classList.remove('focused'); });
 							return;
 						}
 					}

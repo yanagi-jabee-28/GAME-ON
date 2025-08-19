@@ -332,6 +332,22 @@ body {
 
 .menu-controls {
 	display: flex;
+
+	/* Menu focus should look like choice focus */
+	.menu-toggle-btn.focused,
+	.menu-toggle-btn:focus,
+	#menu-item-list li button.focused,
+	#menu-item-list li button:focus,
+	#menu-history-list li.focused,
+	#menu-history-list li:focus,
+	#menu-characters-list li button.focused,
+	#menu-characters-list li button:focus {
+		outline: 3px solid rgba(135, 206, 235, 0.25);
+		box-shadow: 0 0 0 4px rgba(135, 206, 235, 0.06) inset;
+		background-color: #5f7fa0;
+		transform: scale(1.01);
+	}
+
 	gap: 8px;
 	margin-bottom: 10px;
 }
