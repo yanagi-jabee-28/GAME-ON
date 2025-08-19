@@ -121,7 +121,9 @@
 		// helper（表面距離を考慮した追加）
 		const BALL_RADIUS = (window.CONFIG && window.CONFIG.BALL_RADIUS) || 5;
 		const PEG_CLEARANCE = (window.CONFIG && window.CONFIG.PEG_CLEARANCE) || 2; // 表面余裕
-		const addPeg = (x, y, r = 4) => {
+		// 全体で管理する釘半径（設定から上書き可）
+		const PEG_RADIUS = (window.CONFIG && window.CONFIG.PEG_RADIUS) || 3;
+		const addPeg = (x, y, r = PEG_RADIUS) => {
 			if (x < 24 || x > GAME_WIDTH - 24) return; // 壁寄りは除外
 			if (y < 40 || y > 560) return;             // ゲート・へその下は避ける
 			if (isExcluded(x, y)) return;              // 除外領域
@@ -130,7 +132,7 @@
 			for (const b of pegs) {
 				const dx = b.position.x - x; const dy = b.position.y - y;
 				const centerDist = Math.sqrt(dx * dx + dy * dy) || 1e-6;
-				const existingR = (b.circleRadius) || 4;
+				const existingR = (b.circleRadius) || PEG_RADIUS;
 				const minCenter = existingR + r + requiredSurface; // 中心間の最小距離
 				if (centerDist < minCenter) return; // 表面距離が狭く玉が通れない
 			}
@@ -144,11 +146,21 @@
 			const rowShift = (rowIdx % 2 === 0) ? 0 : xStep / 2; // 行ごとに交互オフセット
 			// 中央から左右へミラーで配置
 			const maxOffset = Math.floor((GAME_WIDTH / 2 - 36) / xStep) * xStep;
+			const centerX = Math.round(GAME_WIDTH / 2);
+			const placeCenterThisRow = (rowIdx % 2 === 0); // 偶数行のみ中央を置く（交互）
 			for (let off = 0; off <= maxOffset; off += xStep) {
 				const pxL = Math.round((GAME_WIDTH / 2) - off - rowShift);
 				const pxR = Math.round((GAME_WIDTH / 2) + off + rowShift);
 				if (off === 0) {
-					addPeg(Math.round(GAME_WIDTH / 2), y);
+					if (placeCenterThisRow) {
+						addPeg(centerX, y);
+					} else {
+						// 中央を置かない行でも中央付近に等距離の左右ペグを配置して
+						// 縦の空洞ができないようにする
+						const innerOffset = Math.round(xStep / 2);
+						addPeg(centerX - innerOffset, y);
+						addPeg(centerX + innerOffset, y);
+					}
 				} else {
 					addPeg(pxL, y);
 					addPeg(pxR, y);
@@ -167,7 +179,7 @@
 				points.push({ x: px, y: py });
 			}
 			// add points and their mirror around center
-			points.forEach(p => { addPeg(Math.round(p.x), Math.round(p.y), 4); const mx = Math.round(GAME_WIDTH - p.x); addPeg(mx, Math.round(p.y), 4); });
+			points.forEach(p => { addPeg(Math.round(p.x), Math.round(p.y)); const mx = Math.round(GAME_WIDTH - p.x); addPeg(mx, Math.round(p.y)); });
 		};
 		// build an arc on the upper part and mirror it
 		addArcSym(leftWM.x, leftWM.y, 58, -120, -20, 20);
@@ -195,17 +207,17 @@
 				const ang = (i / innerCount) * Math.PI * 2 + 0.2; // slight rotation
 				const px = Math.round(ringCenter.x + Math.cos(ang) * innerR);
 				const py = Math.round(ringCenter.y + Math.sin(ang) * innerR - 6); // 少し上め
-				addPeg(px, py, 3);
+				addPeg(px, py);
 			}
 			for (let i = 0; i < outerCount; i++) {
 				const ang = (i / outerCount) * Math.PI * 2 + ((i % 2) ? 0.15 : -0.15);
 				const px = Math.round(ringCenter.x + Math.cos(ang) * outerR);
 				const py = Math.round(ringCenter.y + Math.sin(ang) * outerR - 2);
-				addPeg(px, py, 4);
+				addPeg(px, py);
 			}
 			// two small guiding pegs just above the chucker mouth
-			addPeg(ringCenter.x - 18, ringCenter.y - 22, 4);
-			addPeg(ringCenter.x + 18, ringCenter.y - 22, 4);
+			addPeg(ringCenter.x - 18, ringCenter.y - 22);
+			addPeg(ringCenter.x + 18, ringCenter.y - 22);
 		})();
 
 		// 3b) チューカ―（オレンジ当たり）真上の釘列を追加
@@ -217,7 +229,7 @@
 				{ lx: center.x - 24, ly: center.y - 48, rx: center.x + 24, ry: center.y - 48 },
 				{ lx: center.x - 8, ly: center.y - 54, rx: center.x + 8, ry: center.y - 54 }
 			];
-			const r = 4;
+			const r = PEG_RADIUS;
 			const BALL_RADIUS = (window.CONFIG && window.CONFIG.BALL_RADIUS) || 5;
 			const PEG_CLEARANCE = (window.CONFIG && window.CONFIG.PEG_CLEARANCE) || 2;
 			const requiredSurface = (BALL_RADIUS * 2) + PEG_CLEARANCE;
@@ -346,7 +358,7 @@
 		isStatic: true, isSensor: true, label: 'floorMissZone', render: { fillStyle: 'rgba(192,57,43,0.12)', strokeStyle: 'rgba(192,57,43,0.25)' }
 	});
 	// 元々あった中央の外れゾーンも復活させる（互いに同じラベルにして扱いを統一する）
-	const centerMissZone = Bodies.rectangle(GAME_WIDTH / 2, 200, 40, 5, {
+	const centerMissZone = Bodies.rectangle(GAME_WIDTH / 2, 230, 40, 5, {
 		isStatic: true, isSensor: true, label: 'missZone', render: { fillStyle: 'rgba(192,57,43,0.35)', strokeStyle: 'rgba(192,57,43,0.7)' }
 	});
 	Composite.add(world, [missZone, centerMissZone]);
@@ -467,10 +479,14 @@
 	function dropBall(options = {}) {
 		const randomX = GAME_WIDTH / 2 + (Math.random() - 0.5) * 100;
 		const color = options.isNavy ? '#ffd700' : (options.fromBlue ? '#3498db' : '#ecf0f1');
-		const ball = Bodies.circle(randomX, -20, (window.CONFIG && window.CONFIG.BALL_RADIUS) || 5, {
+		// ボール同士の干渉を切り替えるフラグ（true = 衝突あり）
+		const BALLS_INTERACT = (window.CONFIG && typeof window.CONFIG.BALLS_INTERACT !== 'undefined') ? window.CONFIG.BALLS_INTERACT : true;
+		// 衝突グループ: 衝突を無効にする場合は負の同一グループを与える
+		const ballCollision = BALLS_INTERACT ? {} : { collisionFilter: { group: -Math.max(1, Math.floor((window.CONFIG && window.CONFIG.BALL_GROUP_ID) || 1000)) } };
+		const ball = Bodies.circle(randomX, -20, (window.CONFIG && window.CONFIG.BALL_RADIUS) || 5, Object.assign({
 			label: 'ball', restitution: 0.9, friction: 0.05,
 			render: { fillStyle: color }
-		});
+		}, ballCollision));
 		if (options.fromBlue) {
 			ball.isFromBlue = true;
 			ball.isImmuneToMiss = true;
