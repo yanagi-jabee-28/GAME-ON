@@ -398,8 +398,10 @@ const GameEventManager = {
 	 * 「レポートを進める」を選択したときの処理
 	 */
 	doReport: async function () {
+		console.log('[doReport] enter');
 		this.isInFreeAction = false;
 		const reports = gameManager.getReports ? gameManager.getReports() : gameManager.getStatus().reports || [];
+		console.log('[doReport] reports:', reports);
 
 		if (reports.length === 0) {
 			ui.displayMessage('現在、進行中のレポートはありません。');
@@ -409,28 +411,47 @@ const GameEventManager = {
 		}
 
 		const eventData = EVENTS["REPORT_ACTION"];
+		console.log('[doReport] eventData exists:', !!eventData, 'message:', eventData && eventData.message);
+		// まずイベント本文を表示してクリック待ち
 		if (eventData && eventData.message) {
+			console.log('[doReport] show intro message');
 			ui.displayMessage(eventData.message);
 		} else {
+			console.log('[doReport] show default intro message');
 			ui.displayMessage('溜まっているレポートを片付けないと...');
 		}
 		await ui.waitForClick();
+		console.log('[doReport] after intro click');
+
+		// クリック後、選択肢の上に残る案内を表示して選択肢を出す（ここでは await しない）
+		const prompt = 'どのレポートを進める？';
+		try {
+			console.log('[doReport] display prompt');
+			ui.displayMessage(prompt, 'システム');
+		} catch (e) {
+			console.error('[doReport] display prompt error', e);
+		}
 
 		// 選択肢イベントとして、どのレポートを進めるかプレイヤーに選ばせる
+		console.log('[doReport] build choices:', reports.length);
 		const choices = reports.map(r => ({
 			text: `${r.title} （${r.progress}/${r.required}）`,
 			callback: async () => {
+				console.log('[doReport.choice] selected:', r.id, r.title);
 				this.isInFreeAction = false;
 				ui.displayMessage(`${r.title} を進めます（${r.progress}/${r.required}）`);
 				if (typeof ui.waitForClick === 'function') await ui.waitForClick();
 				// 進行処理
+				console.log('[doReport.choice] progressReport start');
 				const progressMessage = gameManager.progressReport(r.id, 1);
+				console.log('[doReport.choice] progressReport msg:', progressMessage);
 				if (progressMessage) {
 					ui.displayMessage(progressMessage, 'システム');
 					if (typeof ui.waitForClick === 'function') await ui.waitForClick();
 				}
 				// レポート進捗によるステータス変化を適用
 				if (eventData && eventData.changes) {
+					console.log('[doReport.choice] apply changes:', eventData.changes);
 					const msgs = gameManager.applyChanges(eventData.changes, { suppressDisplay: true }) || [];
 					ui.updateStatusDisplay(gameManager.getStatus());
 					if (msgs.length > 0) {
@@ -439,14 +460,23 @@ const GameEventManager = {
 					}
 				}
 				// ターンを進める
+				console.log('[doReport.choice] nextTurn');
 				await gameManager.nextTurn();
 				ui.updateStatusDisplay(gameManager.getStatus());
 				await this.checkAndApplyDailyRecovery();
 				this.showMainActions();
 			}
 		}));
-		choices.push({ text: 'やめる', callback: () => { this.showMainActions(); } });
+		choices.push({ text: 'やめる', callback: () => { console.log('[doReport.choice] cancel'); this.showMainActions(); } });
 		ui.displayChoices(choices);
+		console.log('[doReport] choices displayed');
+		// 念のため、選択肢描画直後にも案内を表示しておく（別処理で消えてしまうのを防ぐ）
+		try {
+			console.log('[doReport] re-display prompt');
+			ui.displayMessage('どのレポートを進める？', 'システム');
+		} catch (e) {
+			console.error('[doReport] re-display prompt error', e);
+		}
 	},
 
 	// TODO: 今後、ランダムイベントなどをここに追加していく
