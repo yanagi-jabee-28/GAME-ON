@@ -192,10 +192,12 @@ class UIManager {
 	closeMenuWindow(winEl) {
 		if (!winEl) return;
 		winEl.classList.add('hidden');
-		// If the closed window was an item window, re-enable main menu close controls
+		// If the closed window was an item or character window, re-enable main menu close controls
 		try {
 			const itemWin = document.getElementById('menu-item-window');
-			const stillOpen = itemWin && !itemWin.classList.contains('hidden');
+			const charWin = document.getElementById('menu-character-window');
+			const charDetail = document.getElementById('menu-character-detail-window');
+			const stillOpen = (itemWin && !itemWin.classList.contains('hidden')) || (charWin && !charWin.classList.contains('hidden')) || (charDetail && !charDetail.classList.contains('hidden'));
 			if (!stillOpen) this._setMenuCloseEnabled(true);
 		} catch (e) { }
 	}
@@ -701,19 +703,8 @@ class UIManager {
 			}
 		}
 		charsSection.innerHTML = '';
-		const addBtn = document.createElement('button');
-		addBtn.textContent = 'キャラクターを追加';
-		addBtn.className = 'char-trust-btn';
-		addBtn.onclick = () => {
-			const name = prompt('キャラクター名を入力してください');
-			if (name && typeof gameManager !== 'undefined') {
-				const id = gameManager.addCharacter({ name: name, trust: 50 });
-				// 再描画
-				this.updateMenuDisplay();
-			}
-		};
-		charsSection.appendChild(addBtn);
-
+		// キャラクターの追加や直接編集はメニューから行わない仕様に変更。
+		// ここでは主人公(player)を除外した一覧表示と、各キャラごとに個別ウィンドウを開くボタンを表示する。
 		const ulId = 'menu-characters-list';
 		let ul = document.getElementById(ulId);
 		if (!ul) {
@@ -722,7 +713,7 @@ class UIManager {
 			charsSection.appendChild(ul);
 		}
 		ul.innerHTML = '';
-		const chars = status.characters || [];
+		const chars = (status.characters || []).filter(c => c.id !== 'player'); // exclude player
 		if (chars.length === 0) {
 			const li = document.createElement('li');
 			li.textContent = '(キャラクターが登録されていません)';
@@ -734,17 +725,40 @@ class UIManager {
 				left.textContent = `${c.name} (信頼: ${c.trust})`;
 				li.appendChild(left);
 				const btnWrap = document.createElement('span');
-				// 信頼度 + ボタン
-				const plus = document.createElement('button');
-				plus.textContent = '+5';
-				plus.className = 'char-trust-btn';
-				plus.onclick = async () => { if (typeof gameManager !== 'undefined') { gameManager.updateCharacterTrust(c.id, 5); this.updateMenuDisplay(); } };
-				const minus = document.createElement('button');
-				minus.textContent = '-5';
-				minus.className = 'char-trust-btn';
-				minus.onclick = async () => { if (typeof gameManager !== 'undefined') { gameManager.updateCharacterTrust(c.id, -5); this.updateMenuDisplay(); } };
-				btnWrap.appendChild(plus);
-				btnWrap.appendChild(minus);
+				// キャラクター詳細表示ボタン（個別ウィンドウ）
+				const viewBtn = document.createElement('button');
+				viewBtn.textContent = '表示';
+				viewBtn.className = 'char-view-btn';
+				viewBtn.onclick = async () => {
+					// Open a dedicated character detail window (modal-like)
+					let win = document.getElementById('menu-character-detail-window');
+					if (!win) {
+						win = document.createElement('div');
+						win.id = 'menu-character-detail-window';
+						win.className = 'menu-window';
+						win.innerHTML = `<div class="menu-window-header">キャラクター詳細<button class="menu-window-close">閉じる</button></div><div class="menu-window-body" id="menu-character-detail-body"></div>`;
+						document.getElementById('game-container').appendChild(win);
+						// wire close
+						win.querySelector('.menu-window-close').addEventListener('click', (e) => { this.closeMenuWindow(win); });
+					}
+					const body = document.getElementById('menu-character-detail-body');
+					if (body) {
+						body.innerHTML = '';
+						const nameEl = document.createElement('h4');
+						nameEl.textContent = c.name;
+						const trustEl = document.createElement('p');
+						trustEl.textContent = `信頼: ${c.trust}`;
+						const notes = document.createElement('p');
+						notes.textContent = c.notes || '';
+						body.appendChild(nameEl);
+						body.appendChild(trustEl);
+						body.appendChild(notes);
+					}
+					win.classList.remove('hidden');
+					// While a detail window is open, prevent the menu from being closed accidentally
+					this._setMenuCloseEnabled(false);
+				};
+				btnWrap.appendChild(viewBtn);
 				li.appendChild(btnWrap);
 				ul.appendChild(li);
 			});
