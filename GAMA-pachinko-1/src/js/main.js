@@ -252,13 +252,20 @@
 	}
 	startGateCycle();
 
-	// --- 画面中央あたりの "外れゾーン"（センサー）を追加 ---
-	const missZoneWidth = 40;
-	const missZoneHeight = 5;
-	const missZone = Bodies.rectangle(GAME_WIDTH / 2, 200, missZoneWidth, missZoneHeight, {
+	// --- 外れゾーン（センサー）を画面下部に配置 ---
+	// 筐体の下に床を置かず、下方向へ落ちた玉はここで検出して消す挙動にする
+	const missZoneWidth = GAME_WIDTH - 40; // 壁を避けつつ十分な幅
+	const missZoneHeight = 6;
+	const missZoneY = GAME_HEIGHT - 20;
+	// 床用の外れゾーン（免疫を無視して全玉を粉砕する）
+	const missZone = Bodies.rectangle(GAME_WIDTH / 2, missZoneY, missZoneWidth, missZoneHeight, {
+		isStatic: true, isSensor: true, label: 'floorMissZone', render: { fillStyle: 'rgba(192,57,43,0.12)', strokeStyle: 'rgba(192,57,43,0.25)' }
+	});
+	// 元々あった中央の外れゾーンも復活させる（互いに同じラベルにして扱いを統一する）
+	const centerMissZone = Bodies.rectangle(GAME_WIDTH / 2, 200, 40, 5, {
 		isStatic: true, isSensor: true, label: 'missZone', render: { fillStyle: 'rgba(192,57,43,0.35)', strokeStyle: 'rgba(192,57,43,0.7)' }
 	});
-	Composite.add(world, missZone);
+	Composite.add(world, [missZone, centerMissZone]);
 
 	// --- 風車（回転障害） ---
 	const windmills = [];
@@ -472,8 +479,18 @@
 					updateStats();
 					break;
 				}
+				// 中央などのセンサーは免疫を考慮する既存の挙動
 				case 'missZone': {
 					if (ball.isImmuneToMiss) break;
+					createDebris(ball.position.x, ball.position.y, ball.render.fillStyle);
+					try { if (window.AudioBus && window.CONFIG) { AudioBus.sfxSimple(window.CONFIG.SFX.miss); } } catch (e) { }
+					try { Composite.remove(world, ball); } catch (e) { }
+					missHits++;
+					updateStats();
+					break;
+				}
+				// 床（floorMissZone）は免疫を無視して必ず粉砕する
+				case 'floorMissZone': {
 					createDebris(ball.position.x, ball.position.y, ball.render.fillStyle);
 					try { if (window.AudioBus && window.CONFIG) { AudioBus.sfxSimple(window.CONFIG.SFX.miss); } } catch (e) { }
 					try { Composite.remove(world, ball); } catch (e) { }
@@ -535,7 +552,8 @@
 					}
 				}
 			}
-			if (b.position.y > GAME_HEIGHT + 50) { try { Composite.remove(world, b); } catch (e) { } }
+			// ボールが非常に遠くに行った（何らかの異常）場合は保険で回収
+			if (b.position.y > GAME_HEIGHT + 300) { try { Composite.remove(world, b); } catch (e) { } }
 			b.lastPos = { x: curr.x, y: curr.y };
 		}
 	});
