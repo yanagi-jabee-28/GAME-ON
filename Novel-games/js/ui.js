@@ -515,6 +515,13 @@ class UIManager {
 			};
 			this.choicesArea.appendChild(button);
 		});
+
+		// 初期選択を一つ目に設定（キーボード操作のため）
+		const buttons = Array.from(this.choicesArea.querySelectorAll('.choice-button'));
+		if (buttons.length > 0) {
+			buttons.forEach(b => b.classList.remove('focused'));
+			buttons[0].classList.add('focused');
+		}
 	}
 
 	/**
@@ -1202,6 +1209,146 @@ class UIManager {
 				try { localStorage.setItem('game_sound_muted', soundManager.muted ? '1' : '0'); } catch (e) { }
 			});
 		}
+
+		// キーボード操作の初期化
+		this._keyboardHandler = this._keyboardHandler || this._boundKeyboardHandler;
+		if (!this._boundKeyboardHandler) {
+			this._boundKeyboardHandler = this._handleGlobalKeydown.bind(this);
+			window.addEventListener('keydown', this._boundKeyboardHandler);
+		}
+	}
+
+	/**
+	 * グローバルな keydown ハンドラ
+	 * - 矢印上下で選択肢を移動
+	 * - Enter で選択（ある場合）
+	 * - Escape または M でメニュー開閉
+	 */
+	_handleGlobalKeydown(e) {
+		try {
+			// when menu overlay is visible, allow Esc to close
+			const key = e.key;
+			if (!key) return;
+
+			// If menu is open, prefer navigating the menu's focusable elements
+			const overlay = document.getElementById('menu-overlay');
+			const menuOpen = overlay && !overlay.classList.contains('hidden');
+			if (menuOpen) {
+				const menuContent = document.getElementById('menu-content');
+				if (menuContent) {
+					const focusable = Array.from(menuContent.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+						.filter(el => el.offsetParent !== null); // visible only
+					if (focusable.length > 0) {
+						let idx = focusable.findIndex(el => el === document.activeElement);
+						if (key === 'ArrowDown' || key === 'ArrowRight') {
+							e.preventDefault();
+							const next = (idx + 1) >= focusable.length ? 0 : idx + 1;
+							focusable[next].focus();
+							return;
+						}
+						if (key === 'ArrowUp' || key === 'ArrowLeft') {
+							e.preventDefault();
+							const prev = (idx - 1) < 0 ? focusable.length - 1 : idx - 1;
+							focusable[prev].focus();
+							return;
+						}
+						if (key === 'Enter') {
+							e.preventDefault();
+							const target = (idx >= 0) ? focusable[idx] : focusable[0];
+							if (target) target.click();
+							return;
+						}
+					}
+				}
+				// allow closing menu with Escape/M even if no focusables
+				if (key === 'Escape' || key === 'm' || key === 'M') {
+					this.closeMenu();
+					return;
+				}
+				return; // don't let background choices move while menu is open
+			}
+
+			// If choices are visible, handle navigation
+			const choices = Array.from(document.querySelectorAll('#choices-area .choice-button'));
+			if (choices && choices.length > 0) {
+				// Find currently focused index
+				let idx = choices.findIndex(b => b.classList.contains('focused'));
+				if (key === 'ArrowDown' || key === 'ArrowRight') {
+					e.preventDefault();
+					const next = (idx + 1) >= choices.length ? 0 : idx + 1;
+					this._setChoiceFocus(choices, next);
+					return;
+				}
+				if (key === 'ArrowUp' || key === 'ArrowLeft') {
+					e.preventDefault();
+					let prev = (idx - 1) < 0 ? choices.length - 1 : idx - 1;
+					this._setChoiceFocus(choices, prev);
+					return;
+				}
+				if (key === 'Enter') {
+					e.preventDefault();
+					// Activate focused or first
+					const target = (idx >= 0) ? choices[idx] : choices[0];
+					if (target) target.click();
+					return;
+				}
+			}
+
+			// If no choices are present, allow Enter to advance message (unless typing in an input)
+			try {
+				const active = document.activeElement;
+				const tag = active ? (active.tagName || '').toUpperCase() : '';
+				const isEditable = active && (active.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT');
+				if (!isEditable && key === 'Enter') {
+					// If a message window is visible and waiting for click, emulate click to advance
+					if (this.messageWindow && window.getComputedStyle(this.messageWindow).display !== 'none') {
+						// If clickIndicator is visible or messageText not empty, dispatch click
+						try {
+							const indicator = this.clickIndicator;
+							const msgText = this.messageText && this.messageText.textContent ? this.messageText.textContent.trim() : '';
+							const showIndicator = indicator && window.getComputedStyle(indicator).display !== 'none';
+							if (showIndicator || msgText !== '') {
+								e.preventDefault();
+								// trigger the same path as a user click
+								this.messageWindow.click();
+								return;
+							}
+						} catch (e) { }
+					}
+				}
+			} catch (e) { console.warn('enter-advance guard error', e); }
+
+			// Toggle menu with Escape or 'm'/'M'
+			if (key === 'Escape' || key === 'm' || key === 'M') {
+				// If menu is open, close it; otherwise try to open it (respecting free action)
+				const overlay = document.getElementById('menu-overlay');
+				if (!overlay) return;
+				if (!overlay.classList.contains('hidden')) {
+					this.closeMenu();
+				} else {
+					this.openMenu();
+				}
+			}
+		} catch (err) {
+			console.error('keyboard handler error', err);
+		}
+	}
+
+	/**
+	 * 選択肢ボタンに対してフォーカス表示を設定する
+	 * @param {HTMLElement[]} choices
+	 * @param {number} index
+	 */
+	_setChoiceFocus(choices, index) {
+		choices.forEach((b, i) => {
+			if (i === index) {
+				b.classList.add('focused');
+				// ensure visible
+				try { b.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { }
+			} else {
+				b.classList.remove('focused');
+			}
+		});
 	}
 
 	/**
