@@ -416,33 +416,37 @@ const GameEventManager = {
 		}
 		await ui.waitForClick();
 
-		const targetReport = reports[0];
-		ui.displayMessage(`${targetReport.title} を進めます（${targetReport.progress}/${targetReport.required}）`);
-		await ui.waitForClick();
-
-		// レポート進捗処理
-		const progressMessage = gameManager.progressReport(targetReport.id, 1);
-		if (progressMessage) {
-			ui.displayMessage(progressMessage, 'システム');
-			await ui.waitForClick();
-		}
-
-		// レポート進捗によるステータス変化を適用
-		if (eventData.changes) {
-			// ここは executeEventInline を使うとメッセージが二重に出るので、applyChanges を直接呼ぶ
-			const msgs = gameManager.applyChanges(eventData.changes, { suppressDisplay: true }) || [];
-			ui.updateStatusDisplay(gameManager.getStatus());
-			if (msgs.length > 0) {
-				ui.displayMessage(msgs.join('\n'), 'システム');
+		// 選択肢イベントとして、どのレポートを進めるかプレイヤーに選ばせる
+		const choices = reports.map(r => ({
+			text: `${r.title} （${r.progress}/${r.required}）`,
+			callback: async () => {
+				this.isInFreeAction = false;
+				ui.displayMessage(`${r.title} を進めます（${r.progress}/${r.required}）`);
 				if (typeof ui.waitForClick === 'function') await ui.waitForClick();
+				// 進行処理
+				const progressMessage = gameManager.progressReport(r.id, 1);
+				if (progressMessage) {
+					ui.displayMessage(progressMessage, 'システム');
+					if (typeof ui.waitForClick === 'function') await ui.waitForClick();
+				}
+				// レポート進捗によるステータス変化を適用
+				if (eventData && eventData.changes) {
+					const msgs = gameManager.applyChanges(eventData.changes, { suppressDisplay: true }) || [];
+					ui.updateStatusDisplay(gameManager.getStatus());
+					if (msgs.length > 0) {
+						ui.displayMessage(msgs.join('\n'), 'システム');
+						if (typeof ui.waitForClick === 'function') await ui.waitForClick();
+					}
+				}
+				// ターンを進める
+				await gameManager.nextTurn();
+				ui.updateStatusDisplay(gameManager.getStatus());
+				await this.checkAndApplyDailyRecovery();
+				this.showMainActions();
 			}
-		}
-
-		// ターンを進める
-		await gameManager.nextTurn();
-		ui.updateStatusDisplay(gameManager.getStatus());
-		await this.checkAndApplyDailyRecovery();
-		this.showMainActions();
+		}));
+		choices.push({ text: 'やめる', callback: () => { this.showMainActions(); } });
+		ui.displayChoices(choices);
 	},
 
 	// TODO: 今後、ランダムイベントなどをここに追加していく

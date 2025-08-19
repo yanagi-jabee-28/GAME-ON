@@ -27,6 +27,11 @@ function initializeGame(protagonistName) {
 		// 主人公の名前をキャラクターデータとして追加
 		if (!initialStatus.characters) initialStatus.characters = [];
 		initialStatus.characters.push({ id: 'player', name: protagonistName, trust: 50 });
+
+		// 初期仲間キャラクターを追加（ランダムイベント等はなし、一覧表示のみ）
+		initialStatus.characters.push({ id: 'wakabayashi', name: 'わかばやし', trust: 50 });
+		initialStatus.characters.push({ id: 'yamasato', name: 'やまさと', trust: 50 });
+		initialStatus.characters.push({ id: 'yamazaki', name: 'やまざき', trust: 50, notes: 'ニックネーム: しずちゃん' });
 	}
 	gameManager = new GameManager(initialStatus);
 	gameManager.updateCondition();

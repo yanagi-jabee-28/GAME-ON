@@ -43,6 +43,8 @@ class UIManager {
 		this.menuHistorySection = document.getElementById('menu-history-section');
 		this.toggleItemsButton = document.getElementById('toggle-items-button');
 		this.toggleHistoryButton = document.getElementById('toggle-history-button');
+		this.toggleCharactersButton = document.getElementById('toggle-characters-button');
+		this.menuCharactersSection = document.getElementById('menu-characters-section');
 
 		// キャラクター関連 UI 要素
 		this.focusedCharacterWrap = document.getElementById('focused-character');
@@ -180,6 +182,105 @@ class UIManager {
 				win.classList.remove('hidden');
 				return;
 			}
+
+			if (type === 'character') {
+				const winId = 'menu-character-window';
+				let win = document.getElementById(winId);
+				if (!win) {
+					win = document.createElement('div');
+					win.id = winId;
+					win.className = 'menu-window';
+					win.innerHTML = `<div class="menu-window-header">キャラクター一覧<button class="menu-window-close">✕</button></div><div class="menu-window-body" id="menu-character-window-list"></div>`;
+					document.getElementById('game-container').appendChild(win);
+					// wire close
+					win.querySelector('.menu-window-close').addEventListener('click', (e) => { this.closeMenuWindow(win); });
+				}
+				const listEl = document.getElementById('menu-character-window-list');
+				listEl.innerHTML = '';
+				const status = gameManager.getAllStatus();
+				const chars = (status.characters || []).filter(c => c.id !== 'player');
+				if (chars.length === 0) {
+					const p = document.createElement('p');
+					p.textContent = '(キャラクターが登録されていません)';
+					listEl.appendChild(p);
+				} else {
+					const ul = document.createElement('ul');
+					chars.forEach(c => {
+						const li = document.createElement('li');
+						li.textContent = `${c.name} (信頼: ${c.trust})`;
+						const btn = document.createElement('button');
+						btn.textContent = '表示';
+						btn.className = 'char-view-btn';
+						btn.onclick = () => {
+							// reuse existing detail window logic
+							let detail = document.getElementById('menu-character-detail-window');
+							if (!detail) {
+								detail = document.createElement('div');
+								detail.id = 'menu-character-detail-window';
+								detail.className = 'menu-window';
+								detail.innerHTML = `<div class="menu-window-header">キャラクター詳細<button class="menu-window-close">✕</button></div><div class="menu-window-body" id="menu-character-detail-body"></div>`;
+								document.getElementById('game-container').appendChild(detail);
+								// wire close
+								detail.querySelector('.menu-window-close').addEventListener('click', (e) => { this.closeMenuWindow(detail); });
+							}
+							const body = document.getElementById('menu-character-detail-body');
+							if (body) {
+								body.innerHTML = '';
+								const nameEl = document.createElement('h4');
+								nameEl.textContent = c.name;
+								const trustEl = document.createElement('p');
+								trustEl.textContent = `信頼: ${c.trust}`;
+								const notes = document.createElement('p');
+								notes.textContent = c.notes || '';
+								body.appendChild(nameEl);
+								body.appendChild(trustEl);
+								body.appendChild(notes);
+							}
+							detail.classList.remove('hidden');
+							this._setMenuCloseEnabled(false);
+						};
+						li.appendChild(btn);
+						ul.appendChild(li);
+					});
+					listEl.appendChild(ul);
+				}
+				win.classList.remove('hidden');
+				this._setMenuCloseEnabled(false);
+				return;
+			}
+
+			if (type === 'report') {
+				const winId = 'menu-report-window';
+				let win = document.getElementById(winId);
+				if (!win) {
+					win = document.createElement('div');
+					win.id = winId;
+					win.className = 'menu-window';
+					win.innerHTML = `<div class="menu-window-header">レポート一覧<button class="menu-window-close">✕</button></div><div class="menu-window-body" id="menu-report-window-body"></div>`;
+					document.getElementById('game-container').appendChild(win);
+					win.querySelector('.menu-window-close').addEventListener('click', (e) => { this.closeMenuWindow(win); });
+				}
+				const body = document.getElementById('menu-report-window-body');
+				body.innerHTML = '';
+				const status = gameManager.getAllStatus();
+				const reports = status.reports || [];
+				if (reports.length === 0) {
+					const p = document.createElement('p');
+					p.textContent = '(進行中のレポートはありません)';
+					body.appendChild(p);
+				} else {
+					const ul = document.createElement('ul');
+					reports.forEach(r => {
+						const li = document.createElement('li');
+						li.textContent = `${r.title} (${r.progress}/${r.required})`;
+						ul.appendChild(li);
+					});
+					body.appendChild(ul);
+				}
+				win.classList.remove('hidden');
+				this._setMenuCloseEnabled(false);
+				return;
+			}
 		} catch (e) {
 			console.error('openMenuWindow error', e);
 		}
@@ -197,6 +298,7 @@ class UIManager {
 			const itemWin = document.getElementById('menu-item-window');
 			const charWin = document.getElementById('menu-character-window');
 			const charDetail = document.getElementById('menu-character-detail-window');
+			const reportWin = document.getElementById('menu-report-window');
 			const stillOpen = (itemWin && !itemWin.classList.contains('hidden')) || (charWin && !charWin.classList.contains('hidden')) || (charDetail && !charDetail.classList.contains('hidden'));
 			if (!stillOpen) this._setMenuCloseEnabled(true);
 		} catch (e) { }
@@ -1003,6 +1105,30 @@ class UIManager {
 				}
 				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
 				await this.openMenuWindow('history');
+			});
+		}
+		if (this.toggleCharactersButton && this.menuCharactersSection) {
+			this.toggleCharactersButton.addEventListener('click', async () => {
+				if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
+					try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
+					this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
+					return;
+				}
+				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
+				await this.openMenuWindow('character');
+			});
+		}
+
+		this.toggleReportButton = document.getElementById('toggle-report-button');
+		if (this.toggleReportButton) {
+			this.toggleReportButton.addEventListener('click', async () => {
+				if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
+					try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
+					this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
+					return;
+				}
+				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
+				await this.openMenuWindow('report');
 			});
 		}
 
