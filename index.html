@@ -7,122 +7,25 @@
 	<title>ゲーム選択インデックス</title>
 	<!-- Use portal-local stylesheet when serving from repo root during dev; fallback to GitHub Pages path if needed -->
 	<link rel="stylesheet" href="src/css/style.css">
-	<!-- Use portal-local stylesheet when serving from repo root during dev -->
-	<!-- inline small transparent favicon to avoid /favicon.ico 404 in dev server -->
+	<!-- favicon: small inline PNG to avoid /favicon.ico 404 in some dev servers -->
 	<link rel="icon"
 		href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEElEQVR42mP8z8BQz0AEYBxVSFIAAAQABJREFU"
 		type="image/png">
-	<style>
-		body {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			min-height: 100vh;
-			background: #222;
-			color: #fff;
-			font-family: 'Segoe UI', sans-serif;
-		}
-
-		h1 {
-			margin-bottom: 2rem;
-		}
-
-		.game-links {
-			display: flex;
-			gap: 2rem;
-			flex-wrap: wrap;
-			justify-content: center;
-			padding: 1rem;
-		}
-
-		.game-card {
-			background: #333;
-			border-radius: 1rem;
-			padding: 2rem 3rem;
-			box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-			text-align: center;
-			transition: transform 0.2s, box-shadow 0.2s;
-			flex: 1 1 220px;
-			/* responsive column sizing */
-			max-width: 320px;
-			min-width: 200px;
-			min-height: 72px;
-			/* larger tap target for touch */
-			display: flex;
-			align-items: center;
-			justify-content: center;
-		}
-
-		.game-card:hover {
-			transform: translateY(-8px) scale(1.05);
-			box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-		}
-
-		.game-card a {
-			display: block;
-			width: 100%;
-			height: 100%;
-			color: #00e0ff;
-			text-decoration: none;
-			font-size: 1.5rem;
-			font-weight: bold;
-			padding: 0.25rem 0.5rem;
-			/* ensure inner spacing for tap */
-		}
-
-		.game-card a:focus,
-		.game-card a:focus-visible {
-			outline: 3px solid rgba(0, 224, 255, 0.35);
-			outline-offset: 4px;
-			border-radius: 8px;
-		}
-
-		.game-card p {
-			margin: 0.5rem 0 0 0;
-			font-size: 0.95rem;
-			color: #ccc;
-		}
-
-		/* Small screens: stack cards and increase tap target */
-		@media (max-width: 600px) {
-			h1 {
-				font-size: 1.5rem;
-				margin-bottom: 1rem;
-			}
-
-			.game-links {
-				gap: 1rem;
-				padding: 0.5rem;
-			}
-
-			.game-card {
-				padding: 1.25rem;
-				border-radius: 0.75rem;
-				max-width: 90vw;
-				min-width: unset;
-			}
-
-			.game-card a {
-				font-size: 1.25rem;
-			}
-		}
-	</style>
 </head>
 
 <body>
 	<h1>ゲーム選択</h1>
 	<div class="game-links">
-		<div class="game-card">
-			<a href="GAME-SLOT-1/index.html">スロット</a>
-		</div>
-		<div class="game-card">
-			<a href="GAMA-pachinko-1/index.html">パチンコ</a>
-		</div>
-		<div class="game-card">
-			<a href="Novel-games/index.html">ノベルゲーム</a>
-			<p style="margin-top:0.5rem; font-size:0.9rem; color:#ccc;">短編ノベル／ミニゲーム集へ移動します。</p>
-		</div>
+		<a class="game-card" href="GAME-SLOT-1/index.html" role="link">
+			<span class="card-title">スロット</span>
+		</a>
+		<a class="game-card" href="GAMA-pachinko-1/index.html" role="link">
+			<span class="card-title">パチンコ</span>
+		</a>
+		<a class="game-card" href="Novel-games/index.html" role="link">
+			<span class="card-title">ノベルゲーム</span>
+			<p class="card-sub">短編ノベル／ミニゲーム集へ移動します。</p>
+		</a>
 	</div>
 </body>
 
