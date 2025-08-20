@@ -291,34 +291,97 @@
 	}
 
 	// --- Peg Generation ---
+	function loadPreset(name) {
+		// return a Promise resolving to an array of peg objs or throw
+		window._PRESET_CACHE = window._PRESET_CACHE || {};
+		const key = (typeof name === 'string') ? name.replace(/\.json$/i, '') : name;
+		if (!key || key === 'default' || key === 'none') return Promise.resolve(null);
+		if (window._PRESET_CACHE[key]) return Promise.resolve(window._PRESET_CACHE[key]);
+		const fname = key.toLowerCase().endsWith('.json') ? key : (key + '.json');
+		const url = 'src/pegs-presets/' + fname;
+		return fetch(url).then(r => {
+			if (!r.ok) throw new Error('preset fetch failed');
+			return r.json();
+		}).then(list => {
+			if (!Array.isArray(list)) throw new Error('invalid preset format');
+			window._PRESET_CACHE[key] = list;
+			return list;
+		});
+	}
+
+	function loadPresetAndBuild(name) {
+		// fetch/validate then build (used by init and editor palette)
+		return loadPreset(name).then(list => {
+			window.PEG_PRESET = name || 'default';
+			if (Array.isArray(list)) buildPegs(list);
+			else buildPegs(window.PEG_PRESET);
+		}).catch(e => {
+			console.warn('Could not load preset', name, e);
+			// fallback to default deterministic placement
+			window.PEG_PRESET = 'default';
+			buildPegs('default');
+		});
+	}
+
 	function buildPegs(preset) {
 		if (pegs.length) Composite.remove(world, pegs);
 		pegs.length = 0;
 		preset = preset || window.PEG_PRESET || 'default';
-		if (preset === 'none') return;
-		// If preset refers to an external JSON file (e.g., 'pegs2' or 'pegs2.json'),
-		// attempt to fetch it from src/pegs-presets and import the placement list.
-		if (typeof preset === 'string' && preset !== 'default') {
-			const fname = preset.toLowerCase().endsWith('.json') ? preset : (preset + '.json');
-			const url = 'src/pegs-presets/' + fname;
-			// try to fetch; if it fails, fall back to default deterministic layout
-			fetch(url).then(r => {
-				if (!r.ok) throw new Error('preset fetch failed');
-				return r.json();
-			}).then(list => {
-				if (!Array.isArray(list)) throw new Error('invalid preset format');
-				for (const p of list) {
-					window.EDITOR.addPeg(p.x, p.y, p.r || C.PEG_RADIUS);
+		// if provided an array, import directly
+		if (Array.isArray(preset)) {
+			for (const p of preset) {
+				// validate numeric positions
+				if (typeof p.x === 'number' && typeof p.y === 'number') {
+					const r = p.r || C.PEG_RADIUS;
+					// use same checks as deterministic addPeg
+					const layout = L.pegs;
+					const pegOptions = { isStatic: true, label: 'peg', restitution: 0.8, friction: 0.05, render: { fillStyle: layout.color } };
+					const requiredSurface = (C.BALL_RADIUS * 2) + C.PEG_CLEARANCE;
+					const centerX = GAME_WIDTH / 2;
+					const exclusionZones = (layout.exclusionZones || []).map(z => {
+						if (z.type === 'circle') return { ...z, x: centerX + (z.x_offset || 0) };
+						if (z.type === 'rect' && z.x_right) return { ...z, x: GAME_WIDTH - z.x_right };
+						return z;
+					});
+					const isExcluded = (x, y) => exclusionZones.some(z =>
+						(z.type === 'circle' && ((x - z.x) ** 2 + (y - z.y) ** 2) < z.r ** 2) ||
+						(z.type === 'rect' && (x > z.x - z.w / 2 && x < z.x + z.w / 2 && y > z.y - z.h / 2 && y < z.y + z.h / 2))
+					);
+					const okToAdd = (x, y, r) => {
+						if (x < layout.x_margin || x > GAME_WIDTH - layout.x_margin || y < layout.y_margin_top || y > layout.y_margin_bottom || isExcluded(x, y)) return false;
+						for (const b of pegs) {
+							const dx = b.position.x - x;
+							const dy = b.position.y - y;
+							const centerDist = Math.hypot(dx, dy);
+							const minCenter = (b.circleRadius || C.PEG_RADIUS) + r + requiredSurface;
+							if (centerDist < minCenter) return false;
+						}
+						return true;
+					};
+					if (okToAdd(p.x, p.y, r)) pegs.push(Bodies.circle(Math.round(p.x), Math.round(p.y), r, pegOptions));
 				}
-				if (pegs.length) Composite.add(world, pegs);
-			}).catch(e => {
-				console.warn('Could not load preset', url, e);
-				// fallback to default deterministic placement
-				buildPegs('default');
-			});
+			}
+			if (pegs.length) Composite.add(world, pegs);
 			return;
 		}
 
+		if (preset === 'none') return;
+
+		// If preset is a string and not default: use cache only (do not fetch here)
+		if (typeof preset === 'string' && preset !== 'default') {
+			const key = preset.replace(/\.json$/i, '');
+			window._PRESET_CACHE = window._PRESET_CACHE || {};
+			if (window._PRESET_CACHE[key]) {
+				buildPegs(window._PRESET_CACHE[key]);
+				return;
+			}
+			// not cached: fallback to default (no network call here)
+			console.info('Preset not cached, falling back to default:', preset);
+			buildPegs('default');
+			return;
+		}
+
+		// deterministic default placement
 		const layout = L.pegs;
 		const pegOptions = { isStatic: true, label: 'peg', restitution: 0.8, friction: 0.05, render: { fillStyle: layout.color } };
 		const requiredSurface = (C.BALL_RADIUS * 2) + C.PEG_CLEARANCE;
@@ -613,6 +676,20 @@
 				const found = window.EDITOR.findPegUnder(x, y, threshold);
 				return found ? window.EDITOR.removePeg(found) : false;
 			},
+			// Remove a peg using client (DOM) coordinates — editor should use this to
+			// avoid any canvas scaling/mapping mismatch.
+			removePegAtClient: (clientX, clientY, threshold = 12) => {
+				try {
+					const canvas = render.canvas;
+					const r = canvas.getBoundingClientRect();
+					const scaleX = canvas.width / r.width;
+					const scaleY = canvas.height / r.height;
+					const x = (clientX - r.left) * scaleX;
+					const y = (clientY - r.top) * scaleY;
+					const found = window.EDITOR.findPegUnder(x, y, threshold);
+					return found ? window.EDITOR.removePeg(found) : false;
+				} catch (e) { return false; }
+			},
 			findPegUnder: (x, y, threshold = 12) => {
 				let bestPeg = null, bestDist = Infinity;
 				for (const peg of pegs) {
@@ -642,7 +719,7 @@
 				} catch (e) { return false; }
 			}
 		};
-		window.setPegPreset = (name) => { window.PEG_PRESET = name || 'default'; buildPegs(window.PEG_PRESET); };
+		window.setPegPreset = (name) => { window.PEG_PRESET = name || 'default'; if (typeof loadPresetAndBuild === 'function') loadPresetAndBuild(window.PEG_PRESET); else buildPegs(window.PEG_PRESET); };
 	}
 
 	function syncWindowCounters() {
@@ -661,11 +738,12 @@
 		createGates();
 		createFeatures();
 		createGuards();
-		// default preset: use 'pegs2' if not already set
+		// default preset: use 'pegs2' if not already set. validate and build via loadPresetAndBuild when available
 		window.PEG_PRESET = window.PEG_PRESET || 'pegs2';
-		buildPegs(window.PEG_PRESET);
+		if (typeof loadPresetAndBuild === 'function') loadPresetAndBuild(window.PEG_PRESET);
+		else buildPegs(window.PEG_PRESET);
 		setupEventListeners();
-		setupEditorAPI();
+		if (C.EDITOR_ENABLED) setupEditorAPI();
 		updateStats();
 
 		// Expose helpers for dev-tools

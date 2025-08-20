@@ -1,6 +1,11 @@
 (function () {
 	'use strict';
 	// lightweight on-canvas editor that talks to window.EDITOR
+	// Respect global config flag to disable editor at runtime
+	if (!window.CONFIG || !window.CONFIG.EDITOR_ENABLED) {
+		// Editor explicitly disabled in config
+		return;
+	}
 	if (typeof window.EDITOR === 'undefined') {
 		console.warn('EDITOR API not present');
 		return;
@@ -154,12 +159,32 @@
 				selectedPeg = body;
 			}
 		} else {
-			// remove at click
-			const removed = window.EDITOR.removePegAt(x, y, 12);
-			console.log('removePegAt', removed);
-			if (!removed) {
-				const b = window.EDITOR.findPegUnder(x, y, 16);
-				console.log('findPegUnder fallback', b);
+			// remove at click: prefer client-based removal to avoid canvas scaling mismatches
+			const thr = 20; // increased tolerance for easier removal
+			let removed = false;
+			if (typeof window.EDITOR.removePegAtClient === 'function') {
+				removed = window.EDITOR.removePegAtClient(clientX, clientY, thr);
+			} else {
+				removed = window.EDITOR.removePegAt(x, y, thr);
+			}
+			console.log('remove client-based result', removed);
+			if (removed) {
+				// quick visual confirmation at click location
+				const h = document.createElement('div');
+				h.style.position = 'absolute';
+				h.style.left = (clientX - 10) + 'px';
+				h.style.top = (clientY - 10) + 'px';
+				h.style.width = '20px';
+				h.style.height = '20px';
+				h.style.borderRadius = '50%';
+				h.style.border = '2px solid rgba(231,76,60,0.95)';
+				h.style.background = 'rgba(231,76,60,0.12)';
+				h.style.zIndex = 20000;
+				document.body.appendChild(h);
+				setTimeout(() => h.remove(), 300);
+			} else {
+				// fallback: select nearest for manual deletion
+				const b = window.EDITOR.findPegUnder(x, y, 28);
 				if (b) selectedPeg = b;
 			}
 		}

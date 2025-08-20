@@ -54,6 +54,9 @@
 		BALLS_INTERACT: true,
 		BALL_GROUP_ID: 1000,
 
+		// Editor: global flag to enable/disable the runtime editor UI and APIs
+		EDITOR_ENABLED: true,
+
 		// ボール落下の分布：横方向の広がりとサンプリング方法を制御します
 		// DROP.width: ボールが落ちる中心を基準とした合計幅（ピクセル）
 		// DROP.std: 正規分布サンプリング時の標準偏差（ピクセル）。省略すると width/4 がデフォルトになります
