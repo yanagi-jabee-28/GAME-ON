@@ -36,7 +36,10 @@
 
 	// --- Engine and World Setup ---
 	const engine = Engine.create({
-		gravity: { y: C.GRAVITY_Y ?? 0.6 }
+		gravity: { y: C.GRAVITY_Y ?? 0.6 },
+		positionIterations: C.PHYSICS?.positionIterations ?? 6,
+		velocityIterations: C.PHYSICS?.velocityIterations ?? 4,
+		constraintIterations: C.PHYSICS?.constraintIterations ?? 2,
 	});
 	const world = engine.world;
 	const render = Render.create({
@@ -50,7 +53,10 @@
 		}
 	});
 	Render.run(render);
-	const runner = Runner.create();
+	const runner = Runner.create({
+		isFixed: C.PHYSICS?.isFixed ?? false,
+		delta: C.PHYSICS?.delta ?? (1000 / 60),
+	});
 	Runner.run(runner, engine);
 
 	// Developer overlay: draw drop distribution graph if enabled in config
@@ -552,9 +558,8 @@
 				const ctx = render.context;
 				const particles = window._debrisParticles || [];
 				if (!particles.length) return;
-				// simple fixed timestep based on assumed 60fps scaled by sim speed
-				const simSpeed = (window.__SIM_SPEED && window.__SIM_SPEED > 0) ? window.__SIM_SPEED : 1;
-				const dt = (1 / 60) * 1000 * simSpeed; // ms per frame
+				// use the engine's delta to ensure particles update correctly with timescale
+				const dt = engine.timing.lastDelta;
 				const gravity = (C.GRAVITY_Y && typeof C.GRAVITY_Y === 'number') ? C.GRAVITY_Y : 0.6;
 				ctx.save();
 				for (let i = particles.length - 1; i >= 0; i--) {
@@ -875,7 +880,11 @@
 	// --- Simulation Time Scaling ---
 	window.__SIM_SPEED = window.__SIM_SPEED || 1;
 	const simTimeout = (fn, ms) => setTimeout(fn, Math.max(0, ms / (window.__SIM_SPEED || 1)));
-	window.setSimSpeed = (factor) => { window.__SIM_SPEED = (factor > 0) ? factor : 1; };
+	window.setSimSpeed = (factor) => {
+		const f = (factor > 0) ? factor : 1;
+		window.__SIM_SPEED = f; // Keep for simTimeout and external script compatibility
+		engine.timing.timeScale = f;
+	};
 
 	// --- Dev/Editor API ---
 	function setupEditorAPI() {

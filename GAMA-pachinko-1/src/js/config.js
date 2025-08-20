@@ -10,7 +10,8 @@
 		// 物理設定 / ワールド
 		// 重力係数などの物理系に関するパラメータ。
 		// 注意: Matter.js の単位は任意ですが、見た目と安定性を考慮して値を微調整してください。
-		GRAVITY_Y: 0.6, // 重力の強さ（下方向）
+		// 重力の強さ（下方向）。既定は 0.6 だが落ちが弱い場合は 1.0 などに上げると落下感が強まる。
+		GRAVITY_Y: 2.0, // 重力の強さ（下方向）
 		GLOBAL_X_OFFSET: 0, // 全体の水平オフセット（px）
 
 		// 壁 / ガイド配置
@@ -138,15 +139,33 @@
 		// - SPREAD: 初期位置のランダムオフセット幅（px） — 値を大きくすると広く散ります
 		// - SPEED_MIN / SPEED_MAX: 初速の範囲
 		// - LIFE_MIN / LIFE_MAX: 粒子寿命（ms）
-		DEBRIS: {
-			MAX_PARTICLES: 120,
-			COUNT_MIN: 3,
-			COUNT_MAX: 8,
-			SPREAD: 36,
-			SPEED_MIN: 1.5,
-			SPEED_MAX: 4.0,
-			LIFE_MIN: 220,
-			LIFE_MAX: 600
+		// DEBRIS: {
+		// 	MAX_PARTICLES: 120,
+		// 	COUNT_MIN: 3,
+		// 	COUNT_MAX: 8,
+		// 	SPREAD: 36,
+		// 	SPEED_MIN: 1.5,
+		// 	SPEED_MAX: 4.0,
+		// 	LIFE_MIN: 220,
+		// 	LIFE_MAX: 600
+		// },
+
+		// 物理エンジン設定
+		// これらの値は、精度とパフォーマンスのトレードオフを制御します。
+		// 値を大きくすると精度が向上しますが、CPU負荷が増加します。
+		PHYSICS: {
+			// 位置補正のソルバー反復回数
+			positionIterations: 8, // デフォルト: 6
+			// 速度補正のソルバー反復回数
+			velocityIterations: 6, // デフォルト: 4
+			// 拘束補正のソルバー反復回数
+			constraintIterations: 4, // デフォルト: 2
+			// 物理エンジン更新に固定タイムステップを使用する
+			// これにより、物理演算がレンダリングから切り離され、より安定したシミュレーションが可能になります。
+			isFixed: true,
+			// isFixedがtrueの場合の、各物理更新間の時間デルタ（ミリ秒）
+			// 1000 / 120 は120Hzの更新レートに相当します。
+			delta: 1000 / 120,
 		},
 
 		// レイアウトと見た目の設定
@@ -171,11 +190,11 @@
 				// 各アイテムは中央からの相対位置を示す `x_offset`、または絶対位置の `x` を指定できます。
 				// 例: { x_offset: -87.5, y:320, blades:4 } のように指定すると、中央から左に 87.5px の位置に風車が置かれます。
 				items: [
-					{ x_offset: -87.5, y: 320, blades: 4, radius: 40, bladeW: 8, bladeH: 40, cw: false },
-					{ x_offset: 87.5, y: 320, blades: 4, radius: 40, bladeW: 8, bladeH: 40, cw: true }
+					{ x_offset: -87.5, y: 320, blades: 5, radius: 36, bladeW: 8, bladeH: 40, cw: false },
+					{ x_offset: 87.5, y: 320, blades: 5, radius: 36, bladeW: 8, bladeH: 40, cw: true }
 					// 下側に追加する歯車ペア（開発用）: 中央より下に小さめの風車を追加します
-					, { x_offset: -130, y: 520, blades: 5, radius: 32, bladeW: 6, bladeH: 30, cw: true, speedMultiplier: 1.5 }
-					, { x_offset: 130, y: 520, blades: 5, radius: 32, bladeW: 6, bladeH: 30, cw: false, speedMultiplier: 1.5 }
+					, { x_offset: -130, y: 520, blades: 4, radius: 32, bladeW: 6, bladeH: 30, cw: true, speedMultiplier: 1.5 }
+					, { x_offset: 130, y: 520, blades: 4, radius: 32, bladeW: 6, bladeH: 30, cw: false, speedMultiplier: 1.5 }
 				]
 			},
 			gates: {
