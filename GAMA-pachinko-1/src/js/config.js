@@ -16,8 +16,17 @@
 		// Gate timings / angles
 		GATE_OPEN_MS: 600,
 		GATE_CLOSED_MS: 400,
+		// Angles: you can specify in degrees (recommended) using the *_DEG keys below.
+		// For backward compatibility, the old radian keys remain supported.
 		GATE_OPEN_ANGLE: 2.3,
 		GATE_CLOSED_ANGLE: 0.3,
+		// Whether to interpret gate angles using degree-based config keys
+		// If true, *_DEG keys are used (and converted to radians). If false, the
+		// legacy radian keys are used. Set to true to use human-friendly degrees.
+		GATE_ANGLE_IN_DEGREES: true,
+		// Preferred: human-friendly degree values. Example: 2.3 rad ≈ 132 deg
+		GATE_OPEN_ANGLE_DEG: 132,
+		GATE_CLOSED_ANGLE_DEG: 17.2,
 
 		// Windmills: base speed magnitude + boolean direction flags
 		WINDMILL: {
