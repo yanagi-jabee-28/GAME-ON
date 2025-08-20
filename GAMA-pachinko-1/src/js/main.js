@@ -18,6 +18,8 @@
 		orangeHits: 0, // startChucker
 		blueHits: 0,   // tulip
 		missHits: 0,   // missZone
+		// total number of peg collisions recorded (used for heatmap normalization)
+		totalPegCollisions: 0,
 		dropInterval: null,
 		spaceDown: false,
 	};
@@ -350,7 +352,9 @@
 				for (const p of preset) {
 					if (typeof p.x === 'number' && typeof p.y === 'number') {
 						const r = p.r || C.PEG_RADIUS;
-						pegs.push(Bodies.circle(Math.round(p.x), Math.round(p.y), r, pegOptions));
+						const body = Bodies.circle(Math.round(p.x), Math.round(p.y), r, pegOptions);
+						body.collisionCount = 0;
+						pegs.push(body);
 					}
 				}
 			} else {
@@ -380,7 +384,11 @@
 				for (const p of preset) {
 					if (typeof p.x === 'number' && typeof p.y === 'number') {
 						const r = p.r || C.PEG_RADIUS;
-						if (okToAdd(p.x, p.y, r)) pegs.push(Bodies.circle(Math.round(p.x), Math.round(p.y), r, pegOptions));
+						if (okToAdd(p.x, p.y, r)) {
+							const body = Bodies.circle(Math.round(p.x), Math.round(p.y), r, pegOptions);
+							body.collisionCount = 0;
+							pegs.push(body);
+						}
 					}
 				}
 			}
@@ -430,7 +438,9 @@
 				const minCenter = (b.circleRadius || C.PEG_RADIUS) + r + requiredSurface;
 				if (centerDist < minCenter) return;
 			}
-			pegs.push(Bodies.circle(x, y, r, pegOptions));
+			const b = Bodies.circle(x, y, r, pegOptions);
+			b.collisionCount = 0;
+			pegs.push(b);
 		};
 
 		const xStep = C.PEG_SPACING;
@@ -620,6 +630,13 @@
 					const len = Math.hypot(dx, dy) || 1;
 					Body.applyForce(ball, ball.position, { x: (dx / len) * force, y: (dy / len) * force + upBias });
 					break;
+				case 'peg':
+					// increment collision counter for debug heatmap
+					try {
+						other.collisionCount = (other.collisionCount || 0) + 1;
+						gameState.totalPegCollisions = (gameState.totalPegCollisions || 0) + 1;
+					} catch (e) { /* ignore */ }
+					break;
 				case 'wall':
 					if (ENABLE_WALL_MISS) handleHit(ball, 'wall');
 					break;
@@ -632,6 +649,71 @@
 			}
 		}
 	}
+
+	// --- Debug Heatmap for Pegs ---
+	function hexToRgb(hex) {
+		h = hex.replace('#', '');
+		if (h.length === 3) h = h.split('').map(s => s + s).join('');
+		const num = parseInt(h, 16);
+		return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+	}
+	function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
+
+	function recolorPegs() {
+		if (!(C.DEBUG && C.DEBUG.PEGS_HEATMAP)) return;
+		const cfg = C.DEBUG || {};
+		// Use total drops as the denominator (ratio = peg_hits / total_drops)
+		const total = Math.max(0, (gameState && gameState.totalDrops) ? gameState.totalDrops : 0);
+		const base = hexToRgb(cfg.HEATMAP_BASE_COLOR || '#ffffff');
+		const target = hexToRgb(cfg.HEATMAP_TARGET_COLOR || '#ff6b6b');
+		if (total === 0) {
+			// no drops yet: ensure all pegs are base-colored
+			for (const p of pegs) { p.render.fillStyle = `rgb(${base.r},${base.g},${base.b})`; }
+			return;
+		}
+		// Use total peg collisions for normalization; fall back to observed ratios if zero
+		const totalColl = Math.max(0, gameState.totalPegCollisions || 0);
+		// find observed maximum ratio to stretch contrast (so the top peg reaches full target color)
+		let observedMaxRatio = 0;
+		for (const p of pegs) {
+			const rcount = p.collisionCount || 0;
+			const ratio = totalColl > 0 ? (rcount / totalColl) : (rcount / Math.max(1, total));
+			if (ratio > observedMaxRatio) observedMaxRatio = ratio;
+		}
+		if (observedMaxRatio <= 0) {
+			for (const p of pegs) { p.render.fillStyle = `rgb(${base.r},${base.g},${base.b})`; }
+			return;
+		}
+		const scale = (C.DEBUG && typeof C.DEBUG.HEATMAP_SCALE === 'number' && C.DEBUG.HEATMAP_SCALE > 0) ? C.DEBUG.HEATMAP_SCALE : 1;
+		for (const p of pegs) {
+			const count = p.collisionCount || 0;
+			let ratio = totalColl > 0 ? (count / totalColl) : (count / Math.max(1, total));
+			let t = (ratio * scale) / observedMaxRatio;
+			if (!isFinite(t)) t = 0;
+			t = Math.max(0, Math.min(1, t));
+			const r = lerp(base.r, target.r, t);
+			const g = lerp(base.g, target.g, t);
+			const b = lerp(base.b, target.b, t);
+			p.render.fillStyle = `rgb(${r},${g},${b})`;
+		}
+	}
+
+	// Always attach recolor hook before render so style changes take effect in the upcoming frame.
+	Events.on(render, 'beforeRender', recolorPegs);
+
+	// runtime helpers to toggle/reset heatmap without editing config and reloading
+	window.togglePegHeatmap = (on) => {
+		if (!C.DEBUG) C.DEBUG = {};
+		C.DEBUG.PEGS_HEATMAP = (typeof on === 'boolean') ? on : !C.DEBUG.PEGS_HEATMAP;
+		// immediate recolor
+		recolorPegs();
+		return C.DEBUG.PEGS_HEATMAP;
+	};
+	window.resetPegHeatmapCounts = () => {
+		for (const p of pegs) p.collisionCount = 0;
+		gameState.totalPegCollisions = 0;
+		recolorPegs();
+	};
 
 	function sweepAndPrune() {
 		const targets = Composite.allBodies(world).filter(b => b.label === 'startChucker' || b.label === 'tulip');
@@ -710,6 +792,7 @@
 			clearPegs: () => { if (pegs.length) Composite.remove(world, pegs); pegs.length = 0; },
 			addPeg: (x, y, r) => {
 				const peg = Bodies.circle(Math.round(x), Math.round(y), r || C.PEG_RADIUS, { isStatic: true, label: 'peg', restitution: 0.8, friction: 0.05, render: { fillStyle: L.pegs.color } });
+				peg.collisionCount = 0;
 				pegs.push(peg);
 				Composite.add(world, peg);
 				return peg;
@@ -802,6 +885,26 @@
 		if (C.EDITOR_ENABLED) setupEditorAPI();
 		updateStats();
 
+		// Periodic logging for peg collision summary (can be toggled via window.LOGGING)
+		console.info('[PEG-LOGGER] scheduling logger. LOGGING=', window.LOGGING);
+		setInterval(() => {
+			try {
+				if (window.LOGGING && window.LOGGING.pegCollisionSummary) {
+					const sample = pegs.slice(0, 8).map(p => ({ x: Math.round(p.position.x), y: Math.round(p.position.y), count: p.collisionCount || 0 }));
+					console.info('[PEG-COLLISION-SUMMARY]', { totalPegCollisions: gameState.totalPegCollisions || 0, sample });
+				}
+			} catch (e) { /* ignore */ }
+		}, 1000);
+
+		// helper to toggle peg collision logging quickly
+		window.togglePegCollisionLogging = (val) => {
+			if (!window.LOGGING) window.LOGGING = {};
+			if (typeof val === 'boolean') window.LOGGING.pegCollisionSummary = val;
+			else window.LOGGING.pegCollisionSummary = !window.LOGGING.pegCollisionSummary;
+			console.info('pegCollisionSummary:', window.LOGGING.pegCollisionSummary);
+			return window.LOGGING.pegCollisionSummary;
+		};
+
 		// Expose helpers for dev-tools
 		window.updateStats = updateStats;
 		window.__DROP_CALLS = 0;
@@ -811,6 +914,7 @@
 		window.resetCounters = () => {
 			Object.assign(gameState, { totalDrops: 0, orangeHits: 0, blueHits: 0, missHits: 0 });
 			window.__BATCH_SUPPRESSED_COUNT = 0;
+			gameState.totalPegCollisions = 0;
 			updateStats();
 		};
 	}
