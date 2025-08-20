@@ -342,36 +342,46 @@
 		preset = preset || window.PEG_PRESET || 'default';
 		// if provided an array, import directly
 		if (Array.isArray(preset)) {
-			for (const p of preset) {
-				// validate numeric positions
-				if (typeof p.x === 'number' && typeof p.y === 'number') {
-					const r = p.r || C.PEG_RADIUS;
-					// use same checks as deterministic addPeg
-					const layout = L.pegs;
-					const pegOptions = { isStatic: true, label: 'peg', restitution: 0.8, friction: 0.05, render: { fillStyle: layout.color } };
-					const requiredSurface = (C.BALL_RADIUS * 2) + C.PEG_CLEARANCE;
-					const centerX = GAME_WIDTH / 2;
-					const exclusionZones = (layout.exclusionZones || []).map(z => {
-						if (z.type === 'circle') return { ...z, x: centerX + (z.x_offset || 0) };
-						if (z.type === 'rect' && z.x_right) return { ...z, x: GAME_WIDTH - z.x_right };
-						return z;
-					});
-					const isExcluded = (x, y) => exclusionZones.some(z =>
-						(z.type === 'circle' && ((x - z.x) ** 2 + (y - z.y) ** 2) < z.r ** 2) ||
-						(z.type === 'rect' && (x > z.x - z.w / 2 && x < z.x + z.w / 2 && y > z.y - z.h / 2 && y < z.y + z.h / 2))
-					);
-					const okToAdd = (x, y, r) => {
-						if (x < layout.x_margin || x > GAME_WIDTH - layout.x_margin || y < layout.y_margin_top || y > layout.y_margin_bottom || isExcluded(x, y)) return false;
-						for (const b of pegs) {
-							const dx = b.position.x - x;
-							const dy = b.position.y - y;
-							const centerDist = Math.hypot(dx, dy);
-							const minCenter = (b.circleRadius || C.PEG_RADIUS) + r + requiredSurface;
-							if (centerDist < minCenter) return false;
-						}
-						return true;
-					};
-					if (okToAdd(p.x, p.y, r)) pegs.push(Bodies.circle(Math.round(p.x), Math.round(p.y), r, pegOptions));
+			const preserve = (C.PRESETS && C.PRESETS.preserveExact) ? true : false;
+			const layout = L.pegs;
+			const pegOptions = { isStatic: true, label: 'peg', restitution: 0.8, friction: 0.05, render: { fillStyle: layout.color } };
+			if (preserve) {
+				// faithful reproduction: ignore exclusion/proximity checks
+				for (const p of preset) {
+					if (typeof p.x === 'number' && typeof p.y === 'number') {
+						const r = p.r || C.PEG_RADIUS;
+						pegs.push(Bodies.circle(Math.round(p.x), Math.round(p.y), r, pegOptions));
+					}
+				}
+			} else {
+				// apply exclusion/proximity checks similar to deterministic placement
+				const requiredSurface = (C.BALL_RADIUS * 2) + C.PEG_CLEARANCE;
+				const centerX = GAME_WIDTH / 2;
+				const exclusionZones = (layout.exclusionZones || []).map(z => {
+					if (z.type === 'circle') return { ...z, x: centerX + (z.x_offset || 0) };
+					if (z.type === 'rect' && z.x_right) return { ...z, x: GAME_WIDTH - z.x_right };
+					return z;
+				});
+				const isExcluded = (x, y) => exclusionZones.some(z =>
+					(z.type === 'circle' && ((x - z.x) ** 2 + (y - z.y) ** 2) < z.r ** 2) ||
+					(z.type === 'rect' && (x > z.x - z.w / 2 && x < z.x + z.w / 2 && y > z.y - z.h / 2 && y < z.y + z.h / 2))
+				);
+				const okToAdd = (x, y, r) => {
+					if (x < layout.x_margin || x > GAME_WIDTH - layout.x_margin || y < layout.y_margin_top || y > layout.y_margin_bottom || isExcluded(x, y)) return false;
+					for (const b of pegs) {
+						const dx = b.position.x - x;
+						const dy = b.position.y - y;
+						const centerDist = Math.hypot(dx, dy);
+						const minCenter = (b.circleRadius || C.PEG_RADIUS) + r + requiredSurface;
+						if (centerDist < minCenter) return false;
+					}
+					return true;
+				};
+				for (const p of preset) {
+					if (typeof p.x === 'number' && typeof p.y === 'number') {
+						const r = p.r || C.PEG_RADIUS;
+						if (okToAdd(p.x, p.y, r)) pegs.push(Bodies.circle(Math.round(p.x), Math.round(p.y), r, pegOptions));
+					}
 				}
 			}
 			if (pegs.length) Composite.add(world, pegs);

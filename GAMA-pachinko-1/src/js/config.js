@@ -100,6 +100,13 @@
 			showGraph: false
 		},
 
+		// プリセット読み込み時の挙動オプション
+		// - preserveExact: true の場合、JSON プリセット内の座標をそのまま忠実に再現します（exclusion を無視）。
+		//   false の場合は exclusion/proximity チェックを適用して安全に配置します。
+		PRESETS: {
+			preserveExact: true
+		},
+
 		// オーディオ設定
 		// MASTER_VOLUME は全体音量（0.0 - 1.0）。ミュート時は MUTED を true にします。
 		// SFX: 細かな効果音設定（簡易的なパラメータでサイン波などを生成する想定）。
