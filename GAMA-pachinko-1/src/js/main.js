@@ -705,6 +705,7 @@
 	// --- Dev/Editor API ---
 	function setupEditorAPI() {
 		window.EDITOR = {
+			// getPegs: return the peg coordinates; radius is handled at export time
 			getPegs: () => pegs.map(b => ({ x: b.position.x, y: b.position.y, r: b.circleRadius || C.PEG_RADIUS })),
 			clearPegs: () => { if (pegs.length) Composite.remove(world, pegs); pegs.length = 0; },
 			addPeg: (x, y, r) => {
@@ -749,7 +750,16 @@
 				return false;
 			},
 			setPegColor: (body, color) => { if (body) body.render.fillStyle = color; },
-			exportPegs: () => JSON.stringify(window.EDITOR.getPegs()),
+			exportPegs: () => {
+				const list = window.EDITOR.getPegs().map(p => {
+					// include r only if it differs from default PEG_RADIUS
+					const out = { x: Math.round(p.x), y: Math.round(p.y) };
+					const defaultR = C.PEG_RADIUS;
+					if (typeof p.r === 'number' && p.r !== defaultR) out.r = p.r;
+					return out;
+				});
+				return JSON.stringify(list, null, '\t');
+			},
 			importPegs: (json) => {
 				try {
 					const list = (typeof json === 'string') ? JSON.parse(json) : json;
