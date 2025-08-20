@@ -39,9 +39,45 @@
 	document.getElementById('deselect').addEventListener('click', () => { selectedPeg = null; });
 	document.getElementById('preset-none').addEventListener('click', () => { window.setPegPreset('none'); });
 	document.getElementById('preset-default').addEventListener('click', () => { window.setPegPreset('default'); });
-	document.getElementById('export-pegs').addEventListener('click', () => {
+
+	// dynamic presets from src/pegs-presets/presets.json
+	fetch('src/pegs-presets/presets.json').then(r => {
+		if (!r.ok) throw new Error('presets manifest fetch failed');
+		return r.json();
+	}).then(list => {
+		if (!Array.isArray(list)) return;
+		const row = document.createElement('div'); row.className = 'editor-row';
+		list.forEach(fn => {
+			const name = fn.replace(/\.json$/i, '');
+			const btn = document.createElement('button'); btn.textContent = 'Preset: ' + name; btn.style.marginRight = '6px';
+			btn.addEventListener('click', () => {
+				fetch('src/pegs-presets/' + fn).then(r2 => { if (!r2.ok) throw new Error('preset fetch failed'); return r2.json(); }).then(data => {
+					window.EDITOR.importPegs(data);
+					console.log('imported preset', fn);
+				}).catch(e => { alert('Failed to load preset: ' + fn + '\n' + e.message); });
+			});
+			row.appendChild(btn);
+		});
+		el.appendChild(row);
+	}).catch(e => { console.warn('could not load presets manifest', e); });
+	document.getElementById('export-pegs').addEventListener('click', async () => {
 		const data = window.EDITOR.exportPegs();
-		prompt('Pegs JSON', data);
+		// trigger download
+		try {
+			const blob = new Blob([data], { type: 'application/json' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = 'pegs-export.json';
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			URL.revokeObjectURL(url);
+		} catch (e) { console.warn('download failed', e); }
+		// copy to clipboard if available
+		try { await navigator.clipboard.writeText(data); console.log('Pegs JSON copied to clipboard'); } catch (e) { console.warn('clipboard copy failed', e); }
+		// show quick instruction to add it to repo via script
+		alert('Exported pegs JSON and copied to clipboard.\nTo add as a preset in the repo, save the downloaded file into src/pegs-presets and run the helper script:\n\nnode scripts/write-preset.js mypreset.json\n\nor pipe the JSON into the script. See repository scripts/write-preset.js');
 	});
 	document.getElementById('import-pegs').addEventListener('click', () => {
 		const txt = prompt('Paste pegs JSON');
