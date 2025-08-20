@@ -317,6 +317,87 @@
 	// Build initial pegs according to preset
 	buildPegs(window.PEG_PRESET || 'default');
 
+	// --- Editor API for runtime placement / manipulation ---
+	window.EDITOR = window.EDITOR || {};
+	window.EDITOR.getPegs = function () {
+		return pegs.map(b => ({ x: b.position.x, y: b.position.y, r: (b.circleRadius || ((window.CONFIG && window.CONFIG.PEG_RADIUS) || 3)) }));
+	};
+	window.EDITOR.clearPegs = function () {
+		try { if (pegs.length) Composite.remove(world, pegs); } catch (e) { }
+		pegs.length = 0;
+	};
+	window.EDITOR.addPeg = function (x, y, r) {
+		const rr = r || ((window.CONFIG && window.CONFIG.PEG_RADIUS) || 3);
+		const b = Bodies.circle(Math.round(x), Math.round(y), rr, pegOptions);
+		pegs.push(b);
+		Composite.add(world, b);
+		return b;
+	};
+	window.EDITOR.removePegAt = function (x, y, threshold) {
+		threshold = typeof threshold === 'number' ? threshold : 12;
+		let best = -1, bestd = Infinity;
+		for (let i = 0; i < pegs.length; i++) {
+			const p = pegs[i];
+			const dx = p.position.x - x, dy = p.position.y - y;
+			const d = Math.sqrt(dx * dx + dy * dy);
+			if (d < bestd) { bestd = d; best = i; }
+		}
+		if (best >= 0 && bestd <= threshold) {
+			Composite.remove(world, pegs[best]);
+			pegs.splice(best, 1);
+			return true;
+		}
+		return false;
+	};
+	// Find the actual peg body near x,y (returns body or null)
+	window.EDITOR.findPegUnder = function (x, y, threshold) {
+		threshold = typeof threshold === 'number' ? threshold : 12;
+		let best = -1, bestd = Infinity;
+		for (let i = 0; i < pegs.length; i++) {
+			const p = pegs[i];
+			const dx = p.position.x - x, dy = p.position.y - y;
+			const d = Math.sqrt(dx * dx + dy * dy);
+			if (d < bestd) { bestd = d; best = i; }
+		}
+		if (best >= 0 && bestd <= threshold) return pegs[best];
+		return null;
+	};
+	// Remove a peg by body reference
+	window.EDITOR.removePeg = function (body) {
+		if (!body) return false;
+		const idx = pegs.indexOf(body);
+		if (idx === -1) return false;
+		Composite.remove(world, pegs[idx]);
+		pegs.splice(idx, 1);
+		return true;
+	};
+	// Modify peg render color for visual selection
+	window.EDITOR.setPegColor = function (body, color) {
+		if (!body) return false;
+		try { body.render = body.render || {}; body.render.fillStyle = color; return true; } catch (e) { return false; }
+	};
+	window.EDITOR.exportPegs = function () { return JSON.stringify(window.EDITOR.getPegs()); };
+	window.EDITOR.importPegs = function (list) {
+		try {
+			if (typeof list === 'string') list = JSON.parse(list);
+			if (!Array.isArray(list)) return false;
+			window.EDITOR.clearPegs();
+			for (const it of list) { window.EDITOR.addPeg(it.x, it.y, it.r); }
+			return true;
+		} catch (e) { return false; }
+	};
+	window.EDITOR.setTulipPos = function (leftX, rightX, y) {
+		try {
+			if (typeof tulipLeft !== 'undefined' && typeof tulipRight !== 'undefined') {
+				Body.setPosition(tulipLeft, { x: leftX, y: (y || tulipLeft.position.y) });
+				Body.setPosition(tulipRight, { x: rightX, y: (y || tulipRight.position.y) });
+			}
+		} catch (e) { }
+	};
+	window.EDITOR.setChuckerPos = function (x, y) {
+		try { if (typeof startChucker !== 'undefined') Body.setPosition(startChucker, { x: x, y: (y || startChucker.position.y) }); } catch (e) { }
+	};
+
 	// 役物周りの追加釘も一旦削除する（必要な位置情報だけ残す）
 	const centerX = GAME_WIDTH / 2;
 	const barrierY = 540; // startChucker の少し上 (位置情報を保持)
