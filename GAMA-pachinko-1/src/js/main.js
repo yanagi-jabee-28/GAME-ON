@@ -306,7 +306,8 @@
 	}
 
 	// Expose preset and setter for runtime switching
-	window.PEG_PRESET = window.PEG_PRESET || 'default';
+	// Default to 'none' so pegs are off unless overridden
+	window.PEG_PRESET = window.PEG_PRESET || 'none';
 	window.setPegPreset = function (name) {
 		window.PEG_PRESET = name || 'default';
 		buildPegs(window.PEG_PRESET);
