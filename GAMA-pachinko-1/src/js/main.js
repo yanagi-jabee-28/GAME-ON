@@ -135,6 +135,7 @@
 	const pegs = [];
 	const gates = [];
 	const windmills = [];
+	let _pegRainbowTimer = null;
 
 	// --- Create Game Elements ---
 
@@ -174,8 +175,7 @@
 		const centerX = GAME_WIDTH / 2;
 
 		const createWindmill = (cx, cy, blades, radius, bladeW, bladeH, speed, color, hubColor) => {
-			const parts = [];
-			parts.push(Bodies.circle(cx, cy, 6, { isStatic: true, restitution: 0.8, render: { fillStyle: hubColor || WM.hubColor } }));
+			const parts = [Bodies.circle(cx, cy, 6, { isStatic: true, restitution: 0.8, render: { fillStyle: hubColor || WM.hubColor } })];
 			for (let i = 0; i < blades; i++) {
 				const angle = (i / blades) * Math.PI * 2;
 				const bx = cx + Math.cos(angle) * (radius / 2);
@@ -911,6 +911,30 @@
 		const originalDropBall = dropBall;
 		window.dropBall = (opts) => { window.__DROP_CALLS++; originalDropBall(opts); };
 		window.resetBatchSuppressedCount = () => { window.__BATCH_SUPPRESSED_COUNT = 0; };
+
+		// Rainbow test: cycle colors across pegs to verify per-peg color changes work
+		window.startPegRainbow = (ms = 120) => {
+			if (_pegRainbowTimer) return false; // already running
+			window._pegRainbowState = window._pegRainbowState || { hue: 0 };
+			_pegRainbowTimer = setInterval(() => {
+				window._pegRainbowState.hue = (window._pegRainbowState.hue + 6) % 360;
+				const hueBase = window._pegRainbowState.hue;
+				for (let i = 0; i < pegs.length; i++) {
+					const p = pegs[i];
+					const localHue = (hueBase + (i * (360 / Math.max(1, pegs.length)))) % 360;
+					p.render.fillStyle = `hsl(${Math.round(localHue)},75%,60%)`;
+				}
+			}, ms);
+			return true;
+		};
+		window.stopPegRainbow = () => {
+			if (!_pegRainbowTimer) return false;
+			clearInterval(_pegRainbowTimer);
+			_pegRainbowTimer = null;
+			// restore heatmap or base color
+			recolorPegs();
+			return true;
+		};
 		window.resetCounters = () => {
 			Object.assign(gameState, { totalDrops: 0, orangeHits: 0, blueHits: 0, missHits: 0 });
 			window.__BATCH_SUPPRESSED_COUNT = 0;
