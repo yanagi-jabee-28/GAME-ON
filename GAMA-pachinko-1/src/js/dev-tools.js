@@ -113,4 +113,11 @@
 		return factor;
 	};
 
+	// Shortcut to switch peg preset from the console: window.pegPreset('none'|'default')
+	window.pegPreset = function (name) {
+		if (typeof window.setPegPreset === 'function') return window.setPegPreset(name);
+		window.PEG_PRESET = name || 'default';
+		return window.PEG_PRESET;
+	};
+
 })();

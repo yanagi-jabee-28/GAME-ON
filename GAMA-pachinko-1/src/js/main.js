@@ -97,201 +97,224 @@
 		{ x: GAME_WIDTH - 120, y: 410, w: 90, h: 60 } // 右チューリップ上
 	];
 	// 決定的・領域別の釘配置を生成（ランダムなし）
-	(function buildDeterministicPegs() {
-		// 既知の障害・役物周辺除外領域
-		const cx = GAME_WIDTH / 2;
-		const leftWM = { x: cx - 80, y: 320, r: 42 };
-		const rightWM = { x: cx + 80, y: 320, r: 42 };
-		const chuckerZone = { x: cx, y: 565, r: 56 };
-		const tulipLeftRect = { x1: 120 - 26, x2: 120 + 26, y1: 430 - 22, y2: 430 + 24 };
-		const tulipRightRect = { x1: (GAME_WIDTH - 120) - 26, x2: (GAME_WIDTH - 120) + 26, y1: 430 - 22, y2: 430 + 24 };
-		// チューリップ柱（フェンス）近傍はさらにマージンを大きく除外
-		const postW = 12, postH = 46, postMargin = 10;
-		const leftPost = { x1: 120 - 22 - postW / 2 - postMargin, x2: 120 - 22 + postW / 2 + postMargin, y1: 450 - postH / 2 - postMargin, y2: 450 + postH / 2 + postMargin };
-		const rightPost = { x1: 120 + 22 - postW / 2 - postMargin, x2: 120 + 22 + postW / 2 + postMargin, y1: 450 - postH / 2 - postMargin, y2: 450 + postH / 2 + postMargin };
-		const leftPostR = { x1: (GAME_WIDTH - 120) - 22 - postW / 2 - postMargin, x2: (GAME_WIDTH - 120) - 22 + postW / 2 + postMargin, y1: 450 - postH / 2 - postMargin, y2: 450 + postH / 2 + postMargin };
-		const rightPostR = { x1: (GAME_WIDTH - 120) + 22 - postW / 2 - postMargin, x2: (GAME_WIDTH - 120) + 22 + postW / 2 + postMargin, y1: 450 - postH / 2 - postMargin, y2: 450 + postH / 2 + postMargin };
-
-		const insideCircle = (x, y, c) => ((x - c.x) ** 2 + (y - c.y) ** 2) < c.r ** 2;
-		const insideRect = (x, y, r) => (x > r.x1 && x < r.x2 && y > r.y1 && y < r.y2);
-		const isExcluded = (x, y) => (
-			insideCircle(x, y, leftWM) || insideCircle(x, y, rightWM) ||
-			insideCircle(x, y, chuckerZone) ||
-			insideRect(x, y, tulipLeftRect) || insideRect(x, y, tulipRightRect) ||
-			insideRect(x, y, leftPost) || insideRect(x, y, rightPost) ||
-			insideRect(x, y, leftPostR) || insideRect(x, y, rightPostR)
-		);
-
-		// helper（表面距離を考慮した追加）
-		const BALL_RADIUS = (window.CONFIG && window.CONFIG.BALL_RADIUS) || 5;
-		const PEG_CLEARANCE = (window.CONFIG && window.CONFIG.PEG_CLEARANCE) || 2; // 表面余裕
-		// 全体で管理する釘半径（設定から上書き可）
-		const PEG_RADIUS = (window.CONFIG && window.CONFIG.PEG_RADIUS) || 3;
-		const addPeg = (x, y, r = PEG_RADIUS) => {
-			if (x < 24 || x > GAME_WIDTH - 24) return; // 壁寄りは除外
-			if (y < 40 || y > 560) return;             // ゲート・へその下は避ける
-			if (isExcluded(x, y)) return;              // 除外領域
-			// 必要な表面間距離（釘表面間） = ボール直径 + クリアランス
-			const requiredSurface = (BALL_RADIUS * 2) + PEG_CLEARANCE;
-			for (const b of pegs) {
-				const dx = b.position.x - x; const dy = b.position.y - y;
-				const centerDist = Math.sqrt(dx * dx + dy * dy) || 1e-6;
-				const existingR = (b.circleRadius) || PEG_RADIUS;
-				const minCenter = existingR + r + requiredSurface; // 中心間の最小距離
-				if (centerDist < minCenter) return; // 表面距離が狭く玉が通れない
-			}
-			pegs.push(Bodies.circle(x, y, r, pegOptions));
-		};
-
-		// 1) 上部〜中層: 斜行ディフューザー格子（左右対称）
-		const xStep = (window.CONFIG && window.CONFIG.PEG_SPACING) || 35;
-		let rowIdx = 0;
-		for (let y = 90; y <= 470; y += 28) {
-			const rowShift = (rowIdx % 2 === 0) ? 0 : xStep / 2; // 行ごとに交互オフセット
-			// 中央から左右へミラーで配置
-			const maxOffset = Math.floor((GAME_WIDTH / 2 - 36) / xStep) * xStep;
-			const centerX = Math.round(GAME_WIDTH / 2);
-			const placeCenterThisRow = (rowIdx % 2 === 0); // 偶数行のみ中央を置く（交互）
-			for (let off = 0; off <= maxOffset; off += xStep) {
-				const pxL = Math.round((GAME_WIDTH / 2) - off - rowShift);
-				const pxR = Math.round((GAME_WIDTH / 2) + off + rowShift);
-				if (off === 0) {
-					if (placeCenterThisRow) {
-						addPeg(centerX, y);
-					} else {
-						// 中央を置かない行でも中央付近に等距離の左右ペグを配置して
-						// 縦の空洞ができないようにする
-						const innerOffset = Math.round(xStep / 2);
-						addPeg(centerX - innerOffset, y);
-						addPeg(centerX + innerOffset, y);
-					}
-				} else {
-					addPeg(pxL, y);
-					addPeg(pxR, y);
-				}
-			}
-			rowIdx++;
+	function buildPegs(preset) {
+		// remove existing pegs from world and clear array
+		try { if (pegs.length) { Composite.remove(world, pegs); } } catch (e) { }
+		pegs.length = 0;
+		preset = preset || (window.PEG_PRESET || 'default');
+		// support presets: 'default' (current layout), 'none' (no pegs)
+		if (preset === 'none') {
+			// nothing to add
+			return;
 		}
+		// default: previous deterministic placement
+		(function buildDeterministicPegs() {
+			// 既知の障害・役物周辺除外領域
+			const cx = GAME_WIDTH / 2;
+			const leftWM = { x: cx - 80, y: 320, r: 42 };
+			const rightWM = { x: cx + 80, y: 320, r: 42 };
+			const chuckerZone = { x: cx, y: 565, r: 56 };
+			const tulipLeftRect = { x1: 120 - 26, x2: 120 + 26, y1: 430 - 22, y2: 430 + 24 };
+			const tulipRightRect = { x1: (GAME_WIDTH - 120) - 26, x2: (GAME_WIDTH - 120) + 26, y1: 430 - 22, y2: 430 + 24 };
+			// チューリップ柱（フェンス）近傍はさらにマージンを大きく除外
+			const postW = 12, postH = 46, postMargin = 10;
+			const leftPost = { x1: 120 - 22 - postW / 2 - postMargin, x2: 120 - 22 + postW / 2 + postMargin, y1: 450 - postH / 2 - postMargin, y2: 450 + postH / 2 + postMargin };
+			const rightPost = { x1: 120 + 22 - postW / 2 - postMargin, x2: 120 + 22 + postW / 2 + postMargin, y1: 450 - postH / 2 - postMargin, y2: 450 + postH / 2 + postMargin };
+			const leftPostR = { x1: (GAME_WIDTH - 120) - 22 - postW / 2 - postMargin, x2: (GAME_WIDTH - 120) - 22 + postW / 2 + postMargin, y1: 450 - postH / 2 - postMargin, y2: 450 + postH / 2 + postMargin };
+			const rightPostR = { x1: (GAME_WIDTH - 120) + 22 - postW / 2 - postMargin, x2: (GAME_WIDTH - 120) + 22 + postW / 2 + postMargin, y1: 450 - postH / 2 - postMargin, y2: 450 + postH / 2 + postMargin };
 
-		// 2) 風車周り: 半円弧のディフレクタ（左右対称にミラー）
-		const addArcSym = (cx0, cy0, radius, startDeg, endDeg, stepDeg) => {
-			const points = [];
-			for (let a = startDeg; a <= endDeg; a += stepDeg) {
-				const rad = a * Math.PI / 180;
-				const px = cx0 + Math.cos(rad) * radius;
-				const py = cy0 + Math.sin(rad) * radius;
-				points.push({ x: px, y: py });
-			}
-			// add points and their mirror around center
-			points.forEach(p => { addPeg(Math.round(p.x), Math.round(p.y)); const mx = Math.round(GAME_WIDTH - p.x); addPeg(mx, Math.round(p.y)); });
-		};
-		// build an arc on the upper part and mirror it
-		addArcSym(leftWM.x, leftWM.y, 58, -120, -20, 20);
+			const insideCircle = (x, y, c) => ((x - c.x) ** 2 + (y - c.y) ** 2) < c.r ** 2;
+			const insideRect = (x, y, r) => (x > r.x1 && x < r.x2 && y > r.y1 && y < r.y2);
+			const isExcluded = (x, y) => (
+				insideCircle(x, y, leftWM) || insideCircle(x, y, rightWM) ||
+				insideCircle(x, y, chuckerZone) ||
+				insideRect(x, y, tulipLeftRect) || insideRect(x, y, tulipRightRect) ||
+				insideRect(x, y, leftPost) || insideRect(x, y, rightPost) ||
+				insideRect(x, y, leftPostR) || insideRect(x, y, rightPostR)
+			);
 
-		// 3) へそへのファンネル: V字＋準垂直列（ここだけ垂直を許容）
-		// 内側V字（へそに収束）
-		for (let k = 0; k < 5; k++) {
-			addPeg(cx - 60 + k * 6, 500 + k * 12); // 左内側斜列
-			addPeg(cx + 60 - k * 6, 500 + k * 12); // 右内側斜列
-		}
-		// 外側の軽い妨害／整流（準垂直）
-		[cx - 86, cx + 86].forEach(ix => {
-			[500, 516, 532].forEach(iy => addPeg(ix, iy));
-		});
-
-		// 3a) へそ周りをもう少し密にする（安全なリングとスタガーで誘導）
-		// small inner ring (smaller pegs) and a staggered outer ring
-		(function addHesoCluster() {
-			const ringCenter = { x: cx, y: 565 };
-			const innerR = 28; // 内側の半径
-			const outerR = 44; // 外側の半径
-			const innerCount = 8;
-			const outerCount = 12;
-			for (let i = 0; i < innerCount; i++) {
-				const ang = (i / innerCount) * Math.PI * 2 + 0.2; // slight rotation
-				const px = Math.round(ringCenter.x + Math.cos(ang) * innerR);
-				const py = Math.round(ringCenter.y + Math.sin(ang) * innerR - 6); // 少し上め
-				addPeg(px, py);
-			}
-			for (let i = 0; i < outerCount; i++) {
-				const ang = (i / outerCount) * Math.PI * 2 + ((i % 2) ? 0.15 : -0.15);
-				const px = Math.round(ringCenter.x + Math.cos(ang) * outerR);
-				const py = Math.round(ringCenter.y + Math.sin(ang) * outerR - 2);
-				addPeg(px, py);
-			}
-			// two small guiding pegs just above the chucker mouth
-			addPeg(ringCenter.x - 18, ringCenter.y - 22);
-			addPeg(ringCenter.x + 18, ringCenter.y - 22);
-		})();
-
-		// 3b) チューカ―（オレンジ当たり）真上の釘列を追加
-		// ここでは chucker の exclusion を無視して配置するが、釘間の表面クリアランスは守る
-		(function addChuckerTopPegs() {
-			const center = { x: cx, y: 580 };
-			const pairs = [
-				{ lx: center.x - 40, ly: center.y - 42, rx: center.x + 40, ry: center.y - 42 },
-				{ lx: center.x - 24, ly: center.y - 48, rx: center.x + 24, ry: center.y - 48 },
-				{ lx: center.x - 8, ly: center.y - 54, rx: center.x + 8, ry: center.y - 54 }
-			];
-			const r = PEG_RADIUS;
+			// helper（表面距離を考慮した追加）
 			const BALL_RADIUS = (window.CONFIG && window.CONFIG.BALL_RADIUS) || 5;
-			const PEG_CLEARANCE = (window.CONFIG && window.CONFIG.PEG_CLEARANCE) || 2;
-			const requiredSurface = (BALL_RADIUS * 2) + PEG_CLEARANCE;
-			// attempt to add symmetric pairs only when both sides pass clearance
-			for (const pr of pairs) {
-				const left = { x: Math.round(pr.lx), y: Math.round(pr.ly) };
-				const right = { x: Math.round(pr.rx), y: Math.round(pr.ry) };
-				if (left.x < 24 || right.x > GAME_WIDTH - 24) continue;
-				if (left.y < 40 || left.y > 560 || right.y < 40 || right.y > 560) continue;
-				let okL = true, okR = true;
-				// check left against existing pegs and also against the right candidate
+			const PEG_CLEARANCE = (window.CONFIG && window.CONFIG.PEG_CLEARANCE) || 2; // 表面余裕
+			// 全体で管理する釘半径（設定から上書き可）
+			const PEG_RADIUS = (window.CONFIG && window.CONFIG.PEG_RADIUS) || 3;
+			const addPeg = (x, y, r = PEG_RADIUS) => {
+				if (x < 24 || x > GAME_WIDTH - 24) return; // 壁寄りは除外
+				if (y < 40 || y > 560) return;             // ゲート・へその下は避ける
+				if (isExcluded(x, y)) return;              // 除外領域
+				// 必要な表面間距離（釘表面間） = ボール直径 + クリアランス
+				const requiredSurface = (BALL_RADIUS * 2) + PEG_CLEARANCE;
 				for (const b of pegs) {
-					const dx = b.position.x - left.x, dy = b.position.y - left.y;
+					const dx = b.position.x - x; const dy = b.position.y - y;
 					const centerDist = Math.sqrt(dx * dx + dy * dy) || 1e-6;
-					const existingR = (b.circleRadius) || 4;
-					const minCenter = existingR + r + requiredSurface;
-					if (centerDist < minCenter) { okL = false; break; }
+					const existingR = (b.circleRadius) || PEG_RADIUS;
+					const minCenter = existingR + r + requiredSurface; // 中心間の最小距離
+					if (centerDist < minCenter) return; // 表面距離が狭く玉が通れない
 				}
-				for (const b of pegs) {
-					const dx = b.position.x - right.x, dy = b.position.y - right.y;
-					const centerDist = Math.sqrt(dx * dx + dy * dy) || 1e-6;
-					const existingR = (b.circleRadius) || 4;
-					const minCenter = existingR + r + requiredSurface;
-					if (centerDist < minCenter) { okR = false; break; }
+				pegs.push(Bodies.circle(x, y, r, pegOptions));
+			};
+
+			// 1) 上部〜中層: 斜行ディフューザー格子（左右対称）
+			const xStep = (window.CONFIG && window.CONFIG.PEG_SPACING) || 35;
+			let rowIdx = 0;
+			for (let y = 90; y <= 470; y += 28) {
+				const rowShift = (rowIdx % 2 === 0) ? 0 : xStep / 2; // 行ごとに交互オフセット
+				// 中央から左右へミラーで配置
+				const maxOffset = Math.floor((GAME_WIDTH / 2 - 36) / xStep) * xStep;
+				const centerX = Math.round(GAME_WIDTH / 2);
+				const placeCenterThisRow = (rowIdx % 2 === 0); // 偶数行のみ中央を置く（交互）
+				for (let off = 0; off <= maxOffset; off += xStep) {
+					const pxL = Math.round((GAME_WIDTH / 2) - off - rowShift);
+					const pxR = Math.round((GAME_WIDTH / 2) + off + rowShift);
+					if (off === 0) {
+						if (placeCenterThisRow) {
+							addPeg(centerX, y);
+						} else {
+							// 中央を置かない行でも中央付近に等距離の左右ペグを配置して
+							// 縦の空洞ができないようにする
+							const innerOffset = Math.round(xStep / 2);
+							addPeg(centerX - innerOffset, y);
+							addPeg(centerX + innerOffset, y);
+						}
+					} else {
+						addPeg(pxL, y);
+						addPeg(pxR, y);
+					}
 				}
-				// also ensure left-right pair clearance
-				const dxLR = left.x - right.x, dyLR = left.y - right.y;
-				const centerDistLR = Math.sqrt(dxLR * dxLR + dyLR * dyLR) || 1e-6;
-				if (centerDistLR < (r + r + requiredSurface)) { okL = okR = false; }
-				if (okL && okR) {
-					pegs.push(Bodies.circle(left.x, left.y, r, pegOptions));
-					pegs.push(Bodies.circle(right.x, right.y, r, pegOptions));
-				}
+				rowIdx++;
 			}
-		})();
 
-		// 4) チューリップ周辺: 斜列のサドル（左右対称に配置）
-		const tulipOffsets = [-38, -18, 2];
-		const rx = GAME_WIDTH - 120;
-		tulipOffsets.forEach(off => { addPeg(120 + off, 415 + (off === 2 ? 20 : 0)); addPeg(rx - off, 415 + (off === 2 ? 20 : 0)); });
+			// 2) 風車周り: 半円弧のディフレクタ（左右対称にミラー）
+			const addArcSym = (cx0, cy0, radius, startDeg, endDeg, stepDeg) => {
+				const points = [];
+				for (let a = startDeg; a <= endDeg; a += stepDeg) {
+					const rad = a * Math.PI / 180;
+					const px = cx0 + Math.cos(rad) * radius;
+					const py = cy0 + Math.sin(rad) * radius;
+					points.push({ x: px, y: py });
+				}
+				// add points and their mirror around center
+				points.forEach(p => { addPeg(Math.round(p.x), Math.round(p.y)); const mx = Math.round(GAME_WIDTH - p.x); addPeg(mx, Math.round(p.y)); });
+			};
+			// build an arc on the upper part and mirror it
+			addArcSym(leftWM.x, leftWM.y, 58, -120, -20, 20);
 
-		// 4a) チューリップ入口の真上に斜めのガード列を追加して当たり率を下げる
-		(function addTulipTopGuards() {
-			const topRows = 3; // 3段分
-			const stepY = 14;
-			for (let i = 0; i < topRows; i++) {
-				// 左側斜め列（右下へ傾ける）
-				addPeg(120 - 8 - i * 6, 395 + i * stepY);
-				addPeg(120 + 8 - i * 6, 395 + i * stepY + 6);
-				// 右側斜め列（左下へ傾ける）
-				addPeg(rx + 8 + i * 6, 395 + i * stepY);
-				addPeg(rx - 8 + i * 6, 395 + i * stepY + 6);
+			// 3) へそへのファンネル: V字＋準垂直列（ここだけ垂直を許容）
+			// 内側V字（へそに収束）
+			for (let k = 0; k < 5; k++) {
+				addPeg(cx - 60 + k * 6, 500 + k * 12); // 左内側斜列
+				addPeg(cx + 60 - k * 6, 500 + k * 12); // 右内側斜列
 			}
-		})();
+			// 外側の軽い妨害／整流（準垂直）
+			[cx - 86, cx + 86].forEach(ix => {
+				[500, 516, 532].forEach(iy => addPeg(ix, iy));
+			});
 
-		// まとめて追加
-		if (pegs.length) Composite.add(world, pegs);
-	})();
+			// 3a) へそ周りをもう少し密にする（安全なリングとスタガーで誘導）
+			// small inner ring (smaller pegs) and a staggered outer ring
+			(function addHesoCluster() {
+				const ringCenter = { x: cx, y: 565 };
+				const innerR = 28; // 内側の半径
+				const outerR = 44; // 外側の半径
+				const innerCount = 8;
+				const outerCount = 12;
+				for (let i = 0; i < innerCount; i++) {
+					const ang = (i / innerCount) * Math.PI * 2 + 0.2; // slight rotation
+					const px = Math.round(ringCenter.x + Math.cos(ang) * innerR);
+					const py = Math.round(ringCenter.y + Math.sin(ang) * innerR - 6); // 少し上め
+					addPeg(px, py);
+				}
+				for (let i = 0; i < outerCount; i++) {
+					const ang = (i / outerCount) * Math.PI * 2 + ((i % 2) ? 0.15 : -0.15);
+					const px = Math.round(ringCenter.x + Math.cos(ang) * outerR);
+					const py = Math.round(ringCenter.y + Math.sin(ang) * outerR - 2);
+					addPeg(px, py);
+				}
+				// two small guiding pegs just above the chucker mouth
+				addPeg(ringCenter.x - 18, ringCenter.y - 22);
+				addPeg(ringCenter.x + 18, ringCenter.y - 22);
+			})();
+
+			// 3b) チューカ―（オレンジ当たり）真上の釘列を追加
+			// ここでは chucker の exclusion を無視して配置するが、釘間の表面クリアランスは守る
+			(function addChuckerTopPegs() {
+				const center = { x: cx, y: 580 };
+				const pairs = [
+					{ lx: center.x - 40, ly: center.y - 42, rx: center.x + 40, ry: center.y - 42 },
+					{ lx: center.x - 24, ly: center.y - 48, rx: center.x + 24, ry: center.y - 48 },
+					{ lx: center.x - 8, ly: center.y - 54, rx: center.x + 8, ry: center.y - 54 }
+				];
+				const r = PEG_RADIUS;
+				const BALL_RADIUS = (window.CONFIG && window.CONFIG.BALL_RADIUS) || 5;
+				const PEG_CLEARANCE = (window.CONFIG && window.CONFIG.PEG_CLEARANCE) || 2;
+				const requiredSurface = (BALL_RADIUS * 2) + PEG_CLEARANCE;
+				// attempt to add symmetric pairs only when both sides pass clearance
+				for (const pr of pairs) {
+					const left = { x: Math.round(pr.lx), y: Math.round(pr.ly) };
+					const right = { x: Math.round(pr.rx), y: Math.round(pr.ry) };
+					if (left.x < 24 || right.x > GAME_WIDTH - 24) continue;
+					if (left.y < 40 || left.y > 560 || right.y < 40 || right.y > 560) continue;
+					let okL = true, okR = true;
+					// check left against existing pegs and also against the right candidate
+					for (const b of pegs) {
+						const dx = b.position.x - left.x, dy = b.position.y - left.y;
+						const centerDist = Math.sqrt(dx * dx + dy * dy) || 1e-6;
+						const existingR = (b.circleRadius) || 4;
+						const minCenter = existingR + r + requiredSurface;
+						if (centerDist < minCenter) { okL = false; break; }
+					}
+					for (const b of pegs) {
+						const dx = b.position.x - right.x, dy = b.position.y - right.y;
+						const centerDist = Math.sqrt(dx * dx + dy * dy) || 1e-6;
+						const existingR = (b.circleRadius) || 4;
+						const minCenter = existingR + r + requiredSurface;
+						if (centerDist < minCenter) { okR = false; break; }
+					}
+					// also ensure left-right pair clearance
+					const dxLR = left.x - right.x, dyLR = left.y - right.y;
+					const centerDistLR = Math.sqrt(dxLR * dxLR + dyLR * dyLR) || 1e-6;
+					if (centerDistLR < (r + r + requiredSurface)) { okL = okR = false; }
+					if (okL && okR) {
+						pegs.push(Bodies.circle(left.x, left.y, r, pegOptions));
+						pegs.push(Bodies.circle(right.x, right.y, r, pegOptions));
+					}
+				}
+			})();
+
+			// 4) チューリップ周辺: 斜列のサドル（左右対称に配置）
+			const tulipOffsets = [-38, -18, 2];
+			const rx = GAME_WIDTH - 120;
+			tulipOffsets.forEach(off => { addPeg(120 + off, 415 + (off === 2 ? 20 : 0)); addPeg(rx - off, 415 + (off === 2 ? 20 : 0)); });
+
+			// 4a) チューリップ入口の真上に斜めのガード列を追加して当たり率を下げる
+			(function addTulipTopGuards() {
+				const topRows = 3; // 3段分
+				const stepY = 14;
+				for (let i = 0; i < topRows; i++) {
+					// 左側斜め列（右下へ傾ける）
+					addPeg(120 - 8 - i * 6, 395 + i * stepY);
+					addPeg(120 + 8 - i * 6, 395 + i * stepY + 6);
+					// 右側斜め列（左下へ傾ける）
+					addPeg(rx + 8 + i * 6, 395 + i * stepY);
+					addPeg(rx - 8 + i * 6, 395 + i * stepY + 6);
+				}
+			})();
+
+			// まとめて追加
+			if (pegs.length) Composite.add(world, pegs);
+		})();
+	}
+
+	// Expose preset and setter for runtime switching
+	window.PEG_PRESET = window.PEG_PRESET || 'default';
+	window.setPegPreset = function (name) {
+		window.PEG_PRESET = name || 'default';
+		buildPegs(window.PEG_PRESET);
+		return window.PEG_PRESET;
+	};
+
+	// Build initial pegs according to preset
+	buildPegs(window.PEG_PRESET || 'default');
 
 	// 役物周りの追加釘も一旦削除する（必要な位置情報だけ残す）
 	const centerX = GAME_WIDTH / 2;
