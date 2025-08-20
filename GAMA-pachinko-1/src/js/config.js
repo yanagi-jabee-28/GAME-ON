@@ -22,8 +22,8 @@
 		// ゲートのタイミング / 角度
 		// ゲートは交互に開閉してボールの流れを制御します。
 		// GATE_OPEN_MS / GATE_CLOSED_MS はそれぞれ開いている時間、閉じている時間（ms）です。
-		GATE_OPEN_MS: 500,
-		GATE_CLOSED_MS: 500,
+		GATE_OPEN_MS: 300,
+		GATE_CLOSED_MS: 300,
 		// 角度: 以下の *_DEG キーで度数を指定できます（推奨）。
 		// 下位互換のため、従来のラジアン指定も引き続きサポートしています。
 		// ヒント: デバッグやチューニング時は度数で設定すると直感的です。
@@ -36,7 +36,7 @@
 		// 推奨: 人間に扱いやすい度数で指定してください。例: 2.3 ラジアン ≒ 132 度
 		// 小さな角度変更でもゲートの挙動（ボールの流れ）が大きく変わるので注意してください。
 		GATE_OPEN_ANGLE_DEG: 175,
-		GATE_CLOSED_ANGLE_DEG: 132,
+		GATE_CLOSED_ANGLE_DEG: 110,
 
 		// 風車（ウィンドミル）: 基本回転速度と回転方向フラグ
 		// 各風車は見た目のパーツとして静的に追加され、独自に Body 操作で回転させています。
@@ -133,8 +133,8 @@
 					{ x_offset: -87.5, y: 320, blades: 4, radius: 40, bladeW: 8, bladeH: 40, cw: false },
 					{ x_offset: 87.5, y: 320, blades: 4, radius: 40, bladeW: 8, bladeH: 40, cw: true }
 					// 下側に追加する歯車ペア（開発用）: 中央より下に小さめの風車を追加します
-					, { x_offset: -140, y: 520, blades: 3, radius: 35, bladeW: 6, bladeH: 30, cw: true, speedMultiplier: 2 }
-					, { x_offset: 140, y: 520, blades: 3, radius: 35, bladeW: 6, bladeH: 30, cw: false, speedMultiplier: 2 }
+					, { x_offset: -130, y: 520, blades: 5, radius: 32, bladeW: 6, bladeH: 30, cw: true, speedMultiplier: 1.5 }
+					, { x_offset: 130, y: 520, blades: 5, radius: 32, bladeW: 6, bladeH: 30, cw: false, speedMultiplier: 1.5 }
 				]
 			},
 			gates: {
