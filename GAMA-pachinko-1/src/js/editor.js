@@ -129,10 +129,7 @@
 		}
 	});
 
-	// Delete selected peg with double-click on panel
-	const delBtn = document.createElement('button'); delBtn.textContent = 'Delete Selected'; delBtn.style.marginLeft = '6px'; delBtn.className = 'delete-selected';
-	el.querySelector('.editor-row').appendChild(delBtn);
-	delBtn.addEventListener('click', () => { if (selectedPeg) { window.EDITOR.removePeg(selectedPeg); selectedPeg = null; } });
+	// delete-selected feature removed per request
 
 	// make panel draggable
 	el.addEventListener('mousedown', function (ev) {
