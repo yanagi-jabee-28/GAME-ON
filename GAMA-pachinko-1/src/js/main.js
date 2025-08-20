@@ -135,6 +135,11 @@
 	const pegs = [];
 	const gates = [];
 	const windmills = [];
+	// WeakMap to store per-ball last peg hit info to avoid per-collision object allocations
+	const _pegHitInfo = new WeakMap();
+	// heatmap dirty flag and frame counter to throttle recolor work
+	window._pegHeatmapDirty = false;
+	window._pegHeatmapFrame = 0;
 	let _pegRainbowTimer = null;
 	// runtime-controllable flag (not const) - can be toggled during gameplay
 	window.pegRainbowEnabled = (C.DEBUG && !!C.DEBUG.PEG_RAINBOW_ENABLED) || false;
@@ -620,26 +625,46 @@
 	}
 
 	function handleCollisions(event) {
+		// collisionStart can be called many times per frame; keep this handler minimal.
+		const WINDMILL_FORCE = (C.WINDMILL && typeof C.WINDMILL.force === 'number') ? C.WINDMILL.force : 0.06; // reduced default
+		const WINDMILL_UP_BIAS = -0.02;
+		const PEG_DEBOUNCE_MS = 80; // per-ball per-peg cooldown to avoid rapid repeat counts
+
 		for (const pair of event.pairs) {
 			const ball = (pair.bodyA.label === 'ball') ? pair.bodyA : (pair.bodyB.label === 'ball' ? pair.bodyB : null);
 			if (!ball) continue;
 			const other = (ball === pair.bodyA) ? pair.bodyB : pair.bodyA;
 
-			switch (other.label) {
-				case 'windmill':
-					// apply impulse away from windmill center to mimic blade bounce
-					const force = 0.2, upBias = -0.04;
-					const dx = ball.position.x - other.position.x, dy = ball.position.y - other.position.y;
-					const len = Math.hypot(dx, dy) || 1;
-					Body.applyForce(ball, ball.position, { x: (dx / len) * force, y: (dy / len) * force + upBias });
-					break;
-				case 'peg':
-					// increment collision counter for debug heatmap
-					try {
+			if (other.label === 'windmill') {
+				// gentle impulse based on relative vector, scaled to avoid solver explosions
+				const dx = ball.position.x - other.position.x, dy = ball.position.y - other.position.y;
+				const len = Math.hypot(dx, dy) || 1;
+				Body.applyForce(ball, ball.position, { x: (dx / len) * WINDMILL_FORCE, y: (dy / len) * WINDMILL_FORCE + WINDMILL_UP_BIAS });
+				continue;
+			}
+
+			if (other.label === 'peg') {
+				try {
+					const now = Date.now();
+					let info = _pegHitInfo.get(ball);
+					if (!info) {
+						info = { lastId: -1, lastTime: 0 };
+					}
+					// use numeric id (Matter bodies have numeric .id) to avoid string allocations
+					if (other.id !== info.lastId || (now - info.lastTime) > PEG_DEBOUNCE_MS) {
 						other.collisionCount = (other.collisionCount || 0) + 1;
 						gameState.totalPegCollisions = (gameState.totalPegCollisions || 0) + 1;
-					} catch (e) { /* ignore */ }
-					break;
+						info.lastId = other.id;
+						info.lastTime = now;
+						_pegHitInfo.set(ball, info);
+						// mark heatmap dirty so recolor can run (throttled)
+						window._pegHeatmapDirty = true;
+					}
+				} catch (e) { /* ignore */ }
+				continue;
+			}
+
+			switch (other.label) {
 				case 'wall':
 					if (ENABLE_WALL_MISS) handleHit(ball, 'wall');
 					break;
@@ -655,15 +680,34 @@
 
 	// --- Debug Heatmap for Pegs ---
 	function hexToRgb(hex) {
-		h = hex.replace('#', '');
-		if (h.length === 3) h = h.split('').map(s => s + s).join('');
-		const num = parseInt(h, 16);
-		return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+		// Accept either an array [r,g,b], a hex string like '#rrggbb' or '#rgb',
+		// or a css rgb(...) string. Return an object {r,g,b}.
+		if (Array.isArray(hex) && hex.length >= 3) {
+			return { r: Number(hex[0]) || 0, g: Number(hex[1]) || 0, b: Number(hex[2]) || 0 };
+		}
+		if (typeof hex === 'string') {
+			hex = hex.trim();
+			if (hex.startsWith('#')) {
+				let h = hex.replace('#', '');
+				if (h.length === 3) h = h.split('').map(s => s + s).join('');
+				const num = parseInt(h, 16) || 0;
+				return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+			}
+			const m = hex.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+			if (m) return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) };
+		}
+		// fallback white
+		return { r: 255, g: 255, b: 255 };
 	}
 	function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
 
 	function recolorPegs() {
-		if (!(C.DEBUG && C.DEBUG.PEGS_HEATMAP)) return;
+			if (!(C.DEBUG && C.DEBUG.PEGS_HEATMAP)) return;
+			// throttle recolor work: only run when heatmap was dirtied and on a frame interval
+			const frameSkip = (C.DEBUG && typeof C.DEBUG.HEATMAP_FRAME_SKIP === 'number') ? Math.max(1, C.DEBUG.HEATMAP_FRAME_SKIP) : 3;
+			window._pegHeatmapFrame = (window._pegHeatmapFrame || 0) + 1;
+			if (!window._pegHeatmapDirty && (window._pegHeatmapFrame % frameSkip) !== 0) return;
+			// we'll clear dirty flag after an update
 		const cfg = C.DEBUG || {};
 		// Use total drops as the denominator (ratio = peg_hits / total_drops)
 		const total = Math.max(0, (gameState && gameState.totalDrops) ? gameState.totalDrops : 0);
@@ -699,6 +743,7 @@
 			const b = lerp(base.b, target.b, t);
 			p.render.fillStyle = `rgb(${r},${g},${b})`;
 		}
+		window._pegHeatmapDirty = false;
 	}
 
 	// Always attach recolor hook before render so style changes take effect in the upcoming frame.
