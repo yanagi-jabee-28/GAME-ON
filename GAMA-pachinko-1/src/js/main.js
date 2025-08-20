@@ -27,7 +27,8 @@
 	// --- UI Elements ---
 	const dropButton = document.getElementById('drop-button');
 	const messageBox = document.getElementById('message-box');
-	const statsEl = createStatsElement();
+	// stats display removed per user request; keep a placeholder to avoid undefined refs
+	const statsEl = null;
 
 	// --- Batch execution state (for dev-tools) ---
 	window.__BATCH_NO_RESPAWN = window.__BATCH_NO_RESPAWN || false;
@@ -843,18 +844,18 @@
 	}
 
 	// --- UI & Stats ---
+	// Stats UI removed per user request. Provide lightweight stubs so other
+	// modules or dev-tools that call updateStats/repositionStats won't error.
 	function createStatsElement() {
-		const el = document.createElement('div');
-		el.style.cssText = 'pointer-events:none; position:absolute; bottom:20px; right:20px; padding:6px 10px; background:rgba(0,0,0,0.6); color:white; border-radius:6px; font-size:14px;';
-		document.querySelector('.game-container').appendChild(el);
-		return el;
+		// no DOM creation
+		window.repositionStats = () => null; // no-op
+		window.setStatsVisible = () => false;
+		window.toggleStatsVisible = () => false;
+		return null;
 	}
 
 	function updateStats() {
-		const { totalDrops, orangeHits, blueHits, missHits } = gameState;
-		const orangeRatio = totalDrops ? Math.round((orangeHits / totalDrops) * 1000) / 10 : 0;
-		const blueRatio = totalDrops ? Math.round((blueHits / totalDrops) * 1000) / 10 : 0;
-		statsEl.textContent = `投入:${totalDrops}  オレンジ:${orangeHits}(${orangeRatio}%)  青:${blueHits}(${blueRatio}%)  ハズレ:${missHits}`;
+		// no-op: stats UI disabled. Keep counters synced for dev-tools.
 		syncWindowCounters();
 	}
 
