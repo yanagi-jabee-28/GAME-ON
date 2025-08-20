@@ -78,6 +78,10 @@
 		// DROP_INTERVAL_MS: 連続ドロップ時の間隔（ms）
 		// BALLS_INTERACT: true の場合、ボール同士が衝突します（パフォーマンスに影響する場合があります）。
 		BALL_RADIUS: 5, // ボール半径（px）
+		// 物理パラメータのチューニング: 反発係数のデフォルト値
+		BALL_RESTITUTION: 0.85, // ボールの反発係数（<=1 を推奨）
+		PEG_RESTITUTION: 0.6, // ペグの反発係数（<=1 を推奨）
+		WINDMILL_RESTITUTION: 0.98, // 風車パーツの反発係数（1付近でも可）
 		DROP_INTERVAL_MS: 50, // 自動連続ドロップ時の間隔（ms）
 		BALLS_INTERACT: true, // ボール同士の衝突を有効にするか
 		BALL_GROUP_ID: 1000, // ボール衝突グループID

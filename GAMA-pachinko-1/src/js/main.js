@@ -190,12 +190,13 @@
 		const centerX = GAME_WIDTH / 2;
 
 		const createWindmill = (cx, cy, blades, radius, bladeW, bladeH, speed, color, hubColor) => {
-			const parts = [Bodies.circle(cx, cy, 6, { isStatic: true, restitution: 0.8, render: { fillStyle: hubColor || WM.hubColor } })];
+			const hubRest = (C.WINDMILL && typeof C.WINDMILL.restitution === 'number') ? C.WINDMILL.restitution : (C.WINDMILL_RESTITUTION || 0.98);
+			const parts = [Bodies.circle(cx, cy, 6, { isStatic: true, restitution: hubRest, render: { fillStyle: hubColor || WM.hubColor } })];
 			for (let i = 0; i < blades; i++) {
 				const angle = (i / blades) * Math.PI * 2;
 				const bx = cx + Math.cos(angle) * (radius / 2);
 				const by = cy + Math.sin(angle) * (radius / 2);
-				const blade = Bodies.rectangle(bx, by, bladeH, bladeW, { isStatic: true, restitution: 0.8, render: { fillStyle: color || WM.color } });
+				const blade = Bodies.rectangle(bx, by, bladeH, bladeW, { isStatic: true, restitution: hubRest, render: { fillStyle: color || WM.color } });
 				Body.setAngle(blade, angle);
 				parts.push(blade);
 			}
@@ -361,7 +362,8 @@
 		if (Array.isArray(preset)) {
 			const preserve = (C.PRESETS && C.PRESETS.preserveExact) ? true : false;
 			const layout = L.pegs;
-			const pegOptions = { isStatic: true, label: 'peg', restitution: 0.8, friction: 0.05, render: { fillStyle: layout.color } };
+			const pegRest = (typeof C.PEG_RESTITUTION === 'number') ? C.PEG_RESTITUTION : 0.6;
+			const pegOptions = { isStatic: true, label: 'peg', restitution: pegRest, friction: 0.05, render: { fillStyle: layout.color } };
 			if (preserve) {
 				// faithful reproduction: ignore exclusion/proximity checks
 				for (const p of preset) {
@@ -429,7 +431,8 @@
 
 		// deterministic default placement
 		const layout = L.pegs;
-		const pegOptions = { isStatic: true, label: 'peg', restitution: 0.8, friction: 0.05, render: { fillStyle: layout.color } };
+		const pegRest2 = (typeof C.PEG_RESTITUTION === 'number') ? C.PEG_RESTITUTION : 0.6;
+		const pegOptions = { isStatic: true, label: 'peg', restitution: pegRest2, friction: 0.05, render: { fillStyle: layout.color } };
 		const requiredSurface = (C.BALL_RADIUS * 2) + C.PEG_CLEARANCE;
 		const centerX = GAME_WIDTH / 2;
 
@@ -506,8 +509,9 @@
 		const color = options.isNavy ? colors.fromNavy : (options.fromBlue ? colors.fromBlue : colors.default);
 		const ballCollision = C.BALLS_INTERACT ? {} : { collisionFilter: { group: -C.BALL_GROUP_ID } };
 
+		const ballRest = (typeof C.BALL_RESTITUTION === 'number') ? C.BALL_RESTITUTION : 0.85;
 		const ball = Bodies.circle(randomX, -20, C.BALL_RADIUS, {
-			label: 'ball', restitution: 0.9, friction: 0.05,
+			label: 'ball', restitution: ballRest, friction: 0.05,
 			render: { fillStyle: color },
 			...ballCollision
 		});
@@ -690,6 +694,16 @@
 				const dx = ball.position.x - other.position.x, dy = ball.position.y - other.position.y;
 				const len = Math.hypot(dx, dy) || 1;
 				Body.applyForce(ball, ball.position, { x: (dx / len) * WINDMILL_FORCE, y: (dy / len) * WINDMILL_FORCE + WINDMILL_UP_BIAS });
+				// clamp velocity to avoid unrealistically large speeds after impulses
+				try {
+					const maxV = (typeof C.MAX_VELOCITY === 'number') ? C.MAX_VELOCITY : 22; // pixels/sec
+					const vx = ball.velocity.x, vy = ball.velocity.y;
+					const speed = Math.hypot(vx, vy) || 0;
+					if (speed > maxV) {
+						const scale = maxV / speed;
+						Body.setVelocity(ball, { x: vx * scale, y: vy * scale });
+					}
+				} catch (e) { /* ignore */ }
 				continue;
 			}
 
