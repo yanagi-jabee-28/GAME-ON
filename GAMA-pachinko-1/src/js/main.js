@@ -92,30 +92,41 @@
 		const baseSpeed = WM.baseSpeed ?? 0.08;
 		const centerX = GAME_WIDTH / 2;
 
-		const createWindmill = (cx, cy, speed) => {
-			const compound = Body.create({
-				parts: [
-					Bodies.circle(cx, cy, 6, { isStatic: true, restitution: 0.8, render: { fillStyle: WM.hubColor } }),
-					...Array.from({ length: WM.blades }, (_, i) => {
-						const angle = (i / WM.blades) * Math.PI * 2;
-						const bx = cx + Math.cos(angle) * (WM.radius / 2);
-						const by = cy + Math.sin(angle) * (WM.radius / 2);
-						const blade = Bodies.rectangle(bx, by, WM.bladeH, WM.bladeW, { isStatic: true, restitution: 0.8, render: { fillStyle: WM.color } });
-						Body.setAngle(blade, angle);
-						return blade;
-					})
-				],
-				isStatic: true,
-				label: 'windmill'
-			});
+		const createWindmill = (cx, cy, blades, radius, bladeW, bladeH, speed, color, hubColor) => {
+			const parts = [];
+			parts.push(Bodies.circle(cx, cy, 6, { isStatic: true, restitution: 0.8, render: { fillStyle: hubColor || WM.hubColor } }));
+			for (let i = 0; i < blades; i++) {
+				const angle = (i / blades) * Math.PI * 2;
+				const bx = cx + Math.cos(angle) * (radius / 2);
+				const by = cy + Math.sin(angle) * (radius / 2);
+				const blade = Bodies.rectangle(bx, by, bladeH, bladeW, { isStatic: true, restitution: 0.8, render: { fillStyle: color || WM.color } });
+				Body.setAngle(blade, angle);
+				parts.push(blade);
+			}
+			const compound = Body.create({ parts, isStatic: true, label: 'windmill' });
 			Composite.add(world, compound);
 			windmills.push({ body: compound, speed });
 		};
 
-		createWindmill(centerX - layout.offsetX, layout.y, baseSpeed * (WM.leftCW ? 1 : -1));
-		createWindmill(centerX + layout.offsetX, layout.y, baseSpeed * (WM.rightCW ? 1 : -1));
-		if (C.ENABLE_CENTER_WINDMILL) {
-			createWindmill(centerX, layout.centerY, baseSpeed * (WM.centerCW ? 1 : -1));
+		// create from explicit items if provided
+		if (Array.isArray(layout.items) && layout.items.length) {
+			layout.items.forEach(it => {
+				const cx = (typeof it.x === 'number') ? it.x : (centerX + (it.x_offset || 0));
+				const cy = (typeof it.y === 'number') ? it.y : (it.y || layout.y);
+				const blades = it.blades || WM.blades || 4;
+				const radius = it.radius || WM.radius || 40;
+				const bladeW = it.bladeW || WM.bladeW || 8;
+				const bladeH = it.bladeH || WM.bladeH || 40;
+				const speed = baseSpeed * ((it.cw || (it.cw === false ? it.cw : (it.cw === undefined ? (it.left ? -1 : 1) : 1))) ? 1 : -1);
+				createWindmill(cx, cy, blades, radius, bladeW, bladeH, speed, it.color || WM.color, it.hubColor || WM.hubColor);
+			});
+		} else {
+			// backward compatible single pair
+			createWindmill(centerX - layout.offsetX, layout.y, WM.blades || 4, WM.radius || 40, WM.bladeW || 8, WM.bladeH || 40, baseSpeed * (WM.leftCW ? 1 : -1), WM.color, WM.hubColor);
+			createWindmill(centerX + layout.offsetX, layout.y, WM.blades || 4, WM.radius || 40, WM.bladeW || 8, WM.bladeH || 40, baseSpeed * (WM.rightCW ? 1 : -1), WM.color, WM.hubColor);
+			if (C.ENABLE_CENTER_WINDMILL) {
+				createWindmill(centerX, layout.centerY, WM.blades || 4, WM.radius || 40, 6, WM.bladeH || 40, baseSpeed * (WM.centerCW ? 1 : -1), WM.color, WM.hubColor);
+			}
 		}
 	}
 
@@ -186,6 +197,18 @@
 			Bodies.rectangle(GAME_WIDTH - tulip.x - tf.offsetX, tf.y, tf.thickness, tf.height, { isStatic: true, render: { fillStyle: layout.fenceColor } }),
 			Bodies.rectangle(GAME_WIDTH - tulip.x + tf.offsetX, tf.y, tf.thickness, tf.height, { isStatic: true, render: { fillStyle: layout.fenceColor } })
 		]);
+	}
+
+	function createGuards() {
+		const guards = (L.features && L.features.guards) || [];
+		for (const g of guards) {
+			if (g.type === 'rect') {
+				const body = Bodies.rectangle(g.x, g.y, g.w, g.h, { isStatic: true, render: { fillStyle: g.color || '#7f8c8d' } });
+				if (typeof g.angle === 'number') Body.setAngle(body, g.angle);
+				Composite.add(world, body);
+			}
+			// future: circle guards or other shapes
+		}
 	}
 
 	// --- Peg Generation ---
@@ -535,6 +558,7 @@
 		createWindmills();
 		createGates();
 		createFeatures();
+		createGuards();
 		// default preset: use 'pegs2' if not already set
 		window.PEG_PRESET = window.PEG_PRESET || 'pegs2';
 		buildPegs(window.PEG_PRESET);

@@ -14,8 +14,8 @@
 		GUIDE_WALL_ANGLE: 0.2,
 
 		// Gate timings / angles
-		GATE_OPEN_MS: 600,
-		GATE_CLOSED_MS: 400,
+		GATE_OPEN_MS: 300,
+		GATE_CLOSED_MS: 700,
 		// Angles: you can specify in degrees (recommended) using the *_DEG keys below.
 		// For backward compatibility, the old radian keys remain supported.
 		GATE_OPEN_ANGLE: 2.3,
@@ -25,8 +25,8 @@
 		// legacy radian keys are used. Set to true to use human-friendly degrees.
 		GATE_ANGLE_IN_DEGREES: true,
 		// Preferred: human-friendly degree values. Example: 2.3 rad ≈ 132 deg
-		GATE_OPEN_ANGLE_DEG: 132,
-		GATE_CLOSED_ANGLE_DEG: 17.2,
+		GATE_OPEN_ANGLE_DEG: 175,
+		GATE_CLOSED_ANGLE_DEG: 132,
 
 		// Windmills: base speed magnitude + boolean direction flags
 		WINDMILL: {
@@ -80,7 +80,13 @@
 			windmills: {
 				offsetX: 87.5,
 				y: 320,
-				centerY: 470
+				centerY: 470,
+				// items allow you to declare multiple windmills/gears with per-item overrides.
+				// Each item can specify either `x_offset` (relative to center) or an absolute `x`.
+				items: [
+					{ x_offset: -87.5, y: 320, blades: 4, radius: 40, bladeW: 8, bladeH: 40, cw: false },
+					{ x_offset: 87.5, y: 320, blades: 4, radius: 40, bladeW: 8, bladeH: 40, cw: true }
+				]
 			},
 			gates: {
 				y: 520,
@@ -92,6 +98,9 @@
 			features: {
 				chucker: { y: 580, width: 36, height: 10, color: '#e67e22' },
 				tulip: { x: 120, y: 450, width: 32, height: 10, color: '#3498db' },
+				// Guards: simple rectangular guards you can add via config
+				// Empty by default to avoid unexpected objects appearing at startup.
+				guards: [],
 				fenceColor: '#7f8c8d',
 				chuckerFence: { y: 560, height: 40, thickness: 6, offsetX: 26 },
 				tulipFence: { y: 450, height: 36, thickness: 6, offsetX: 22 }
