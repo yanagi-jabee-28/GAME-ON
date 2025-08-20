@@ -196,7 +196,17 @@
 				const radius = it.radius || WM.radius || 40;
 				const bladeW = it.bladeW || WM.bladeW || 8;
 				const bladeH = it.bladeH || WM.bladeH || 40;
-				const speed = baseSpeed * ((it.cw || (it.cw === false ? it.cw : (it.cw === undefined ? (it.left ? -1 : 1) : 1))) ? 1 : -1);
+				// 方向フラグから符号を決定（既存互換性を維持）
+				const dirSign = ((it.cw || (it.cw === false ? it.cw : (it.cw === undefined ? (it.left ? -1 : 1) : 1))) ? 1 : -1);
+				// 個別アイテムで速度を指定できるように対応:
+				// - it.speed: 絶対速度（符号付き）で上書き
+				// - it.speedMultiplier: baseSpeed に対する倍率（符号は dirSign に従う）
+				let speed = baseSpeed * dirSign;
+				if (typeof it.speed === 'number') {
+					speed = it.speed;
+				} else if (typeof it.speedMultiplier === 'number') {
+					speed = baseSpeed * it.speedMultiplier * dirSign;
+				}
 				createWindmill(cx, cy, blades, radius, bladeW, bladeH, speed, it.color || WM.color, it.hubColor || WM.hubColor);
 			});
 		} else {

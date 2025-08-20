@@ -128,6 +128,9 @@
 				items: [
 					{ x_offset: -87.5, y: 320, blades: 4, radius: 40, bladeW: 8, bladeH: 40, cw: false },
 					{ x_offset: 87.5, y: 320, blades: 4, radius: 40, bladeW: 8, bladeH: 40, cw: true }
+					// 下側に追加する歯車ペア（開発用）: 中央より下に小さめの風車を追加します
+					, { x_offset: -140, y: 520, blades: 3, radius: 35, bladeW: 6, bladeH: 30, cw: true, speedMultiplier: 2 }
+					, { x_offset: 140, y: 520, blades: 3, radius: 35, bladeW: 6, bladeH: 30, cw: false, speedMultiplier: 2 }
 				]
 			},
 			gates: {
