@@ -112,7 +112,10 @@
 			PEGS_HEATMAP: false, // true にすると衝突回数に応じてペグ色をグラデーション表示する
 			HEATMAP_MAX: 12, // 正規化に使う最大衝突回数（これを越えると最大色になる）
 			HEATMAP_BASE_COLOR: [255, 255, 255], // デバッグ時のベースカラー（白）
-			HEATMAP_TARGET_COLOR: [255, 60, 60] // 衝突回数が最大のときの色（赤系）
+			HEATMAP_TARGET_COLOR: [255, 60, 60], // 衝突回数が最大のときの色（赤系）
+			// Rainbow test: enable automatic rainbow gradient across pegs at startup
+			PEG_RAINBOW_ENABLED: false,
+			PEG_RAINBOW_MS: 120
 		},
 
 		// オーディオ設定

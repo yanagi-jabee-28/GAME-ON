@@ -136,6 +136,9 @@
 	const gates = [];
 	const windmills = [];
 	let _pegRainbowTimer = null;
+	// runtime-controllable flag (not const) - can be toggled during gameplay
+	window.pegRainbowEnabled = (C.DEBUG && !!C.DEBUG.PEG_RAINBOW_ENABLED) || false;
+	window.pegRainbowMs = (C.DEBUG && typeof C.DEBUG.PEG_RAINBOW_MS === 'number') ? C.DEBUG.PEG_RAINBOW_MS : 120;
 
 	// --- Create Game Elements ---
 
@@ -912,6 +915,8 @@
 		window.dropBall = (opts) => { window.__DROP_CALLS++; originalDropBall(opts); };
 		window.resetBatchSuppressedCount = () => { window.__BATCH_SUPPRESSED_COUNT = 0; };
 
+		// (rainbow startup will be handled after the helper is defined)
+
 		// Rainbow test: cycle colors across pegs to verify per-peg color changes work
 		window.startPegRainbow = (ms = 120) => {
 			if (_pegRainbowTimer) return false; // already running
@@ -935,12 +940,33 @@
 			recolorPegs();
 			return true;
 		};
+
+		// runtime setter to control rainbow from config or during gameplay
+		window.setPegRainbowEnabled = (on, ms) => {
+			if (typeof on === 'boolean') {
+				window.pegRainbowEnabled = on;
+			} else {
+				window.pegRainbowEnabled = !window.pegRainbowEnabled;
+			}
+			if (typeof ms === 'number') window.pegRainbowMs = ms;
+			if (window.pegRainbowEnabled) {
+				window.startPegRainbow(window.pegRainbowMs);
+			} else {
+				window.stopPegRainbow();
+			}
+			return window.pegRainbowEnabled;
+		};
 		window.resetCounters = () => {
 			Object.assign(gameState, { totalDrops: 0, orangeHits: 0, blueHits: 0, missHits: 0 });
 			window.__BATCH_SUPPRESSED_COUNT = 0;
 			gameState.totalPegCollisions = 0;
 			updateStats();
 		};
+
+		// apply initial rainbow config after helpers are available
+		if (C.DEBUG && C.DEBUG.PEG_RAINBOW_ENABLED) {
+			try { window.setPegRainbowEnabled(true, C.DEBUG.PEG_RAINBOW_MS); } catch (e) { /* ignore */ }
+		}
 	}
 
 	init();
