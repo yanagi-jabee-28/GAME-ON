@@ -194,6 +194,28 @@
 		pegs.length = 0;
 		preset = preset || window.PEG_PRESET || 'default';
 		if (preset === 'none') return;
+		// If preset refers to an external JSON file (e.g., 'pegs2' or 'pegs2.json'),
+		// attempt to fetch it from src/pegs-presets and import the placement list.
+		if (typeof preset === 'string' && preset !== 'default') {
+			const fname = preset.toLowerCase().endsWith('.json') ? preset : (preset + '.json');
+			const url = 'src/pegs-presets/' + fname;
+			// try to fetch; if it fails, fall back to default deterministic layout
+			fetch(url).then(r => {
+				if (!r.ok) throw new Error('preset fetch failed');
+				return r.json();
+			}).then(list => {
+				if (!Array.isArray(list)) throw new Error('invalid preset format');
+				for (const p of list) {
+					window.EDITOR.addPeg(p.x, p.y, p.r || C.PEG_RADIUS);
+				}
+				if (pegs.length) Composite.add(world, pegs);
+			}).catch(e => {
+				console.warn('Could not load preset', url, e);
+				// fallback to default deterministic placement
+				buildPegs('default');
+			});
+			return;
+		}
 
 		const layout = L.pegs;
 		const pegOptions = { isStatic: true, label: 'peg', restitution: 0.8, friction: 0.05, render: { fillStyle: layout.color } };
@@ -513,7 +535,9 @@
 		createWindmills();
 		createGates();
 		createFeatures();
-		buildPegs(window.PEG_PRESET || 'default');
+		// default preset: use 'pegs2' if not already set
+		window.PEG_PRESET = window.PEG_PRESET || 'pegs2';
+		buildPegs(window.PEG_PRESET);
 		setupEventListeners();
 		setupEditorAPI();
 		updateStats();
