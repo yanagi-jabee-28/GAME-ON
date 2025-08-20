@@ -758,6 +758,11 @@
 					if (typeof p.r === 'number' && p.r !== defaultR) out.r = p.r;
 					return out;
 				});
+				// sort by y asc, then x asc for stable export order
+				list.sort((a, b) => {
+					if (a.y !== b.y) return a.y - b.y;
+					return a.x - b.x;
+				});
 				return JSON.stringify(list, null, '\t');
 			},
 			importPegs: (json) => {
