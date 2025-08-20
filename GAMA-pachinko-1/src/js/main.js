@@ -50,6 +50,85 @@
 	const runner = Runner.create();
 	Runner.run(runner, engine);
 
+	// Developer overlay: draw drop distribution graph if enabled in config
+	(function setupDropGraphOverlay() {
+		const dropCfg = (C.DROP || {});
+		if (!dropCfg.showGraph) return;
+		// afterRender hook: draw on top of canvas
+		Events.on(render, 'afterRender', () => {
+			const ctx = render.context;
+			const canvas = ctx.canvas;
+			const width = canvas.width;
+			const graphW = Math.min(width - 40, dropCfg.width || 200);
+			const graphH = 60;
+			const left = (width - graphW) / 2;
+			const top = 8;
+
+			// clear area
+			ctx.save();
+			ctx.globalAlpha = 0.95;
+			ctx.fillStyle = 'rgba(0,0,0,0)';
+			ctx.clearRect(left - 2, top - 2, graphW + 4, graphH + 4);
+
+			// draw background
+			ctx.fillStyle = 'rgba(255,255,255,0.06)';
+			ctx.fillRect(left, top, graphW, graphH);
+
+			// draw axis
+			ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+			ctx.beginPath();
+			ctx.moveTo(left, top + graphH - 1);
+			ctx.lineTo(left + graphW, top + graphH - 1);
+			ctx.stroke();
+
+			// compute distribution points
+			const centerX = GAME_WIDTH / 2;
+			const samples = 128;
+			const halfW = graphW / 2;
+			const std = (typeof dropCfg.std === 'number') ? dropCfg.std : Math.max(1, halfW / 2);
+			const scale = 1 / (std * Math.sqrt(2 * Math.PI));
+			const denom = 2 * std * std;
+
+			// find max for normalization
+			let maxY = 0;
+			const ys = new Array(samples);
+			for (let i = 0; i < samples; i++) {
+				const rel = (i / (samples - 1)) * 2 - 1; // -1..1 across graph
+				const x = rel * halfW; // pixel offset
+				const pdf = scale * Math.exp(-(x * x) / denom);
+				ys[i] = pdf;
+				if (pdf > maxY) maxY = pdf;
+			}
+
+			// draw curve
+			ctx.beginPath();
+			for (let i = 0; i < samples; i++) {
+				const px = left + (i / (samples - 1)) * graphW;
+				const py = top + graphH - (ys[i] / maxY) * (graphH - 8);
+				if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+			}
+			ctx.strokeStyle = 'rgba(46, 204, 113, 0.95)';
+			ctx.lineWidth = 2;
+			ctx.stroke();
+
+			// fill under curve
+			ctx.lineTo(left + graphW, top + graphH - 1);
+			ctx.lineTo(left, top + graphH - 1);
+			ctx.closePath();
+			ctx.fillStyle = 'rgba(46,204,113,0.12)';
+			ctx.fill();
+
+			// center marker
+			ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+			ctx.beginPath();
+			ctx.moveTo(left + graphW / 2, top);
+			ctx.lineTo(left + graphW / 2, top + graphH);
+			ctx.stroke();
+
+			ctx.restore();
+		});
+	})();
+
 	// --- Game Objects ---
 	const pegs = [];
 	const gates = [];
@@ -288,7 +367,30 @@
 
 	// --- Game Logic ---
 	function dropBall(options = {}) {
-		const randomX = GAME_WIDTH / 2 + (Math.random() - 0.5) * 100;
+		// Determine drop X using either uniform or normal sampling based on config
+		const dropCfg = (C.DROP || {});
+		const halfWidth = (typeof dropCfg.width === 'number') ? (dropCfg.width / 2) : 100;
+		const std = (typeof dropCfg.std === 'number') ? dropCfg.std : Math.max(1, halfWidth / 2);
+
+		const sampleNormal = () => {
+			// Box-Muller transform to produce a standard normal (mean 0, std 1)
+			let u = 0, v = 0;
+			while (u === 0) u = Math.random(); // avoid 0
+			while (v === 0) v = Math.random();
+			const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+			return z;
+		};
+
+		let offsetX;
+		if (dropCfg.useNormal) {
+			offsetX = sampleNormal() * std;
+			// clamp to configured width
+			offsetX = Math.max(-halfWidth, Math.min(halfWidth, offsetX));
+		} else {
+			offsetX = (Math.random() - 0.5) * (halfWidth * 2);
+		}
+
+		const randomX = GAME_WIDTH / 2 + offsetX;
 		const colors = L.ballColors;
 		const color = options.isNavy ? colors.fromNavy : (options.fromBlue ? colors.fromBlue : colors.default);
 		const ballCollision = C.BALLS_INTERACT ? {} : { collisionFilter: { group: -C.BALL_GROUP_ID } };

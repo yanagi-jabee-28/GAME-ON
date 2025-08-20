@@ -14,8 +14,8 @@
 		GUIDE_WALL_ANGLE: 0.2,
 
 		// Gate timings / angles
-		GATE_OPEN_MS: 300,
-		GATE_CLOSED_MS: 700,
+		GATE_OPEN_MS: 500,
+		GATE_CLOSED_MS: 500,
 		// Angles: you can specify in degrees (recommended) using the *_DEG keys below.
 		// For backward compatibility, the old radian keys remain supported.
 		GATE_OPEN_ANGLE: 2.3,
@@ -53,6 +53,18 @@
 		DROP_INTERVAL_MS: 50,
 		BALLS_INTERACT: true,
 		BALL_GROUP_ID: 1000,
+
+		// ボール落下の分布：横方向の広がりとサンプリング方法を制御します
+		// DROP.width: ボールが落ちる中心を基準とした合計幅（ピクセル）
+		// DROP.std: 正規分布サンプリング時の標準偏差（ピクセル）。省略すると width/4 がデフォルトになります
+		// DROP.useNormal: true = 正規分布からサンプリング（中央寄り）、false = 一様分布
+		DROP: {
+			width: 250,
+			std: 60,
+			useNormal: true,
+			// 開発用: true にすると画面上部に分布グラフを表示します（起動時に config で切替可能）
+			showGraph: false
+		},
 
 		// Audio
 		MASTER_VOLUME: 0.4,
