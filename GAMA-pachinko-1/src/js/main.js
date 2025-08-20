@@ -481,6 +481,8 @@
 		Composite.add(world, ball);
 		gameState.totalDrops++;
 		updateStats();
+		// register ball with physics manager for sweep detection and bookkeeping
+		if (window.PHYSICS && typeof window.PHYSICS.registerBall === 'function') window.PHYSICS.registerBall(ball);
 	}
 
 	function createDebris(x, y, color) {
@@ -528,7 +530,10 @@
 		updateStats();
 		createDebris(ball.position.x, ball.position.y, debrisColor);
 		playSound(sfxKey);
-		try { Composite.remove(world, ball); } catch (e) { /* ignore */ }
+		try {
+			Composite.remove(world, ball);
+			if (window.PHYSICS && typeof window.PHYSICS.unregisterBall === 'function') window.PHYSICS.unregisterBall(ball);
+		} catch (e) { /* ignore */ }
 
 		if (newBallOptions) {
 			if (!window.__BATCH_NO_RESPAWN || window.__FORCE_RESPAWN) {
@@ -568,7 +573,13 @@
 	}
 
 	function updatePhysics() {
-		windmills.forEach(w => Body.setAngle(w.body, w.body.angle + w.speed));
+		// Use physics module if available to update windmills with per-frame limiting
+		if (window.PHYSICS && typeof window.PHYSICS.updateWindmills === 'function') {
+			window.PHYSICS.updateWindmills(windmills, { maxAngularStep: C.WINDMILL && C.WINDMILL.maxAngularStep });
+		} else {
+			// fallback: previous behavior
+			windmills.forEach(w => Body.setAngle(w.body, w.body.angle + w.speed));
+		}
 		gates.forEach(g => {
 			const d = g.targetAngle - g.body.angle;
 			if (Math.abs(d) > 0.001) {
@@ -590,6 +601,7 @@
 
 			switch (other.label) {
 				case 'windmill':
+					// apply impulse away from windmill center to mimic blade bounce
 					const force = 0.2, upBias = -0.04;
 					const dx = ball.position.x - other.position.x, dy = ball.position.y - other.position.y;
 					const len = Math.hypot(dx, dy) || 1;
@@ -610,30 +622,36 @@
 
 	function sweepAndPrune() {
 		const targets = Composite.allBodies(world).filter(b => b.label === 'startChucker' || b.label === 'tulip');
-		const balls = Composite.allBodies(world).filter(b => b.label === 'ball');
+		if (window.PHYSICS && typeof window.PHYSICS.sweepAndDetect === 'function') {
+			window.PHYSICS.sweepAndDetect(targets, (ball, target) => handleHit(ball, target.label));
+		} else if (window.PHYSICS && typeof window.PHYSICS.sweepAndDetect === 'function') {
+			// no-op duplicate safety path
+		} else {
+			// fallback to inlined implementation (previous behavior)
+			const balls = Composite.allBodies(world).filter(b => b.label === 'ball');
+			for (const ball of balls) {
+				if (ball.isHitting) continue;
+				const prev = ball.lastPos || ball.position;
+				const curr = ball.position;
 
-		for (const ball of balls) {
-			if (ball.isHitting) continue;
-			const prev = ball.lastPos || ball.position;
-			const curr = ball.position;
-
-			if ((curr.y - prev.y) > 0.05) {
-				for (const target of targets) {
-					if (prev.y < target.bounds.min.y && curr.y >= target.bounds.min.y) {
-						const tRatio = (target.bounds.min.y - prev.y) / ((curr.y - prev.y) || 1);
-						const xCross = prev.x + (curr.x - prev.x) * tRatio;
-						if (xCross >= target.bounds.min.x - 3 && xCross <= target.bounds.max.x + 3) {
-							handleHit(ball, target.label);
-							break;
+				if ((curr.y - prev.y) > 0.05) {
+					for (const target of targets) {
+						if (prev.y < target.bounds.min.y && curr.y >= target.bounds.min.y) {
+							const tRatio = (target.bounds.min.y - prev.y) / ((curr.y - prev.y) || 1);
+							const xCross = prev.x + (curr.x - prev.x) * tRatio;
+							if (xCross >= target.bounds.min.x - 3 && xCross <= target.bounds.max.x + 3) {
+								handleHit(ball, target.label);
+								break;
+							}
 						}
 					}
 				}
-			}
 
-			if (ball.position.y > GAME_HEIGHT + 300) {
-				try { Composite.remove(world, ball); } catch (e) { /* ignore */ }
+				if (ball.position.y > GAME_HEIGHT + 300) {
+					try { Composite.remove(world, ball); } catch (e) { /* ignore */ }
+				}
+				ball.lastPos = { x: curr.x, y: curr.y };
 			}
-			ball.lastPos = { x: curr.x, y: curr.y };
 		}
 	}
 
