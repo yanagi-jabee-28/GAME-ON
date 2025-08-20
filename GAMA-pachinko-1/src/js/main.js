@@ -221,7 +221,10 @@
 
 	function createGates() {
 		const layout = L.gates;
-		const gateHalf = layout.length / 2;
+		// Allow overriding gate size from top-level config for quick tuning: C.GATE_LENGTH / C.GATE_WIDTH
+		const gateLength = (typeof C.GATE_LENGTH === 'number') ? C.GATE_LENGTH : (typeof layout.length === 'number' ? layout.length : 60);
+		const gateWidth = (typeof C.GATE_WIDTH === 'number') ? C.GATE_WIDTH : (typeof layout.width === 'number' ? layout.width : 10);
+		const gateHalf = gateLength / 2;
 		// Gate angles: use degree-based config when enabled via GATE_ANGLE_IN_DEGREES,
 		// otherwise fall back to legacy radian values.
 		if (C.GATE_ANGLE_IN_DEGREES) {
@@ -239,10 +242,10 @@
 			const closedAngle = (side === 'left' ? -1 : 1) * gateClosedBase;
 			const openAngle = (side === 'left' ? -1 : 1) * gateOpenBase;
 			const center = { x: pivot.x - Math.sin(closedAngle) * gateHalf, y: pivot.y + Math.cos(closedAngle) * gateHalf };
-			const gateBody = Bodies.rectangle(center.x, center.y, layout.width, layout.length, { isStatic: true, label: 'gate', render: { fillStyle: layout.color } });
+			const gateBody = Bodies.rectangle(center.x, center.y, gateWidth, gateLength, { isStatic: true, label: 'gate', render: { fillStyle: layout.color } });
 			Body.setAngle(gateBody, closedAngle);
 			Composite.add(world, gateBody);
-			gates.push({ body: gateBody, pivot, length: layout.length, targetAngle: openAngle, closedAngle, openAngle });
+			gates.push({ body: gateBody, pivot, length: gateLength, width: gateWidth, targetAngle: openAngle, closedAngle, openAngle });
 		};
 
 		createGate('left');
