@@ -694,6 +694,10 @@
 			}
 
 			if (other.label === 'peg') {
+				// If heatmap is disabled, skip all bookkeeping to reduce overhead
+				if (!(C.DEBUG && C.DEBUG.PEGS_HEATMAP)) {
+					continue;
+				}
 				try {
 					const now = Date.now();
 					let info = _pegHitInfo.get(ball);
@@ -796,14 +800,24 @@
 		window._pegHeatmapDirty = false;
 	}
 
-	// Always attach recolor hook before render so style changes take effect in the upcoming frame.
-	Events.on(render, 'beforeRender', recolorPegs);
+	// Only attach recolor hook when heatmap is enabled to avoid unnecessary work.
+	let _heatmapHookAttached = false;
+	function attachHeatmapHook() {
+		if (_heatmapHookAttached) return;
+		try { Events.on(render, 'beforeRender', recolorPegs); _heatmapHookAttached = true; } catch (e) { _heatmapHookAttached = false; }
+	}
+	function detachHeatmapHook() {
+		if (!_heatmapHookAttached) return;
+		try { Events.off(render, 'beforeRender', recolorPegs); } catch (e) { /* ignore */ }
+		_heatmapHookAttached = false;
+	}
 
 	// runtime helpers to toggle/reset heatmap without editing config and reloading
 	window.togglePegHeatmap = (on) => {
 		if (!C.DEBUG) C.DEBUG = {};
 		C.DEBUG.PEGS_HEATMAP = (typeof on === 'boolean') ? on : !C.DEBUG.PEGS_HEATMAP;
-		// immediate recolor
+		if (C.DEBUG.PEGS_HEATMAP) attachHeatmapHook(); else detachHeatmapHook();
+		// immediate recolor (no-op when disabled)
 		recolorPegs();
 		return C.DEBUG.PEGS_HEATMAP;
 	};
@@ -812,6 +826,9 @@
 		gameState.totalPegCollisions = 0;
 		recolorPegs();
 	};
+
+	// attach initially only if enabled
+	if (C.DEBUG && C.DEBUG.PEGS_HEATMAP) attachHeatmapHook();
 
 	function sweepAndPrune() {
 		const targets = Composite.allBodies(world).filter(b => b.label === 'startChucker' || b.label === 'tulip');
