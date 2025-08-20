@@ -1,51 +1,41 @@
-// Extracted from index.html: main game script for the Pachinko simulator
-// Keeps behavior identical to the previous inline script.
+// Refactored main game script for the Pachinko simulator
 (function () {
 	'use strict';
 
-	// --- Matter.js モジュールの準備 ---
+	// --- Matter.js Modules ---
 	const { Engine, Render, Runner, Bodies, Composite, Events, Body } = Matter;
 
-	// --- ゲーム設定 ---
-	const GAME_WIDTH = 450;
-	const GAME_HEIGHT = 700;
-	const ENABLE_WALL_MISS = true; // 壁に当たった時にハズレにするかどうか
-	let dropInterval = null;
+	// --- Game Constants from CONFIG ---
+	const C = window.CONFIG;
+	const L = C.LAYOUT;
+	const GAME_WIDTH = C.GAME_WIDTH ?? 450;
+	const GAME_HEIGHT = C.GAME_HEIGHT ?? 700;
+	const ENABLE_WALL_MISS = C.ENABLE_WALL_MISS ?? true;
 
-	// --- UI要素の取得 ---
+	// --- Game State ---
+	const gameState = {
+		totalDrops: 0,
+		orangeHits: 0, // startChucker
+		blueHits: 0,   // tulip
+		missHits: 0,   // missZone
+		dropInterval: null,
+		spaceDown: false,
+	};
+
+	// --- UI Elements ---
 	const dropButton = document.getElementById('drop-button');
 	const messageBox = document.getElementById('message-box');
+	const statsEl = createStatsElement();
 
-	// 投下数 / 役物ヒット数カウンタ
-	let totalDrops = 0;
-	let orangeHits = 0; // startChucker
-	let blueHits = 0;   // tulip
-	let missHits = 0;   // ハズレ（missZone）
-
-	// バッチ実行中に自動再投下を抑止した回数（dev-tools が参照する）
+	// --- Batch execution state (for dev-tools) ---
 	window.__BATCH_NO_RESPAWN = window.__BATCH_NO_RESPAWN || false;
 	window.__BATCH_SUPPRESSED_COUNT = window.__BATCH_SUPPRESSED_COUNT || 0;
 
-	// 比率表示要素を作る
-	const statsEl = document.createElement('div');
-	statsEl.style.pointerEvents = 'none';
-	statsEl.style.position = 'absolute';
-	statsEl.style.bottom = '20px';
-	statsEl.style.right = '20px';
-	statsEl.style.padding = '6px 10px';
-	statsEl.style.background = 'rgba(0,0,0,0.6)';
-	statsEl.style.color = 'white';
-	statsEl.style.borderRadius = '6px';
-	statsEl.style.fontSize = '14px';
-	statsEl.textContent = '投入:0  当たり:0  比率:0%';
-	document.querySelector('.game-container').appendChild(statsEl);
-
-	// --- Matter.js エンジンの初期化 ---
+	// --- Engine and World Setup ---
 	const engine = Engine.create({
-		gravity: { y: (window.CONFIG && window.CONFIG.GRAVITY_Y) ?? 0.6 }
+		gravity: { y: C.GRAVITY_Y ?? 0.6 }
 	});
 	const world = engine.world;
-
 	const render = Render.create({
 		canvas: document.getElementById('pachinko-canvas'),
 		engine: engine,
@@ -60,786 +50,376 @@
 	const runner = Runner.create();
 	Runner.run(runner, engine);
 
-	// --- 壁の作成（床なし） ---
-	const wallOptions = { isStatic: true, render: { visible: false } };
-	Composite.add(world, [
-		Bodies.rectangle(GAME_WIDTH, GAME_HEIGHT / 2, 20, GAME_HEIGHT, wallOptions), // 右
-		Bodies.rectangle(0, GAME_HEIGHT / 2, 20, GAME_HEIGHT, wallOptions)      // 左
-	]);
-
-	// 左右の壁を左右対称に再配置（中央基準）
-	const guideWallOffset = (window.CONFIG && window.CONFIG.GUIDE_WALL_OFFSET) || 30;
-	const guideAngle = (window.CONFIG && window.CONFIG.GUIDE_WALL_ANGLE) || 0.2;
-	const centerX0 = GAME_WIDTH / 2; // 純粋な中央基準
-	Composite.add(world, [
-		Bodies.rectangle(centerX0 - guideWallOffset, 450, 10, 500, { isStatic: true, angle: -guideAngle, render: { fillStyle: '#95a5a6' }, label: 'wall' }),
-		Bodies.rectangle(centerX0 + guideWallOffset, 450, 10, 500, { isStatic: true, angle: guideAngle, render: { fillStyle: '#95a5a6' }, label: 'wall' })
-	]);
-
-	// --- 釘の森を生成 (中央揃えに調整) ---
+	// --- Game Objects ---
 	const pegs = [];
-	// 配置済み位置の記録（Body を作る前に重なりを避けるために使う）
-	const selectedPositions = [];
-	const pegOptions = {
-		isStatic: true, label: 'peg', restitution: 0.8, friction: 0.05,
-		render: { fillStyle: '#bdc3c7' }
-	};
-	const guideOptions = {
-		isStatic: true, label: 'guide', restitution: 0.8, friction: 0.05,
-		render: { fillStyle: '#bdc3c7' }
-	};
-
-	const spacing = (window.CONFIG && window.CONFIG.PEG_SPACING) || 35;
-
-	// チューリップ上部の矩形除外（釘が重なりやすい場所を広めに取り除く）
-	var exclusionRects = [
-		{ x: 120, y: 410, w: 90, h: 60 }, // 左チューリップ上
-		{ x: GAME_WIDTH - 120, y: 410, w: 90, h: 60 } // 右チューリップ上
-	];
-	// 決定的・領域別の釘配置を生成（ランダムなし）
-	function buildPegs(preset) {
-		// remove existing pegs from world and clear array
-		try { if (pegs.length) { Composite.remove(world, pegs); } } catch (e) { }
-		pegs.length = 0;
-		preset = preset || (window.PEG_PRESET || 'default');
-		// support presets: 'default' (current layout), 'none' (no pegs)
-		if (preset === 'none') {
-			// nothing to add
-			return;
-		}
-		// default: previous deterministic placement
-		(function buildDeterministicPegs() {
-			// 既知の障害・役物周辺除外領域
-			const cx = GAME_WIDTH / 2;
-			const leftWM = { x: cx - 80, y: 320, r: 42 };
-			const rightWM = { x: cx + 80, y: 320, r: 42 };
-			const chuckerZone = { x: cx, y: 565, r: 56 };
-			const tulipLeftRect = { x1: 120 - 26, x2: 120 + 26, y1: 430 - 22, y2: 430 + 24 };
-			const tulipRightRect = { x1: (GAME_WIDTH - 120) - 26, x2: (GAME_WIDTH - 120) + 26, y1: 430 - 22, y2: 430 + 24 };
-			// チューリップ柱（フェンス）近傍はさらにマージンを大きく除外
-			const postW = 12, postH = 46, postMargin = 10;
-			const leftPost = { x1: 120 - 22 - postW / 2 - postMargin, x2: 120 - 22 + postW / 2 + postMargin, y1: 450 - postH / 2 - postMargin, y2: 450 + postH / 2 + postMargin };
-			const rightPost = { x1: 120 + 22 - postW / 2 - postMargin, x2: 120 + 22 + postW / 2 + postMargin, y1: 450 - postH / 2 - postMargin, y2: 450 + postH / 2 + postMargin };
-			const leftPostR = { x1: (GAME_WIDTH - 120) - 22 - postW / 2 - postMargin, x2: (GAME_WIDTH - 120) - 22 + postW / 2 + postMargin, y1: 450 - postH / 2 - postMargin, y2: 450 + postH / 2 + postMargin };
-			const rightPostR = { x1: (GAME_WIDTH - 120) + 22 - postW / 2 - postMargin, x2: (GAME_WIDTH - 120) + 22 + postW / 2 + postMargin, y1: 450 - postH / 2 - postMargin, y2: 450 + postH / 2 + postMargin };
-
-			const insideCircle = (x, y, c) => ((x - c.x) ** 2 + (y - c.y) ** 2) < c.r ** 2;
-			const insideRect = (x, y, r) => (x > r.x1 && x < r.x2 && y > r.y1 && y < r.y2);
-			const isExcluded = (x, y) => (
-				insideCircle(x, y, leftWM) || insideCircle(x, y, rightWM) ||
-				insideCircle(x, y, chuckerZone) ||
-				insideRect(x, y, tulipLeftRect) || insideRect(x, y, tulipRightRect) ||
-				insideRect(x, y, leftPost) || insideRect(x, y, rightPost) ||
-				insideRect(x, y, leftPostR) || insideRect(x, y, rightPostR)
-			);
-
-			// helper（表面距離を考慮した追加）
-			const BALL_RADIUS = (window.CONFIG && window.CONFIG.BALL_RADIUS) || 5;
-			const PEG_CLEARANCE = (window.CONFIG && window.CONFIG.PEG_CLEARANCE) || 2; // 表面余裕
-			// 全体で管理する釘半径（設定から上書き可）
-			const PEG_RADIUS = (window.CONFIG && window.CONFIG.PEG_RADIUS) || 3;
-			const addPeg = (x, y, r = PEG_RADIUS) => {
-				if (x < 24 || x > GAME_WIDTH - 24) return; // 壁寄りは除外
-				if (y < 40 || y > 560) return;             // ゲート・へその下は避ける
-				if (isExcluded(x, y)) return;              // 除外領域
-				// 必要な表面間距離（釘表面間） = ボール直径 + クリアランス
-				const requiredSurface = (BALL_RADIUS * 2) + PEG_CLEARANCE;
-				for (const b of pegs) {
-					const dx = b.position.x - x; const dy = b.position.y - y;
-					const centerDist = Math.sqrt(dx * dx + dy * dy) || 1e-6;
-					const existingR = (b.circleRadius) || PEG_RADIUS;
-					const minCenter = existingR + r + requiredSurface; // 中心間の最小距離
-					if (centerDist < minCenter) return; // 表面距離が狭く玉が通れない
-				}
-				pegs.push(Bodies.circle(x, y, r, pegOptions));
-			};
-
-			// 1) 上部〜中層: 斜行ディフューザー格子（左右対称）
-			const xStep = (window.CONFIG && window.CONFIG.PEG_SPACING) || 35;
-			let rowIdx = 0;
-			for (let y = 90; y <= 470; y += 28) {
-				const rowShift = (rowIdx % 2 === 0) ? 0 : xStep / 2; // 行ごとに交互オフセット
-				// 中央から左右へミラーで配置
-				const maxOffset = Math.floor((GAME_WIDTH / 2 - 36) / xStep) * xStep;
-				const centerX = Math.round(GAME_WIDTH / 2);
-				const placeCenterThisRow = (rowIdx % 2 === 0); // 偶数行のみ中央を置く（交互）
-				for (let off = 0; off <= maxOffset; off += xStep) {
-					const pxL = Math.round((GAME_WIDTH / 2) - off - rowShift);
-					const pxR = Math.round((GAME_WIDTH / 2) + off + rowShift);
-					if (off === 0) {
-						if (placeCenterThisRow) {
-							addPeg(centerX, y);
-						} else {
-							// 中央を置かない行でも中央付近に等距離の左右ペグを配置して
-							// 縦の空洞ができないようにする
-							const innerOffset = Math.round(xStep / 2);
-							addPeg(centerX - innerOffset, y);
-							addPeg(centerX + innerOffset, y);
-						}
-					} else {
-						addPeg(pxL, y);
-						addPeg(pxR, y);
-					}
-				}
-				rowIdx++;
-			}
-
-			// 2) 風車周り: 半円弧のディフレクタ（左右対称にミラー）
-			const addArcSym = (cx0, cy0, radius, startDeg, endDeg, stepDeg) => {
-				const points = [];
-				for (let a = startDeg; a <= endDeg; a += stepDeg) {
-					const rad = a * Math.PI / 180;
-					const px = cx0 + Math.cos(rad) * radius;
-					const py = cy0 + Math.sin(rad) * radius;
-					points.push({ x: px, y: py });
-				}
-				// add points and their mirror around center
-				points.forEach(p => { addPeg(Math.round(p.x), Math.round(p.y)); const mx = Math.round(GAME_WIDTH - p.x); addPeg(mx, Math.round(p.y)); });
-			};
-			// build an arc on the upper part and mirror it
-			addArcSym(leftWM.x, leftWM.y, 58, -120, -20, 20);
-
-			// 3) へそへのファンネル: V字＋準垂直列（ここだけ垂直を許容）
-			// 内側V字（へそに収束）
-			for (let k = 0; k < 5; k++) {
-				addPeg(cx - 60 + k * 6, 500 + k * 12); // 左内側斜列
-				addPeg(cx + 60 - k * 6, 500 + k * 12); // 右内側斜列
-			}
-			// 外側の軽い妨害／整流（準垂直）
-			[cx - 86, cx + 86].forEach(ix => {
-				[500, 516, 532].forEach(iy => addPeg(ix, iy));
-			});
-
-			// 3a) へそ周りをもう少し密にする（安全なリングとスタガーで誘導）
-			// small inner ring (smaller pegs) and a staggered outer ring
-			(function addHesoCluster() {
-				const ringCenter = { x: cx, y: 565 };
-				const innerR = 28; // 内側の半径
-				const outerR = 44; // 外側の半径
-				const innerCount = 8;
-				const outerCount = 12;
-				for (let i = 0; i < innerCount; i++) {
-					const ang = (i / innerCount) * Math.PI * 2 + 0.2; // slight rotation
-					const px = Math.round(ringCenter.x + Math.cos(ang) * innerR);
-					const py = Math.round(ringCenter.y + Math.sin(ang) * innerR - 6); // 少し上め
-					addPeg(px, py);
-				}
-				for (let i = 0; i < outerCount; i++) {
-					const ang = (i / outerCount) * Math.PI * 2 + ((i % 2) ? 0.15 : -0.15);
-					const px = Math.round(ringCenter.x + Math.cos(ang) * outerR);
-					const py = Math.round(ringCenter.y + Math.sin(ang) * outerR - 2);
-					addPeg(px, py);
-				}
-				// two small guiding pegs just above the chucker mouth
-				addPeg(ringCenter.x - 18, ringCenter.y - 22);
-				addPeg(ringCenter.x + 18, ringCenter.y - 22);
-			})();
-
-			// 3b) チューカ―（オレンジ当たり）真上の釘列を追加
-			// ここでは chucker の exclusion を無視して配置するが、釘間の表面クリアランスは守る
-			(function addChuckerTopPegs() {
-				const center = { x: cx, y: 580 };
-				const pairs = [
-					{ lx: center.x - 40, ly: center.y - 42, rx: center.x + 40, ry: center.y - 42 },
-					{ lx: center.x - 24, ly: center.y - 48, rx: center.x + 24, ry: center.y - 48 },
-					{ lx: center.x - 8, ly: center.y - 54, rx: center.x + 8, ry: center.y - 54 }
-				];
-				const r = PEG_RADIUS;
-				const BALL_RADIUS = (window.CONFIG && window.CONFIG.BALL_RADIUS) || 5;
-				const PEG_CLEARANCE = (window.CONFIG && window.CONFIG.PEG_CLEARANCE) || 2;
-				const requiredSurface = (BALL_RADIUS * 2) + PEG_CLEARANCE;
-				// attempt to add symmetric pairs only when both sides pass clearance
-				for (const pr of pairs) {
-					const left = { x: Math.round(pr.lx), y: Math.round(pr.ly) };
-					const right = { x: Math.round(pr.rx), y: Math.round(pr.ry) };
-					if (left.x < 24 || right.x > GAME_WIDTH - 24) continue;
-					if (left.y < 40 || left.y > 560 || right.y < 40 || right.y > 560) continue;
-					let okL = true, okR = true;
-					// check left against existing pegs and also against the right candidate
-					for (const b of pegs) {
-						const dx = b.position.x - left.x, dy = b.position.y - left.y;
-						const centerDist = Math.sqrt(dx * dx + dy * dy) || 1e-6;
-						const existingR = (b.circleRadius) || 4;
-						const minCenter = existingR + r + requiredSurface;
-						if (centerDist < minCenter) { okL = false; break; }
-					}
-					for (const b of pegs) {
-						const dx = b.position.x - right.x, dy = b.position.y - right.y;
-						const centerDist = Math.sqrt(dx * dx + dy * dy) || 1e-6;
-						const existingR = (b.circleRadius) || 4;
-						const minCenter = existingR + r + requiredSurface;
-						if (centerDist < minCenter) { okR = false; break; }
-					}
-					// also ensure left-right pair clearance
-					const dxLR = left.x - right.x, dyLR = left.y - right.y;
-					const centerDistLR = Math.sqrt(dxLR * dxLR + dyLR * dyLR) || 1e-6;
-					if (centerDistLR < (r + r + requiredSurface)) { okL = okR = false; }
-					if (okL && okR) {
-						pegs.push(Bodies.circle(left.x, left.y, r, pegOptions));
-						pegs.push(Bodies.circle(right.x, right.y, r, pegOptions));
-					}
-				}
-			})();
-
-			// 4) チューリップ周辺: 斜列のサドル（左右対称に配置）
-			const tulipOffsets = [-38, -18, 2];
-			const rx = GAME_WIDTH - 120;
-			tulipOffsets.forEach(off => { addPeg(120 + off, 415 + (off === 2 ? 20 : 0)); addPeg(rx - off, 415 + (off === 2 ? 20 : 0)); });
-
-			// 4a) チューリップ入口の真上に斜めのガード列を追加して当たり率を下げる
-			(function addTulipTopGuards() {
-				const topRows = 3; // 3段分
-				const stepY = 14;
-				for (let i = 0; i < topRows; i++) {
-					// 左側斜め列（右下へ傾ける）
-					addPeg(120 - 8 - i * 6, 395 + i * stepY);
-					addPeg(120 + 8 - i * 6, 395 + i * stepY + 6);
-					// 右側斜め列（左下へ傾ける）
-					addPeg(rx + 8 + i * 6, 395 + i * stepY);
-					addPeg(rx - 8 + i * 6, 395 + i * stepY + 6);
-				}
-			})();
-
-			// まとめて追加
-			if (pegs.length) Composite.add(world, pegs);
-		})();
-	}
-
-	// Expose preset and setter for runtime switching
-	// Default to 'none' so pegs are off unless overridden
-	window.PEG_PRESET = window.PEG_PRESET || 'default';
-	window.setPegPreset = function (name) {
-		window.PEG_PRESET = name || 'default';
-		buildPegs(window.PEG_PRESET);
-		return window.PEG_PRESET;
-	};
-
-	// Build initial pegs according to preset
-	buildPegs(window.PEG_PRESET || 'default');
-
-	// --- Editor API for runtime placement / manipulation ---
-	window.EDITOR = window.EDITOR || {};
-	window.EDITOR.getPegs = function () {
-		return pegs.map(b => ({ x: b.position.x, y: b.position.y, r: (b.circleRadius || ((window.CONFIG && window.CONFIG.PEG_RADIUS) || 3)) }));
-	};
-	window.EDITOR.clearPegs = function () {
-		try { if (pegs.length) Composite.remove(world, pegs); } catch (e) { }
-		pegs.length = 0;
-	};
-	window.EDITOR.addPeg = function (x, y, r) {
-		const rr = r || ((window.CONFIG && window.CONFIG.PEG_RADIUS) || 3);
-		const b = Bodies.circle(Math.round(x), Math.round(y), rr, pegOptions);
-		pegs.push(b);
-		Composite.add(world, b);
-		return b;
-	};
-	window.EDITOR.removePegAt = function (x, y, threshold) {
-		threshold = typeof threshold === 'number' ? threshold : 12;
-		let best = -1, bestd = Infinity;
-		for (let i = 0; i < pegs.length; i++) {
-			const p = pegs[i];
-			const dx = p.position.x - x, dy = p.position.y - y;
-			const d = Math.sqrt(dx * dx + dy * dy);
-			if (d < bestd) { bestd = d; best = i; }
-		}
-		if (best >= 0 && bestd <= threshold) {
-			Composite.remove(world, pegs[best]);
-			pegs.splice(best, 1);
-			return true;
-		}
-		return false;
-	};
-	// Find the actual peg body near x,y (returns body or null)
-	window.EDITOR.findPegUnder = function (x, y, threshold) {
-		threshold = typeof threshold === 'number' ? threshold : 12;
-		let best = -1, bestd = Infinity;
-		for (let i = 0; i < pegs.length; i++) {
-			const p = pegs[i];
-			const dx = p.position.x - x, dy = p.position.y - y;
-			const d = Math.sqrt(dx * dx + dy * dy);
-			if (d < bestd) { bestd = d; best = i; }
-		}
-		if (best >= 0 && bestd <= threshold) return pegs[best];
-		return null;
-	};
-	// Remove a peg by body reference
-	window.EDITOR.removePeg = function (body) {
-		if (!body) return false;
-		const idx = pegs.indexOf(body);
-		if (idx === -1) return false;
-		Composite.remove(world, pegs[idx]);
-		pegs.splice(idx, 1);
-		return true;
-	};
-	// Modify peg render color for visual selection
-	window.EDITOR.setPegColor = function (body, color) {
-		if (!body) return false;
-		try { body.render = body.render || {}; body.render.fillStyle = color; return true; } catch (e) { return false; }
-	};
-	window.EDITOR.exportPegs = function () { return JSON.stringify(window.EDITOR.getPegs()); };
-	window.EDITOR.importPegs = function (list) {
-		try {
-			if (typeof list === 'string') list = JSON.parse(list);
-			if (!Array.isArray(list)) return false;
-			window.EDITOR.clearPegs();
-			for (const it of list) { window.EDITOR.addPeg(it.x, it.y, it.r); }
-			return true;
-		} catch (e) { return false; }
-	};
-	window.EDITOR.setTulipPos = function (leftX, rightX, y) {
-		try {
-			if (typeof tulipLeft !== 'undefined' && typeof tulipRight !== 'undefined') {
-				Body.setPosition(tulipLeft, { x: leftX, y: (y || tulipLeft.position.y) });
-				Body.setPosition(tulipRight, { x: rightX, y: (y || tulipRight.position.y) });
-			}
-		} catch (e) { }
-	};
-	window.EDITOR.setChuckerPos = function (x, y) {
-		try { if (typeof startChucker !== 'undefined') Body.setPosition(startChucker, { x: x, y: (y || startChucker.position.y) }); } catch (e) { }
-	};
-
-	// 役物周りの追加釘も一旦削除する（必要な位置情報だけ残す）
-	const centerX = GAME_WIDTH / 2;
-	const barrierY = 540; // startChucker の少し上 (位置情報を保持)
-	const barrierSpacing = 30;
-	const tulipY = 430; // tulip の少し上
-	const tulipLeftX = 120;
-	const tulipRightX = GAME_WIDTH - 120;
-	const tulipGuardOffset = 18;
-
-	// 釘の全削除ルールに合わせ、チューリップ上部のガイド釘も生成しない
-
-	// --- 左右の回転ゲート（ピンボール風） ---
 	const gates = [];
-	const gateY = 520; // 役物上部
-	const gateOffsetX = 44;
-	const gateLength = 60;
-	const gateHalf = gateLength / 2;
-	// left pivot
-	const leftPivot = { x: (GAME_WIDTH / 2) - gateOffsetX, y: gateY };
-	const leftCenter = { x: leftPivot.x + Math.sin(-1.0) * gateHalf, y: leftPivot.y - Math.cos(-1.0) * gateHalf };
-	const leftGate = Bodies.rectangle(leftCenter.x, leftCenter.y, 10, gateLength, { isStatic: true, label: 'gate', render: { fillStyle: '#c0392b' } });
-	Body.setAngle(leftGate, -1.0);
-	// right pivot
-	const rightPivot = { x: (GAME_WIDTH / 2) + gateOffsetX, y: gateY };
-	const rightCenter = { x: rightPivot.x + Math.sin(1.0) * gateHalf, y: rightPivot.y - Math.cos(1.0) * gateHalf };
-	const rightGate = Bodies.rectangle(rightCenter.x, rightCenter.y, 10, gateLength, { isStatic: true, label: 'gate', render: { fillStyle: '#c0392b' } });
-	Body.setAngle(rightGate, 1.0);
-	Composite.add(world, [leftGate, rightGate]);
-	// openAngle は斜め上、closedAngle は水平寄り
-	const OPEN_ANGLE = (window.CONFIG && window.CONFIG.GATE_OPEN_ANGLE) || 2.3;
-	const CLOSED_ANGLE = (window.CONFIG && window.CONFIG.GATE_CLOSED_ANGLE) || 0.3;
-	// 起動時は「閉」で配置
-	const leftCenter2 = { x: leftPivot.x + Math.sin(-CLOSED_ANGLE) * gateHalf, y: leftPivot.y - Math.cos(-CLOSED_ANGLE) * gateHalf };
-	Body.setPosition(leftGate, leftCenter2);
-	Body.setAngle(leftGate, -CLOSED_ANGLE);
-	const rightCenter2 = { x: rightPivot.x + Math.sin(CLOSED_ANGLE) * gateHalf, y: rightPivot.y - Math.cos(CLOSED_ANGLE) * gateHalf };
-	Body.setPosition(rightGate, rightCenter2);
-	Body.setAngle(rightGate, CLOSED_ANGLE);
-	gates.push({ body: leftGate, pivot: leftPivot, length: gateLength, targetAngle: -OPEN_ANGLE, closedAngle: -CLOSED_ANGLE, openAngle: -OPEN_ANGLE });
-	gates.push({ body: rightGate, pivot: rightPivot, length: gateLength, targetAngle: OPEN_ANGLE, closedAngle: CLOSED_ANGLE, openAngle: OPEN_ANGLE });
-
-	// ゲートサイクル
-	const GATE_OPEN_MS = (window.CONFIG && window.CONFIG.GATE_OPEN_MS) || 800;   // 短く開く
-	const GATE_CLOSED_MS = (window.CONFIG && window.CONFIG.GATE_CLOSED_MS) || 300; // 閉
-	function setGatesOpen(open) {
-		gates.forEach(g => { g.targetAngle = open ? g.openAngle : g.closedAngle; });
-	}
-	function startGateCycle() {
-		setGatesOpen(false);
-		simTimeout(() => {
-			setGatesOpen(true);
-			simTimeout(() => {
-				setGatesOpen(false);
-				simTimeout(startGateCycle, GATE_CLOSED_MS);
-			}, GATE_OPEN_MS);
-		}, 120);
-	}
-	startGateCycle();
-
-	// --- 外れゾーン（センサー）を画面下部に配置 ---
-	// 筐体の下に床を置かず、下方向へ落ちた玉はここで検出して消す挙動にする
-	const missZoneWidth = GAME_WIDTH - 40; // 壁を避けつつ十分な幅
-	const missZoneHeight = 6;
-	const missZoneY = GAME_HEIGHT - 20;
-	// 床用の外れゾーン（免疫を無視して全玉を粉砕する）
-	const missZone = Bodies.rectangle(GAME_WIDTH / 2, missZoneY, missZoneWidth, missZoneHeight, {
-		isStatic: true, isSensor: true, label: 'floorMissZone', render: { fillStyle: 'rgba(192,57,43,0.12)', strokeStyle: 'rgba(192,57,43,0.25)' }
-	});
-	// 元々あった中央の外れゾーンも復活させる（互いに同じラベルにして扱いを統一する）
-	const centerMissZone = Bodies.rectangle(GAME_WIDTH / 2, 230, 40, 5, {
-		isStatic: true, isSensor: true, label: 'missZone', render: { fillStyle: 'rgba(192,57,43,0.35)', strokeStyle: 'rgba(192,57,43,0.7)' }
-	});
-	Composite.add(world, [missZone, centerMissZone]);
-
-	// --- 風車（回転障害） ---
 	const windmills = [];
-	function createWindmill(cx, cy, blades = 4, radius = 70, bladeW = 8, bladeH = 60, speed = 0.06, color = '#f39c12') {
-		const parts = [];
-		const hub = Bodies.circle(cx, cy, 6, { isStatic: true, restitution: 0.8, render: { fillStyle: '#7f8c8d' } });
-		parts.push(hub);
-		for (let i = 0; i < blades; i++) {
-			const angle = (i / blades) * Math.PI * 2;
-			const bx = cx + Math.cos(angle) * (radius / 2);
-			const by = cy + Math.sin(angle) * (radius / 2);
-			const blade = Bodies.rectangle(bx, by, bladeH, bladeW, { isStatic: true, restitution: 0.8, render: { fillStyle: color } });
-			Body.setAngle(blade, angle);
-			parts.push(blade);
+
+	// --- Create Game Elements ---
+
+	function createWalls() {
+		const wallOptions = { isStatic: true, render: { visible: false } };
+		Composite.add(world, [
+			Bodies.rectangle(GAME_WIDTH, GAME_HEIGHT / 2, 20, GAME_HEIGHT, wallOptions), // Right
+			Bodies.rectangle(0, GAME_HEIGHT / 2, 20, GAME_HEIGHT, wallOptions)      // Left
+		]);
+
+		const guideWallOffset = C.GUIDE_WALL_OFFSET ?? 30;
+		const guideAngle = C.GUIDE_WALL_ANGLE ?? 0.2;
+		const wallLayout = L.walls;
+		const centerX = GAME_WIDTH / 2;
+		Composite.add(world, [
+			Bodies.rectangle(centerX - guideWallOffset, wallLayout.guideY, wallLayout.guideWidth, wallLayout.guideHeight, { isStatic: true, angle: -guideAngle, render: { fillStyle: wallLayout.color }, label: 'wall' }),
+			Bodies.rectangle(centerX + guideWallOffset, wallLayout.guideY, wallLayout.guideWidth, wallLayout.guideHeight, { isStatic: true, angle: guideAngle, render: { fillStyle: wallLayout.color }, label: 'wall' })
+		]);
+	}
+
+	function createMissZones() {
+		const floorZone = L.missZones.floor;
+		const centerZone = L.missZones.center;
+		const floorMissZone = Bodies.rectangle(GAME_WIDTH / 2, GAME_HEIGHT + floorZone.y_offset, GAME_WIDTH - 40, 6, {
+			isStatic: true, isSensor: true, label: 'floorMissZone', render: { fillStyle: floorZone.color, strokeStyle: floorZone.stroke }
+		});
+		const centerMissZone = Bodies.rectangle(GAME_WIDTH / 2, centerZone.y, centerZone.width, centerZone.height, {
+			isStatic: true, isSensor: true, label: 'missZone', render: { fillStyle: centerZone.color, strokeStyle: centerZone.stroke }
+		});
+		Composite.add(world, [floorMissZone, centerMissZone]);
+	}
+
+	function createWindmills() {
+		const WM = C.WINDMILL;
+		const layout = L.windmills;
+		const baseSpeed = WM.baseSpeed ?? 0.08;
+		const centerX = GAME_WIDTH / 2;
+
+		const createWindmill = (cx, cy, speed) => {
+			const compound = Body.create({
+				parts: [
+					Bodies.circle(cx, cy, 6, { isStatic: true, restitution: 0.8, render: { fillStyle: WM.hubColor } }),
+					...Array.from({ length: WM.blades }, (_, i) => {
+						const angle = (i / WM.blades) * Math.PI * 2;
+						const bx = cx + Math.cos(angle) * (WM.radius / 2);
+						const by = cy + Math.sin(angle) * (WM.radius / 2);
+						const blade = Bodies.rectangle(bx, by, WM.bladeH, WM.bladeW, { isStatic: true, restitution: 0.8, render: { fillStyle: WM.color } });
+						Body.setAngle(blade, angle);
+						return blade;
+					})
+				],
+				isStatic: true,
+				label: 'windmill'
+			});
+			Composite.add(world, compound);
+			windmills.push({ body: compound, speed });
+		};
+
+		createWindmill(centerX - layout.offsetX, layout.y, baseSpeed * (WM.leftCW ? 1 : -1));
+		createWindmill(centerX + layout.offsetX, layout.y, baseSpeed * (WM.rightCW ? 1 : -1));
+		if (C.ENABLE_CENTER_WINDMILL) {
+			createWindmill(centerX, layout.centerY, baseSpeed * (WM.centerCW ? 1 : -1));
 		}
-		const compound = Body.create({ parts: parts, isStatic: true, label: 'windmill' });
-		Composite.add(world, compound);
-		windmills.push({ body: compound, speed });
 	}
 
-	const centerXWind = GAME_WIDTH / 2;
-	const WM = (window.CONFIG && window.CONFIG.WINDMILL) || {};
-	const ENABLE_CENTER_WINDMILL = (window.CONFIG && window.CONFIG.ENABLE_CENTER_WINDMILL) || false;
-	const baseSpeed = (WM.baseSpeed) || 0.08;
-	const leftSpeed = baseSpeed * (WM.leftCW ? 1 : -1);
-	const rightSpeed = baseSpeed * (WM.rightCW ? 1 : -1);
-	const centerSpeed = baseSpeed * (WM.centerCW ? 1 : -1);
-	createWindmill(centerXWind - 80, 320, WM.blades || 4, WM.radius || 40, WM.bladeW || 8, WM.bladeH || 40, leftSpeed, WM.color || '#f39c12');
-	createWindmill(centerXWind + 80, 320, WM.blades || 4, WM.radius || 40, WM.bladeW || 8, WM.bladeH || 40, rightSpeed, WM.color || '#f39c12');
-	if (ENABLE_CENTER_WINDMILL) {
-		createWindmill(centerXWind, 470, WM.blades || 4, WM.radius || 40, 6, WM.bladeH || 40, centerSpeed, WM.color || '#f39c12');
-		if (windmills.length) windmills[windmills.length - 1].isCenter = true;
+	function createGates() {
+		const layout = L.gates;
+		const gateHalf = layout.length / 2;
+
+		const createGate = (side) => {
+			const pivot = { x: (GAME_WIDTH / 2) + (side === 'left' ? -layout.offsetX : layout.offsetX), y: layout.y };
+			const closedAngle = (side === 'left' ? -1 : 1) * C.GATE_CLOSED_ANGLE;
+			const openAngle = (side === 'left' ? -1 : 1) * C.GATE_OPEN_ANGLE;
+			const center = { x: pivot.x - Math.sin(closedAngle) * gateHalf, y: pivot.y + Math.cos(closedAngle) * gateHalf };
+			const gateBody = Bodies.rectangle(center.x, center.y, layout.width, layout.length, { isStatic: true, label: 'gate', render: { fillStyle: layout.color } });
+			Body.setAngle(gateBody, closedAngle);
+			Composite.add(world, gateBody);
+			gates.push({ body: gateBody, pivot, length: layout.length, targetAngle: openAngle, closedAngle, openAngle });
+		};
+
+		createGate('left');
+		createGate('right');
+
+		function setGatesOpen(open) {
+			gates.forEach(g => { g.targetAngle = open ? g.openAngle : g.closedAngle; });
+		}
+		function startGateCycle() {
+			setGatesOpen(false);
+			simTimeout(() => {
+				setGatesOpen(true);
+				simTimeout(() => {
+					setGatesOpen(false);
+					simTimeout(startGateCycle, C.GATE_CLOSED_MS);
+				}, C.GATE_OPEN_MS);
+			}, 120);
+		}
+		startGateCycle();
 	}
 
-	// 回転を毎フレーム適用
-	Events.on(engine, 'beforeUpdate', () => {
-		windmills.forEach(w => {
-			Body.setAngle(w.body, w.body.angle + w.speed);
+	function createFeatures() {
+		const centerX = GAME_WIDTH / 2;
+		const layout = L.features;
+		const chucker = layout.chucker;
+		const tulip = layout.tulip;
+
+		const startChucker = Bodies.rectangle(centerX, chucker.y, chucker.width, chucker.height, { isStatic: true, isSensor: true, label: 'startChucker', render: { fillStyle: chucker.color } });
+		const tulipLeft = Bodies.rectangle(tulip.x, tulip.y, tulip.width, tulip.height, { isStatic: true, isSensor: true, label: 'tulip', render: { fillStyle: tulip.color } });
+		const tulipRight = Bodies.rectangle(GAME_WIDTH - tulip.x, tulip.y, tulip.width, tulip.height, { isStatic: true, isSensor: true, label: 'tulip', render: { fillStyle: tulip.color } });
+		Composite.add(world, [startChucker, tulipLeft, tulipRight]);
+
+		// Fences
+		const cf = layout.chuckerFence;
+		const tf = layout.tulipFence;
+		Composite.add(world, [
+			Bodies.rectangle(centerX - cf.offsetX, cf.y, cf.thickness, cf.height, { isStatic: true, render: { fillStyle: layout.fenceColor } }),
+			Bodies.rectangle(centerX + cf.offsetX, cf.y, cf.thickness, cf.height, { isStatic: true, render: { fillStyle: layout.fenceColor } }),
+			Bodies.rectangle(tulip.x - tf.offsetX, tf.y, tf.thickness, tf.height, { isStatic: true, render: { fillStyle: layout.fenceColor } }),
+			Bodies.rectangle(tulip.x + tf.offsetX, tf.y, tf.thickness, tf.height, { isStatic: true, render: { fillStyle: layout.fenceColor } }),
+			Bodies.rectangle(GAME_WIDTH - tulip.x - tf.offsetX, tf.y, tf.thickness, tf.height, { isStatic: true, render: { fillStyle: layout.fenceColor } }),
+			Bodies.rectangle(GAME_WIDTH - tulip.x + tf.offsetX, tf.y, tf.thickness, tf.height, { isStatic: true, render: { fillStyle: layout.fenceColor } })
+		]);
+	}
+
+	// --- Peg Generation ---
+	function buildPegs(preset) {
+		if (pegs.length) Composite.remove(world, pegs);
+		pegs.length = 0;
+		preset = preset || window.PEG_PRESET || 'default';
+		if (preset === 'none') return;
+
+		const layout = L.pegs;
+		const pegOptions = { isStatic: true, label: 'peg', restitution: 0.8, friction: 0.05, render: { fillStyle: layout.color } };
+		const requiredSurface = (C.BALL_RADIUS * 2) + C.PEG_CLEARANCE;
+		const centerX = GAME_WIDTH / 2;
+
+		const exclusionZones = (layout.exclusionZones || []).map(z => {
+			if (z.type === 'circle') return { ...z, x: centerX + (z.x_offset || 0) };
+			if (z.type === 'rect' && z.x_right) return { ...z, x: GAME_WIDTH - z.x_right };
+			return z;
 		});
 
-		// 回転ゲートの角度補間
-		if (typeof gates !== 'undefined') {
-			gates.forEach(g => {
-				const ang = g.body.angle;
-				const d = g.targetAngle - ang;
-				if (Math.abs(d) > 0.001) {
-					const newAng = ang + d * 0.25;
-					const half = g.length / 2;
-					const cx = g.pivot.x - Math.sin(newAng) * half;
-					const cy = g.pivot.y + Math.cos(newAng) * half;
-					Body.setPosition(g.body, { x: cx, y: cy });
-					Body.setAngle(g.body, newAng);
+		const isExcluded = (x, y) => exclusionZones.some(z =>
+			(z.type === 'circle' && ((x - z.x) ** 2 + (y - z.y) ** 2) < z.r ** 2) ||
+			(z.type === 'rect' && (x > z.x - z.w / 2 && x < z.x + z.w / 2 && y > z.y - z.h / 2 && y < z.y + z.h / 2))
+		);
+
+		const addPeg = (x, y, r = C.PEG_RADIUS) => {
+			if (x < layout.x_margin || x > GAME_WIDTH - layout.x_margin || y < layout.y_margin_top || y > layout.y_margin_bottom || isExcluded(x, y)) return;
+			for (const b of pegs) {
+				const dx = b.position.x - x;
+				const dy = b.position.y - y;
+				const centerDist = Math.hypot(dx, dy);
+				const minCenter = (b.circleRadius || C.PEG_RADIUS) + r + requiredSurface;
+				if (centerDist < minCenter) return;
+			}
+			pegs.push(Bodies.circle(x, y, r, pegOptions));
+		};
+
+		const xStep = C.PEG_SPACING;
+		for (let y = layout.y_start, rowIdx = 0; y <= layout.y_end; y += layout.y_step, rowIdx++) {
+			const rowShift = (rowIdx % 2 === 0) ? 0 : xStep / 2;
+			const maxOffset = Math.floor((centerX - 36) / xStep) * xStep;
+			for (let off = 0; off <= maxOffset; off += xStep) {
+				if (off === 0) {
+					if (rowIdx % 2 === 0) addPeg(centerX, y);
+					else { addPeg(centerX - xStep / 2, y); addPeg(centerX + xStep / 2, y); }
+				} else {
+					addPeg(centerX - off - rowShift, y);
+					addPeg(centerX + off + rowShift, y);
 				}
-			});
+			}
 		}
-	});
 
-	// --- 役物（やくもの）の作成 ---
-	const startChucker = Bodies.rectangle(GAME_WIDTH / 2, 580, 36, 10, {
-		isStatic: true, isSensor: true, label: 'startChucker', render: { fillStyle: '#e67e22' }
-	});
-	const tulipLeft = Bodies.rectangle(120, 450, 32, 10, {
-		isStatic: true, isSensor: true, label: 'tulip', render: { fillStyle: '#3498db' }
-	});
-	const tulipRight = Bodies.rectangle(GAME_WIDTH - 120, 450, 32, 10, {
-		isStatic: true, isSensor: true, label: 'tulip', render: { fillStyle: '#3498db' }
-	});
-	Composite.add(world, [startChucker, tulipLeft, tulipRight]);
-
-	// 役物左右のフェンス
-	const fenceHeight = 40;
-	const fenceThickness = 6;
-	const fenceOffsetX = 26;
-	const leftFence = Bodies.rectangle((GAME_WIDTH / 2) - fenceOffsetX, 560, fenceThickness, fenceHeight, { isStatic: true, render: { fillStyle: '#7f8c8d' } });
-	const rightFence = Bodies.rectangle((GAME_WIDTH / 2) + fenceOffsetX, 560, fenceThickness, fenceHeight, { isStatic: true, render: { fillStyle: '#7f8c8d' } });
-	const tulipFenceY = 450;
-	const tulipFenceOffset = 22;
-	const tulipLeftFenceL = Bodies.rectangle(tulipLeft.position.x - tulipFenceOffset, tulipFenceY, fenceThickness, 36, { isStatic: true, render: { fillStyle: '#7f8c8d' } });
-	const tulipLeftFenceR = Bodies.rectangle(tulipLeft.position.x + tulipFenceOffset, tulipFenceY, fenceThickness, 36, { isStatic: true, render: { fillStyle: '#7f8c8d' } });
-	const tulipRightFenceL = Bodies.rectangle(tulipRight.position.x - tulipFenceOffset, tulipFenceY, fenceThickness, 36, { isStatic: true, render: { fillStyle: '#7f8c8d' } });
-	const tulipRightFenceR = Bodies.rectangle(tulipRight.position.x + tulipFenceOffset, tulipFenceY, fenceThickness, 36, { isStatic: true, render: { fillStyle: '#7f8c8d' } });
-	Composite.add(world, [leftFence, rightFence, tulipLeftFenceL, tulipLeftFenceR, tulipRightFenceL, tulipRightFenceR]);
-
-	// --- ゲームロジック ---
-	function createDebris(x, y, color) {
-		const debrisCount = 8;
-		const debris = [];
-		for (let i = 0; i < debrisCount; i++) {
-			const angle = Math.random() * Math.PI * 2;
-			const speed = 3 + Math.random() * 4;
-			const particle = Bodies.circle(x, y, 1 + Math.random() * 2, {
-				label: 'debris',
-				friction: 0.05,
-				restitution: 0.4,
-				render: { fillStyle: color },
-				collisionFilter: { group: -1 }
-			});
-			Body.setVelocity(particle, { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed - 2 });
-			debris.push(particle);
-		}
-		Composite.add(world, debris);
-		try { if (window.AudioBus) { AudioBus.sfxSimple({ freq: 200, type: 'triangle', gain: 0.15, dur: 0.04 }); } } catch (e) { }
-		// remove debris after a short time, scaled by simulation speed
-		simTimeout(() => { Composite.remove(world, debris); }, 200);
+		if (pegs.length) Composite.add(world, pegs);
 	}
 
-	// Simulation time scaling helpers. window.__SIM_SPEED defaults to 1 (real-time)
-	window.__SIM_SPEED = window.__SIM_SPEED || 1;
-	function simDelay(ms) { const s = (window.__SIM_SPEED && window.__SIM_SPEED > 0) ? window.__SIM_SPEED : 1; return Math.max(0, ms / s); }
-	function simTimeout(fn, ms) { return setTimeout(fn, simDelay(ms)); }
-	// Expose setter so dev-tools can change engine.timeScale and the delay scaler
-	window.setSimSpeed = function (factor) {
-		// adjust only our sim speed scalar and do NOT touch engine.timing.timeScale
-		const prev = (window.__SIM_SPEED || 1);
-		window.__SIM_SPEED = (factor && factor > 0) ? factor : 1;
-		return prev;
-	};
-
-	function startDropping() {
-		if (dropInterval) return;
-		dropInterval = setInterval(dropBall, (window.CONFIG && window.CONFIG.DROP_INTERVAL_MS) || 100);
-	}
-	function stopDropping() {
-		clearInterval(dropInterval);
-		dropInterval = null;
-	}
-
+	// --- Game Logic ---
 	function dropBall(options = {}) {
 		const randomX = GAME_WIDTH / 2 + (Math.random() - 0.5) * 100;
-		const color = options.isNavy ? '#ffd700' : (options.fromBlue ? '#3498db' : '#ecf0f1');
-		// ボール同士の干渉を切り替えるフラグ（true = 衝突あり）
-		const BALLS_INTERACT = (window.CONFIG && typeof window.CONFIG.BALLS_INTERACT !== 'undefined') ? window.CONFIG.BALLS_INTERACT : true;
-		// 衝突グループ: 衝突を無効にする場合は負の同一グループを与える
-		const ballCollision = BALLS_INTERACT ? {} : { collisionFilter: { group: -Math.max(1, Math.floor((window.CONFIG && window.CONFIG.BALL_GROUP_ID) || 1000)) } };
-		const ball = Bodies.circle(randomX, -20, (window.CONFIG && window.CONFIG.BALL_RADIUS) || 5, Object.assign({
+		const colors = L.ballColors;
+		const color = options.isNavy ? colors.fromNavy : (options.fromBlue ? colors.fromBlue : colors.default);
+		const ballCollision = C.BALLS_INTERACT ? {} : { collisionFilter: { group: -C.BALL_GROUP_ID } };
+
+		const ball = Bodies.circle(randomX, -20, C.BALL_RADIUS, {
 			label: 'ball', restitution: 0.9, friction: 0.05,
-			render: { fillStyle: color }
-		}, ballCollision));
-		if (options.fromBlue) {
-			ball.isFromBlue = true;
-			ball.isImmuneToMiss = true;
-		}
-		if (options.isNavy) {
-			ball.isNavy = true;
-			ball.isImmuneToMiss = true;
-			ball.isFromBlue = true; // 紺碧も青扱い
-		}
+			render: { fillStyle: color },
+			...ballCollision
+		});
+
+		if (options.fromBlue) ball.isFromBlue = true;
+		if (options.isNavy) ball.isNavy = true;
+		if (options.fromBlue || options.isNavy) ball.isImmuneToMiss = true;
+
 		Composite.add(world, ball);
-		totalDrops++;
+		gameState.totalDrops++;
 		updateStats();
 	}
 
-	// runBatchDrop and drop2500 moved to src/js/dev-tools.js
-
-	dropButton.addEventListener('mousedown', startDropping);
-	dropButton.addEventListener('mouseup', stopDropping);
-	dropButton.addEventListener('mouseleave', stopDropping);
-	dropButton.addEventListener('touchstart', (e) => { e.preventDefault(); startDropping(); });
-	dropButton.addEventListener('touchend', (e) => { e.preventDefault(); stopDropping(); });
-
-	let spaceDown = false;
-	window.addEventListener('keydown', (e) => {
-		if (e.code === 'Space') {
-			e.preventDefault();
-			if (!spaceDown) { spaceDown = true; startDropping(); }
-		}
-	});
-	window.addEventListener('keyup', (e) => {
-		if (e.code === 'Space') {
-			e.preventDefault();
-			spaceDown = false; stopDropping();
-		}
-	});
-
-	function isTopHit(ball, target) {
-		if (!ball || !target) return false;
-		if (!ball.velocity || ball.velocity.y <= 0.2) return false; // 下向きか
-		if (!(ball.position.y < target.position.y - 6)) return false; // ある程度上から
-		return true;
+	function createDebris(x, y, color) {
+		const debris = Array.from({ length: 8 }, () => {
+			const angle = Math.random() * Math.PI * 2;
+			const speed = 3 + Math.random() * 4;
+			const particle = Bodies.circle(x, y, 1 + Math.random() * 2, {
+				label: 'debris', friction: 0.05, restitution: 0.4,
+				render: { fillStyle: color }, collisionFilter: { group: -1 }
+			});
+			Body.setVelocity(particle, { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed - 2 });
+			return particle;
+		});
+		Composite.add(world, debris);
+		playSound('debris');
+		simTimeout(() => Composite.remove(world, debris), 200);
 	}
 
-	Events.on(engine, 'collisionStart', (event) => {
-		event.pairs.forEach(pair => {
-			const { bodyA, bodyB } = pair;
-			let ball, other;
-			if (bodyA.label === 'ball') { ball = bodyA; other = bodyB; }
-			else if (bodyB.label === 'ball') { ball = bodyB; other = bodyA; }
-			else return;
+	function handleHit(ball, type) {
+		if (!ball || ball.isHitting) return;
 
-			switch (other.label) {
-				case 'windmill': {
-					const dx = ball.position.x - other.position.x;
-					const dy = ball.position.y - other.position.y;
-					const len = Math.sqrt(dx * dx + dy * dy) || 1;
-					const forceScale = 0.2;
-					const upBias = -0.04;
-					Body.applyForce(ball, ball.position, { x: (dx / len) * forceScale, y: (dy / len) * forceScale + upBias });
-					break;
-				}
-				case 'startChucker': {
-					if (isTopHit(ball, other)) {
-						orangeHits++;
-						updateStats();
-						createDebris(ball.position.x, ball.position.y, '#e67e22');
-						try { Composite.remove(world, ball); } catch (e) { }
-						try { if (window.AudioBus && window.CONFIG) { AudioBus.sfxSimple(window.CONFIG.SFX.chucker); } } catch (e) { }
-						if (!window.__BATCH_NO_RESPAWN || window.__FORCE_RESPAWN) {
-							simTimeout(() => { dropBall({ fromBlue: true, isNavy: true }); }, 200);
-						} else {
-							window.__BATCH_SUPPRESSED_COUNT++;
-						}
-					}
-					break;
-				}
-				case 'tulip': {
-					if (isTopHit(ball, other)) {
-						createDebris(ball.position.x, ball.position.y, '#3498db');
-						try { Composite.remove(world, ball); } catch (e) { }
-						blueHits++;
-						updateStats();
-						try { if (window.AudioBus && window.CONFIG) { AudioBus.sfxSimple(window.CONFIG.SFX.tulip); } } catch (e) { }
-						const opts = { fromBlue: true };
-						if (ball.isNavy) { opts.isNavy = true; }
-						if (!window.__BATCH_NO_RESPAWN || window.__FORCE_RESPAWN) {
-							simTimeout(() => { dropBall(opts); }, 200);
-						} else {
-							window.__BATCH_SUPPRESSED_COUNT++;
-						}
-					}
-					break;
-				}
-				case 'wall': {
-					if (!ENABLE_WALL_MISS || ball.isImmuneToMiss) break;
-					createDebris(ball.position.x, ball.position.y, ball.render.fillStyle);
-					try { if (window.AudioBus && window.CONFIG) { AudioBus.sfxSimple(window.CONFIG.SFX.miss); } } catch (e) { }
-					try { Composite.remove(world, ball); } catch (e) { }
-					missHits++;
-					updateStats();
-					break;
-				}
-				// 中央などのセンサーは免疫を考慮する既存の挙動
-				case 'missZone': {
-					if (ball.isImmuneToMiss) break;
-					createDebris(ball.position.x, ball.position.y, ball.render.fillStyle);
-					try { if (window.AudioBus && window.CONFIG) { AudioBus.sfxSimple(window.CONFIG.SFX.miss); } } catch (e) { }
-					try { Composite.remove(world, ball); } catch (e) { }
-					missHits++;
-					updateStats();
-					break;
-				}
-				// 床（floorMissZone）は免疫を無視して必ず粉砕する
-				case 'floorMissZone': {
-					createDebris(ball.position.x, ball.position.y, ball.render.fillStyle);
-					try { if (window.AudioBus && window.CONFIG) { AudioBus.sfxSimple(window.CONFIG.SFX.miss); } } catch (e) { }
-					try { Composite.remove(world, ball); } catch (e) { }
-					missHits++;
-					updateStats();
-					break;
-				}
+		let sfxKey, debrisColor, newBallOptions;
+		const isMiss = type === 'miss' || type === 'wall' || type === 'floorMiss';
+
+		if (isMiss) {
+			if (type !== 'floorMiss' && ball.isImmuneToMiss) return;
+			gameState.missHits++;
+			sfxKey = 'miss';
+			debrisColor = ball.render.fillStyle;
+		} else if (type === 'startChucker') {
+			gameState.orangeHits++;
+			sfxKey = 'chucker';
+			debrisColor = L.features.chucker.color;
+			newBallOptions = { fromBlue: true, isNavy: true };
+		} else if (type === 'tulip') {
+			gameState.blueHits++;
+			sfxKey = 'tulip';
+			debrisColor = L.features.tulip.color;
+			newBallOptions = { fromBlue: true, isNavy: ball.isNavy };
+		} else {
+			return; // Unknown type
+		}
+
+		ball.isHitting = true;
+		updateStats();
+		createDebris(ball.position.x, ball.position.y, debrisColor);
+		playSound(sfxKey);
+		try { Composite.remove(world, ball); } catch (e) { /* ignore */ }
+
+		if (newBallOptions) {
+			if (!window.__BATCH_NO_RESPAWN || window.__FORCE_RESPAWN) {
+				simTimeout(() => dropBall(newBallOptions), 200);
+			} else {
+				window.__BATCH_SUPPRESSED_COUNT++;
+			}
+		}
+	}
+
+	// --- Event Handlers ---
+	function setupEventListeners() {
+		const start = (e) => { e.preventDefault(); if (gameState.dropInterval) return; gameState.dropInterval = setInterval(dropBall, C.DROP_INTERVAL_MS); };
+		const stop = (e) => { e.preventDefault(); clearInterval(gameState.dropInterval); gameState.dropInterval = null; };
+		dropButton.addEventListener('mousedown', start);
+		dropButton.addEventListener('mouseup', stop);
+		dropButton.addEventListener('mouseleave', stop);
+		dropButton.addEventListener('touchstart', start);
+		dropButton.addEventListener('touchend', stop);
+
+		window.addEventListener('keydown', (e) => {
+			if (e.code === 'Space' && !gameState.spaceDown) {
+				gameState.spaceDown = true;
+				start(e);
 			}
 		});
-	});
+		window.addEventListener('keyup', (e) => {
+			if (e.code === 'Space') {
+				gameState.spaceDown = false;
+				stop(e);
+			}
+		});
 
-	function updateStats() {
-		const orangeRatio = totalDrops === 0 ? 0 : Math.round((orangeHits / totalDrops) * 1000) / 10;
-		const blueRatio = totalDrops === 0 ? 0 : Math.round((blueHits / totalDrops) * 1000) / 10;
-		statsEl.textContent = `投入:${totalDrops}  オレンジ:${orangeHits}(${orangeRatio}%)  青:${blueHits}(${blueRatio}%)  ハズレ:${missHits}`;
+		Events.on(engine, 'beforeUpdate', updatePhysics);
+		Events.on(engine, 'collisionStart', handleCollisions);
+		Events.on(engine, 'afterUpdate', sweepAndPrune);
 	}
 
-	// sync counters to global window so dev-tools can read them
-	function syncWindowCounters() {
-		window.totalDrops = totalDrops;
-		window.orangeHits = orangeHits;
-		window.blueHits = blueHits;
-		window.missHits = missHits;
-		window.__BATCH_SUPPRESSED_COUNT = window.__BATCH_SUPPRESSED_COUNT || 0;
+	function updatePhysics() {
+		windmills.forEach(w => Body.setAngle(w.body, w.body.angle + w.speed));
+		gates.forEach(g => {
+			const d = g.targetAngle - g.body.angle;
+			if (Math.abs(d) > 0.001) {
+				const newAng = g.body.angle + d * 0.25;
+				const half = g.length / 2;
+				const cx = g.pivot.x - Math.sin(newAng) * half;
+				const cy = g.pivot.y + Math.cos(newAng) * half;
+				Body.setPosition(g.body, { x: cx, y: cy });
+				Body.setAngle(g.body, newAng);
+			}
+		});
 	}
 
-	function updateStats() {
-		const orangeRatio = totalDrops === 0 ? 0 : Math.round((orangeHits / totalDrops) * 1000) / 10;
-		const blueRatio = totalDrops === 0 ? 0 : Math.round((blueHits / totalDrops) * 1000) / 10;
-		statsEl.textContent = `投入:${totalDrops}  オレンジ:${orangeHits}(${orangeRatio}%)  青:${blueHits}(${blueRatio}%)  ハズレ:${missHits}`;
-		syncWindowCounters();
+	function handleCollisions(event) {
+		for (const pair of event.pairs) {
+			const ball = (pair.bodyA.label === 'ball') ? pair.bodyA : (pair.bodyB.label === 'ball' ? pair.bodyB : null);
+			if (!ball) continue;
+			const other = (ball === pair.bodyA) ? pair.bodyB : pair.bodyA;
+
+			switch (other.label) {
+				case 'windmill':
+					const force = 0.2, upBias = -0.04;
+					const dx = ball.position.x - other.position.x, dy = ball.position.y - other.position.y;
+					const len = Math.hypot(dx, dy) || 1;
+					Body.applyForce(ball, ball.position, { x: (dx / len) * force, y: (dy / len) * force + upBias });
+					break;
+				case 'wall':
+					if (ENABLE_WALL_MISS) handleHit(ball, 'wall');
+					break;
+				case 'missZone':
+					handleHit(ball, 'miss');
+					break;
+				case 'floorMissZone':
+					handleHit(ball, 'floorMiss');
+					break;
+			}
+		}
 	}
 
-	// expose helpers for dev-tools
-	window.updateStats = function () { updateStats(); };
-	// wrap dropBall to count how many times it's invoked (independent of physics)
-	window.__DROP_CALLS = window.__DROP_CALLS || 0;
-	window.dropBall = function (opts) { window.__DROP_CALLS = (window.__DROP_CALLS || 0) + 1; dropBall(opts); };
-	window.resetBatchSuppressedCount = function () { window.__BATCH_SUPPRESSED_COUNT = 0; };
-	window.resetCounters = function () { totalDrops = 0; orangeHits = 0; blueHits = 0; missHits = 0; window.__BATCH_SUPPRESSED_COUNT = 0; updateStats(); };
+	function sweepAndPrune() {
+		const targets = Composite.allBodies(world).filter(b => b.label === 'startChucker' || b.label === 'tulip');
+		const balls = Composite.allBodies(world).filter(b => b.label === 'ball');
 
-	// スイープ判定 + 画面外回収 + 前位置記録
-	Events.on(engine, 'afterUpdate', () => {
-		const targets = [
-			{ body: startChucker, type: 'startChucker' },
-			{ body: tulipLeft, type: 'tulip' },
-			{ body: tulipRight, type: 'tulip' }
-		];
-		const bodies = Composite.allBodies(world);
-		for (const b of bodies) {
-			if (b.label !== 'ball') continue;
-			if (b.isHitting) continue;
-			const prev = b.lastPos || b.position;
-			const curr = b.position;
-			if ((curr.y - prev.y) <= 0.05) { b.lastPos = { x: curr.x, y: curr.y }; continue; }
+		for (const ball of balls) {
+			if (ball.isHitting) continue;
+			const prev = ball.lastPos || ball.position;
+			const curr = ball.position;
 
-			for (const t of targets) {
-				const tb = t.body; if (!tb) continue;
-				const topY = tb.bounds.min.y;
-				if (prev.y < topY && curr.y >= topY) {
-					const dy = (curr.y - prev.y) || 1e-6;
-					const tRatio = (topY - prev.y) / dy;
-					const xCross = prev.x + (curr.x - prev.x) * tRatio;
-					const margin = 3;
-					const minX = tb.bounds.min.x - margin;
-					const maxX = tb.bounds.max.x + margin;
-					if (xCross >= minX && xCross <= maxX) {
-						b.isHitting = true;
-						if (t.type === 'startChucker') {
-							orangeHits++; updateStats();
-							createDebris(b.position.x, b.position.y, '#e67e22');
-							try { Composite.remove(world, b); } catch (e) { }
-							if (!window.__BATCH_NO_RESPAWN || window.__FORCE_RESPAWN) {
-								simTimeout(() => { dropBall({ fromBlue: true, isNavy: true }); }, 200);
-							} else {
-								window.__BATCH_SUPPRESSED_COUNT++;
-							}
-						} else {
-							blueHits++; updateStats();
-							createDebris(b.position.x, b.position.y, '#3498db');
-							const opts = { fromBlue: true };
-							if (b.isNavy) opts.isNavy = true;
-							try { Composite.remove(world, b); } catch (e) { }
-							if (!window.__BATCH_NO_RESPAWN || window.__FORCE_RESPAWN) {
-								simTimeout(() => { dropBall(opts); }, 200);
-							} else {
-								window.__BATCH_SUPPRESSED_COUNT++;
-							}
+			if ((curr.y - prev.y) > 0.05) {
+				for (const target of targets) {
+					if (prev.y < target.bounds.min.y && curr.y >= target.bounds.min.y) {
+						const tRatio = (target.bounds.min.y - prev.y) / ((curr.y - prev.y) || 1);
+						const xCross = prev.x + (curr.x - prev.x) * tRatio;
+						if (xCross >= target.bounds.min.x - 3 && xCross <= target.bounds.max.x + 3) {
+							handleHit(ball, target.label);
+							break;
 						}
-						break;
 					}
 				}
 			}
-			// ボールが非常に遠くに行った（何らかの異常）場合は保険で回収
-			if (b.position.y > GAME_HEIGHT + 300) { try { Composite.remove(world, b); } catch (e) { } }
-			b.lastPos = { x: curr.x, y: curr.y };
-		}
-	});
 
-	function handleHit(ball, color) {
-		if (!ball || ball.isHitting) return;
-		ball.isHitting = true;
-		ball.render.fillStyle = color;
-		simTimeout(() => { Composite.remove(world, ball); }, 100);
+			if (ball.position.y > GAME_HEIGHT + 300) {
+				try { Composite.remove(world, ball); } catch (e) { /* ignore */ }
+			}
+			ball.lastPos = { x: curr.x, y: curr.y };
+		}
 	}
 
-	function handleTulipHit(ball) {
-		if (!ball || ball.isHitting) return;
-		ball.isHitting = true;
-		ball.isFromBlue = true;
-		ball.render.fillStyle = '#3498db';
-		try { Composite.remove(world, ball); } catch (e) { }
-		if (!window.__BATCH_NO_RESPAWN || window.__FORCE_RESPAWN) {
-			simTimeout(() => { dropBall({ fromBlue: true }); }, 200);
-		} else {
-			window.__BATCH_SUPPRESSED_COUNT++;
-		}
+	// --- UI & Stats ---
+	function createStatsElement() {
+		const el = document.createElement('div');
+		el.style.cssText = 'pointer-events:none; position:absolute; bottom:20px; right:20px; padding:6px 10px; background:rgba(0,0,0,0.6); color:white; border-radius:6px; font-size:14px;';
+		document.querySelector('.game-container').appendChild(el);
+		return el;
+	}
+
+	function updateStats() {
+		const { totalDrops, orangeHits, blueHits, missHits } = gameState;
+		const orangeRatio = totalDrops ? Math.round((orangeHits / totalDrops) * 1000) / 10 : 0;
+		const blueRatio = totalDrops ? Math.round((blueHits / totalDrops) * 1000) / 10 : 0;
+		statsEl.textContent = `投入:${totalDrops}  オレンジ:${orangeHits}(${orangeRatio}%)  青:${blueHits}(${blueRatio}%)  ハズレ:${missHits}`;
+		syncWindowCounters();
 	}
 
 	function showMessage(text, duration = 2000) {
@@ -847,4 +427,99 @@
 		messageBox.style.visibility = 'visible';
 		simTimeout(() => { messageBox.style.visibility = 'hidden'; }, duration);
 	}
+
+	// --- Audio ---
+	function playSound(key) {
+		try {
+			if (C.SFX && C.SFX[key]) AudioBus.sfxSimple(C.SFX[key]);
+		} catch (e) { /* ignore */ }
+	}
+
+	// --- Simulation Time Scaling ---
+	window.__SIM_SPEED = window.__SIM_SPEED || 1;
+	const simTimeout = (fn, ms) => setTimeout(fn, Math.max(0, ms / (window.__SIM_SPEED || 1)));
+	window.setSimSpeed = (factor) => { window.__SIM_SPEED = (factor > 0) ? factor : 1; };
+
+	// --- Dev/Editor API ---
+	function setupEditorAPI() {
+		window.EDITOR = {
+			getPegs: () => pegs.map(b => ({ x: b.position.x, y: b.position.y, r: b.circleRadius || C.PEG_RADIUS })),
+			clearPegs: () => { if (pegs.length) Composite.remove(world, pegs); pegs.length = 0; },
+			addPeg: (x, y, r) => {
+				const peg = Bodies.circle(Math.round(x), Math.round(y), r || C.PEG_RADIUS, { isStatic: true, label: 'peg', restitution: 0.8, friction: 0.05, render: { fillStyle: L.pegs.color } });
+				pegs.push(peg);
+				Composite.add(world, peg);
+				return peg;
+			},
+			removePegAt: (x, y, threshold = 12) => {
+				const found = window.EDITOR.findPegUnder(x, y, threshold);
+				return found ? window.EDITOR.removePeg(found) : false;
+			},
+			findPegUnder: (x, y, threshold = 12) => {
+				let bestPeg = null, bestDist = Infinity;
+				for (const peg of pegs) {
+					const d = Math.hypot(peg.position.x - x, peg.position.y - y);
+					if (d < bestDist) { bestDist = d; bestPeg = peg; }
+				}
+				return (bestDist <= threshold) ? bestPeg : null;
+			},
+			removePeg: (body) => {
+				const index = pegs.indexOf(body);
+				if (index > -1) {
+					Composite.remove(world, body);
+					pegs.splice(index, 1);
+					return true;
+				}
+				return false;
+			},
+			setPegColor: (body, color) => { if (body) body.render.fillStyle = color; },
+			exportPegs: () => JSON.stringify(window.EDITOR.getPegs()),
+			importPegs: (json) => {
+				try {
+					const list = (typeof json === 'string') ? JSON.parse(json) : json;
+					if (!Array.isArray(list)) return false;
+					window.EDITOR.clearPegs();
+					list.forEach(p => window.EDITOR.addPeg(p.x, p.y, p.r));
+					return true;
+				} catch (e) { return false; }
+			}
+		};
+		window.setPegPreset = (name) => { window.PEG_PRESET = name || 'default'; buildPegs(window.PEG_PRESET); };
+	}
+
+	function syncWindowCounters() {
+		window.totalDrops = gameState.totalDrops;
+		window.orangeHits = gameState.orangeHits;
+		window.blueHits = gameState.blueHits;
+		window.missHits = gameState.missHits;
+		window.__BATCH_SUPPRESSED_COUNT = window.__BATCH_SUPPRESSED_COUNT || 0;
+	}
+
+	// --- Initialization ---
+	function init() {
+		createWalls();
+		createMissZones();
+		createWindmills();
+		createGates();
+		createFeatures();
+		buildPegs(window.PEG_PRESET || 'default');
+		setupEventListeners();
+		setupEditorAPI();
+		updateStats();
+
+		// Expose helpers for dev-tools
+		window.updateStats = updateStats;
+		window.__DROP_CALLS = 0;
+		const originalDropBall = dropBall;
+		window.dropBall = (opts) => { window.__DROP_CALLS++; originalDropBall(opts); };
+		window.resetBatchSuppressedCount = () => { window.__BATCH_SUPPRESSED_COUNT = 0; };
+		window.resetCounters = () => {
+			Object.assign(gameState, { totalDrops: 0, orangeHits: 0, blueHits: 0, missHits: 0 });
+			window.__BATCH_SUPPRESSED_COUNT = 0;
+			updateStats();
+		};
+	}
+
+	init();
+
 })();
