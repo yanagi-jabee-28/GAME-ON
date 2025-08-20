@@ -521,18 +521,24 @@
 		// This avoids heavy solver work and GC churn from creating many Matter bodies.
 		window._debrisParticles = window._debrisParticles || [];
 		window._debrisRendererInstalled = window._debrisRendererInstalled || false;
-		const MAX_PARTICLES = 120;
-		const count = Math.min(6, Math.max(3, Math.round(4 + Math.random() * 4)));
+		const dcfg = (C.DEBRIS || {});
+		const MAX_PARTICLES = (typeof dcfg.MAX_PARTICLES === 'number') ? dcfg.MAX_PARTICLES : 120;
+		const count = Math.min(dcfg.COUNT_MAX || 8, Math.max(dcfg.COUNT_MIN || 3, Math.round((dcfg.COUNT_MIN || 3) + Math.random() * ((dcfg.COUNT_MAX || 8) - (dcfg.COUNT_MIN || 3)))));
+		const spread = (typeof dcfg.SPREAD === 'number') ? dcfg.SPREAD : 12;
+		const speedMin = (typeof dcfg.SPEED_MIN === 'number') ? dcfg.SPEED_MIN : 1.5;
+		const speedMax = (typeof dcfg.SPEED_MAX === 'number') ? dcfg.SPEED_MAX : 4.0;
+		const lifeMin = (typeof dcfg.LIFE_MIN === 'number') ? dcfg.LIFE_MIN : 220;
+		const lifeMax = (typeof dcfg.LIFE_MAX === 'number') ? dcfg.LIFE_MAX : 600;
 		for (let i = 0; i < count; i++) {
 			if (window._debrisParticles.length >= MAX_PARTICLES) break;
 			const angle = Math.random() * Math.PI * 2;
-			const speed = 2 + Math.random() * 3;
+			const speed = speedMin + Math.random() * (speedMax - speedMin);
 			window._debrisParticles.push({
-				x: x + (Math.random() - 0.5) * 4,
-				y: y + (Math.random() - 0.5) * 4,
+				x: x + (Math.random() - 0.5) * spread,
+				y: y + (Math.random() - 0.5) * spread,
 				vx: Math.cos(angle) * speed,
 				vy: Math.sin(angle) * speed - 1.5,
-				life: 300 + Math.random() * 200, // ms
+				life: lifeMin + Math.random() * (lifeMax - lifeMin), // ms
 				r: 1 + Math.random() * 2,
 				color: color
 			});

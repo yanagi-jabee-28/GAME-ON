@@ -131,6 +131,24 @@
 			debris: { freq: 200, type: 'triangle', gain: 0.15, dur: 0.04 }
 		},
 
+		// パーティクル（デブリ）設定: ボール分裂時の軽量パーティクル挙動
+		// 調整項目:
+		// - MAX_PARTICLES: システム全体で保持するパーティクル上限
+		// - COUNT_MIN / COUNT_MAX: 1回の分裂で生成する粒子数の範囲
+		// - SPREAD: 初期位置のランダムオフセット幅（px） — 値を大きくすると広く散ります
+		// - SPEED_MIN / SPEED_MAX: 初速の範囲
+		// - LIFE_MIN / LIFE_MAX: 粒子寿命（ms）
+		DEBRIS: {
+			MAX_PARTICLES: 120,
+			COUNT_MIN: 3,
+			COUNT_MAX: 8,
+			SPREAD: 36,
+			SPEED_MIN: 1.5,
+			SPEED_MAX: 4.0,
+			LIFE_MIN: 220,
+			LIFE_MAX: 600
+		},
+
 		// レイアウトと見た目の設定
 		// このセクションではステージ上のオブジェクト位置（風車、ゲート、チューリップ等）の
 		// 初期配置と描画色を定義します。座標は画面左上を原点(0,0)とするピクセル単位です。
