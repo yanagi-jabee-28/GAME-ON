@@ -517,19 +517,57 @@
 	}
 
 	function createDebris(x, y, color) {
-		const debris = Array.from({ length: 8 }, () => {
+		// Lightweight particle system (canvas overlay) instead of Matter bodies.
+		// This avoids heavy solver work and GC churn from creating many Matter bodies.
+		window._debrisParticles = window._debrisParticles || [];
+		window._debrisRendererInstalled = window._debrisRendererInstalled || false;
+		const MAX_PARTICLES = 120;
+		const count = Math.min(6, Math.max(3, Math.round(4 + Math.random() * 4)));
+		for (let i = 0; i < count; i++) {
+			if (window._debrisParticles.length >= MAX_PARTICLES) break;
 			const angle = Math.random() * Math.PI * 2;
-			const speed = 3 + Math.random() * 4;
-			const particle = Bodies.circle(x, y, 1 + Math.random() * 2, {
-				label: 'debris', friction: 0.05, restitution: 0.4,
-				render: { fillStyle: color }, collisionFilter: { group: -1 }
+			const speed = 2 + Math.random() * 3;
+			window._debrisParticles.push({
+				x: x + (Math.random() - 0.5) * 4,
+				y: y + (Math.random() - 0.5) * 4,
+				vx: Math.cos(angle) * speed,
+				vy: Math.sin(angle) * speed - 1.5,
+				life: 300 + Math.random() * 200, // ms
+				r: 1 + Math.random() * 2,
+				color: color
 			});
-			Body.setVelocity(particle, { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed - 2 });
-			return particle;
-		});
-		Composite.add(world, debris);
+		}
 		playSound('debris');
-		simTimeout(() => Composite.remove(world, debris), 200);
+		// install renderer once
+		if (!window._debrisRendererInstalled) {
+			window._debrisRendererInstalled = true;
+			Events.on(render, 'afterRender', () => {
+				const ctx = render.context;
+				const particles = window._debrisParticles || [];
+				if (!particles.length) return;
+				// simple fixed timestep based on assumed 60fps scaled by sim speed
+				const simSpeed = (window.__SIM_SPEED && window.__SIM_SPEED > 0) ? window.__SIM_SPEED : 1;
+				const dt = (1 / 60) * 1000 * simSpeed; // ms per frame
+				const gravity = (C.GRAVITY_Y && typeof C.GRAVITY_Y === 'number') ? C.GRAVITY_Y : 0.6;
+				ctx.save();
+				for (let i = particles.length - 1; i >= 0; i--) {
+					const p = particles[i];
+					// integrate (scale gravity to screen units conservatively)
+					p.vy += gravity * 0.06 * (dt / 16.6667);
+					p.x += p.vx * (dt / 1000);
+					p.y += p.vy * (dt / 1000);
+					p.life -= dt;
+					// draw
+					ctx.beginPath();
+					ctx.fillStyle = p.color || '#ffffff';
+					ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+					ctx.fill();
+					// remove when life expired or offscreen
+					if (p.life <= 0 || p.y > (GAME_HEIGHT + 400)) particles.splice(i, 1);
+				}
+				ctx.restore();
+			});
+		}
 	}
 
 	function handleHit(ball, type) {
@@ -702,12 +740,12 @@
 	function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
 
 	function recolorPegs() {
-			if (!(C.DEBUG && C.DEBUG.PEGS_HEATMAP)) return;
-			// throttle recolor work: only run when heatmap was dirtied and on a frame interval
-			const frameSkip = (C.DEBUG && typeof C.DEBUG.HEATMAP_FRAME_SKIP === 'number') ? Math.max(1, C.DEBUG.HEATMAP_FRAME_SKIP) : 3;
-			window._pegHeatmapFrame = (window._pegHeatmapFrame || 0) + 1;
-			if (!window._pegHeatmapDirty && (window._pegHeatmapFrame % frameSkip) !== 0) return;
-			// we'll clear dirty flag after an update
+		if (!(C.DEBUG && C.DEBUG.PEGS_HEATMAP)) return;
+		// throttle recolor work: only run when heatmap was dirtied and on a frame interval
+		const frameSkip = (C.DEBUG && typeof C.DEBUG.HEATMAP_FRAME_SKIP === 'number') ? Math.max(1, C.DEBUG.HEATMAP_FRAME_SKIP) : 3;
+		window._pegHeatmapFrame = (window._pegHeatmapFrame || 0) + 1;
+		if (!window._pegHeatmapDirty && (window._pegHeatmapFrame % frameSkip) !== 0) return;
+		// we'll clear dirty flag after an update
 		const cfg = C.DEBUG || {};
 		// Use total drops as the denominator (ratio = peg_hits / total_drops)
 		const total = Math.max(0, (gameState && gameState.totalDrops) ? gameState.totalDrops : 0);
