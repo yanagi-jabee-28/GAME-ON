@@ -184,7 +184,7 @@
 			},
 			missZones: {
 				center: { y: 230, width: 40, height: 5, color: 'rgba(192,57,43,0.35)', stroke: 'rgba(192,57,43,0.7)' },
-				floor: { y_offset: -20, color: 'rgba(192,57,43,0.12)', stroke: 'rgba(192,57,43,0.25)' }
+				floor: { y_offset: -20, color: 'rgba(192, 58, 43, 0)', stroke: 'rgba(192, 58, 43, 0)' }
 			},
 			windmills: {
 				offsetX: 87.5, // 中央から風車までの水平オフセット（px）
