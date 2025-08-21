@@ -13,23 +13,24 @@
  */
 function createBall(x, y, options = {}) {
 	const ballConfig = GAME_CONFIG.objects.ball;
+	// 色相をランダムにすることで、毎回異なる色のボールを生成します
 	const randomColor = `hsl(${Math.random() * 360}, 90%, 60%)`;
 
-	// デバッグのため、オプションを意図的に冗長に、かつ明示的に構築します
-	const bodyOptions = {
-		restitution: 0.9, // 反発係数を直接ハードコード
-		density: ballConfig.options.density,
-		label: ballConfig.label,
-		material: ballConfig.material,
-		render: {
-			fillStyle: randomColor
+	return Matter.Bodies.circle(
+		x,
+		y,
+		ballConfig.radius,
+		{
+			...ballConfig.options,
+			label: ballConfig.label,
+			material: ballConfig.material,
+			render: {
+				...ballConfig.render, // 基本の描画設定を継承
+				fillStyle: randomColor // 色だけを上書き
+			},
+			...options // 個別のインスタンスでさらに上書き可能
 		}
-	};
-
-	// 個別のオプション（もしあれば）をマージ
-	Object.assign(bodyOptions, options);
-
-	return Matter.Bodies.circle(x, y, ballConfig.radius, bodyOptions);
+	);
 }
 
 /**
@@ -66,16 +67,12 @@ function createBounds(world) {
  */
 function loadPegs(presetUrl, world) {
 	const pegConfig = GAME_CONFIG.objects.peg;
-
-	// デバッグのため、オプションを意図的に冗長に、かつ明示的に構築します
 	const pegOptions = {
-		restitution: 0.9, // 反発係数を直接ハードコード
-		isStatic: pegConfig.options.isStatic,
+		...pegConfig.options,
 		label: pegConfig.label,
 		material: pegConfig.material,
-		render: pegConfig.render
+		render: { ...pegConfig.render }
 	};
-
 
 	fetch(presetUrl)
 		.then(response => {

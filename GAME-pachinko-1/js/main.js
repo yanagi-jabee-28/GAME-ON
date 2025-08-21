@@ -43,8 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		World.add(world, ball);
 	});
 
-	// 衝突開始イベント (デバッグのため一時的に無効化)
-	/*
+	// 衝突開始イベント
 	Events.on(engine, 'collisionStart', (event) => {
 		const pairs = event.pairs;
 		for (const pair of pairs) {
@@ -68,5 +67,4 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 		}
 	});
-	*/
 });

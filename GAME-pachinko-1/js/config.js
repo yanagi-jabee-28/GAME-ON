@@ -16,7 +16,7 @@ const GAME_MATERIALS = {
 const GAME_CONFIG = {
 	// ▼▼▼ ゲーム全体の基本設定 ▼▼▼
 	width: 450,  // ゲームエリアの描画幅 (px)
-	height: 600, // ゲームエリアの描画高 (px)
+	height: 650, // ゲームエリアの描画高 (px)
 	renderOptions: {
 		wireframes: false, // falseにするとオブジェクトが塗りつぶされる (trueだと線画)
 		background: '#ffffff', // 背景色
@@ -83,7 +83,7 @@ const GAME_CONFIG = {
 const MATERIAL_INTERACTIONS = {
 	// --- 金属同士の衝突 ---
 	'metal:metal': {
-		restitution: 0.9, // 金属同士は硬く、よく弾むように調整
+		restitution: 0.8, // 挙動を安定させつつ、よく弾むように調整
 		friction: 0.2     // 表面が滑らかなので摩擦は比較的小さい
 	},
 
@@ -99,11 +99,11 @@ const MATERIAL_INTERACTIONS = {
 		friction: 0.3
 	},
 
-    // デフォルト値：万が一、定義されていない組み合わせがあった場合のフォールバック
-    default: {
-        restitution: 0.5,
-        friction: 0.3
-    }
+	// デフォルト値：万が一、定義されていない組み合わせがあった場合のフォールバック
+	default: {
+		restitution: 0.5,
+		friction: 0.3
+	}
 };
 
 /**
