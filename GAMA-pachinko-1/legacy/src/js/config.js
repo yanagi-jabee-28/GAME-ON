@@ -9,6 +9,15 @@
 		GRAVITY_Y: 1,
 		GLOBAL_X_OFFSET: 0,
 
+		// 物理エンジン最適化設定
+		PHYSICS: {
+			positionIterations: 6,   // 位置計算の精度（高いほど正確だが重い）
+			velocityIterations: 8,   // 速度計算の精度（衝突の正確性）
+			constraintIterations: 2, // 制約計算の精度
+			enableSleeping: true,    // 静止オブジェクトのスリープで最適化
+			useDt: true,            // deltaTime使用でフレームレート安定化
+		},
+
 		// 壁 / ガイド配置
 		GUIDE_WALL_OFFSET: 200,
 		GUIDE_WALL_ANGLE: 0.2,
@@ -22,10 +31,11 @@
 		GATE_LENGTH: 45,
 		GATE_WIDTH: 10,
 		GATE_RESTITUTION: 0.6,
+		GATE_LERP_PER_SEC: 8, // Gate animation smoothness (higher = faster response)
 
 		// 風車（ウィンドミル）
 		WINDMILL: {
-			baseSpeed: 0.1,
+			baseSpeed: 1,
 			leftCW: false,
 			rightCW: true,
 			centerCW: true,
@@ -76,7 +86,9 @@
 		// デバッグ設定
 		DEBUG: {
 			PEG_RAINBOW_ENABLED: false, // trueにすると起動時にペグが虹色に光ります
-			PEG_RAINBOW_MS: 60
+			PEG_RAINBOW_MS: 60,
+			// ログ: CanvasRenderingContext2D の globalAlpha / globalCompositeOperation の変更を検出して出力
+			LOG_CTX: true
 		},
 
 		// オーディオ設定

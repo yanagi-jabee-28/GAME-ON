@@ -18,9 +18,14 @@
 		orangeHits: 0, // startChucker
 		blueHits: 0,   // tulip
 		missHits: 0,
-		dropInterval: null,
+		// dropping uses simulation-time accumulator (dropAccum) when true
+		dropping: false,
+		dropAccum: 0,
 		spaceDown: false,
 	};
+
+	// performance time used for simulation-scaled accumulators (drop timing)
+	let __perfLast = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
 	// --- UI Elements ---
 	const dropButton = document.getElementById('drop-button');
@@ -34,14 +39,16 @@
 	// --- Engine and World Setup ---
 	const engine = Engine.create({
 		gravity: { y: C.GRAVITY_Y ?? 0.6 },
-		// tune iterations: position a bit lower, velocity a bit higher for stable contacts
+		// Optimized physics iterations for better performance and stability
 		positionIterations: C.PHYSICS?.positionIterations ?? 6,
 		velocityIterations: C.PHYSICS?.velocityIterations ?? 8,
 		constraintIterations: C.PHYSICS?.constraintIterations ?? 2,
-		// leave sleeping configurable; default to false during debugging but allow true in prod
-		enableSleeping: C.PHYSICS?.enableSleeping ?? false,
+		// Enable sleeping for performance optimization (static bodies at rest)
+		enableSleeping: C.PHYSICS?.enableSleeping ?? true,
 	});
 	const world = engine.world;
+
+	// Optimized render settings for better performance
 	const render = Render.create({
 		canvas: document.getElementById('pachinko-canvas'),
 		engine: engine,
@@ -49,19 +56,194 @@
 			width: GAME_WIDTH,
 			height: GAME_HEIGHT,
 			wireframes: false,
-			background: 'transparent'
+			background: 'transparent',
+			// Render optimization settings
+			showAngleIndicator: false,
+			showVelocity: false,
+			showDebug: false,
+			showPerformance: false,
 		}
 	});
 	Render.run(render);
-	const runner = Runner.create({ isFixed: true, delta: 1000 / 60 });
+
+	// --- Overlay canvas for isolated UI/particles/overlays ---
+	// We create a separate canvas stacked above the Matter render canvas so
+	// any changes to globalAlpha or globalCompositeOperation cannot leak into
+	// the main physics rendering context.
+	let overlayCanvas = null;
+	let overlayCtx = null;
+	function ensureOverlayCanvas() {
+		if (overlayCanvas && overlayCtx) return;
+		try {
+			const container = document.querySelector('.game-container') || document.body;
+			overlayCanvas = document.createElement('canvas');
+			overlayCanvas.id = 'pachinko-overlay-canvas';
+			overlayCanvas.style.position = 'absolute';
+			overlayCanvas.style.left = '0';
+			overlayCanvas.style.top = '0';
+			overlayCanvas.style.pointerEvents = 'none';
+			overlayCanvas.style.zIndex = 9999;
+			// match size
+			const base = render.canvas;
+			overlayCanvas.width = base.width;
+			overlayCanvas.height = base.height;
+			overlayCanvas.style.width = base.style.width || base.width + 'px';
+			overlayCanvas.style.height = base.style.height || base.height + 'px';
+			container.style.position = container.style.position || 'relative';
+			container.appendChild(overlayCanvas);
+			overlayCtx = overlayCanvas.getContext('2d');
+			// Clear overlay each frame before render to avoid accumulation
+			try { Events.on(render, 'beforeRender', () => { if (overlayCtx) overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height); }); } catch (e) { /* ignore */ }
+			// keep overlay size in sync when window resizes
+			window.addEventListener('resize', () => {
+				try {
+					const base = render.canvas;
+					overlayCanvas.width = base.width;
+					overlayCanvas.height = base.height;
+					overlayCanvas.style.width = base.style.width || base.width + 'px';
+					overlayCanvas.style.height = base.style.height || base.height + 'px';
+				} catch (e) { /* ignore */ }
+			});
+		} catch (e) { overlayCanvas = null; overlayCtx = null; }
+	}
+
+	// Optimized runner with stable frame timing
+	const targetFPS = 60;
+	const runner = Runner.create({
+		isFixed: true,
+		delta: 1000 / targetFPS,
+		// Enable better timing consistency
+		correction: 1,
+		deltaSampleSize: 60,
+		counterTimestamp: 0,
+		frameRequestId: null,
+		deltaHistory: [],
+		timePrev: null,
+		timeScalePrev: 1,
+		frameCounter: 0,
+		deltaMin: 1000 / targetFPS,
+		deltaMax: 1000 / (targetFPS * 0.5), // Allow up to half target FPS
+	});
 	Runner.run(runner, engine);
 
-	// Ensure canvas state is sane before render (protect against leaked globalAlpha/composite)
+	// Debug accessors: allow console inspection without exporting mutable internals
+	try {
+		window.__getEngine = () => engine;
+		window.__getGameState = () => gameState;
+	} catch (e) { /* ignore in restrictive environments */ }
+
+	// Debug instrumentation: log changes to canvas globalAlpha / compositeOperation when enabled
+	try {
+		if (C.DEBUG && C.DEBUG.LOG_CTX) {
+			const proto = CanvasRenderingContext2D && CanvasRenderingContext2D.prototype;
+			if (proto) {
+				const gaDesc = Object.getOwnPropertyDescriptor(proto, 'globalAlpha');
+				const gcoDesc = Object.getOwnPropertyDescriptor(proto, 'globalCompositeOperation');
+				// per-context weak map to count events and reduce noisy cross-context blending
+				const __dbg_ctx_state = new WeakMap();
+				const GA_LOG_LIMIT = 50;
+				const GCO_LOG_LIMIT = 50;
+				const getCanvasId = (ctx) => {
+					try {
+						if (!ctx) return '(null-ctx)';
+						if (ctx.canvas && ctx.canvas.id) return ctx.canvas.id;
+						if (ctx.canvas) return ctx.canvas.tagName || '(canvas)';
+					} catch (e) { /* ignore */ }
+					return '(unknown-canvas)';
+				};
+
+				if (gaDesc && !gaDesc.__instrumented) {
+					const origGASet = gaDesc.set;
+					const origGAGet = gaDesc.get;
+					Object.defineProperty(proto, 'globalAlpha', {
+						configurable: true,
+						enumerable: true,
+						get: function () { return origGAGet ? origGAGet.call(this) : (this.__debug_globalAlpha || 1); },
+						set: function (v) {
+							try {
+								let state = __dbg_ctx_state.get(this);
+								if (!state) { state = { gaCount: 0, gcoCount: 0, firstGATraceShown: false, firstGCOTraceShown: false }; __dbg_ctx_state.set(this, state); }
+								const curGA = origGAGet ? origGAGet.call(this) : this.__debug_globalAlpha;
+								if (v === curGA) {
+									if (origGASet) origGASet.call(this, v); else this.__debug_globalAlpha = v;
+									return;
+								}
+								state.gaCount++;
+								const canvasId = getCanvasId(this);
+								if (state.gaCount <= GA_LOG_LIMIT) {
+									console.warn('[DBG] canvas[' + canvasId + '].globalAlpha <-', v, '(count', state.gaCount, ')');
+									if (!state.firstGATraceShown) { console.trace(); state.firstGATraceShown = true; }
+								} else if (state.gaCount === GA_LOG_LIMIT + 1) {
+									console.warn('[DBG] canvas[' + canvasId + '].globalAlpha logging capped at', GA_LOG_LIMIT);
+								}
+								if (origGASet) origGASet.call(this, v); else this.__debug_globalAlpha = v;
+							} catch (e) { /* ignore instrumentation error */ }
+						}
+					});
+					Object.getOwnPropertyDescriptor(proto, 'globalAlpha').__instrumented = true;
+				}
+
+				if (gcoDesc && !gcoDesc.__instrumented) {
+					const origGCOSet = gcoDesc.set;
+					const origGCOGet = gcoDesc.get;
+					Object.defineProperty(proto, 'globalCompositeOperation', {
+						configurable: true,
+						enumerable: true,
+						get: function () { return origGCOGet ? origGCOGet.call(this) : (this.__debug_globalCompositeOperation || 'source-over'); },
+						set: function (v) {
+							try {
+								let state = __dbg_ctx_state.get(this);
+								if (!state) { state = { gaCount: 0, gcoCount: 0, firstGATraceShown: false, firstGCOTraceShown: false }; __dbg_ctx_state.set(this, state); }
+								const curGCO = origGCOGet ? origGCOGet.call(this) : this.__debug_globalCompositeOperation;
+								if (v === curGCO) {
+									if (origGCOSet) origGCOSet.call(this, v); else this.__debug_globalCompositeOperation = v;
+									return;
+								}
+								state.gcoCount++;
+								const canvasId = getCanvasId(this);
+								if (state.gcoCount <= GCO_LOG_LIMIT) {
+									console.warn('[DBG] canvas[' + canvasId + '].globalCompositeOperation <-', v, '(count', state.gcoCount, ')');
+									if (!state.firstGCOTraceShown) { console.trace(); state.firstGCOTraceShown = true; }
+								} else if (state.gcoCount === GCO_LOG_LIMIT + 1) {
+									console.warn('[DBG] canvas[' + canvasId + '].globalCompositeOperation logging capped at', GCO_LOG_LIMIT);
+								}
+								if (origGCOSet) origGCOSet.call(this, v); else this.__debug_globalCompositeOperation = v;
+							} catch (e) { /* ignore instrumentation error */ }
+						}
+					});
+					Object.getOwnPropertyDescriptor(proto, 'globalCompositeOperation').__instrumented = true;
+				}
+			}
+		}
+	} catch (e) { /* ignore instrumentation errors */ }
+
+	// Canvas state protection: ensure transparency and blending don't leak between frames
 	try {
 		Events.on(render, 'beforeRender', () => {
 			try {
 				const ctx = render.context;
-				ctx.globalAlpha = 1;
+				// Save state before rendering
+				ctx.save();
+				// Reset to default state
+				ctx.globalAlpha = 1.0;
+				ctx.globalCompositeOperation = 'source-over';
+				ctx.fillStyle = '#000000';
+				ctx.strokeStyle = '#000000';
+				ctx.lineWidth = 1;
+				ctx.lineCap = 'butt';
+				ctx.lineJoin = 'miter';
+				ctx.miterLimit = 10;
+				ctx.setTransform(1, 0, 0, 1, 0, 0);
+			} catch (e) { /* ignore */ }
+		});
+
+		Events.on(render, 'afterRender', () => {
+			try {
+				const ctx = render.context;
+				// Restore state after rendering
+				ctx.restore();
+				// Final safety reset
+				ctx.globalAlpha = 1.0;
 				ctx.globalCompositeOperation = 'source-over';
 			} catch (e) { /* ignore */ }
 		});
@@ -72,9 +254,10 @@
 		const dropCfg = (C.DROP || {});
 		if (!dropCfg.showGraph) return;
 		Events.on(render, 'afterRender', () => {
-			const ctx = render.context;
-			const canvas = ctx.canvas;
-			const width = canvas.width;
+			ensureOverlayCanvas();
+			const ctx = overlayCtx || render.context;
+			const canvas = ctx.canvas || (render && render.canvas);
+			const width = canvas ? canvas.width : GAME_WIDTH;
 			const graphW = Math.min(width - 40, dropCfg.width || 200);
 			const graphH = 60;
 			const left = (width - graphW) / 2;
@@ -82,7 +265,6 @@
 			try {
 				ctx.save();
 				ctx.globalAlpha = 0.95;
-				ctx.fillStyle = 'rgba(0,0,0,0)';
 				ctx.clearRect(left - 2, top - 2, graphW + 4, graphH + 4);
 				ctx.fillStyle = 'rgba(255,255,255,0.06)';
 				ctx.fillRect(left, top, graphW, graphH);
@@ -171,7 +353,8 @@
 	function createWindmills() {
 		const WM = C.WINDMILL;
 		const layout = L.windmills;
-		const baseSpeed = WM.baseSpeed ?? 0.08;
+		// interpret baseSpeed in config as rotations-per-second (rps)
+		const baseRPS = WM.baseSpeed ?? 0.08;
 		const centerX = GAME_WIDTH / 2;
 		const createWindmill = (cx, cy, blades, radius, bladeW, bladeH, speed, color, hubColor) => {
 			const hubRest = C.WINDMILL_RESTITUTION || 0.98;
@@ -186,7 +369,8 @@
 			}
 			const compound = Body.create({ parts, isStatic: true, label: 'windmill' });
 			Composite.add(world, compound);
-			windmills.push({ body: compound, speed });
+			// store baseRPS (signed) for this windmill; speed parameter here is rotations/sec
+			windmills.push({ body: compound, baseRPS: speed });
 		};
 		if (Array.isArray(layout.items) && layout.items.length) {
 			layout.items.forEach(it => {
@@ -197,19 +381,19 @@
 				const bladeW = it.bladeW || WM.bladeW || 8;
 				const bladeH = it.bladeH || WM.bladeH || 40;
 				const dirSign = (it.cw ? 1 : -1);
-				let speed = baseSpeed * dirSign;
+				let speedRps = baseRPS * dirSign;
 				if (typeof it.speed === 'number') {
-					speed = it.speed;
+					speedRps = it.speed;
 				} else if (typeof it.speedMultiplier === 'number') {
-					speed = baseSpeed * it.speedMultiplier * dirSign;
+					speedRps = baseRPS * it.speedMultiplier * dirSign;
 				}
-				createWindmill(cx, cy, blades, radius, bladeW, bladeH, speed, it.color || WM.color, it.hubColor || WM.hubColor);
+				createWindmill(cx, cy, blades, radius, bladeW, bladeH, speedRps, it.color || WM.color, it.hubColor || WM.hubColor);
 			});
 		} else {
-			createWindmill(centerX - layout.offsetX, layout.y, WM.blades, WM.radius, WM.bladeW, WM.bladeH, baseSpeed * (WM.leftCW ? 1 : -1), WM.color, WM.hubColor);
-			createWindmill(centerX + layout.offsetX, layout.y, WM.blades, WM.radius, WM.bladeW, WM.bladeH, baseSpeed * (WM.rightCW ? 1 : -1), WM.color, WM.hubColor);
+			createWindmill(centerX - layout.offsetX, layout.y, WM.blades, WM.radius, WM.bladeW, WM.bladeH, baseRPS * (WM.leftCW ? 1 : -1), WM.color, WM.hubColor);
+			createWindmill(centerX + layout.offsetX, layout.y, WM.blades, WM.radius, WM.bladeW, WM.bladeH, baseRPS * (WM.rightCW ? 1 : -1), WM.color, WM.hubColor);
 			if (C.ENABLE_CENTER_WINDMILL) {
-				createWindmill(centerX, layout.centerY, WM.blades, WM.radius, 6, WM.bladeH, baseSpeed * (WM.centerCW ? 1 : -1), WM.color, WM.hubColor);
+				createWindmill(centerX, layout.centerY, WM.blades, WM.radius, 6, WM.bladeH, baseRPS * (WM.centerCW ? 1 : -1), WM.color, WM.hubColor);
 			}
 		}
 	}
@@ -506,8 +690,8 @@
 	// --- Event Handlers ---
 	function setupEventListeners() {
 		// attach input and physics listeners
-		const start = (e) => { e.preventDefault(); if (gameState.dropInterval) return; gameState.dropInterval = setInterval(dropBall, C.DROP_INTERVAL_MS); };
-		const stop = (e) => { e.preventDefault(); clearInterval(gameState.dropInterval); gameState.dropInterval = null; };
+		const start = (e) => { e && e.preventDefault(); if (gameState.dropping) return; gameState.dropping = true; gameState.dropAccum = 0; };
+		const stop = (e) => { e && e.preventDefault(); gameState.dropping = false; gameState.dropAccum = 0; };
 		dropButton.addEventListener('mousedown', start);
 		dropButton.addEventListener('mouseup', stop);
 		dropButton.addEventListener('mouseleave', stop);
@@ -547,17 +731,18 @@
 		Events.on(render, 'afterRender', () => {
 			const list = window._missParticles;
 			if (!list || !list.length) return;
-			const ctx = render.context;
+			ensureOverlayCanvas();
+			const ctx = overlayCtx || render.context;
 			const dt = engine.timing.lastDelta || 16.6667; // ms
 			const dtS = dt / 1000;
 			const grav = (C.GRAVITY_Y ?? 1) * 0.001; // small gravity factor for particles
 			try {
+				// Use overlay context; we control save/restore here so main ctx is safe
 				ctx.save();
-				// budgeted updates: update up to N particles per frame to smooth CPU cost
+				ctx.globalCompositeOperation = 'source-over';
 				let updated = 0;
 				for (let i = list.length - 1; i >= 0; i--) {
 					const p = list[i];
-					// skip heavy integration if budget exceeded but still draw
 					if (updated < PARTICLE_UPDATES_PER_FRAME) {
 						p.vy += grav * dt; // integrate gravity
 						p.x += p.vx * dtS;
@@ -565,27 +750,34 @@
 						p.life -= dt;
 						updated++;
 					} else {
-						// age slowly when skipped to avoid frozen particles
 						p.life -= dt * 0.5;
 					}
 					if (p.life <= 0 || p.y > GAME_HEIGHT + 400) {
 						const rem = list.splice(i, 1)[0];
-						// return to pool
 						if (_particlePool.length < (C.DEBRIS?.MAX ?? 200)) {
 							_particlePool.push(rem);
 						}
 						continue;
 					}
-					ctx.beginPath();
-					ctx.fillStyle = p.color;
-					ctx.globalAlpha = Math.max(0, Math.min(1, p.life / (p.lifeMax || 400)));
-					ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-					ctx.fill();
+					const alpha = Math.max(0, Math.min(1, p.life / (p.lifeMax || 400)));
+					if (alpha > 0.01) {
+						ctx.globalAlpha = alpha;
+						ctx.fillStyle = p.color;
+						ctx.beginPath();
+						ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+						ctx.fill();
+					}
 				}
 			} catch (e) {
 				/* ignore drawing errors */
 			} finally {
-				try { ctx.restore(); } catch (e) { /* ignore */ }
+				try {
+					ctx.restore();
+					if (ctx !== render.context) {
+						// Ensure main context stays untouched
+						// No-op
+					}
+				} catch (e) { /* ignore */ }
 			}
 		});
 	}
@@ -654,47 +846,97 @@
 	try { window.spawnMissParticles = spawnMissParticles; } catch (e) { /* ignore */ }
 	try { window.spawnHitParticles = spawnHitParticles; } catch (e) { /* ignore */ }
 
-	// Final safety: ensure canvas global state is reset after our drawing so other frames are not affected
-	try {
-		Events.on(render, 'afterRender', () => {
-			try {
-				const ctx = render.context;
-				ctx.globalAlpha = 1;
-				ctx.globalCompositeOperation = 'source-over';
-			} catch (e) { /* ignore */ }
-		});
-	} catch (e) { /* ignore */ }
-
 	// debug helper to spawn hit particles from console: debugSpawnHit(x,y,color)
 	window.debugSpawnHit = (x = GAME_WIDTH / 2, y = GAME_HEIGHT / 2, color = (L.features && L.features.chucker && L.features.chucker.color) || '#ffd700') => {
 		try { window.spawnHitParticles(x, y, color); } catch (e) { /* ignore */ }
 	};
 
 	function updatePhysics() {
-		const useDt = (C.PHYSICS && C.PHYSICS.useDt !== false);
-		const dt = engine.timing.lastDelta || 16.6667; // ms
-		const dtS = dt / 1000;
-		windmills.forEach(w => {
-			// speed is angular velocity; if config previously meant per-frame, approximate to per-second when useDt=false
-			const omega = useDt ? (w.speed) : (dtS > 0 ? w.speed / dtS : 0);
-			w.omega = omega; // rad/s
-			Body.rotate(w.body, (useDt ? omega * dtS : w.speed));
-		});
-		gates.forEach(g => {
-			const d = g.targetAngle - g.body.angle;
-			if (Math.abs(d) > 0.01) {
-				const lerp = (C.GATE_LERP || 0.2) * (useDt ? (dt / (1000 / 60)) : 1);
-				const newAng = g.body.angle + d * lerp;
-				const half = g.length / 2;
-				const cx = g.pivot.x - Math.sin(newAng) * half;
-				const cy = g.pivot.y + Math.cos(newAng) * half;
-				const prevAng = g.body.angle;
-				Body.setPosition(g.body, { x: cx, y: cy });
-				Body.setAngle(g.body, newAng);
-				const dAng = newAng - prevAng;
-				g.omega = dtS > 0 ? (dAng / dtS) : 0; // rad/s
+		// advance simulation-time (ms) based on engine.timing.lastDelta scaled by timeScale
+		const lastDelta = (engine && engine.timing && engine.timing.lastDelta) ? engine.timing.lastDelta : (1000 / 60);
+		const ts = (engine && engine.timing && typeof engine.timing.timeScale === 'number') ? engine.timing.timeScale : (window.__CURRENT_SIM_SPEED || 1);
+		window.__simNow = (window.__simNow || 0) + (lastDelta * ts);
+
+		// run simulation-timers that are due (optimized batch processing)
+		if (Array.isArray(window.__simTimers) && window.__simTimers.length) {
+			const now = window.__simNow;
+			const remaining = [];
+			for (let i = 0; i < window.__simTimers.length; i++) {
+				const t = window.__simTimers[i];
+				if (t.target <= now) {
+					try { t.fn(); } catch (e) { /* ignore timer errors */ }
+				} else {
+					remaining.push(t);
+				}
 			}
-		});
+			window.__simTimers = remaining;
+		}
+
+		// Cache frequently used values for better performance
+		const dt = lastDelta;
+		const dtS = dt / 1000;
+		const simTS = ts;
+
+		// simulation-time based auto-drop accumulator
+		if (gameState.dropping) {
+			// use wall-clock delta scaled by simulation speed to avoid relying on engine.lastDelta
+			const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+			let perfDt = now - __perfLast;
+			if (perfDt < 0) perfDt = 0;
+			__perfLast = now;
+			gameState.dropAccum += perfDt * simTS;
+			const interval = Math.max(1, (C.DROP_INTERVAL_MS || 100));
+			while (gameState.dropAccum >= interval) {
+				gameState.dropAccum -= interval;
+				dropBall();
+			}
+		} else {
+			// keep perf clock in sync when not dropping to avoid large jumps when resumed
+			__perfLast = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+		}
+
+		// Update windmills: optimized batch processing
+		if (windmills.length > 0) {
+			const twoPi = Math.PI * 2;
+			for (let i = 0; i < windmills.length; i++) {
+				const w = windmills[i];
+				const rps = (typeof w.baseRPS === 'number') ? w.baseRPS : 0;
+				if (rps !== 0) { // Skip static windmills
+					const radPerSec = rps * twoPi;
+					const angleDelta = radPerSec * simTS * dtS;
+					try { Body.rotate(w.body, angleDelta); } catch (e) { /* ignore rotate errors */ }
+					w.omega = radPerSec * simTS;
+				} else {
+					w.omega = 0;
+				}
+			}
+		}
+
+		// Update gates: optimized smooth interpolation
+		if (gates.length > 0) {
+			const gateRate = (C.GATE_LERP_PER_SEC || 8);
+			const lerpBase = gateRate * dtS * simTS;
+			for (let i = 0; i < gates.length; i++) {
+				const g = gates[i];
+				const d = g.targetAngle - g.body.angle;
+				if (Math.abs(d) > 0.0005) {
+					const lerpFactor = Math.min(1, lerpBase);
+					const newAng = g.body.angle + d * lerpFactor;
+					const half = g.length / 2;
+					const sinAng = Math.sin(newAng);
+					const cosAng = Math.cos(newAng);
+					const cx = g.pivot.x - sinAng * half;
+					const cy = g.pivot.y + cosAng * half;
+					const prevAng = g.body.angle;
+					Body.setPosition(g.body, { x: cx, y: cy });
+					Body.setAngle(g.body, newAng);
+					const dAng = newAng - prevAng;
+					g.omega = dtS > 0 ? (dAng / dtS) : 0;
+				} else {
+					g.omega = 0; // Gate is at target, no rotation
+				}
+			}
+		}
 	}
 
 
@@ -783,11 +1025,66 @@
 
 	// --- Simulation Time Scaling ---
 	window.__SIM_SPEED = window.__SIM_SPEED || 1;
-	const simTimeout = (fn, ms) => setTimeout(fn, Math.max(0, ms / (window.__SIM_SPEED || 1)));
+	// Simulation-time scheduler: timers fire when simulation time (simNow) advances in updatePhysics
+	window.__simNow = window.__simNow || 0; // ms of simulation time
+	window.__simTimers = window.__simTimers || [];
+	function simTimeout(fn, ms) {
+		if (typeof fn !== 'function') return null;
+		const m = Math.max(0, Number(ms) || 0);
+		if (m <= 0) { try { fn(); } catch (e) { /* ignore */ } return null; }
+		const timer = { target: window.__simNow + m, fn };
+		window.__simTimers.push(timer);
+		return timer;
+	}
+	window.simTimeout = simTimeout;
+
+	// Store the target speed separately from current speed to handle pause/resume correctly
+	window.__TARGET_SIM_SPEED = window.__TARGET_SIM_SPEED || 1;
+	window.__CURRENT_SIM_SPEED = window.__CURRENT_SIM_SPEED || 1;
+
 	window.setSimSpeed = (factor) => {
-		const f = (factor > 0) ? factor : 1;
-		window.__SIM_SPEED = f;
+		const f = (typeof factor === 'number' && factor >= 0) ? factor : 1;
+		window.__TARGET_SIM_SPEED = f; // Remember the intended speed
+		window.__CURRENT_SIM_SPEED = f; // Current active speed
+		window.__SIM_SPEED = f; // Legacy compatibility
 		engine.timing.timeScale = f;
+
+		// windmill runtime is driven from stored baseRPS in updatePhysics; no per-windmill scaling needed here
+		// pause or resume the Runner so physics and simulation-time advance stop/start coherently
+		try {
+			window.__runnerPaused = window.__runnerPaused || false;
+			if (typeof runner !== 'undefined' && runner) {
+				if (f === 0 && !window.__runnerPaused) {
+					try { Runner.stop(runner); } catch (e) { /* ignore */ }
+					window.__runnerPaused = true;
+				} else if (f > 0 && window.__runnerPaused) {
+					try { Runner.run(runner, engine); } catch (e) { /* ignore */ }
+					window.__runnerPaused = false;
+				}
+			}
+		} catch (e) { /* ignore */ }
+
+		// Update dev palette UI to reflect current speed
+		if (devPaletteEl) {
+			const slider = devPaletteEl.querySelector('.dp-speed');
+			const val = devPaletteEl.querySelector('.dp-speed-val');
+			if (slider && val) {
+				slider.value = f.toString();
+				val.textContent = f.toFixed(1) + 'x';
+			}
+		}
+	};
+
+	window.pauseSimulation = () => {
+		// Store current target speed before pausing
+		const currentTarget = window.__TARGET_SIM_SPEED || 1;
+		window.setSimSpeed(0);
+		window.__TARGET_SIM_SPEED = currentTarget; // Restore target speed for resume
+	};
+
+	window.resumeSimulation = () => {
+		const targetSpeed = window.__TARGET_SIM_SPEED || 1;
+		window.setSimSpeed(targetSpeed);
 	};
 
 	// --- Dev/Editor API ---
@@ -870,9 +1167,76 @@
 			'<div>オレンジ: <span class="dp-orange">0</span> <span class="dp-orange-pct" style="margin-left:8px;font-size:11px;opacity:0.9">0%</span></div>' +
 			'<div>青: <span class="dp-blue">0</span> <span class="dp-blue-pct" style="margin-left:8px;font-size:11px;opacity:0.9">0%</span></div>' +
 			'<div>ハズレ: <span class="dp-miss">0</span></div>' +
-			'<div style="margin-top:8px; font-size:11px; opacity:0.8;">Editor independent</div>';
+			'<div style="margin-top:8px; font-size:11px; opacity:0.8;">Editor independent</div>' +
+			// simulation controls
+			'<div style="margin-top:8px; font-size:12px;">' +
+			'速度: <input type="range" class="dp-speed" min="0.1" max="2" step="0.1" value="1" style="vertical-align:middle; width:120px;"> <span class="dp-speed-val">1.0x</span>' +
+			'</div>' +
+			'<div style="margin-top:6px;"><button class="dp-pause">一時停止</button> <button class="dp-resume">再開</button> <button class="dp-slow">0.5x</button> <button class="dp-fast">2x</button></div>' +
+			// stopwatch display (starts when dropping, stops when released)
+			'<div style="margin-top:8px; font-size:12px;">ストップウォッチ: <span class="dp-stopwatch">0.0s</span></div>';
 		document.body.appendChild(el);
 		devPaletteEl = el;
+
+		// wire up sim controls
+		try {
+			const slider = el.querySelector('.dp-speed');
+			const val = el.querySelector('.dp-speed-val');
+			const btnPause = el.querySelector('.dp-pause');
+			const btnResume = el.querySelector('.dp-resume');
+			const btnSlow = el.querySelector('.dp-slow');
+			const btnFast = el.querySelector('.dp-fast');
+			if (slider && val) {
+				slider.addEventListener('input', (ev) => {
+					const f = parseFloat(ev.target.value) || 1;
+					val.textContent = f.toFixed(1) + 'x';
+					window.setSimSpeed(f);
+				});
+			}
+			if (btnPause) btnPause.addEventListener('click', () => { window.pauseSimulation(); });
+			if (btnResume) btnResume.addEventListener('click', () => { window.resumeSimulation(); });
+			if (btnSlow) btnSlow.addEventListener('click', () => { window.setSimSpeed(0.5); });
+			if (btnFast) btnFast.addEventListener('click', () => { window.setSimSpeed(2); });
+		} catch (e) { /* ignore wiring errors */ }
+
+		// --- Stopwatch (sync with gameState.dropping) ---
+		try {
+			const swEl = el.querySelector('.dp-stopwatch');
+			let swAccum = 0; // ms accumulated when stopped
+			let swStart = null; // performance.now when running
+			let swRunning = false;
+			function formatMs(ms) {
+				if (ms < 1000) return (ms / 1000).toFixed(2) + 's';
+				const s = Math.floor(ms / 1000);
+				const rem = Math.floor((ms % 1000) / 10);
+				return s + '.' + (rem < 10 ? '0' + rem : rem) + 's';
+			}
+
+			function swUpdate(now) {
+				try {
+					const gs = (window.__getGameState && window.__getGameState()) || {};
+					if (gs.dropping && !swRunning) {
+						// start
+						swStart = performance.now();
+						swRunning = true;
+					}
+					if (!gs.dropping && swRunning) {
+						// stop and accumulate
+						swAccum += (performance.now() - (swStart || performance.now()));
+						swStart = null;
+						swRunning = false;
+					}
+					let disp = swAccum;
+					if (swRunning && swStart) disp += (performance.now() - swStart);
+					if (swEl) swEl.textContent = formatMs(disp);
+				} catch (e) { /* ignore */ }
+				el.__swRAF = requestAnimationFrame(swUpdate);
+			}
+			// start RAF loop
+			el.__swRAF = requestAnimationFrame(swUpdate);
+			// expose simple controls for debugging
+			el.__sw_reset = () => { swAccum = 0; swStart = null; swRunning = false; if (swEl) swEl.textContent = formatMs(0); };
+		} catch (e) { /* ignore stopwatch errors */ }
 		return el;
 	}
 
@@ -968,22 +1332,4 @@
 	}
 
 	init();
-
-	// Register a guaranteed-last afterRender reset after page load so
-	// any other scripts that register afterRender cannot leave globalAlpha changed.
-	try {
-		window.addEventListener('load', () => {
-			setTimeout(() => {
-				try {
-					Events.on(render, 'afterRender', () => {
-						try {
-							const ctx = render.context;
-							ctx.globalAlpha = 1;
-							ctx.globalCompositeOperation = 'source-over';
-						} catch (e) { /* ignore */ }
-					});
-				} catch (e) { /* ignore */ }
-			}, 50);
-		});
-	} catch (e) { /* ignore */ }
 })();
