@@ -37,13 +37,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	const windmillConfig = GAME_CONFIG.objects.windmill;
 
 	// ここで複数配置したい座標を列挙します。必要に応じて座標を編集してください。
+	// 各要素はオプションで `rps` (rotations per second) と `direction` (1 または -1) を含められます。
+	// 例: { x: 110, y: 430, rps: 0.5, direction: -1 }
 	const rotatorPositions = [
-		{ x: 225, y: 560 },
-		{ x: 110, y: 430 },
-		{ x: 340, y: 430 }
+		{ x: 110, y: 430, direction: -1 },
+		{ x: 340, y: 430, direction: 1 }
 	];
 
-	// rotators 配列に { body, rotationsPerSecond } を保持して、afterUpdate で個別に回転させます。
+	// rotators 配列に { body, anglePerFrame } を保持して、afterUpdate で個別に回転させます。
+	// anglePerFrame は各役物の rps と direction を元に計算します。
 	const rotators = rotatorPositions.map(pos => {
 		const blueprint = {
 			x: pos.x,
@@ -60,16 +62,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 		const body = createRotatingYakumono(blueprint);
 		World.add(world, body);
-		return { body, rotationsPerSecond: windmillConfig.rotationsPerSecond };
+
+		// 個別設定があれば優先、無ければ共通設定を使用
+		const rps = (typeof pos.rps === 'number') ? pos.rps : windmillConfig.rotationsPerSecond;
+		const direction = (pos.direction === -1) ? -1 : 1; // -1 で反時計回り
+		const anglePerFrameForThis = (rps * 2 * Math.PI / 60) * direction;
+
+		return { body, anglePerFrame: anglePerFrameForThis };
 	});
 
-	// フレーム更新ごとのイベント
-	const anglePerFrame = (windmillConfig.rotationsPerSecond * 2 * Math.PI) / 60; // 60FPSを想定
-
+	// フレーム更新ごとのイベント — 各役物の anglePerFrame を使って回転させる
 	Events.on(engine, 'afterUpdate', () => {
-		// 各風車を毎フレーム回転させる
 		rotators.forEach(rotator => {
-			Body.rotate(rotator.body, anglePerFrame);
+			Body.rotate(rotator.body, rotator.anglePerFrame);
 		});
 	});
 
