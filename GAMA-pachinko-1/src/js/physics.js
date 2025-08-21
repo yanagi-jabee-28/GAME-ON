@@ -33,6 +33,40 @@
 		}
 	};
 
+	// Apply air drag and terminal velocity to registered balls.
+	// This function is intentionally allocation-light and operates directly on bodies.
+	// options: { delta } in ms
+	Physics.updateBalls = function (options) {
+		options = options || {};
+		const delta = (typeof options.delta === 'number' && options.delta > 0) ? options.delta : 16.6667;
+		// dt in seconds
+		const dt = delta / 1000;
+		const cfg = (window.CONFIG || {});
+		const dragK = (typeof cfg.AIR_DRAG === 'number') ? cfg.AIR_DRAG : 0;
+		const terminal = (typeof cfg.TERMINAL_VELOCITY === 'number' && cfg.TERMINAL_VELOCITY > 0) ? cfg.TERMINAL_VELOCITY : 0;
+		// Precompute multiplicative factor for velocity per-frame: v *= exp(-dragK * dt)
+		const dragFactor = (dragK > 0) ? Math.exp(-dragK * dt) : 1;
+		for (const b of _balls) {
+			try {
+				// skip bodies that are static or sleeping
+				if (b.isStatic || b.isSleeping) continue;
+				let vx = b.velocity.x, vy = b.velocity.y;
+				// apply drag multiplicatively
+				vx *= dragFactor; vy *= dragFactor;
+				// enforce terminal velocity if set
+				if (terminal > 0) {
+					const speed = Math.hypot(vx, vy);
+					if (speed > terminal) {
+						const s = terminal / speed;
+						vx *= s; vy *= s;
+					}
+				}
+				// directly set velocity on body
+				Matter.Body.setVelocity(b, { x: vx, y: vy });
+			} catch (e) { /* ignore per-body failures */ }
+		}
+	};
+
 	// Lightweight sweep helper: predict crossings for registered balls against targets
 	// targets: array of bodies to test (with bounds)
 	// callback(ball, target) is invoked when a crossing is detected (approx.)

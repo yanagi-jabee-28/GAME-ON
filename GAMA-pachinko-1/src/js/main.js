@@ -263,7 +263,8 @@
 			const closedAngle = (side === 'left' ? -1 : 1) * gateClosedBase;
 			const openAngle = (side === 'left' ? -1 : 1) * gateOpenBase;
 			const center = { x: pivot.x - Math.sin(closedAngle) * gateHalf, y: pivot.y + Math.cos(closedAngle) * gateHalf };
-			const gateBody = Bodies.rectangle(center.x, center.y, gateWidth, gateLength, { isStatic: true, label: 'gate', render: { fillStyle: layout.color } });
+			const gateRest = (layout && typeof layout.restitution === 'number') ? layout.restitution : ((typeof C.GATE_RESTITUTION === 'number') ? C.GATE_RESTITUTION : 0.6);
+			const gateBody = Bodies.rectangle(center.x, center.y, gateWidth, gateLength, { isStatic: true, label: 'gate', restitution: gateRest, render: { fillStyle: layout.color } });
 			Body.setAngle(gateBody, closedAngle);
 			Composite.add(world, gateBody);
 			gates.push({ body: gateBody, pivot, length: gateLength, width: gateWidth, targetAngle: openAngle, closedAngle, openAngle });
@@ -666,6 +667,9 @@
 		if (window.PHYSICS && typeof window.PHYSICS.updateWindmills === 'function') {
 			const delta = (engine && engine.timing && engine.timing.lastDelta) ? engine.timing.lastDelta : 16.6667;
 			window.PHYSICS.updateWindmills(windmills, { maxAngularStep: C.WINDMILL && C.WINDMILL.maxAngularStep, delta });
+			if (typeof window.PHYSICS.updateBalls === 'function') {
+				window.PHYSICS.updateBalls({ delta });
+			}
 		} else {
 			// fallback: previous behavior
 			windmills.forEach(w => Body.setAngle(w.body, w.body.angle + w.speed));
