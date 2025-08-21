@@ -11,7 +11,14 @@
 <body>
 	<h1>パチンコゲーム</h1>
 	<div id="game-container"></div>
-	<button id="add-ball">ボールを追加</button>
+	<div id="launch-arrow" aria-hidden="true"></div>
+	<div class="controls">
+		<label>角度: <span id="angle-val">45</span>°</label>
+		<input id="angle-slider" type="range" min="0" max="90" value="45">
+		<label>速度(px/s): <span id="speed-val">12</span></label>
+		<input id="speed-slider" type="range" min="5" max="120" step="1" value="12">
+		<button id="add-ball">ボールを追加</button>
+	</div>
 
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
 	<!-- スクリプトの読み込み順序が重要です -->

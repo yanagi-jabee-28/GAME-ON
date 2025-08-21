@@ -81,11 +81,85 @@ document.addEventListener('DOMContentLoaded', () => {
 	});
 
 	// --- 6. イベントリスナーの設定 ---
-	// 「ボールを追加」ボタンのクリックイベント
+	// --- ボール投射（放物線） ---
+	// 画面左下外から放物線で投射し、画面上部の釘エリアに着弾させる。
+	function computeLaunchVelocity(start, target, g, time) {
+		// g: 正の値（下向き）
+		const dx = target.x - start.x;
+		const dy = target.y - start.y; // 下方向が正
+		const vx = dx / time;
+		const vy = (dy - 0.5 * g * time * time) / time;
+		return { x: vx, y: vy };
+	}
+
+	// UI 要素を取得
+	const angleSlider = document.getElementById('angle-slider');
+	const speedSlider = document.getElementById('speed-slider');
+	const angleVal = document.getElementById('angle-val');
+	const speedVal = document.getElementById('speed-val');
+
+	// UI 表示更新
+	const launchArrow = document.getElementById('launch-arrow');
+	function updateArrow() {
+		const angle = Number(angleSlider.value);
+		const speed = Number(speedSlider.value);
+		angleVal.textContent = angle;
+		speedVal.textContent = speed;
+		// position arrow near bottom-left of container (use container-relative coords)
+		const rect = container.getBoundingClientRect();
+		// left/top relative to the container element
+		const containerLeft = 0; // since arrow is absolutely positioned inside container
+		const containerTop = 0;
+		launchArrow.style.left = (24 + containerLeft) + 'px';
+		launchArrow.style.top = (rect.height - 80 + containerTop) + 'px';
+		launchArrow.style.transform = `rotate(${-angle}deg)`; // negative because CSS y-axis
+	}
+	angleSlider.addEventListener('input', updateArrow);
+	speedSlider.addEventListener('input', updateArrow);
+	// 初期ラベル表示
+	updateArrow();
+
 	document.getElementById('add-ball').addEventListener('click', () => {
-		const x = Math.random() * (GAME_CONFIG.width - 80) + 40;
-		const ball = createBall(x, 20);
+		// 発射元：ゲーム領域の左下内側（コンテナ内から打ち出す）
+		const start = { x: 40, y: GAME_CONFIG.height - 40 };
+		// 着弾ターゲット：画面上部の釘エリアのランダムな点（中央寄り）
+		const target = {
+			x: GAME_CONFIG.width * (0.35 + Math.random() * 0.3),
+			y: GAME_CONFIG.height * 0.18 + Math.random() * (GAME_CONFIG.height * 0.08)
+		};
+
+		// UI で指定された角度(度)と速度(px/s)
+		const angleDeg = Number(angleSlider.value);
+		const rawSpeed = Number(speedSlider.value);
+		// apply global scale so UI values can be tuned to human-friendly numbers
+		const speedPxPerSec = rawSpeed * (GAME_CONFIG.launch && GAME_CONFIG.launch.speedScale ? GAME_CONFIG.launch.speedScale : 1);
+		const angleRad = angleDeg * Math.PI / 180;
+
+		// シンプルに角度と速度から初速を決定（物理はMatter.jsに任せる）
+		const vx = Math.cos(angleRad) * speedPxPerSec;
+		const vy = -Math.sin(angleRad) * speedPxPerSec; // 上向きは負
+
+		console.log('[spawn] creating ball at', start, 'rawSpeed', rawSpeed, 'scaledSpeed', speedPxPerSec, 'velocity', { x: vx, y: vy }, 'angle', angleDeg);
+
+		// ボールを作成してワールドに追加、初速をセット
+		const ball = createBall(start.x, start.y);
 		World.add(world, ball);
+		Body.setVelocity(ball, { x: vx, y: vy });
+
+		// debug marker at spawn point (position relative to container)
+		const marker = document.createElement('div');
+		marker.style.position = 'absolute';
+		marker.style.width = '8px';
+		marker.style.height = '8px';
+		marker.style.borderRadius = '50%';
+		marker.style.background = 'yellow';
+		// container is the positioned parent, so place marker using start coords
+		marker.style.left = (start.x) + 'px';
+		marker.style.top = (start.y - 8) + 'px';
+		marker.style.zIndex = '9999';
+		marker.id = 'debug-spawn-marker';
+		container.appendChild(marker);
+		setTimeout(() => marker.remove(), 1200);
 	});
 
 	// 衝突開始イベント
@@ -102,6 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 
 			// 床とボールの衝突判定
+			// NOTE: ユーザ要望により、ここでの即時削除を無効化しました。観察用にボールが消えないようにします。
+			/*
 			const ballLabel = GAME_CONFIG.objects.ball.label;
 			const floorLabel = GAME_CONFIG.objects.floor.label;
 			if (bodyA.label === ballLabel && bodyB.label === floorLabel) {
@@ -109,6 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			} else if (bodyB.label === ballLabel && bodyA.label === floorLabel) {
 				World.remove(world, bodyB);
 			}
+			*/
 		}
 	});
 
