@@ -101,23 +101,16 @@ function createRotatingYakumono(blueprint) {
 	let bodyParts = [];
 
 	if (shape.type === 'windmill') {
-		// --- パーツごとのオプションを準備 ---
-		const bladeOptions = {
+		const partOptions = {
 			...commonBodyOptions.options,
 			label: commonBodyOptions.label,
 			material: commonBodyOptions.material,
-			render: render.blade // 羽根の描画設定
-		};
-		const centerOptions = {
-			...commonBodyOptions.options,
-			label: 'yakumono_center', // 中心円専用のラベル
-			material: commonBodyOptions.material,
-			render: render.center // 中心円の描画設定
+			render: render
 		};
 
 		// 1. 中心円を作成
 		if (shape.centerRadius > 0) {
-			bodyParts.push(Matter.Bodies.circle(x, y, shape.centerRadius, centerOptions));
+			bodyParts.push(Matter.Bodies.circle(x, y, shape.centerRadius, partOptions));
 		}
 
 		// 2. 羽根を作成
@@ -132,7 +125,7 @@ function createRotatingYakumono(blueprint) {
 			const partX = x + bladeOffset * Math.cos(angleRad);
 			const partY = y + bladeOffset * Math.sin(angleRad);
 
-			const blade = Matter.Bodies.rectangle(partX, partY, bladeLength, bladeWidth, bladeOptions);
+			const blade = Matter.Bodies.rectangle(partX, partY, bladeLength, bladeWidth, partOptions);
 			Matter.Body.setAngle(blade, angleRad);
 			bodyParts.push(blade);
 		}

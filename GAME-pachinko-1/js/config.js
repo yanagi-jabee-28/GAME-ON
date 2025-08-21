@@ -54,8 +54,7 @@ const GAME_CONFIG = {
 		windmill: {
 			rotationsPerSecond: 1, // 毎秒の回転数
 			render: {
-				blade: { fillStyle: '#ff0000' }, // 羽根のデフォルトの色は赤
-				center: { fillStyle: '#555555' }  // 中心円のデフォルトの色
+				fillStyle: '#ff0000' // デフォルトの色は赤
 			}
 		},
 		// --- 壁の定義 ---

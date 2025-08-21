@@ -36,11 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	const windmillConfig = GAME_CONFIG.objects.windmill;
 	const windmillBlueprint = {
 		x: 225,
-		y: 480, // 釘の最下段より下に配置
-		render: {
-			blade: { fillStyle: '#ff0000' }, // 羽根の色
-			center: { fillStyle: '#555555' } // 中心円の色
-		},
+		y: 560,
+		render: windmillConfig.render,
 		shape: {
 			type: 'windmill',
 			centerRadius: 6,
