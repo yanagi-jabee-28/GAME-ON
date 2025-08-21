@@ -18,6 +18,26 @@
 		<label>強さ (0〜100): <span id="speed-val">50</span></label>
 		<input id="speed-slider" type="range" min="0" max="100" step="1" value="50">
 		<button id="add-ball">ボールを追加</button>
+
+		<!-- topPlate controls -->
+		<div class="topplate-controls" style="width:100%; display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap;">
+			<label>天板モード:
+				<select id="tp-mode">
+					<option value="dome">dome</option>
+					<option value="arc">arc</option>
+				</select>
+			</label>
+			<label>radius: <span id="tp-radius-val"></span></label>
+			<input id="tp-radius" type="range" min="50" max="1000" step="1">
+			<label>thickness: <span id="tp-thickness-val"></span></label>
+			<input id="tp-thickness" type="range" min="2" max="80" step="1">
+			<label>segments: <span id="tp-seg-val"></span></label>
+			<input id="tp-segments" type="range" min="6" max="128" step="1">
+			<label>centerOffsetX: <span id="tp-offx-val"></span></label>
+			<input id="tp-offx" type="range" min="-300" max="300" step="1">
+			<label>centerOffsetY: <span id="tp-offy-val"></span></label>
+			<input id="tp-offy" type="range" min="-300" max="300" step="1">
+		</div>
 	</div>
 
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>

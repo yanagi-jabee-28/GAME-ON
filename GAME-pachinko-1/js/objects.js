@@ -37,7 +37,7 @@ function createBall(x, y, options = {}) {
  * ゲームエリアの境界（壁と床）を作成し、ワールドに追加します。
  * @param {Matter.World} world - オブジェクトを追加するMatter.jsのワールド
  */
-function createBounds(world) {
+function createBounds() {
 	const { width, height } = GAME_CONFIG;
 	const wallConfig = GAME_CONFIG.objects.wall;
 	const floorConfig = GAME_CONFIG.objects.floor;
@@ -121,8 +121,14 @@ function createBounds(world) {
 	bounds.push(Matter.Bodies.rectangle(width / 2, height + 10, width, 20, floorOptions));
 	bounds.push(Matter.Bodies.rectangle(-10, height / 2, 20, height, wallOptions));
 	bounds.push(Matter.Bodies.rectangle(width + 10, height / 2, 20, height, wallOptions));
+	return bounds;
+}
 
-	Matter.World.add(world, bounds);
+// helper to add bounds to a world (keeps callsites simple)
+function addBoundsToWorld(bounds, world) {
+	if (Array.isArray(bounds) && bounds.length) {
+		Matter.World.add(world, bounds);
+	}
 }
 
 /**

@@ -34,8 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	Runner.run(runner, engine);
 
 	// --- 4. オブジェクトの生成 ---
-	// topPlate の radius が現在の幅に対して小さすぎると arc が作れないため、
-	// 幅に応じて自動調整を行う（既に大きければ変更しない）。
+	// topPlate の初期調整（幅に合わせる）
 	if (GAME_CONFIG.topPlate && GAME_CONFIG.topPlate.enabled) {
 		const suggested = Math.round(GAME_CONFIG.width * 0.6);
 		if (!GAME_CONFIG.topPlate.radius || GAME_CONFIG.topPlate.radius < (GAME_CONFIG.width / 2)) {
@@ -43,7 +42,10 @@ document.addEventListener('DOMContentLoaded', () => {
 			GAME_CONFIG.topPlate.radius = suggested;
 		}
 	}
-	createBounds(world);
+
+	// create and add bounds (createBounds now returns an array)
+	let currentBounds = createBounds();
+	addBoundsToWorld(currentBounds, world);
 	loadPegs('pegs-presets/pegs3.json', world);
 
 	// --- 5. 回転役物の生成（複数対応） ---
@@ -104,6 +106,20 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 
 	// UI 要素を取得
+
+	// topPlate UI elements
+	const tpMode = document.getElementById('tp-mode');
+	const tpRadius = document.getElementById('tp-radius');
+	const tpRadiusVal = document.getElementById('tp-radius-val');
+	const tpThickness = document.getElementById('tp-thickness');
+	const tpThicknessVal = document.getElementById('tp-thickness-val');
+	const tpSegments = document.getElementById('tp-segments');
+	const tpSegVal = document.getElementById('tp-seg-val');
+	const tpOffX = document.getElementById('tp-offx');
+	const tpOffXVal = document.getElementById('tp-offx-val');
+	const tpOffY = document.getElementById('tp-offy');
+	const tpOffYVal = document.getElementById('tp-offy-val');
+
 	const angleSlider = document.getElementById('angle-slider');
 	const speedSlider = document.getElementById('speed-slider');
 	const angleVal = document.getElementById('angle-val');
@@ -114,6 +130,23 @@ document.addEventListener('DOMContentLoaded', () => {
 		angleSlider.min = GAME_CONFIG.launch.angleMin;
 		angleSlider.max = GAME_CONFIG.launch.angleMax;
 		angleSlider.value = GAME_CONFIG.launch.defaultAngle;
+	}
+
+	// initialize topPlate UI from config
+	if (GAME_CONFIG.topPlate) {
+		tpMode.value = GAME_CONFIG.topPlate.mode || 'dome';
+		tpRadius.min = 50;
+		tpRadius.max = Math.max(1000, GAME_CONFIG.width * 2);
+		tpRadius.value = GAME_CONFIG.topPlate.radius || Math.round(GAME_CONFIG.width * 0.6);
+		tpRadiusVal.textContent = tpRadius.value;
+		tpThickness.value = GAME_CONFIG.topPlate.thickness || 20;
+		tpThicknessVal.textContent = tpThickness.value;
+		tpSegments.value = GAME_CONFIG.topPlate.segments || 24;
+		(tpSegVal.textContent = tpSegments.value);
+		tpOffX.value = GAME_CONFIG.topPlate.centerOffsetX || 0;
+		tpOffXVal.textContent = tpOffX.value;
+		tpOffY.value = GAME_CONFIG.topPlate.centerOffsetY || 0;
+		tpOffYVal.textContent = tpOffY.value;
 	}
 
 	// UI 表示更新
@@ -142,6 +175,35 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	angleSlider.addEventListener('input', updateArrow);
 	speedSlider.addEventListener('input', updateArrow);
+
+	// topPlate UI handlers: update GAME_CONFIG and recreate bounds
+	function recreateTopPlate() {
+		if (!GAME_CONFIG.topPlate) GAME_CONFIG.topPlate = {};
+		GAME_CONFIG.topPlate.mode = tpMode.value;
+		GAME_CONFIG.topPlate.radius = Number(tpRadius.value);
+		GAME_CONFIG.topPlate.thickness = Number(tpThickness.value);
+		GAME_CONFIG.topPlate.segments = Number(tpSegments.value);
+		GAME_CONFIG.topPlate.centerOffsetX = Number(tpOffX.value);
+		GAME_CONFIG.topPlate.centerOffsetY = Number(tpOffY.value);
+		// remove existing bounds
+		if (currentBounds && currentBounds.length) {
+			currentBounds.forEach(b => Matter.Composite.remove(world, b, true));
+		}
+		currentBounds = createBounds();
+		addBoundsToWorld(currentBounds, world);
+	}
+
+	[tpMode, tpRadius, tpThickness, tpSegments, tpOffX, tpOffY].forEach(el => {
+		if (!el) return;
+		el.addEventListener('input', () => {
+			if (el === tpRadius) tpRadiusVal.textContent = el.value;
+			if (el === tpThickness) tpThicknessVal.textContent = el.value;
+			if (el === tpSegments) tpSegVal.textContent = el.value;
+			if (el === tpOffX) tpOffXVal.textContent = el.value;
+			if (el === tpOffY) tpOffYVal.textContent = el.value;
+			recreateTopPlate();
+		});
+	});
 	// insert speedActual after speedVal in DOM
 	if (speedVal && speedVal.parentNode) {
 		speedVal.parentNode.insertBefore(speedActual, speedVal.nextSibling);
