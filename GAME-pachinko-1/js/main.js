@@ -32,22 +32,46 @@ document.addEventListener('DOMContentLoaded', () => {
 	createBounds(world);
 	loadPegs('pegs-presets/pegs3.json', world);
 
-	// --- 5. 役物の生成 ---
+	// --- 5. 回転役物の生成（複数対応） ---
+	// windmillConfig の設定を元に、配置座標を複数用意して複数の回転役物を生成します。
 	const windmillConfig = GAME_CONFIG.objects.windmill;
-	const windmillBlueprint = {
-		x: 225,
-		y: 560,
-		render: windmillConfig.render,
-		shape: {
-			type: 'windmill',
-			centerRadius: 6,
-			numBlades: 4,
-			bladeLength: 20,
-			bladeWidth: 5
-		}
-	};
-	const windmill = createRotatingYakumono(windmillBlueprint);
-	World.add(world, windmill);
+
+	// ここで複数配置したい座標を列挙します。必要に応じて座標を編集してください。
+	const rotatorPositions = [
+		{ x: 225, y: 560 },
+		{ x: 110, y: 430 },
+		{ x: 340, y: 430 }
+	];
+
+	// rotators 配列に { body, rotationsPerSecond } を保持して、afterUpdate で個別に回転させます。
+	const rotators = rotatorPositions.map(pos => {
+		const blueprint = {
+			x: pos.x,
+			y: pos.y,
+			render: windmillConfig.render,
+			shape: {
+				type: 'windmill',
+				centerRadius: 6,
+				numBlades: 4,
+				bladeLength: 20,
+				bladeWidth: 5
+			}
+		};
+
+		const body = createRotatingYakumono(blueprint);
+		World.add(world, body);
+		return { body, rotationsPerSecond: windmillConfig.rotationsPerSecond };
+	});
+
+	// フレーム更新ごとのイベント
+	const anglePerFrame = (windmillConfig.rotationsPerSecond * 2 * Math.PI) / 60; // 60FPSを想定
+
+	Events.on(engine, 'afterUpdate', () => {
+		// 各風車を毎フレーム回転させる
+		rotators.forEach(rotator => {
+			Body.rotate(rotator.body, anglePerFrame);
+		});
+	});
 
 	// --- 6. イベントリスナーの設定 ---
 	// 「ボールを追加」ボタンのクリックイベント
@@ -81,12 +105,5 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	});
 
-	// フレーム更新ごとのイベント
-	const rotationsPerSecond = windmillConfig.rotationsPerSecond;
-	const anglePerFrame = (rotationsPerSecond * 2 * Math.PI) / 60; // 60FPSを想定
 
-	Events.on(engine, 'afterUpdate', () => {
-		// 風車を毎フレーム回転させる
-		Body.rotate(windmill, anglePerFrame);
-	});
 });
