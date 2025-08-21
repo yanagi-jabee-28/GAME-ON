@@ -82,8 +82,9 @@ function loadPegs(presetUrl, world) {
 			return response.json();
 		})
 		.then(pegs => {
+			const xOffset = ((GAME_CONFIG.width || 0) - (GAME_CONFIG.baseWidth || GAME_CONFIG.width || 0)) / 2;
 			const pegObjects = pegs.map(peg => {
-				return Matter.Bodies.circle(peg.x, peg.y, pegConfig.radius, pegOptions);
+				return Matter.Bodies.circle(peg.x + xOffset, peg.y, pegConfig.radius, pegOptions);
 			});
 			Matter.World.add(world, pegObjects);
 		})

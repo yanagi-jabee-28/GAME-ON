@@ -52,9 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	// rotators 配列に { body, anglePerFrame } を保持して、afterUpdate で個別に回転させます。
 	// anglePerFrame は各役物の rps と direction を元に計算します。
 	const rotators = rotatorPositions.map(pos => {
+		const xOffset = ((GAME_CONFIG.width || 0) - (GAME_CONFIG.baseWidth || GAME_CONFIG.width || 0)) / 2;
 		const defaults = windmillConfig.defaults || {};
 		const blueprint = {
-			x: pos.x,
+			x: pos.x + xOffset,
 			y: pos.y,
 			render: windmillConfig.render,
 			// optional: 個別の中心色を指定できる
@@ -120,8 +121,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	updateArrow();
 
 	document.getElementById('add-ball').addEventListener('click', () => {
-		// 発射元：ゲーム領域の左下内側（コンテナ内から打ち出す）
-		const start = { x: 40, y: GAME_CONFIG.height - 40 };
+		// 発射元：config の spawn 設定を使って決定
+		const spawnCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.spawn) || {};
+		const xOffset = ((GAME_CONFIG.width || 0) - (GAME_CONFIG.baseWidth || GAME_CONFIG.width || 0)) / 2;
+		const startX = (typeof spawnCfg.x === 'number') ? (spawnCfg.x + xOffset) : (40 + xOffset);
+		const startY = (typeof spawnCfg.y === 'number') ? spawnCfg.y : (GAME_CONFIG.height - (spawnCfg.yOffsetFromBottom || 40));
+		const start = { x: startX, y: startY };
 		// 着弾ターゲット：画面上部の釘エリアのランダムな点（中央寄り）
 		const target = {
 			x: GAME_CONFIG.width * (0.35 + Math.random() * 0.3),
