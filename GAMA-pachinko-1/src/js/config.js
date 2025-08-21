@@ -72,7 +72,7 @@
 
 		// デバッグ設定
 		DEBUG: {
-			PEG_RAINBOW_ENABLED: true, // trueにすると起動時にペグが虹色に光ります
+			PEG_RAINBOW_ENABLED: false, // trueにすると起動時にペグが虹色に光ります
 			PEG_RAINBOW_MS: 60
 		},
 

@@ -50,6 +50,73 @@
 	const runner = Runner.create();
 	Runner.run(runner, engine);
 
+	// --- Particle pool for lightweight debris (canvas rendered) ---
+	window._particlePool = window._particlePool || [];
+	window._activeParticles = window._activeParticles || [];
+	const ensureRenderer = () => {
+		if (window._particleRendererInstalled) return;
+		window._particleRendererInstalled = true;
+		Events.on(render, 'afterRender', () => {
+			const ctx = render.context;
+			const dt = (engine && engine.timing && engine.timing.lastDelta) ? engine.timing.lastDelta : 16.6667;
+			if (!window._activeParticles || !window._activeParticles.length) return;
+			ctx.save();
+			for (let i = window._activeParticles.length - 1; i >= 0; i--) {
+				const p = window._activeParticles[i];
+				// integrate
+				p.vy += ((C.GRAVITY_Y || 0.6) * 0.06) * (dt / 16.6667);
+				// air drag simple damping
+				const drag = Math.max(0, 1 - ((C.DEBRIS && C.DEBRIS.DRAG) ? C.DEBRIS.DRAG : 0.06) * (dt / 16.6667));
+				p.vx *= drag;
+				p.vy *= drag;
+				p.x += p.vx * (dt / 1000);
+				p.y += p.vy * (dt / 1000);
+				p.life -= dt;
+				ctx.beginPath();
+				ctx.fillStyle = p.color || '#ffffff';
+				ctx.globalAlpha = Math.max(0, Math.min(1, p.life / (p.maxLife || 400)));
+				ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+				ctx.fill();
+				if (p.life <= 0 || p.y > GAME_HEIGHT + 400) {
+					// recycle
+					window._particlePool.push(p);
+					window._activeParticles.splice(i, 1);
+				}
+			}
+			ctx.restore();
+		});
+	};
+
+	function createDebris(x, y, color) {
+		const cfg = C.DEBRIS || {};
+		const max = Math.max(1, cfg.MAX_PARTICLES || 100);
+		const count = Math.min(max, Math.max(cfg.COUNT_MIN || 3, Math.round(cfg.COUNT_MIN + Math.random() * ((cfg.COUNT_MAX || 8) - (cfg.COUNT_MIN || 3)))));
+		const spread = (typeof cfg.SPREAD === 'number') ? cfg.SPREAD : 12;
+		const speedMin = cfg.SPEED_MIN ?? 1.5;
+		const speedMax = cfg.SPEED_MAX ?? 4.0;
+		const lifeMin = cfg.LIFE_MIN ?? 220;
+		const lifeMax = cfg.LIFE_MAX ?? 600;
+		ensureRenderer();
+		for (let i = 0; i < count; i++) {
+			if (window._activeParticles.length >= max) break;
+			let p = window._particlePool.pop();
+			if (!p) p = {};
+			const angle = Math.random() * Math.PI * 2;
+			const speed = speedMin + Math.random() * (speedMax - speedMin);
+			p.x = x + (Math.random() - 0.5) * spread;
+			p.y = y + (Math.random() - 0.5) * spread;
+			p.vx = Math.cos(angle) * speed;
+			p.vy = Math.sin(angle) * speed - (Math.random() * (cfg.UP_BIAS ?? 1.5));
+			p.r = 1 + Math.random() * 2;
+			p.color = color || cfg.COLOR || '#ffffff';
+			p.life = lifeMin + Math.random() * (lifeMax - lifeMin);
+			p.maxLife = p.life;
+			window._activeParticles.push(p);
+		}
+		// play debris sound
+		playSound('debris');
+	}
+
 	// Developer overlay: draw drop distribution graph if enabled in config
 	(function setupDropGraphOverlay() {
 		const dropCfg = (C.DROP || {});
@@ -442,14 +509,18 @@
 			if (type !== 'floorMiss' && ball.isImmuneToMiss) return;
 			gameState.missHits++;
 			sfxKey = 'miss';
+			// spawn miss-colored debris
+			createDebris(ball.position.x, ball.position.y, (C.DEBRIS && C.DEBRIS.MISS_COLOR) ? C.DEBRIS.MISS_COLOR : '#ff0000');
 		} else if (type === 'startChucker') {
 			gameState.orangeHits++;
 			sfxKey = 'chucker';
 			newBallOptions = { fromBlue: true, isNavy: true };
+			createDebris(ball.position.x, ball.position.y, ball.render && ball.render.fillStyle ? ball.render.fillStyle : '#ffd700');
 		} else if (type === 'tulip') {
 			gameState.blueHits++;
 			sfxKey = 'tulip';
 			newBallOptions = { fromBlue: true, isNavy: ball.isNavy };
+			createDebris(ball.position.x, ball.position.y, ball.render && ball.render.fillStyle ? ball.render.fillStyle : '#3498db');
 		} else {
 			return;
 		}
