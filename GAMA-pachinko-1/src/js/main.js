@@ -114,6 +114,7 @@
 	const pegs = [];
 	const gates = [];
 	const windmills = [];
+	let _pegRainbowTimer = null;
 
 	// --- Create Game Elements ---
 	function createWalls() {
@@ -542,6 +543,11 @@
 		}
 	}
 
+	function showMessage(text, duration = 2000) {
+		messageBox.textContent = text;
+		messageBox.style.visibility = 'visible';
+		simTimeout(() => { messageBox.style.visibility = 'hidden'; }, duration);
+	}
 
 	// --- Audio ---
 	function playSound(key) {
@@ -674,6 +680,48 @@
 		if (C.EDITOR_ENABLED) setupEditorAPI();
 		if (C.DEV_PALETTE_ENABLED === undefined ? true : C.DEV_PALETTE_ENABLED) createDevPalette();
 		updateStats();
+
+		// --- Rainbow Pegs Feature ---
+		window.startPegRainbow = (ms = 120) => {
+			if (_pegRainbowTimer) return false; // already running
+			window._pegRainbowState = window._pegRainbowState || { hue: 0 };
+			_pegRainbowTimer = setInterval(() => {
+				window._pegRainbowState.hue = (window._pegRainbowState.hue + 6) % 360;
+				const hueBase = window._pegRainbowState.hue;
+				for (let i = 0; i < pegs.length; i++) {
+					const p = pegs[i];
+					const localHue = (hueBase + (i * (360 / Math.max(1, pegs.length)))) % 360;
+					p.render.fillStyle = `hsl(${Math.round(localHue)},75%,60%)`;
+				}
+			}, ms);
+			return true;
+		};
+		window.stopPegRainbow = () => {
+			if (!_pegRainbowTimer) return false;
+			clearInterval(_pegRainbowTimer);
+			_pegRainbowTimer = null;
+			// restore base color
+			const pegColor = (L.pegs && L.pegs.color) || '#bdc3c7';
+			for (const p of pegs) {
+				p.render.fillStyle = pegColor;
+			}
+			return true;
+		};
+		window.setPegRainbowEnabled = (on, ms) => {
+			const rainbowMs = (typeof ms === 'number') ? ms : ((C.DEBUG && C.DEBUG.PEG_RAINBOW_MS) || 120);
+			let enabled = on;
+			if (typeof enabled !== 'boolean') {
+				enabled = !_pegRainbowTimer;
+			}
+			if (enabled) {
+				window.startPegRainbow(rainbowMs);
+			} else {
+				window.stopPegRainbow();
+			}
+			return enabled;
+		};
+
+		// --- Global Helpers ---
 		window.updateStats = updateStats;
 		window.__DROP_CALLS = 0;
 		const originalDropBall = dropBall;
@@ -684,6 +732,11 @@
 			window.__BATCH_SUPPRESSED_COUNT = 0;
 			updateStats();
 		};
+
+		// --- Startup ---
+		if (C.DEBUG && C.DEBUG.PEG_RAINBOW_ENABLED) {
+			try { window.setPegRainbowEnabled(true); } catch (e) { /* ignore */ }
+		}
 	}
 
 	init();

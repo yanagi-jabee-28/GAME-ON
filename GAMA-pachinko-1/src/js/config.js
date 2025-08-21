@@ -70,6 +70,12 @@
 			preserveExact: true
 		},
 
+		// デバッグ設定
+		DEBUG: {
+			PEG_RAINBOW_ENABLED: true, // trueにすると起動時にペグが虹色に光ります
+			PEG_RAINBOW_MS: 60
+		},
+
 		// オーディオ設定
 		MASTER_VOLUME: 0.4,
 		MUTED: false,
