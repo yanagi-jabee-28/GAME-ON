@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		const max = GAME_CONFIG.launch && GAME_CONFIG.launch.maxSpeed ? GAME_CONFIG.launch.maxSpeed : 400;
 		const speed = min + (sliderValue / 100) * (max - min);
 		speedActual.textContent = ` (${Math.round(speed)} px/s)`;
-		angleVal.textContent = angle;
+		angleVal.textContent = angle.toFixed(1);
 		speedVal.textContent = sliderValue;
 		// position arrow near bottom-left of container (use container-relative coords)
 		const rect = container.getBoundingClientRect();
