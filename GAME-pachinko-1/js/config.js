@@ -16,7 +16,7 @@ const GAME_MATERIALS = {
 const GAME_CONFIG = {
 	// ▼▼▼ ゲーム全体の基本設定 ▼▼▼
 	width: 450,  // ゲームエリアの描画幅 (px)
-	height: 650, // ゲームエリアの描画高 (px)
+	height: 700, // ゲームエリアの描画高 (px)
 	renderOptions: {
 		wireframes: false, // falseにするとオブジェクトが塗りつぶされる (trueだと線画)
 		background: '#ffffff', // 背景色
@@ -56,7 +56,14 @@ const GAME_CONFIG = {
 				fillStyle: '#ff0000' // デフォルトの色は赤（羽根）
 			},
 			// 歯車の中心円の塗り色（デフォルト）
-			centerFill: '#333'
+			centerFill: '#333',
+			// 形状のデフォルト値（ここを変えれば全体のデフォルト挙動が変わる）
+			defaults: {
+				centerRadius: 6,
+				numBlades: 4,
+				bladeLength: 20,
+				bladeWidth: 5
+			}
 		},
 		// --- 壁の定義 ---
 		wall: {

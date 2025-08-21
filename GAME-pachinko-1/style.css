@@ -13,8 +13,9 @@ h1 {
 #game-container {
     margin: 20px auto;
     border: 1px solid #ccc;
-    width: 450px; /* ゲームの幅 */
-    height: 600px; /* ゲームの高さ */
+    /* width/height are controlled by GAME_CONFIG at runtime */
+    width: auto;
+    height: auto;
 }
 
 canvas {

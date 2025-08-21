@@ -13,8 +13,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	const world = engine.world;
 
 	// --- 2. レンダラーの作成 ---
+	// ゲームコンテナに config の幅高さを反映（CSS 側の固定をやめて config に一本化）
+	const container = document.getElementById('game-container');
+	container.style.width = GAME_CONFIG.width + 'px';
+	container.style.height = GAME_CONFIG.height + 'px';
+
 	const render = Render.create({
-		element: document.getElementById('game-container'),
+		element: container,
 		engine: engine,
 		options: {
 			width: GAME_CONFIG.width,
@@ -47,19 +52,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	// rotators 配列に { body, anglePerFrame } を保持して、afterUpdate で個別に回転させます。
 	// anglePerFrame は各役物の rps と direction を元に計算します。
 	const rotators = rotatorPositions.map(pos => {
+		const defaults = windmillConfig.defaults || {};
 		const blueprint = {
 			x: pos.x,
 			y: pos.y,
 			render: windmillConfig.render,
 			// optional: 個別の中心色を指定できる
 			centerFill: pos.centerFill,
-			shape: {
-				type: 'windmill',
-				centerRadius: 6,
-				numBlades: 4,
-				bladeLength: 20,
-				bladeWidth: 5
-			}
+			shape: Object.assign({ type: 'windmill' }, defaults, pos.shape || {})
 		};
 
 		const body = createRotatingYakumono(blueprint);

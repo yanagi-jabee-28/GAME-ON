@@ -96,51 +96,50 @@ function loadPegs(presetUrl, world) {
  * @returns {Matter.Body} 生成された役物の複合ボディ
  */
 function createRotatingYakumono(blueprint) {
-	const { x, y, shape, render, centerFill } = blueprint;
-	const commonBodyOptions = GAME_CONFIG.objects.yakumono_blade;
-	let bodyParts = [];
+	const windDef = GAME_CONFIG.objects.windmill || {};
+	const defaults = windDef.defaults || {};
+	const commonBodyOptions = GAME_CONFIG.objects.yakumono_blade || {};
 
-	// 中心色の決定：blueprint の centerFill が優先、無ければ config のデフォルト
-	const centerColor = centerFill || (GAME_CONFIG.objects.windmill && GAME_CONFIG.objects.windmill.centerFill) || '#333';
+	// blueprint の shape を defaults で補完
+	const shape = Object.assign({}, defaults, blueprint.shape || {});
+	const x = blueprint.x, y = blueprint.y;
 
-	if (shape.type === 'windmill') {
-		// 羽根用のオプション
-		const bladeOptions = {
-			...commonBodyOptions.options,
-			label: commonBodyOptions.label,
-			material: commonBodyOptions.material,
-			render: render
-		};
+	if (shape.type !== 'windmill') return null;
 
-		// 中心円は個別に色を設定
-		if (shape.centerRadius > 0) {
-			const centerOptions = { ...bladeOptions, render: { ...(bladeOptions.render || {}), fillStyle: centerColor } };
-			bodyParts.push(Matter.Bodies.circle(x, y, shape.centerRadius, centerOptions));
-		}
+	// 描画オプション
+	const bladeRender = blueprint.render || windDef.render || {};
+	const centerColor = blueprint.centerFill || windDef.centerFill || '#333';
 
-		// 羽根を作成
-		const bladeLength = shape.bladeLength;
-		const bladeWidth = shape.bladeWidth;
-		const bladeOffset = shape.centerRadius + (bladeLength / 2);
-
-		for (let i = 0; i < shape.numBlades; i++) {
-			const angle = (360 / shape.numBlades) * i;
-			const angleRad = angle * Math.PI / 180;
-
-			const partX = x + bladeOffset * Math.cos(angleRad);
-			const partY = y + bladeOffset * Math.sin(angleRad);
-
-			const blade = Matter.Bodies.rectangle(partX, partY, bladeLength, bladeWidth, bladeOptions);
-			Matter.Body.setAngle(blade, angleRad);
-			bodyParts.push(blade);
-		}
-	}
-
-	// パーツから複合ボディを作成し、静的オブジェクトとして設定
-	const compoundBody = Matter.Body.create({
-		parts: bodyParts,
-		isStatic: true
+	// 羽根用オプション
+	const bladeOptions = Object.assign({}, commonBodyOptions.options || {}, {
+		label: commonBodyOptions.label,
+		material: commonBodyOptions.material,
+		render: bladeRender
 	});
 
-	return compoundBody;
+	// 作成: 中心と羽根（Compositeに追加）
+	const parts = [];
+	if (shape.centerRadius > 0) {
+		const centerOptions = Object.assign({}, bladeOptions, { render: Object.assign({}, bladeOptions.render || {}, { fillStyle: centerColor }) });
+		parts.push(Matter.Bodies.circle(x, y, shape.centerRadius, centerOptions));
+	}
+
+	const bladeOffset = shape.centerRadius + (shape.bladeLength / 2);
+	for (let i = 0; i < shape.numBlades; i++) {
+		const angle = (360 / shape.numBlades) * i;
+		const angleRad = angle * Math.PI / 180;
+		const partX = x + bladeOffset * Math.cos(angleRad);
+		const partY = y + bladeOffset * Math.sin(angleRad);
+		const blade = Matter.Bodies.rectangle(partX, partY, shape.bladeLength, shape.bladeWidth, bladeOptions);
+		Matter.Body.setAngle(blade, angleRad);
+		parts.push(blade);
+	}
+
+	// Composite を使って作ると拡張しやすい（将来ジョイントなどを追加可能）
+	const composite = Matter.Composite.create();
+	parts.forEach(p => Matter.Composite.add(composite, p));
+
+	// 便宜上、Composite から Body を扱う箇所があるコード互換のために複合Bodyを返す
+	const compound = Matter.Body.create({ parts, isStatic: true });
+	return compound;
 }
