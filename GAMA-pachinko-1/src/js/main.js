@@ -316,7 +316,8 @@
 		const guards = (L.features && L.features.guards) || [];
 		for (const g of guards) {
 			if (g.type === 'rect') {
-				const body = Bodies.rectangle(g.x, g.y, g.w, g.h, { isStatic: true, render: { fillStyle: g.color || '#7f8c8d' } });
+				const rest = (typeof g.restitution === 'number') ? g.restitution : (C.GUARD_RESTITUTION || C.PEG_RESTITUTION || 0.6);
+				const body = Bodies.rectangle(g.x, g.y, g.w, g.h, { isStatic: true, restitution: rest, render: { fillStyle: g.color || '#7f8c8d' } });
 				if (typeof g.angle === 'number') Body.setAngle(body, g.angle);
 				Composite.add(world, body);
 			}
@@ -735,6 +736,23 @@
 				} catch (e) { /* ignore */ }
 				continue;
 			}
+
+			// If either body in the collision has restitution > 1, apply restitution directly
+			// as a multiplicative factor to the ball velocity (no implicit caps).
+			try {
+				const aRest = (pair.bodyA && typeof pair.bodyA.restitution === 'number') ? pair.bodyA.restitution : 1;
+				const bRest = (pair.bodyB && typeof pair.bodyB.restitution === 'number') ? pair.bodyB.restitution : 1;
+				const rest = Math.max(aRest, bRest);
+				if (rest > 1) {
+					const vx = ball.velocity.x, vy = ball.velocity.y;
+					const speed = Math.hypot(vx, vy) || 0.0001;
+					const newSpeed = speed * rest;
+					if (newSpeed !== speed) {
+						const scale = newSpeed / speed;
+						Body.setVelocity(ball, { x: vx * scale, y: vy * scale });
+					}
+				}
+			} catch (e) { /* ignore */ }
 
 			switch (other.label) {
 				case 'wall':
