@@ -105,9 +105,13 @@ GAME_CONFIG.launch = {
 	// UI の px/s 値に乗じる係数。値を上げると速くなる。
 	// 0.6 にして、スライダーの値がより力強い初速になるよう調整しました。
 	speedScale: 0.6,
-	// スライダーと一致させたい最小/最大（必要ならここで参照できます）
-	minSpeed: 5,
-	maxSpeed: 400
+	// スライダーと一致させたい最小/最大（ここで maxSpeed を下げて上限を制御します）
+	minSpeed: 30,
+	maxSpeed: 50,
+	// angle control: min/max degrees and default
+	angleMin: 75,
+	angleMax: 90,
+	defaultAngle: 70
 };
 
 // 発射の初期位置設定（config で制御可能にする）

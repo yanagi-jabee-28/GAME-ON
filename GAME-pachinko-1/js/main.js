@@ -100,13 +100,28 @@ document.addEventListener('DOMContentLoaded', () => {
 	const angleVal = document.getElementById('angle-val');
 	const speedVal = document.getElementById('speed-val');
 
+	// angle slider configuration from config.js
+	if (GAME_CONFIG.launch) {
+		angleSlider.min = GAME_CONFIG.launch.angleMin;
+		angleSlider.max = GAME_CONFIG.launch.angleMax;
+		angleSlider.value = GAME_CONFIG.launch.defaultAngle;
+	}
+
 	// UI 表示更新
 	const launchArrow = document.getElementById('launch-arrow');
+	const speedActual = document.createElement('span');
+	speedActual.id = 'speed-actual';
+	// attach after speedVal for visibility (we'll update textContent each frame)
 	function updateArrow() {
 		const angle = Number(angleSlider.value);
-		const speed = Number(speedSlider.value);
+		const sliderValue = Number(speedSlider.value);
+		// map slider 0..100 -> px/s using config scale and min/max
+		const min = GAME_CONFIG.launch && GAME_CONFIG.launch.minSpeed ? GAME_CONFIG.launch.minSpeed : 5;
+		const max = GAME_CONFIG.launch && GAME_CONFIG.launch.maxSpeed ? GAME_CONFIG.launch.maxSpeed : 400;
+		const speed = min + (sliderValue / 100) * (max - min);
+		speedActual.textContent = ` (${Math.round(speed)} px/s)`;
 		angleVal.textContent = angle;
-		speedVal.textContent = speed;
+		speedVal.textContent = sliderValue;
 		// position arrow near bottom-left of container (use container-relative coords)
 		const rect = container.getBoundingClientRect();
 		// left/top relative to the container element
@@ -118,6 +133,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	angleSlider.addEventListener('input', updateArrow);
 	speedSlider.addEventListener('input', updateArrow);
+	// insert speedActual after speedVal in DOM
+	if (speedVal && speedVal.parentNode) {
+		speedVal.parentNode.insertBefore(speedActual, speedVal.nextSibling);
+	}
 	// 初期ラベル表示
 	updateArrow();
 
@@ -137,16 +156,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 		// UI で指定された角度(度)と速度(px/s)
 		const angleDeg = Number(angleSlider.value);
-		const rawSpeed = Number(speedSlider.value);
-		// apply global scale so UI values can be tuned to human-friendly numbers
-		const speedPxPerSec = rawSpeed * (GAME_CONFIG.launch && GAME_CONFIG.launch.speedScale ? GAME_CONFIG.launch.speedScale : 1);
+		const sliderValue = Number(speedSlider.value); // 0..100
+		const min = GAME_CONFIG.launch && GAME_CONFIG.launch.minSpeed ? GAME_CONFIG.launch.minSpeed : 5;
+		const max = GAME_CONFIG.launch && GAME_CONFIG.launch.maxSpeed ? GAME_CONFIG.launch.maxSpeed : 400;
+		// convert slider 0..100 -> base px/s, then apply global speedScale
+		const baseSpeed = min + (sliderValue / 100) * (max - min);
+		const speedPxPerSec = baseSpeed * (GAME_CONFIG.launch && GAME_CONFIG.launch.speedScale ? GAME_CONFIG.launch.speedScale : 1);
 		const angleRad = angleDeg * Math.PI / 180;
 
 		// シンプルに角度と速度から初速を決定（物理はMatter.jsに任せる）
 		const vx = Math.cos(angleRad) * speedPxPerSec;
 		const vy = -Math.sin(angleRad) * speedPxPerSec; // 上向きは負
 
-		console.log('[spawn] creating ball at', start, 'rawSpeed', rawSpeed, 'scaledSpeed', speedPxPerSec, 'velocity', { x: vx, y: vy }, 'angle', angleDeg);
+		console.log('[spawn] creating ball at', start, 'slider', sliderValue, 'baseSpeed', Math.round(baseSpeed), 'scaledSpeed', Math.round(speedPxPerSec), 'velocity', { x: vx, y: vy }, 'angle', angleDeg);
 
 		// ボールを作成してワールドに追加、初速をセット
 		const ball = createBall(start.x, start.y);
