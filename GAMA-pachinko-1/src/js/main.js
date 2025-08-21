@@ -73,7 +73,6 @@
 			ctx.moveTo(left, top + graphH - 1);
 			ctx.lineTo(left + graphW, top + graphH - 1);
 			ctx.stroke();
-			const centerX = GAME_WIDTH / 2;
 			const samples = 128;
 			const halfW = graphW / 2;
 			const std = (typeof dropCfg.std === 'number') ? dropCfg.std : Math.max(1, halfW / 2);
@@ -543,11 +542,6 @@
 		}
 	}
 
-	function showMessage(text, duration = 2000) {
-		messageBox.textContent = text;
-		messageBox.style.visibility = 'visible';
-		simTimeout(() => { messageBox.style.visibility = 'hidden'; }, duration);
-	}
 
 	// --- Audio ---
 	function playSound(key) {
