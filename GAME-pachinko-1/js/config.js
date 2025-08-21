@@ -50,6 +50,13 @@ const GAME_CONFIG = {
 				fillStyle: '#555' // 塗りつぶしの色
 			}
 		},
+		// --- 風車の定義 ---
+		windmill: {
+			rotationsPerSecond: 1, // 毎秒の回転数
+			render: {
+				fillStyle: '#ff0000' // デフォルトの色は赤
+			}
+		},
 		// --- 壁の定義 ---
 		wall: {
 			label: 'wall',
@@ -68,6 +75,14 @@ const GAME_CONFIG = {
 			},
 			render: {
 				fillStyle: '#333'
+			}
+		},
+		// --- 役物パーツの共通定義 ---
+		yakumono_blade: {
+			label: 'yakumono_blade',
+			material: GAME_MATERIALS.METAL,
+			options: {
+				density: 0.01 // ボールと同じ密度
 			}
 		}
 	}

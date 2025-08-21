@@ -89,3 +89,53 @@ function loadPegs(presetUrl, world) {
 		})
 		.catch(error => console.error('Error loading pegs:', error));
 }
+
+/**
+ * 設計図に基づいて回転する役物を生成します。
+ * @param {object} blueprint - 役物の形状、位置、挙動を定義する設計図オブジェクト
+ * @returns {Matter.Body} 生成された役物の複合ボディ
+ */
+function createRotatingYakumono(blueprint) {
+	const { x, y, shape, render } = blueprint;
+	const commonBodyOptions = GAME_CONFIG.objects.yakumono_blade;
+	let bodyParts = [];
+
+	if (shape.type === 'windmill') {
+		const partOptions = {
+			...commonBodyOptions.options,
+			label: commonBodyOptions.label,
+			material: commonBodyOptions.material,
+			render: render
+		};
+
+		// 1. 中心円を作成
+		if (shape.centerRadius > 0) {
+			bodyParts.push(Matter.Bodies.circle(x, y, shape.centerRadius, partOptions));
+		}
+
+		// 2. 羽根を作成
+		const bladeLength = shape.bladeLength;
+		const bladeWidth = shape.bladeWidth;
+		const bladeOffset = shape.centerRadius + (bladeLength / 2);
+
+		for (let i = 0; i < shape.numBlades; i++) {
+			const angle = (360 / shape.numBlades) * i;
+			const angleRad = angle * Math.PI / 180;
+
+			const partX = x + bladeOffset * Math.cos(angleRad);
+			const partY = y + bladeOffset * Math.sin(angleRad);
+
+			const blade = Matter.Bodies.rectangle(partX, partY, bladeLength, bladeWidth, partOptions);
+			Matter.Body.setAngle(blade, angleRad);
+			bodyParts.push(blade);
+		}
+	}
+
+	// パーツから複合ボディを作成し、静的オブジェクトとして設定
+	const compoundBody = Matter.Body.create({
+		parts: bodyParts,
+		isStatic: true
+	});
+
+	return compoundBody;
+}
