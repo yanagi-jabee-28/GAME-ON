@@ -238,7 +238,7 @@
 				]
 			},
 			ballColors: {
-				default: '#ecf0f1',
+				default: '#ffffffff',
 				fromBlue: '#3498db',
 				fromNavy: '#ffd700'
 			}
