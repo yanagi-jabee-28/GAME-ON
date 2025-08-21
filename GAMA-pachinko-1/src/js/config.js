@@ -87,6 +87,19 @@
 			debris: { freq: 200, type: 'triangle', gain: 0.15, dur: 0.04 }
 		},
 
+		// パーティクル設定
+		DEBRIS: {
+			MAX_PARTICLES: 100,
+			COUNT_MIN: 5,
+			COUNT_MAX: 10,
+			SPREAD: 20,
+			SPEED_MIN: 1,
+			SPEED_MAX: 3,
+			LIFE_MIN: 300,
+			LIFE_MAX: 700,
+			MISS_COLOR: '#ff0000ff' // ハズレ時のパーティクル色
+		},
+
 		// レイアウトと見た目の設定
 		LAYOUT: {
 			walls: {

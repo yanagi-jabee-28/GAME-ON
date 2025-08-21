@@ -34,6 +34,11 @@
 	// --- Engine and World Setup ---
 	const engine = Engine.create({
 		gravity: { y: C.GRAVITY_Y ?? 0.6 },
+		positionIterations: C.PHYSICS?.positionIterations ?? 8,
+		velocityIterations: C.PHYSICS?.velocityIterations ?? 6,
+		constraintIterations: C.PHYSICS?.constraintIterations ?? 2,
+		// disable sleeping by default to avoid renderer dimming or skipped updates
+		enableSleeping: C.PHYSICS?.enableSleeping ?? false,
 	});
 	const world = engine.world;
 	const render = Render.create({
@@ -47,75 +52,19 @@
 		}
 	});
 	Render.run(render);
-	const runner = Runner.create();
+	const runner = Runner.create({ isFixed: true, delta: 1000 / 60 });
 	Runner.run(runner, engine);
 
-	// --- Particle pool for lightweight debris (canvas rendered) ---
-	window._particlePool = window._particlePool || [];
-	window._activeParticles = window._activeParticles || [];
-	const ensureRenderer = () => {
-		if (window._particleRendererInstalled) return;
-		window._particleRendererInstalled = true;
-		Events.on(render, 'afterRender', () => {
-			const ctx = render.context;
-			const dt = (engine && engine.timing && engine.timing.lastDelta) ? engine.timing.lastDelta : 16.6667;
-			if (!window._activeParticles || !window._activeParticles.length) return;
-			ctx.save();
-			for (let i = window._activeParticles.length - 1; i >= 0; i--) {
-				const p = window._activeParticles[i];
-				// integrate
-				p.vy += ((C.GRAVITY_Y || 0.6) * 0.06) * (dt / 16.6667);
-				// air drag simple damping
-				const drag = Math.max(0, 1 - ((C.DEBRIS && C.DEBRIS.DRAG) ? C.DEBRIS.DRAG : 0.06) * (dt / 16.6667));
-				p.vx *= drag;
-				p.vy *= drag;
-				p.x += p.vx * (dt / 1000);
-				p.y += p.vy * (dt / 1000);
-				p.life -= dt;
-				ctx.beginPath();
-				ctx.fillStyle = p.color || '#ffffff';
-				ctx.globalAlpha = Math.max(0, Math.min(1, p.life / (p.maxLife || 400)));
-				ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-				ctx.fill();
-				if (p.life <= 0 || p.y > GAME_HEIGHT + 400) {
-					// recycle
-					window._particlePool.push(p);
-					window._activeParticles.splice(i, 1);
-				}
-			}
-			ctx.restore();
+	// Ensure canvas state is sane before render (protect against leaked globalAlpha/composite)
+	try {
+		Events.on(render, 'beforeRender', () => {
+			try {
+				const ctx = render.context;
+				ctx.globalAlpha = 1;
+				ctx.globalCompositeOperation = 'source-over';
+			} catch (e) { /* ignore */ }
 		});
-	};
-
-	function createDebris(x, y, color) {
-		const cfg = C.DEBRIS || {};
-		const max = Math.max(1, cfg.MAX_PARTICLES || 100);
-		const count = Math.min(max, Math.max(cfg.COUNT_MIN || 3, Math.round(cfg.COUNT_MIN + Math.random() * ((cfg.COUNT_MAX || 8) - (cfg.COUNT_MIN || 3)))));
-		const spread = (typeof cfg.SPREAD === 'number') ? cfg.SPREAD : 12;
-		const speedMin = cfg.SPEED_MIN ?? 1.5;
-		const speedMax = cfg.SPEED_MAX ?? 4.0;
-		const lifeMin = cfg.LIFE_MIN ?? 220;
-		const lifeMax = cfg.LIFE_MAX ?? 600;
-		ensureRenderer();
-		for (let i = 0; i < count; i++) {
-			if (window._activeParticles.length >= max) break;
-			let p = window._particlePool.pop();
-			if (!p) p = {};
-			const angle = Math.random() * Math.PI * 2;
-			const speed = speedMin + Math.random() * (speedMax - speedMin);
-			p.x = x + (Math.random() - 0.5) * spread;
-			p.y = y + (Math.random() - 0.5) * spread;
-			p.vx = Math.cos(angle) * speed;
-			p.vy = Math.sin(angle) * speed - (Math.random() * (cfg.UP_BIAS ?? 1.5));
-			p.r = 1 + Math.random() * 2;
-			p.color = color || cfg.COLOR || '#ffffff';
-			p.life = lifeMin + Math.random() * (lifeMax - lifeMin);
-			p.maxLife = p.life;
-			window._activeParticles.push(p);
-		}
-		// play debris sound
-		playSound('debris');
-	}
+	} catch (e) { /* ignore */ }
 
 	// Developer overlay: draw drop distribution graph if enabled in config
 	(function setupDropGraphOverlay() {
@@ -129,51 +78,56 @@
 			const graphH = 60;
 			const left = (width - graphW) / 2;
 			const top = 8;
-			ctx.save();
-			ctx.globalAlpha = 0.95;
-			ctx.fillStyle = 'rgba(0,0,0,0)';
-			ctx.clearRect(left - 2, top - 2, graphW + 4, graphH + 4);
-			ctx.fillStyle = 'rgba(255,255,255,0.06)';
-			ctx.fillRect(left, top, graphW, graphH);
-			ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-			ctx.beginPath();
-			ctx.moveTo(left, top + graphH - 1);
-			ctx.lineTo(left + graphW, top + graphH - 1);
-			ctx.stroke();
-			const samples = 128;
-			const halfW = graphW / 2;
-			const std = (typeof dropCfg.std === 'number') ? dropCfg.std : Math.max(1, halfW / 2);
-			const scale = 1 / (std * Math.sqrt(2 * Math.PI));
-			const denom = 2 * std * std;
-			let maxY = 0;
-			const ys = new Array(samples);
-			for (let i = 0; i < samples; i++) {
-				const rel = (i / (samples - 1)) * 2 - 1;
-				const x = rel * halfW;
-				const pdf = scale * Math.exp(-(x * x) / denom);
-				ys[i] = pdf;
-				if (pdf > maxY) maxY = pdf;
+			try {
+				ctx.save();
+				ctx.globalAlpha = 0.95;
+				ctx.fillStyle = 'rgba(0,0,0,0)';
+				ctx.clearRect(left - 2, top - 2, graphW + 4, graphH + 4);
+				ctx.fillStyle = 'rgba(255,255,255,0.06)';
+				ctx.fillRect(left, top, graphW, graphH);
+				ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+				ctx.beginPath();
+				ctx.moveTo(left, top + graphH - 1);
+				ctx.lineTo(left + graphW, top + graphH - 1);
+				ctx.stroke();
+				const samples = 128;
+				const halfW = graphW / 2;
+				const std = (typeof dropCfg.std === 'number') ? dropCfg.std : Math.max(1, halfW / 2);
+				const scale = 1 / (std * Math.sqrt(2 * Math.PI));
+				const denom = 2 * std * std;
+				let maxY = 0;
+				const ys = new Array(samples);
+				for (let i = 0; i < samples; i++) {
+					const rel = (i / (samples - 1)) * 2 - 1;
+					const x = rel * halfW;
+					const pdf = scale * Math.exp(-(x * x) / denom);
+					ys[i] = pdf;
+					if (pdf > maxY) maxY = pdf;
+				}
+				ctx.beginPath();
+				for (let i = 0; i < samples; i++) {
+					const px = left + (i / (samples - 1)) * graphW;
+					const py = top + graphH - (ys[i] / maxY) * (graphH - 8);
+					if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+				}
+				ctx.strokeStyle = 'rgba(46, 204, 113, 0.95)';
+				ctx.lineWidth = 2;
+				ctx.stroke();
+				ctx.lineTo(left + graphW, top + graphH - 1);
+				ctx.lineTo(left, top + graphH - 1);
+				ctx.closePath();
+				ctx.fillStyle = 'rgba(46,204,113,0.12)';
+				ctx.fill();
+				ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+				ctx.beginPath();
+				ctx.moveTo(left + graphW / 2, top);
+				ctx.lineTo(left + graphW / 2, top + graphH);
+				ctx.stroke();
+			} catch (e) {
+				/* ignore drawing errors */
+			} finally {
+				try { ctx.restore(); } catch (e) { /* ignore */ }
 			}
-			ctx.beginPath();
-			for (let i = 0; i < samples; i++) {
-				const px = left + (i / (samples - 1)) * graphW;
-				const py = top + graphH - (ys[i] / maxY) * (graphH - 8);
-				if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-			}
-			ctx.strokeStyle = 'rgba(46, 204, 113, 0.95)';
-			ctx.lineWidth = 2;
-			ctx.stroke();
-			ctx.lineTo(left + graphW, top + graphH - 1);
-			ctx.lineTo(left, top + graphH - 1);
-			ctx.closePath();
-			ctx.fillStyle = 'rgba(46,204,113,0.12)';
-			ctx.fill();
-			ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-			ctx.beginPath();
-			ctx.moveTo(left + graphW / 2, top);
-			ctx.lineTo(left + graphW / 2, top + graphH);
-			ctx.stroke();
-			ctx.restore();
 		});
 	})();
 
@@ -181,6 +135,7 @@
 	const pegs = [];
 	const gates = [];
 	const windmills = [];
+	const balls = [];
 	let _pegRainbowTimer = null;
 
 	// --- Create Game Elements ---
@@ -497,6 +452,7 @@
 		if (options.isNavy) ball.isNavy = true;
 		if (options.fromBlue || options.isNavy) ball.isImmuneToMiss = true;
 		Composite.add(world, ball);
+		balls.push(ball);
 		gameState.totalDrops++;
 		updateStats();
 	}
@@ -509,25 +465,33 @@
 			if (type !== 'floorMiss' && ball.isImmuneToMiss) return;
 			gameState.missHits++;
 			sfxKey = 'miss';
-			// spawn miss-colored debris
-			createDebris(ball.position.x, ball.position.y, (C.DEBRIS && C.DEBRIS.MISS_COLOR) ? C.DEBRIS.MISS_COLOR : '#ff0000');
+			// spawn lightweight miss particles using DEBRIS config
+			try {
+				const dcfg = C.DEBRIS || {};
+				const color = dcfg.MISS_COLOR || '#ff0000ff';
+				spawnMissParticles(ball.position.x, ball.position.y, color);
+			} catch (e) { /* ignore */ }
 		} else if (type === 'startChucker') {
 			gameState.orangeHits++;
 			sfxKey = 'chucker';
 			newBallOptions = { fromBlue: true, isNavy: true };
-			createDebris(ball.position.x, ball.position.y, ball.render && ball.render.fillStyle ? ball.render.fillStyle : '#ffd700');
+			try { spawnHitParticles(ball.position.x, ball.position.y, L.features.chucker.color); } catch (e) { /* ignore */ }
 		} else if (type === 'tulip') {
 			gameState.blueHits++;
 			sfxKey = 'tulip';
 			newBallOptions = { fromBlue: true, isNavy: ball.isNavy };
-			createDebris(ball.position.x, ball.position.y, ball.render && ball.render.fillStyle ? ball.render.fillStyle : '#3498db');
+			try { spawnHitParticles(ball.position.x, ball.position.y, L.features.tulip.color); } catch (e) { /* ignore */ }
 		} else {
 			return;
 		}
 		ball.isHitting = true;
 		updateStats();
 		playSound(sfxKey);
-		try { Composite.remove(world, ball); } catch (e) { /* ignore */ }
+		try {
+			Composite.remove(world, ball);
+			const i = balls.indexOf(ball);
+			if (i !== -1) balls.splice(i, 1);
+		} catch (e) { /* ignore */ }
 		if (newBallOptions) {
 			if (!window.__BATCH_NO_RESPAWN || window.__FORCE_RESPAWN) {
 				simTimeout(() => dropBall(newBallOptions), 200);
@@ -539,6 +503,7 @@
 
 	// --- Event Handlers ---
 	function setupEventListeners() {
+		// attach input and physics listeners
 		const start = (e) => { e.preventDefault(); if (gameState.dropInterval) return; gameState.dropInterval = setInterval(dropBall, C.DROP_INTERVAL_MS); };
 		const stop = (e) => { e.preventDefault(); clearInterval(gameState.dropInterval); gameState.dropInterval = null; };
 		dropButton.addEventListener('mousedown', start);
@@ -550,37 +515,197 @@
 		window.addEventListener('keyup', (e) => { if (e.code === 'Space') { gameState.spaceDown = false; stop(e); } });
 		Events.on(engine, 'beforeUpdate', updatePhysics);
 		Events.on(engine, 'collisionStart', handleCollisions);
+		let _pruneFrame = 0;
 		Events.on(engine, 'afterUpdate', () => {
-			// Prune off-screen balls
-			const balls = Composite.allBodies(world).filter(b => b.label === 'ball');
-			for (const ball of balls) {
-				if (ball.position.y > GAME_HEIGHT + 300) {
-					try { Composite.remove(world, ball); } catch (e) { /* ignore */ }
+			// Prune off-screen balls (every other frame to reduce overhead)
+			_pruneFrame = (_pruneFrame + 1) & 1;
+			if (_pruneFrame !== 0) return;
+			for (let i = balls.length - 1; i >= 0; i--) {
+				const b = balls[i];
+				if (!b || !b.position) continue;
+				if (b.position.y > GAME_HEIGHT + 300) {
+					try { Composite.remove(world, b); } catch (e) { /* ignore */ }
+					balls.splice(i, 1);
 				}
 			}
 		});
 	}
 
-	function updatePhysics() {
-		windmills.forEach(w => Body.rotate(w.body, w.speed));
-		gates.forEach(g => {
-			const d = g.targetAngle - g.body.angle;
-			if (Math.abs(d) > 0.01) {
-				const newAng = g.body.angle + d * 0.2;
-				const half = g.length / 2;
-				const cx = g.pivot.x - Math.sin(newAng) * half;
-				const cy = g.pivot.y + Math.cos(newAng) * half;
-				Body.setPosition(g.body, { x: cx, y: cy });
-				Body.setAngle(g.body, newAng);
+	// --- Lightweight particle system (miss & hit) ---
+	// Shared container and single afterRender renderer for minimal overhead
+	window._missParticles = window._missParticles || [];
+	let _particleRendererInstalled = false;
+	function ensureParticleRendererInstalled() {
+		if (_particleRendererInstalled) return;
+		_particleRendererInstalled = true;
+		Events.on(render, 'afterRender', () => {
+			const list = window._missParticles;
+			if (!list || !list.length) return;
+			const ctx = render.context;
+			const dt = engine.timing.lastDelta || 16.6667; // ms
+			const dtS = dt / 1000;
+			const grav = (C.GRAVITY_Y ?? 1) * 0.001; // small gravity factor for particles
+			try {
+				ctx.save();
+				for (let i = list.length - 1; i >= 0; i--) {
+					const p = list[i];
+					p.vy += grav * dt; // integrate gravity
+					p.x += p.vx * dtS;
+					p.y += p.vy * dtS;
+					p.life -= dt;
+					if (p.life <= 0 || p.y > GAME_HEIGHT + 400) { list.splice(i, 1); continue; }
+					ctx.beginPath();
+					ctx.fillStyle = p.color;
+					ctx.globalAlpha = Math.max(0, Math.min(1, p.life / (p.lifeMax || 400)));
+					ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+					ctx.fill();
+				}
+			} catch (e) {
+				/* ignore drawing errors */
+			} finally {
+				try { ctx.restore(); } catch (e) { /* ignore */ }
 			}
 		});
 	}
+
+	function spawnMissParticles(x, y, color) {
+		const dcfg = C.DEBRIS || {};
+		const MAX = dcfg.MAX_PARTICLES ?? 100;
+		const MIN = dcfg.COUNT_MIN ?? 5;
+		const MAXC = dcfg.COUNT_MAX ?? 10;
+		const count = Math.min(MAX, Math.max(MIN, Math.round(MIN + Math.random() * (MAXC - MIN))));
+		const spread = dcfg.SPREAD ?? 20;
+		const sMin = dcfg.SPEED_MIN ?? 1;
+		const sMax = dcfg.SPEED_MAX ?? 3;
+		const lifeMin = dcfg.LIFE_MIN ?? 300;
+		const lifeMax = dcfg.LIFE_MAX ?? 700;
+		ensureParticleRendererInstalled();
+		for (let i = 0; i < count; i++) {
+			if (window._missParticles.length >= MAX) break;
+			const a = (Math.random() * Math.PI) + Math.PI / 4; // biased upward
+			const s = sMin + Math.random() * (sMax - sMin);
+			window._missParticles.push({
+				x: x + (Math.random() - 0.5) * spread,
+				y: y + (Math.random() - 0.5) * spread,
+				vx: Math.cos(a) * s * (0.6 + Math.random() * 0.8),
+				vy: Math.sin(a) * s * (0.4 + Math.random() * 0.8) - 1.0,
+				life: lifeMin + Math.random() * (lifeMax - lifeMin),
+				lifeMax,
+				r: 1 + Math.random() * 2,
+				color: color || (dcfg.MISS_COLOR || '#ff0000')
+			});
+		}
+	}
+
+	function spawnHitParticles(x, y, color) {
+		const dcfg = C.DEBRIS || {};
+		const MAX = dcfg.MAX_PARTICLES ?? 100;
+		const MIN = dcfg.COUNT_MIN ?? 6;
+		const MAXC = dcfg.COUNT_MAX ?? 12;
+		const count = Math.min(MAX, Math.max(MIN, Math.round(MIN + Math.random() * (MAXC - MIN))));
+		const spread = (dcfg.SPREAD ?? 20) * 0.8;
+		const sMin = (dcfg.SPEED_MIN ?? 1) * 0.8;
+		const sMax = (dcfg.SPEED_MAX ?? 3) * 1.2;
+		const lifeMin = dcfg.LIFE_MIN ?? 300;
+		const lifeMax = dcfg.LIFE_MAX ?? 700;
+		ensureParticleRendererInstalled();
+		for (let i = 0; i < count; i++) {
+			if (window._missParticles.length >= MAX) break;
+			const a = (Math.random() * Math.PI) + Math.PI / 6; // upward bias
+			const s = sMin + Math.random() * (sMax - sMin);
+			window._missParticles.push({
+				x: x + (Math.random() - 0.5) * spread,
+				y: y + (Math.random() - 0.5) * spread,
+				vx: Math.cos(a) * s * (0.6 + Math.random() * 0.6),
+				vy: Math.sin(a) * s * (0.5 + Math.random() * 0.8) - 1.2,
+				life: lifeMin + Math.random() * (lifeMax - lifeMin),
+				lifeMax,
+				r: 1.5 + Math.random() * 2.5,
+				color: color || '#ffffff'
+			});
+		}
+	}
+
+	// expose spawners for console/debug
+	try { window.spawnMissParticles = spawnMissParticles; } catch (e) { /* ignore */ }
+	try { window.spawnHitParticles = spawnHitParticles; } catch (e) { /* ignore */ }
+
+	// Final safety: ensure canvas global state is reset after our drawing so other frames are not affected
+	try {
+		Events.on(render, 'afterRender', () => {
+			try {
+				const ctx = render.context;
+				ctx.globalAlpha = 1;
+				ctx.globalCompositeOperation = 'source-over';
+			} catch (e) { /* ignore */ }
+		});
+	} catch (e) { /* ignore */ }
+
+	// debug helper to spawn hit particles from console: debugSpawnHit(x,y,color)
+	window.debugSpawnHit = (x = GAME_WIDTH / 2, y = GAME_HEIGHT / 2, color = (L.features && L.features.chucker && L.features.chucker.color) || '#ffd700') => {
+		try { window.spawnHitParticles(x, y, color); } catch (e) { /* ignore */ }
+	};
+
+	function updatePhysics() {
+		const useDt = (C.PHYSICS && C.PHYSICS.useDt !== false);
+		const dt = engine.timing.lastDelta || 16.6667; // ms
+		const dtS = dt / 1000;
+		windmills.forEach(w => {
+			// speed is angular velocity; if config previously meant per-frame, approximate to per-second when useDt=false
+			const omega = useDt ? (w.speed) : (dtS > 0 ? w.speed / dtS : 0);
+			w.omega = omega; // rad/s
+			Body.rotate(w.body, (useDt ? omega * dtS : w.speed));
+		});
+		gates.forEach(g => {
+			const d = g.targetAngle - g.body.angle;
+			if (Math.abs(d) > 0.01) {
+				const lerp = (C.GATE_LERP || 0.2) * (useDt ? (dt / (1000 / 60)) : 1);
+				const newAng = g.body.angle + d * lerp;
+				const half = g.length / 2;
+				const cx = g.pivot.x - Math.sin(newAng) * half;
+				const cy = g.pivot.y + Math.cos(newAng) * half;
+				const prevAng = g.body.angle;
+				Body.setPosition(g.body, { x: cx, y: cy });
+				Body.setAngle(g.body, newAng);
+				const dAng = newAng - prevAng;
+				g.omega = dtS > 0 ? (dAng / dtS) : 0; // rad/s
+			}
+		});
+	}
+
 
 	function handleCollisions(event) {
 		for (const pair of event.pairs) {
 			const ball = (pair.bodyA.label === 'ball') ? pair.bodyA : (pair.bodyB.label === 'ball' ? pair.bodyB : null);
 			if (!ball || ball.isHitting) continue;
 			const other = (ball === pair.bodyA) ? pair.bodyB : pair.bodyA;
+
+			// Minimal generic velocity-vs-velocity nudge for moving static surfaces
+			if (other.label === 'windmill' || other.label === 'gate') {
+				try {
+					// contact normal approximation: from other to ball
+					const dx = ball.position.x - other.position.x;
+					const dy = ball.position.y - other.position.y;
+					let len = Math.hypot(dx, dy) || 1;
+					let nx = dx / len, ny = dy / len;
+					// surface point tangential velocity from angular velocity
+					const omega = (other.label === 'windmill') ? (findAngularVelocity(windmills, other) || 0) : (findAngularVelocity(gates, other) || 0);
+					// tangential direction is perpendicular to radius vector
+					const tx = -ny, ty = nx;
+					const vSurf = { x: tx * omega * 30, y: ty * omega * 30 }; // scale by lever arm (~30px)
+					const vrx = (ball.velocity.x - vSurf.x);
+					const vry = (ball.velocity.y - vSurf.y);
+					const vn = vrx * nx + vry * ny;
+					if (vn < 0) {
+						const e = Math.max(0, Math.min(1, ball.restitution * (other.restitution || 0.8)));
+						const j = -(1 + e) * vn * (ball.mass);
+						const ix = nx * j;
+						const iy = ny * j;
+						Body.setVelocity(ball, { x: ball.velocity.x + ix / ball.mass, y: ball.velocity.y + iy / ball.mass });
+					}
+				} catch (e) { /* ignore */ }
+			}
+
 			switch (other.label) {
 				case 'wall': if (ENABLE_WALL_MISS) handleHit(ball, 'wall'); break;
 				case 'missZone': handleHit(ball, 'miss'); break;
@@ -588,9 +713,16 @@
 				case 'startChucker': handleHit(ball, 'startChucker'); break;
 				case 'tulip': handleHit(ball, 'tulip'); break;
 				case 'windmill': playSound('windmill'); break;
-				case 'peg': playSound('debris'); break; // Simple sound on peg hit
+				case 'peg': playSound('debris'); break;
 			}
 		}
+	}
+
+	function findAngularVelocity(list, body) {
+		for (let i = 0; i < list.length; i++) {
+			if (list[i].body === body) return list[i].omega || 0;
+		}
+		return 0;
 	}
 
 	// --- UI & Stats ---
@@ -811,4 +943,22 @@
 	}
 
 	init();
+
+	// Register a guaranteed-last afterRender reset after page load so
+	// any other scripts that register afterRender cannot leave globalAlpha changed.
+	try {
+		window.addEventListener('load', () => {
+			setTimeout(() => {
+				try {
+					Events.on(render, 'afterRender', () => {
+						try {
+							const ctx = render.context;
+							ctx.globalAlpha = 1;
+							ctx.globalCompositeOperation = 'source-over';
+						} catch (e) { /* ignore */ }
+					});
+				} catch (e) { /* ignore */ }
+			}, 50);
+		});
+	} catch (e) { /* ignore */ }
 })();
