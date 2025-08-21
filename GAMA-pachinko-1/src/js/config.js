@@ -36,7 +36,7 @@
 		GATE_ANGLE_IN_DEGREES: true,
 		// 推奨: 人間に扱いやすい度数で指定してください。例: 2.3 ラジアン ≒ 132 度
 		// 小さな角度変更でもゲートの挙動（ボールの流れ）が大きく変わるので注意してください。
-		GATE_OPEN_ANGLE_DEG: 175,
+		GATE_OPEN_ANGLE_DEG: 157.5,
 		GATE_CLOSED_ANGLE_DEG: 110,
 
 		// トップレベルでゲートのサイズを素早く調整するためのデフォルト値
