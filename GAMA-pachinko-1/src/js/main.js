@@ -1,4 +1,4 @@
-// Refactored main game script for the Pachinko simulator
+// Refactored main.js (simplified)
 (function () {
 	'use strict';
 
@@ -17,9 +17,7 @@
 		totalDrops: 0,
 		orangeHits: 0, // startChucker
 		blueHits: 0,   // tulip
-		missHits: 0,   // missZone
-		// total number of peg collisions recorded (used for heatmap normalization)
-		totalPegCollisions: 0,
+		missHits: 0,
 		dropInterval: null,
 		spaceDown: false,
 	};
@@ -27,10 +25,6 @@
 	// --- UI Elements ---
 	const dropButton = document.getElementById('drop-button');
 	const messageBox = document.getElementById('message-box');
-	// stats display removed per user request; keep a placeholder to avoid undefined refs
-	const statsEl = null;
-
-	// Developer palette (separate from runtime editor UI). Created during init().
 	let devPaletteEl = null;
 
 	// --- Batch execution state (for dev-tools) ---
@@ -40,9 +34,6 @@
 	// --- Engine and World Setup ---
 	const engine = Engine.create({
 		gravity: { y: C.GRAVITY_Y ?? 0.6 },
-		positionIterations: C.PHYSICS?.positionIterations ?? 6,
-		velocityIterations: C.PHYSICS?.velocityIterations ?? 4,
-		constraintIterations: C.PHYSICS?.constraintIterations ?? 2,
 	});
 	const world = engine.world;
 	const render = Render.create({
@@ -56,17 +47,13 @@
 		}
 	});
 	Render.run(render);
-	const runner = Runner.create({
-		isFixed: C.PHYSICS?.isFixed ?? false,
-		delta: C.PHYSICS?.delta ?? (1000 / 60),
-	});
+	const runner = Runner.create();
 	Runner.run(runner, engine);
 
 	// Developer overlay: draw drop distribution graph if enabled in config
 	(function setupDropGraphOverlay() {
 		const dropCfg = (C.DROP || {});
 		if (!dropCfg.showGraph) return;
-		// afterRender hook: draw on top of canvas
 		Events.on(render, 'afterRender', () => {
 			const ctx = render.context;
 			const canvas = ctx.canvas;
@@ -75,44 +62,32 @@
 			const graphH = 60;
 			const left = (width - graphW) / 2;
 			const top = 8;
-
-			// clear area
 			ctx.save();
 			ctx.globalAlpha = 0.95;
 			ctx.fillStyle = 'rgba(0,0,0,0)';
 			ctx.clearRect(left - 2, top - 2, graphW + 4, graphH + 4);
-
-			// draw background
 			ctx.fillStyle = 'rgba(255,255,255,0.06)';
 			ctx.fillRect(left, top, graphW, graphH);
-
-			// draw axis
 			ctx.strokeStyle = 'rgba(255,255,255,0.14)';
 			ctx.beginPath();
 			ctx.moveTo(left, top + graphH - 1);
 			ctx.lineTo(left + graphW, top + graphH - 1);
 			ctx.stroke();
-
-			// compute distribution points
 			const centerX = GAME_WIDTH / 2;
 			const samples = 128;
 			const halfW = graphW / 2;
 			const std = (typeof dropCfg.std === 'number') ? dropCfg.std : Math.max(1, halfW / 2);
 			const scale = 1 / (std * Math.sqrt(2 * Math.PI));
 			const denom = 2 * std * std;
-
-			// find max for normalization
 			let maxY = 0;
 			const ys = new Array(samples);
 			for (let i = 0; i < samples; i++) {
-				const rel = (i / (samples - 1)) * 2 - 1; // -1..1 across graph
-				const x = rel * halfW; // pixel offset
+				const rel = (i / (samples - 1)) * 2 - 1;
+				const x = rel * halfW;
 				const pdf = scale * Math.exp(-(x * x) / denom);
 				ys[i] = pdf;
 				if (pdf > maxY) maxY = pdf;
 			}
-
-			// draw curve
 			ctx.beginPath();
 			for (let i = 0; i < samples; i++) {
 				const px = left + (i / (samples - 1)) * graphW;
@@ -122,21 +97,16 @@
 			ctx.strokeStyle = 'rgba(46, 204, 113, 0.95)';
 			ctx.lineWidth = 2;
 			ctx.stroke();
-
-			// fill under curve
 			ctx.lineTo(left + graphW, top + graphH - 1);
 			ctx.lineTo(left, top + graphH - 1);
 			ctx.closePath();
 			ctx.fillStyle = 'rgba(46,204,113,0.12)';
 			ctx.fill();
-
-			// center marker
 			ctx.strokeStyle = 'rgba(255,255,255,0.25)';
 			ctx.beginPath();
 			ctx.moveTo(left + graphW / 2, top);
 			ctx.lineTo(left + graphW / 2, top + graphH);
 			ctx.stroke();
-
 			ctx.restore();
 		});
 	})();
@@ -145,25 +115,14 @@
 	const pegs = [];
 	const gates = [];
 	const windmills = [];
-	// WeakMap to store per-ball last peg hit info to avoid per-collision object allocations
-	const _pegHitInfo = new WeakMap();
-	// heatmap dirty flag and frame counter to throttle recolor work
-	window._pegHeatmapDirty = false;
-	window._pegHeatmapFrame = 0;
-	let _pegRainbowTimer = null;
-	// runtime-controllable flag (not const) - can be toggled during gameplay
-	window.pegRainbowEnabled = (C.DEBUG && !!C.DEBUG.PEG_RAINBOW_ENABLED) || false;
-	window.pegRainbowMs = (C.DEBUG && typeof C.DEBUG.PEG_RAINBOW_MS === 'number') ? C.DEBUG.PEG_RAINBOW_MS : 120;
 
 	// --- Create Game Elements ---
-
 	function createWalls() {
 		const wallOptions = { isStatic: true, render: { visible: false } };
 		Composite.add(world, [
-			Bodies.rectangle(GAME_WIDTH, GAME_HEIGHT / 2, 20, GAME_HEIGHT, wallOptions), // Right
-			Bodies.rectangle(0, GAME_HEIGHT / 2, 20, GAME_HEIGHT, wallOptions)      // Left
+			Bodies.rectangle(GAME_WIDTH, GAME_HEIGHT / 2, 20, GAME_HEIGHT, wallOptions),
+			Bodies.rectangle(0, GAME_HEIGHT / 2, 20, GAME_HEIGHT, wallOptions)
 		]);
-
 		const guideWallOffset = C.GUIDE_WALL_OFFSET ?? 30;
 		const guideAngle = C.GUIDE_WALL_ANGLE ?? 0.2;
 		const wallLayout = L.walls;
@@ -191,9 +150,8 @@
 		const layout = L.windmills;
 		const baseSpeed = WM.baseSpeed ?? 0.08;
 		const centerX = GAME_WIDTH / 2;
-
 		const createWindmill = (cx, cy, blades, radius, bladeW, bladeH, speed, color, hubColor) => {
-			const hubRest = (C.WINDMILL && typeof C.WINDMILL.restitution === 'number') ? C.WINDMILL.restitution : (C.WINDMILL_RESTITUTION || 0.98);
+			const hubRest = C.WINDMILL_RESTITUTION || 0.98;
 			const parts = [Bodies.circle(cx, cy, 6, { isStatic: true, restitution: hubRest, render: { fillStyle: hubColor || WM.hubColor } })];
 			for (let i = 0; i < blades; i++) {
 				const angle = (i / blades) * Math.PI * 2;
@@ -207,8 +165,6 @@
 			Composite.add(world, compound);
 			windmills.push({ body: compound, speed });
 		};
-
-		// create from explicit items if provided
 		if (Array.isArray(layout.items) && layout.items.length) {
 			layout.items.forEach(it => {
 				const cx = (typeof it.x === 'number') ? it.x : (centerX + (it.x_offset || 0));
@@ -217,11 +173,7 @@
 				const radius = it.radius || WM.radius || 40;
 				const bladeW = it.bladeW || WM.bladeW || 8;
 				const bladeH = it.bladeH || WM.bladeH || 40;
-				// 方向フラグから符号を決定（既存互換性を維持）
-				const dirSign = ((it.cw || (it.cw === false ? it.cw : (it.cw === undefined ? (it.left ? -1 : 1) : 1))) ? 1 : -1);
-				// 個別アイテムで速度を指定できるように対応:
-				// - it.speed: 絶対速度（符号付き）で上書き
-				// - it.speedMultiplier: baseSpeed に対する倍率（符号は dirSign に従う）
+				const dirSign = (it.cw ? 1 : -1);
 				let speed = baseSpeed * dirSign;
 				if (typeof it.speed === 'number') {
 					speed = it.speed;
@@ -231,48 +183,42 @@
 				createWindmill(cx, cy, blades, radius, bladeW, bladeH, speed, it.color || WM.color, it.hubColor || WM.hubColor);
 			});
 		} else {
-			// backward compatible single pair
-			createWindmill(centerX - layout.offsetX, layout.y, WM.blades || 4, WM.radius || 40, WM.bladeW || 8, WM.bladeH || 40, baseSpeed * (WM.leftCW ? 1 : -1), WM.color, WM.hubColor);
-			createWindmill(centerX + layout.offsetX, layout.y, WM.blades || 4, WM.radius || 40, WM.bladeW || 8, WM.bladeH || 40, baseSpeed * (WM.rightCW ? 1 : -1), WM.color, WM.hubColor);
+			createWindmill(centerX - layout.offsetX, layout.y, WM.blades, WM.radius, WM.bladeW, WM.bladeH, baseSpeed * (WM.leftCW ? 1 : -1), WM.color, WM.hubColor);
+			createWindmill(centerX + layout.offsetX, layout.y, WM.blades, WM.radius, WM.bladeW, WM.bladeH, baseSpeed * (WM.rightCW ? 1 : -1), WM.color, WM.hubColor);
 			if (C.ENABLE_CENTER_WINDMILL) {
-				createWindmill(centerX, layout.centerY, WM.blades || 4, WM.radius || 40, 6, WM.bladeH || 40, baseSpeed * (WM.centerCW ? 1 : -1), WM.color, WM.hubColor);
+				createWindmill(centerX, layout.centerY, WM.blades, WM.radius, 6, WM.bladeH, baseSpeed * (WM.centerCW ? 1 : -1), WM.color, WM.hubColor);
 			}
 		}
 	}
 
 	function createGates() {
 		const layout = L.gates;
-		// Allow overriding gate size from top-level config for quick tuning: C.GATE_LENGTH / C.GATE_WIDTH
-		const gateLength = (typeof C.GATE_LENGTH === 'number') ? C.GATE_LENGTH : (typeof layout.length === 'number' ? layout.length : 60);
-		const gateWidth = (typeof C.GATE_WIDTH === 'number') ? C.GATE_WIDTH : (typeof layout.width === 'number' ? layout.width : 10);
+		const gateLength = C.GATE_LENGTH ?? layout.length ?? 60;
+		const gateWidth = C.GATE_WIDTH ?? layout.width ?? 10;
 		const gateHalf = gateLength / 2;
-		// Gate angles: use degree-based config when enabled via GATE_ANGLE_IN_DEGREES,
-		// otherwise fall back to legacy radian values.
+		let gateOpenBase, gateClosedBase;
 		if (C.GATE_ANGLE_IN_DEGREES) {
-			const openDeg = (typeof C.GATE_OPEN_ANGLE_DEG === 'number') ? C.GATE_OPEN_ANGLE_DEG : (C.GATE_OPEN_ANGLE ? (C.GATE_OPEN_ANGLE * 180 / Math.PI) : 132);
-			const closedDeg = (typeof C.GATE_CLOSED_ANGLE_DEG === 'number') ? C.GATE_CLOSED_ANGLE_DEG : (C.GATE_CLOSED_ANGLE ? (C.GATE_CLOSED_ANGLE * 180 / Math.PI) : 17.2);
-			var gateOpenBase = openDeg * Math.PI / 180;
-			var gateClosedBase = closedDeg * Math.PI / 180;
+			const openDeg = C.GATE_OPEN_ANGLE_DEG ?? 132;
+			const closedDeg = C.GATE_CLOSED_ANGLE_DEG ?? 17.2;
+			gateOpenBase = openDeg * Math.PI / 180;
+			gateClosedBase = closedDeg * Math.PI / 180;
 		} else {
-			var gateOpenBase = (C.GATE_OPEN_ANGLE || 2.3);
-			var gateClosedBase = (C.GATE_CLOSED_ANGLE || 0.3);
+			gateOpenBase = C.GATE_OPEN_ANGLE || 2.3;
+			gateClosedBase = C.GATE_CLOSED_ANGLE || 0.3;
 		}
-
 		const createGate = (side) => {
 			const pivot = { x: (GAME_WIDTH / 2) + (side === 'left' ? -layout.offsetX : layout.offsetX), y: layout.y };
 			const closedAngle = (side === 'left' ? -1 : 1) * gateClosedBase;
 			const openAngle = (side === 'left' ? -1 : 1) * gateOpenBase;
 			const center = { x: pivot.x - Math.sin(closedAngle) * gateHalf, y: pivot.y + Math.cos(closedAngle) * gateHalf };
-			const gateRest = (layout && typeof layout.restitution === 'number') ? layout.restitution : ((typeof C.GATE_RESTITUTION === 'number') ? C.GATE_RESTITUTION : 0.6);
+			const gateRest = C.GATE_RESTITUTION ?? 0.6;
 			const gateBody = Bodies.rectangle(center.x, center.y, gateWidth, gateLength, { isStatic: true, label: 'gate', restitution: gateRest, render: { fillStyle: layout.color } });
 			Body.setAngle(gateBody, closedAngle);
 			Composite.add(world, gateBody);
 			gates.push({ body: gateBody, pivot, length: gateLength, width: gateWidth, targetAngle: openAngle, closedAngle, openAngle });
 		};
-
 		createGate('left');
 		createGate('right');
-
 		function setGatesOpen(open) {
 			gates.forEach(g => { g.targetAngle = open ? g.openAngle : g.closedAngle; });
 		}
@@ -294,13 +240,10 @@
 		const layout = L.features;
 		const chucker = layout.chucker;
 		const tulip = layout.tulip;
-
 		const startChucker = Bodies.rectangle(centerX, chucker.y, chucker.width, chucker.height, { isStatic: true, isSensor: true, label: 'startChucker', render: { fillStyle: chucker.color } });
 		const tulipLeft = Bodies.rectangle(tulip.x, tulip.y, tulip.width, tulip.height, { isStatic: true, isSensor: true, label: 'tulip', render: { fillStyle: tulip.color } });
 		const tulipRight = Bodies.rectangle(GAME_WIDTH - tulip.x, tulip.y, tulip.width, tulip.height, { isStatic: true, isSensor: true, label: 'tulip', render: { fillStyle: tulip.color } });
 		Composite.add(world, [startChucker, tulipLeft, tulipRight]);
-
-		// Fences
 		const cf = layout.chuckerFence;
 		const tf = layout.tulipFence;
 		Composite.add(world, [
@@ -317,18 +260,15 @@
 		const guards = (L.features && L.features.guards) || [];
 		for (const g of guards) {
 			if (g.type === 'rect') {
-				const rest = (typeof g.restitution === 'number') ? g.restitution : (C.GUARD_RESTITUTION || C.PEG_RESTITUTION || 0.6);
+				const rest = g.restitution ?? C.GUARD_RESTITUTION ?? 0.6;
 				const body = Bodies.rectangle(g.x, g.y, g.w, g.h, { isStatic: true, restitution: rest, render: { fillStyle: g.color || '#7f8c8d' } });
 				if (typeof g.angle === 'number') Body.setAngle(body, g.angle);
 				Composite.add(world, body);
 			}
-			// future: circle guards or other shapes
 		}
 	}
 
-	// --- Peg Generation ---
 	function loadPreset(name) {
-		// return a Promise resolving to an array of peg objs or throw
 		window._PRESET_CACHE = window._PRESET_CACHE || {};
 		const key = (typeof name === 'string') ? name.replace(/\.json$/i, '') : name;
 		if (!key || key === 'default' || key === 'none') return Promise.resolve(null);
@@ -346,14 +286,11 @@
 	}
 
 	function loadPresetAndBuild(name) {
-		// fetch/validate then build (used by init and editor palette)
 		return loadPreset(name).then(list => {
 			window.PEG_PRESET = name || 'default';
-			if (Array.isArray(list)) buildPegs(list);
-			else buildPegs(window.PEG_PRESET);
+			buildPegs(Array.isArray(list) ? list : window.PEG_PRESET);
 		}).catch(e => {
 			console.warn('Could not load preset', name, e);
-			// fallback to default deterministic placement
 			window.PEG_PRESET = 'default';
 			buildPegs('default');
 		});
@@ -363,24 +300,19 @@
 		if (pegs.length) Composite.remove(world, pegs);
 		pegs.length = 0;
 		preset = preset || window.PEG_PRESET || 'default';
-		// if provided an array, import directly
 		if (Array.isArray(preset)) {
-			const preserve = (C.PRESETS && C.PRESETS.preserveExact) ? true : false;
+			const preserve = C.PRESETS?.preserveExact ?? false;
 			const layout = L.pegs;
-			const pegRest = (typeof C.PEG_RESTITUTION === 'number') ? C.PEG_RESTITUTION : 0.6;
+			const pegRest = C.PEG_RESTITUTION ?? 0.6;
 			const pegOptions = { isStatic: true, label: 'peg', restitution: pegRest, friction: 0.05, render: { fillStyle: layout.color } };
 			if (preserve) {
-				// faithful reproduction: ignore exclusion/proximity checks
 				for (const p of preset) {
 					if (typeof p.x === 'number' && typeof p.y === 'number') {
 						const r = p.r || C.PEG_RADIUS;
-						const body = Bodies.circle(Math.round(p.x), Math.round(p.y), r, pegOptions);
-						body.collisionCount = 0;
-						pegs.push(body);
+						pegs.push(Bodies.circle(Math.round(p.x), Math.round(p.y), r, pegOptions));
 					}
 				}
 			} else {
-				// apply exclusion/proximity checks similar to deterministic placement
 				const requiredSurface = (C.BALL_RADIUS * 2) + C.PEG_CLEARANCE;
 				const centerX = GAME_WIDTH / 2;
 				const exclusionZones = (layout.exclusionZones || []).map(z => {
@@ -397,9 +329,7 @@
 					for (const b of pegs) {
 						const dx = b.position.x - x;
 						const dy = b.position.y - y;
-						const centerDist = Math.hypot(dx, dy);
-						const minCenter = (b.circleRadius || C.PEG_RADIUS) + r + requiredSurface;
-						if (centerDist < minCenter) return false;
+						if (Math.hypot(dx, dy) < (b.circleRadius || C.PEG_RADIUS) + r + requiredSurface) return false;
 					}
 					return true;
 				};
@@ -407,9 +337,7 @@
 					if (typeof p.x === 'number' && typeof p.y === 'number') {
 						const r = p.r || C.PEG_RADIUS;
 						if (okToAdd(p.x, p.y, r)) {
-							const body = Bodies.circle(Math.round(p.x), Math.round(p.y), r, pegOptions);
-							body.collisionCount = 0;
-							pegs.push(body);
+							pegs.push(Bodies.circle(Math.round(p.x), Math.round(p.y), r, pegOptions));
 						}
 					}
 				}
@@ -417,55 +345,39 @@
 			if (pegs.length) Composite.add(world, pegs);
 			return;
 		}
-
 		if (preset === 'none') return;
-
-		// If preset is a string and not default: use cache only (do not fetch here)
 		if (typeof preset === 'string' && preset !== 'default') {
 			const key = preset.replace(/\.json$/i, '');
 			window._PRESET_CACHE = window._PRESET_CACHE || {};
 			if (window._PRESET_CACHE[key]) {
 				buildPegs(window._PRESET_CACHE[key]);
-				return;
+			} else {
+				console.info('Preset not cached, falling back to default:', preset);
+				buildPegs('default');
 			}
-			// not cached: fallback to default (no network call here)
-			console.info('Preset not cached, falling back to default:', preset);
-			buildPegs('default');
 			return;
 		}
-
-		// deterministic default placement
 		const layout = L.pegs;
-		const pegRest2 = (typeof C.PEG_RESTITUTION === 'number') ? C.PEG_RESTITUTION : 0.6;
+		const pegRest2 = C.PEG_RESTITUTION ?? 0.6;
 		const pegOptions = { isStatic: true, label: 'peg', restitution: pegRest2, friction: 0.05, render: { fillStyle: layout.color } };
 		const requiredSurface = (C.BALL_RADIUS * 2) + C.PEG_CLEARANCE;
 		const centerX = GAME_WIDTH / 2;
-
 		const exclusionZones = (layout.exclusionZones || []).map(z => {
 			if (z.type === 'circle') return { ...z, x: centerX + (z.x_offset || 0) };
 			if (z.type === 'rect' && z.x_right) return { ...z, x: GAME_WIDTH - z.x_right };
 			return z;
 		});
-
 		const isExcluded = (x, y) => exclusionZones.some(z =>
 			(z.type === 'circle' && ((x - z.x) ** 2 + (y - z.y) ** 2) < z.r ** 2) ||
 			(z.type === 'rect' && (x > z.x - z.w / 2 && x < z.x + z.w / 2 && y > z.y - z.h / 2 && y < z.y + z.h / 2))
 		);
-
 		const addPeg = (x, y, r = C.PEG_RADIUS) => {
 			if (x < layout.x_margin || x > GAME_WIDTH - layout.x_margin || y < layout.y_margin_top || y > layout.y_margin_bottom || isExcluded(x, y)) return;
 			for (const b of pegs) {
-				const dx = b.position.x - x;
-				const dy = b.position.y - y;
-				const centerDist = Math.hypot(dx, dy);
-				const minCenter = (b.circleRadius || C.PEG_RADIUS) + r + requiredSurface;
-				if (centerDist < minCenter) return;
+				if (Math.hypot(b.position.x - x, b.position.y - y) < (b.circleRadius || C.PEG_RADIUS) + r + requiredSurface) return;
 			}
-			const b = Bodies.circle(x, y, r, pegOptions);
-			b.collisionCount = 0;
-			pegs.push(b);
+			pegs.push(Bodies.circle(x, y, r, pegOptions));
 		};
-
 		const xStep = C.PEG_SPACING;
 		for (let y = layout.y_start, rowIdx = 0; y <= layout.y_end; y += layout.y_step, rowIdx++) {
 			const rowShift = (rowIdx % 2 === 0) ? 0 : xStep / 2;
@@ -480,151 +392,71 @@
 				}
 			}
 		}
-
 		if (pegs.length) Composite.add(world, pegs);
 	}
 
 	// --- Game Logic ---
 	function dropBall(options = {}) {
-		// Determine drop X using either uniform or normal sampling based on config
-		const dropCfg = (C.DROP || {});
-		const halfWidth = (typeof dropCfg.width === 'number') ? (dropCfg.width / 2) : 100;
-		const std = (typeof dropCfg.std === 'number') ? dropCfg.std : Math.max(1, halfWidth / 2);
-
+		const dropCfg = C.DROP || {};
+		const halfWidth = (dropCfg.width ?? 200) / 2;
+		const std = dropCfg.std ?? Math.max(1, halfWidth / 2);
 		const sampleNormal = () => {
-			// Box-Muller transform to produce a standard normal (mean 0, std 1)
 			let u = 0, v = 0;
-			while (u === 0) u = Math.random(); // avoid 0
+			while (u === 0) u = Math.random();
 			while (v === 0) v = Math.random();
-			const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-			return z;
+			return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
 		};
-
 		let offsetX;
 		if (dropCfg.useNormal) {
 			offsetX = sampleNormal() * std;
-			// clamp to configured width
 			offsetX = Math.max(-halfWidth, Math.min(halfWidth, offsetX));
 		} else {
 			offsetX = (Math.random() - 0.5) * (halfWidth * 2);
 		}
-
 		const randomX = GAME_WIDTH / 2 + offsetX;
 		const colors = L.ballColors;
 		const color = options.isNavy ? colors.fromNavy : (options.fromBlue ? colors.fromBlue : colors.default);
 		const ballCollision = C.BALLS_INTERACT ? {} : { collisionFilter: { group: -C.BALL_GROUP_ID } };
-
-		const ballRest = (typeof C.BALL_RESTITUTION === 'number') ? C.BALL_RESTITUTION : 0.85;
+		const ballRest = C.BALL_RESTITUTION ?? 0.85;
 		const ball = Bodies.circle(randomX, -20, C.BALL_RADIUS, {
-			label: 'ball', restitution: ballRest, friction: 0.05,
+			label: 'ball',
+			restitution: ballRest,
+			friction: 0.05,
+			frictionAir: C.BALL_AIR_FRICTION ?? 0.02,
 			render: { fillStyle: color },
 			...ballCollision
 		});
-
 		if (options.fromBlue) ball.isFromBlue = true;
 		if (options.isNavy) ball.isNavy = true;
 		if (options.fromBlue || options.isNavy) ball.isImmuneToMiss = true;
-
 		Composite.add(world, ball);
 		gameState.totalDrops++;
 		updateStats();
-		// register ball with physics manager for sweep detection and bookkeeping
-		if (window.PHYSICS && typeof window.PHYSICS.registerBall === 'function') window.PHYSICS.registerBall(ball);
-	}
-
-	function createDebris(x, y, color) {
-		// Lightweight particle system (canvas overlay) instead of Matter bodies.
-		// This avoids heavy solver work and GC churn from creating many Matter bodies.
-		window._debrisParticles = window._debrisParticles || [];
-		window._debrisRendererInstalled = window._debrisRendererInstalled || false;
-		const dcfg = (C.DEBRIS || {});
-		const MAX_PARTICLES = (typeof dcfg.MAX_PARTICLES === 'number') ? dcfg.MAX_PARTICLES : 120;
-		const count = Math.min(dcfg.COUNT_MAX || 8, Math.max(dcfg.COUNT_MIN || 3, Math.round((dcfg.COUNT_MIN || 3) + Math.random() * ((dcfg.COUNT_MAX || 8) - (dcfg.COUNT_MIN || 3)))));
-		const spread = (typeof dcfg.SPREAD === 'number') ? dcfg.SPREAD : 12;
-		const speedMin = (typeof dcfg.SPEED_MIN === 'number') ? dcfg.SPEED_MIN : 1.5;
-		const speedMax = (typeof dcfg.SPEED_MAX === 'number') ? dcfg.SPEED_MAX : 4.0;
-		const lifeMin = (typeof dcfg.LIFE_MIN === 'number') ? dcfg.LIFE_MIN : 220;
-		const lifeMax = (typeof dcfg.LIFE_MAX === 'number') ? dcfg.LIFE_MAX : 600;
-		for (let i = 0; i < count; i++) {
-			if (window._debrisParticles.length >= MAX_PARTICLES) break;
-			const angle = Math.random() * Math.PI * 2;
-			const speed = speedMin + Math.random() * (speedMax - speedMin);
-			window._debrisParticles.push({
-				x: x + (Math.random() - 0.5) * spread,
-				y: y + (Math.random() - 0.5) * spread,
-				vx: Math.cos(angle) * speed,
-				vy: Math.sin(angle) * speed - 1.5,
-				life: lifeMin + Math.random() * (lifeMax - lifeMin), // ms
-				r: 1 + Math.random() * 2,
-				color: color
-			});
-		}
-		playSound('debris');
-		// install renderer once
-		if (!window._debrisRendererInstalled) {
-			window._debrisRendererInstalled = true;
-			Events.on(render, 'afterRender', () => {
-				const ctx = render.context;
-				const particles = window._debrisParticles || [];
-				if (!particles.length) return;
-				// use the engine's delta to ensure particles update correctly with timescale
-				const dt = engine.timing.lastDelta;
-				const gravity = (C.GRAVITY_Y && typeof C.GRAVITY_Y === 'number') ? C.GRAVITY_Y : 0.6;
-				ctx.save();
-				for (let i = particles.length - 1; i >= 0; i--) {
-					const p = particles[i];
-					// integrate (scale gravity to screen units conservatively)
-					p.vy += gravity * 0.06 * (dt / 16.6667);
-					p.x += p.vx * (dt / 1000);
-					p.y += p.vy * (dt / 1000);
-					p.life -= dt;
-					// draw
-					ctx.beginPath();
-					ctx.fillStyle = p.color || '#ffffff';
-					ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-					ctx.fill();
-					// remove when life expired or offscreen
-					if (p.life <= 0 || p.y > (GAME_HEIGHT + 400)) particles.splice(i, 1);
-				}
-				ctx.restore();
-			});
-		}
 	}
 
 	function handleHit(ball, type) {
 		if (!ball || ball.isHitting) return;
-
-		let sfxKey, debrisColor, newBallOptions;
+		let sfxKey, newBallOptions;
 		const isMiss = type === 'miss' || type === 'wall' || type === 'floorMiss';
-
 		if (isMiss) {
 			if (type !== 'floorMiss' && ball.isImmuneToMiss) return;
 			gameState.missHits++;
 			sfxKey = 'miss';
-			debrisColor = ball.render.fillStyle;
 		} else if (type === 'startChucker') {
 			gameState.orangeHits++;
 			sfxKey = 'chucker';
-			debrisColor = L.features.chucker.color;
 			newBallOptions = { fromBlue: true, isNavy: true };
 		} else if (type === 'tulip') {
 			gameState.blueHits++;
 			sfxKey = 'tulip';
-			debrisColor = L.features.tulip.color;
 			newBallOptions = { fromBlue: true, isNavy: ball.isNavy };
 		} else {
-			return; // Unknown type
+			return;
 		}
-
 		ball.isHitting = true;
 		updateStats();
-		createDebris(ball.position.x, ball.position.y, debrisColor);
 		playSound(sfxKey);
-		try {
-			Composite.remove(world, ball);
-			if (window.PHYSICS && typeof window.PHYSICS.unregisterBall === 'function') window.PHYSICS.unregisterBall(ball);
-		} catch (e) { /* ignore */ }
-
+		try { Composite.remove(world, ball); } catch (e) { /* ignore */ }
 		if (newBallOptions) {
 			if (!window.__BATCH_NO_RESPAWN || window.__FORCE_RESPAWN) {
 				simTimeout(() => dropBall(newBallOptions), 200);
@@ -643,41 +475,27 @@
 		dropButton.addEventListener('mouseleave', stop);
 		dropButton.addEventListener('touchstart', start);
 		dropButton.addEventListener('touchend', stop);
-
-		window.addEventListener('keydown', (e) => {
-			if (e.code === 'Space' && !gameState.spaceDown) {
-				gameState.spaceDown = true;
-				start(e);
-			}
-		});
-		window.addEventListener('keyup', (e) => {
-			if (e.code === 'Space') {
-				gameState.spaceDown = false;
-				stop(e);
-			}
-		});
-
+		window.addEventListener('keydown', (e) => { if (e.code === 'Space' && !gameState.spaceDown) { gameState.spaceDown = true; start(e); } });
+		window.addEventListener('keyup', (e) => { if (e.code === 'Space') { gameState.spaceDown = false; stop(e); } });
 		Events.on(engine, 'beforeUpdate', updatePhysics);
 		Events.on(engine, 'collisionStart', handleCollisions);
-		Events.on(engine, 'afterUpdate', sweepAndPrune);
+		Events.on(engine, 'afterUpdate', () => {
+			// Prune off-screen balls
+			const balls = Composite.allBodies(world).filter(b => b.label === 'ball');
+			for (const ball of balls) {
+				if (ball.position.y > GAME_HEIGHT + 300) {
+					try { Composite.remove(world, ball); } catch (e) { /* ignore */ }
+				}
+			}
+		});
 	}
 
 	function updatePhysics() {
-		// Use physics module if available to update windmills with per-frame limiting
-		if (window.PHYSICS && typeof window.PHYSICS.updateWindmills === 'function') {
-			const delta = (engine && engine.timing && engine.timing.lastDelta) ? engine.timing.lastDelta : 16.6667;
-			window.PHYSICS.updateWindmills(windmills, { maxAngularStep: C.WINDMILL && C.WINDMILL.maxAngularStep, delta });
-			if (typeof window.PHYSICS.updateBalls === 'function') {
-				window.PHYSICS.updateBalls({ delta });
-			}
-		} else {
-			// fallback: previous behavior
-			windmills.forEach(w => Body.setAngle(w.body, w.body.angle + w.speed));
-		}
+		windmills.forEach(w => Body.rotate(w.body, w.speed));
 		gates.forEach(g => {
 			const d = g.targetAngle - g.body.angle;
-			if (Math.abs(d) > 0.001) {
-				const newAng = g.body.angle + d * 0.25;
+			if (Math.abs(d) > 0.01) {
+				const newAng = g.body.angle + d * 0.2;
 				const half = g.length / 2;
 				const cx = g.pivot.x - Math.sin(newAng) * half;
 				const cy = g.pivot.y + Math.cos(newAng) * half;
@@ -688,238 +506,25 @@
 	}
 
 	function handleCollisions(event) {
-		// collisionStart can be called many times per frame; keep this handler minimal.
-		const WINDMILL_FORCE = (C.WINDMILL && typeof C.WINDMILL.force === 'number') ? C.WINDMILL.force : 0.06; // reduced default
-		const WINDMILL_UP_BIAS = -0.02;
-		const PEG_DEBOUNCE_MS = 80; // per-ball per-peg cooldown to avoid rapid repeat counts
-
 		for (const pair of event.pairs) {
 			const ball = (pair.bodyA.label === 'ball') ? pair.bodyA : (pair.bodyB.label === 'ball' ? pair.bodyB : null);
-			if (!ball) continue;
+			if (!ball || ball.isHitting) continue;
 			const other = (ball === pair.bodyA) ? pair.bodyB : pair.bodyA;
-
-			if (other.label === 'windmill') {
-				// gentle impulse based on relative vector, scaled to avoid solver explosions
-				const dx = ball.position.x - other.position.x, dy = ball.position.y - other.position.y;
-				const len = Math.hypot(dx, dy) || 1;
-				Body.applyForce(ball, ball.position, { x: (dx / len) * WINDMILL_FORCE, y: (dy / len) * WINDMILL_FORCE + WINDMILL_UP_BIAS });
-				// clamp velocity to avoid unrealistically large speeds after impulses
-				try {
-					const maxV = (typeof C.MAX_VELOCITY === 'number') ? C.MAX_VELOCITY : 22; // pixels/sec
-					const vx = ball.velocity.x, vy = ball.velocity.y;
-					const speed = Math.hypot(vx, vy) || 0;
-					if (speed > maxV) {
-						const scale = maxV / speed;
-						Body.setVelocity(ball, { x: vx * scale, y: vy * scale });
-					}
-				} catch (e) { /* ignore */ }
-				continue;
-			}
-
-			if (other.label === 'peg') {
-				// If heatmap is disabled, skip all bookkeeping to reduce overhead
-				if (!(C.DEBUG && C.DEBUG.PEGS_HEATMAP)) {
-					continue;
-				}
-				try {
-					const now = Date.now();
-					let info = _pegHitInfo.get(ball);
-					if (!info) {
-						info = { lastId: -1, lastTime: 0 };
-					}
-					// use numeric id (Matter bodies have numeric .id) to avoid string allocations
-					if (other.id !== info.lastId || (now - info.lastTime) > PEG_DEBOUNCE_MS) {
-						other.collisionCount = (other.collisionCount || 0) + 1;
-						gameState.totalPegCollisions = (gameState.totalPegCollisions || 0) + 1;
-						info.lastId = other.id;
-						info.lastTime = now;
-						_pegHitInfo.set(ball, info);
-						// mark heatmap dirty so recolor can run (throttled)
-						window._pegHeatmapDirty = true;
-					}
-				} catch (e) { /* ignore */ }
-				continue;
-			}
-
-			// If either body in the collision has restitution > 1, apply restitution directly
-			// as a multiplicative factor to the ball velocity (no implicit caps).
-			try {
-				const aRest = (pair.bodyA && typeof pair.bodyA.restitution === 'number') ? pair.bodyA.restitution : 1;
-				const bRest = (pair.bodyB && typeof pair.bodyB.restitution === 'number') ? pair.bodyB.restitution : 1;
-				const rest = Math.max(aRest, bRest);
-				if (rest > 1) {
-					const vx = ball.velocity.x, vy = ball.velocity.y;
-					const speed = Math.hypot(vx, vy) || 0.0001;
-					const newSpeed = speed * rest;
-					if (newSpeed !== speed) {
-						const scale = newSpeed / speed;
-						Body.setVelocity(ball, { x: vx * scale, y: vy * scale });
-					}
-				}
-			} catch (e) { /* ignore */ }
-
 			switch (other.label) {
-				case 'wall':
-					if (ENABLE_WALL_MISS) handleHit(ball, 'wall');
-					break;
-				case 'missZone':
-					handleHit(ball, 'miss');
-					break;
-				case 'floorMissZone':
-					handleHit(ball, 'floorMiss');
-					break;
-			}
-		}
-	}
-
-	// --- Debug Heatmap for Pegs ---
-	function hexToRgb(hex) {
-		// Accept either an array [r,g,b], a hex string like '#rrggbb' or '#rgb',
-		// or a css rgb(...) string. Return an object {r,g,b}.
-		if (Array.isArray(hex) && hex.length >= 3) {
-			return { r: Number(hex[0]) || 0, g: Number(hex[1]) || 0, b: Number(hex[2]) || 0 };
-		}
-		if (typeof hex === 'string') {
-			hex = hex.trim();
-			if (hex.startsWith('#')) {
-				let h = hex.replace('#', '');
-				if (h.length === 3) h = h.split('').map(s => s + s).join('');
-				const num = parseInt(h, 16) || 0;
-				return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
-			}
-			const m = hex.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
-			if (m) return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) };
-		}
-		// fallback white
-		return { r: 255, g: 255, b: 255 };
-	}
-	function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
-
-	function recolorPegs() {
-		if (!(C.DEBUG && C.DEBUG.PEGS_HEATMAP)) return;
-		// throttle recolor work: only run when heatmap was dirtied and on a frame interval
-		const frameSkip = (C.DEBUG && typeof C.DEBUG.HEATMAP_FRAME_SKIP === 'number') ? Math.max(1, C.DEBUG.HEATMAP_FRAME_SKIP) : 3;
-		window._pegHeatmapFrame = (window._pegHeatmapFrame || 0) + 1;
-		if (!window._pegHeatmapDirty && (window._pegHeatmapFrame % frameSkip) !== 0) return;
-		// we'll clear dirty flag after an update
-		const cfg = C.DEBUG || {};
-		// Use total drops as the denominator (ratio = peg_hits / total_drops)
-		const total = Math.max(0, (gameState && gameState.totalDrops) ? gameState.totalDrops : 0);
-		const base = hexToRgb(cfg.HEATMAP_BASE_COLOR || '#ffffff');
-		const target = hexToRgb(cfg.HEATMAP_TARGET_COLOR || '#ff6b6b');
-		if (total === 0) {
-			// no drops yet: ensure all pegs are base-colored
-			for (const p of pegs) { p.render.fillStyle = `rgb(${base.r},${base.g},${base.b})`; }
-			return;
-		}
-		// Use total peg collisions for normalization; fall back to observed ratios if zero
-		const totalColl = Math.max(0, gameState.totalPegCollisions || 0);
-		// find observed maximum ratio to stretch contrast (so the top peg reaches full target color)
-		let observedMaxRatio = 0;
-		for (const p of pegs) {
-			const rcount = p.collisionCount || 0;
-			const ratio = totalColl > 0 ? (rcount / totalColl) : (rcount / Math.max(1, total));
-			if (ratio > observedMaxRatio) observedMaxRatio = ratio;
-		}
-		if (observedMaxRatio <= 0) {
-			for (const p of pegs) { p.render.fillStyle = `rgb(${base.r},${base.g},${base.b})`; }
-			return;
-		}
-		const scale = (C.DEBUG && typeof C.DEBUG.HEATMAP_SCALE === 'number' && C.DEBUG.HEATMAP_SCALE > 0) ? C.DEBUG.HEATMAP_SCALE : 1;
-		for (const p of pegs) {
-			const count = p.collisionCount || 0;
-			let ratio = totalColl > 0 ? (count / totalColl) : (count / Math.max(1, total));
-			let t = (ratio * scale) / observedMaxRatio;
-			if (!isFinite(t)) t = 0;
-			t = Math.max(0, Math.min(1, t));
-			const r = lerp(base.r, target.r, t);
-			const g = lerp(base.g, target.g, t);
-			const b = lerp(base.b, target.b, t);
-			p.render.fillStyle = `rgb(${r},${g},${b})`;
-		}
-		window._pegHeatmapDirty = false;
-	}
-
-	// Only attach recolor hook when heatmap is enabled to avoid unnecessary work.
-	let _heatmapHookAttached = false;
-	function attachHeatmapHook() {
-		if (_heatmapHookAttached) return;
-		try { Events.on(render, 'beforeRender', recolorPegs); _heatmapHookAttached = true; } catch (e) { _heatmapHookAttached = false; }
-	}
-	function detachHeatmapHook() {
-		if (!_heatmapHookAttached) return;
-		try { Events.off(render, 'beforeRender', recolorPegs); } catch (e) { /* ignore */ }
-		_heatmapHookAttached = false;
-	}
-
-	// runtime helpers to toggle/reset heatmap without editing config and reloading
-	window.togglePegHeatmap = (on) => {
-		if (!C.DEBUG) C.DEBUG = {};
-		C.DEBUG.PEGS_HEATMAP = (typeof on === 'boolean') ? on : !C.DEBUG.PEGS_HEATMAP;
-		if (C.DEBUG.PEGS_HEATMAP) attachHeatmapHook(); else detachHeatmapHook();
-		// immediate recolor (no-op when disabled)
-		recolorPegs();
-		return C.DEBUG.PEGS_HEATMAP;
-	};
-	window.resetPegHeatmapCounts = () => {
-		for (const p of pegs) p.collisionCount = 0;
-		gameState.totalPegCollisions = 0;
-		recolorPegs();
-	};
-
-	// attach initially only if enabled
-	if (C.DEBUG && C.DEBUG.PEGS_HEATMAP) attachHeatmapHook();
-
-	function sweepAndPrune() {
-		const targets = Composite.allBodies(world).filter(b => b.label === 'startChucker' || b.label === 'tulip');
-		if (window.PHYSICS && typeof window.PHYSICS.sweepAndDetect === 'function') {
-			window.PHYSICS.sweepAndDetect(targets, (ball, target) => handleHit(ball, target.label), { world, delta: (engine && engine.timing && engine.timing.lastDelta) ? engine.timing.lastDelta : 16.6667 });
-		} else if (window.PHYSICS && typeof window.PHYSICS.sweepAndDetect === 'function') {
-			// no-op duplicate safety path
-		} else {
-			// fallback to inlined implementation (previous behavior)
-			const balls = Composite.allBodies(world).filter(b => b.label === 'ball');
-			for (const ball of balls) {
-				if (ball.isHitting) continue;
-				const prev = ball.lastPos || ball.position;
-				const curr = ball.position;
-
-				if ((curr.y - prev.y) > 0.05) {
-					for (const target of targets) {
-						if (prev.y < target.bounds.min.y && curr.y >= target.bounds.min.y) {
-							const tRatio = (target.bounds.min.y - prev.y) / ((curr.y - prev.y) || 1);
-							const xCross = prev.x + (curr.x - prev.x) * tRatio;
-							if (xCross >= target.bounds.min.x - 3 && xCross <= target.bounds.max.x + 3) {
-								handleHit(ball, target.label);
-								break;
-							}
-						}
-					}
-				}
-
-				if (ball.position.y > GAME_HEIGHT + 300) {
-					try { Composite.remove(world, ball); } catch (e) { /* ignore */ }
-				}
-				ball.lastPos = { x: curr.x, y: curr.y };
+				case 'wall': if (ENABLE_WALL_MISS) handleHit(ball, 'wall'); break;
+				case 'missZone': handleHit(ball, 'miss'); break;
+				case 'floorMissZone': handleHit(ball, 'floorMiss'); break;
+				case 'startChucker': handleHit(ball, 'startChucker'); break;
+				case 'tulip': handleHit(ball, 'tulip'); break;
+				case 'windmill': playSound('windmill'); break;
+				case 'peg': playSound('debris'); break; // Simple sound on peg hit
 			}
 		}
 	}
 
 	// --- UI & Stats ---
-	// Stats UI removed per user request. Provide lightweight stubs so other
-	// modules or dev-tools that call updateStats/repositionStats won't error.
-	function createStatsElement() {
-		// no DOM creation
-		window.repositionStats = () => null; // no-op
-		window.setStatsVisible = () => false;
-		window.toggleStatsVisible = () => false;
-		return null;
-	}
-
 	function updateStats() {
-		// no-op: stats UI disabled. Keep counters synced for dev-tools.
 		syncWindowCounters();
-		// update developer palette if present (including percentages)
 		if (devPaletteEl) {
 			const { totalDrops, orangeHits, blueHits, missHits } = gameState;
 			const totalHits = (orangeHits || 0) + (blueHits || 0);
@@ -927,7 +532,6 @@
 			const hitPct = drops ? Math.round((totalHits / drops) * 100) : 0;
 			const orangePct = drops ? Math.round((orangeHits / drops) * 100) : 0;
 			const bluePct = drops ? Math.round((blueHits / drops) * 100) : 0;
-
 			devPaletteEl.querySelector('.dp-total').textContent = drops;
 			devPaletteEl.querySelector('.dp-hit-total').textContent = totalHits;
 			devPaletteEl.querySelector('.dp-hit-pct').textContent = hitPct + '%';
@@ -947,9 +551,7 @@
 
 	// --- Audio ---
 	function playSound(key) {
-		try {
-			if (C.SFX && C.SFX[key]) AudioBus.sfxSimple(C.SFX[key]);
-		} catch (e) { /* ignore */ }
+		try { if (C.SFX && C.SFX[key]) AudioBus.sfxSimple(C.SFX[key]); } catch (e) { /* ignore */ }
 	}
 
 	// --- Simulation Time Scaling ---
@@ -957,19 +559,17 @@
 	const simTimeout = (fn, ms) => setTimeout(fn, Math.max(0, ms / (window.__SIM_SPEED || 1)));
 	window.setSimSpeed = (factor) => {
 		const f = (factor > 0) ? factor : 1;
-		window.__SIM_SPEED = f; // Keep for simTimeout and external script compatibility
+		window.__SIM_SPEED = f;
 		engine.timing.timeScale = f;
 	};
 
 	// --- Dev/Editor API ---
 	function setupEditorAPI() {
 		window.EDITOR = {
-			// getPegs: return the peg coordinates; radius is handled at export time
 			getPegs: () => pegs.map(b => ({ x: b.position.x, y: b.position.y, r: b.circleRadius || C.PEG_RADIUS })),
 			clearPegs: () => { if (pegs.length) Composite.remove(world, pegs); pegs.length = 0; },
 			addPeg: (x, y, r) => {
 				const peg = Bodies.circle(Math.round(x), Math.round(y), r || C.PEG_RADIUS, { isStatic: true, label: 'peg', restitution: 0.8, friction: 0.05, render: { fillStyle: L.pegs.color } });
-				peg.collisionCount = 0;
 				pegs.push(peg);
 				Composite.add(world, peg);
 				return peg;
@@ -978,8 +578,6 @@
 				const found = window.EDITOR.findPegUnder(x, y, threshold);
 				return found ? window.EDITOR.removePeg(found) : false;
 			},
-			// Remove a peg using client (DOM) coordinates — editor should use this to
-			// avoid any canvas scaling/mapping mismatch.
 			removePegAtClient: (clientX, clientY, threshold = 12) => {
 				try {
 					const canvas = render.canvas;
@@ -1009,21 +607,14 @@
 				}
 				return false;
 			},
-			setPegColor: (body, color) => { if (body) body.render.fillStyle = color; },
 			exportPegs: () => {
 				const list = window.EDITOR.getPegs().map(p => {
-					// include r only if it differs from default PEG_RADIUS
 					const out = { x: Math.round(p.x), y: Math.round(p.y) };
-					const defaultR = C.PEG_RADIUS;
-					if (typeof p.r === 'number' && p.r !== defaultR) out.r = p.r;
+					if (p.r && p.r !== C.PEG_RADIUS) out.r = p.r;
 					return out;
 				});
-				// sort by y asc, then x asc for stable export order
-				list.sort((a, b) => {
-					if (a.y !== b.y) return a.y - b.y;
-					return a.x - b.x;
-				});
-				return JSON.stringify(list, null, '\t');
+				list.sort((a, b) => (a.y !== b.y) ? a.y - b.y : a.x - b.x);
+				return JSON.stringify(list, null, '	');
 			},
 			importPegs: (json) => {
 				try {
@@ -1035,7 +626,10 @@
 				} catch (e) { return false; }
 			}
 		};
-		window.setPegPreset = (name) => { window.PEG_PRESET = name || 'default'; if (typeof loadPresetAndBuild === 'function') loadPresetAndBuild(window.PEG_PRESET); else buildPegs(window.PEG_PRESET); };
+		window.setPegPreset = (name) => {
+			window.PEG_PRESET = name || 'default';
+			loadPresetAndBuild(window.PEG_PRESET);
+		};
 	}
 
 	function createDevPalette() {
@@ -1055,15 +649,13 @@
 		return el;
 	}
 
-	// toggle developer palette independently of editor UI
 	window.toggleDevPalette = (on) => {
 		if (typeof on === 'boolean') {
-			if (on) createDevPalette(); else { if (devPaletteEl) { devPaletteEl.remove(); devPaletteEl = null; } }
-			return !!on;
+			if (on) createDevPalette(); else if (devPaletteEl) { devPaletteEl.remove(); devPaletteEl = null; }
+		} else {
+			if (devPaletteEl) { devPaletteEl.remove(); devPaletteEl = null; } else createDevPalette();
 		}
-		if (devPaletteEl) { devPaletteEl.remove(); devPaletteEl = null; return false; }
-		createDevPalette();
-		return true;
+		return !!devPaletteEl;
 	};
 
 	function syncWindowCounters() {
@@ -1082,97 +674,23 @@
 		createGates();
 		createFeatures();
 		createGuards();
-		// default preset: use 'pegs2' if not already set. validate and build via loadPresetAndBuild when available
 		window.PEG_PRESET = window.PEG_PRESET || 'pegs2';
-		if (typeof loadPresetAndBuild === 'function') loadPresetAndBuild(window.PEG_PRESET);
-		else buildPegs(window.PEG_PRESET);
+		loadPresetAndBuild(window.PEG_PRESET);
 		setupEventListeners();
 		if (C.EDITOR_ENABLED) setupEditorAPI();
-		// create developer palette independently of editor UI if enabled in config
 		if (C.DEV_PALETTE_ENABLED === undefined ? true : C.DEV_PALETTE_ENABLED) createDevPalette();
 		updateStats();
-
-		// Periodic logging for peg collision summary (can be toggled via window.LOGGING)
-		console.info('[PEG-LOGGER] scheduling logger. LOGGING=', window.LOGGING);
-		setInterval(() => {
-			try {
-				if (window.LOGGING && window.LOGGING.pegCollisionSummary) {
-					const sample = pegs.slice(0, 8).map(p => ({ x: Math.round(p.position.x), y: Math.round(p.position.y), count: p.collisionCount || 0 }));
-					console.info('[PEG-COLLISION-SUMMARY]', { totalPegCollisions: gameState.totalPegCollisions || 0, sample });
-				}
-			} catch (e) { /* ignore */ }
-		}, 1000);
-
-		// helper to toggle peg collision logging quickly
-		window.togglePegCollisionLogging = (val) => {
-			if (!window.LOGGING) window.LOGGING = {};
-			if (typeof val === 'boolean') window.LOGGING.pegCollisionSummary = val;
-			else window.LOGGING.pegCollisionSummary = !window.LOGGING.pegCollisionSummary;
-			console.info('pegCollisionSummary:', window.LOGGING.pegCollisionSummary);
-			return window.LOGGING.pegCollisionSummary;
-		};
-
-		// Expose helpers for dev-tools
 		window.updateStats = updateStats;
 		window.__DROP_CALLS = 0;
 		const originalDropBall = dropBall;
 		window.dropBall = (opts) => { window.__DROP_CALLS++; originalDropBall(opts); };
 		window.resetBatchSuppressedCount = () => { window.__BATCH_SUPPRESSED_COUNT = 0; };
-
-		// (rainbow startup will be handled after the helper is defined)
-
-		// Rainbow test: cycle colors across pegs to verify per-peg color changes work
-		window.startPegRainbow = (ms = 120) => {
-			if (_pegRainbowTimer) return false; // already running
-			window._pegRainbowState = window._pegRainbowState || { hue: 0 };
-			_pegRainbowTimer = setInterval(() => {
-				window._pegRainbowState.hue = (window._pegRainbowState.hue + 6) % 360;
-				const hueBase = window._pegRainbowState.hue;
-				for (let i = 0; i < pegs.length; i++) {
-					const p = pegs[i];
-					const localHue = (hueBase + (i * (360 / Math.max(1, pegs.length)))) % 360;
-					p.render.fillStyle = `hsl(${Math.round(localHue)},75%,60%)`;
-				}
-			}, ms);
-			return true;
-		};
-		window.stopPegRainbow = () => {
-			if (!_pegRainbowTimer) return false;
-			clearInterval(_pegRainbowTimer);
-			_pegRainbowTimer = null;
-			// restore heatmap or base color
-			recolorPegs();
-			return true;
-		};
-
-		// runtime setter to control rainbow from config or during gameplay
-		window.setPegRainbowEnabled = (on, ms) => {
-			if (typeof on === 'boolean') {
-				window.pegRainbowEnabled = on;
-			} else {
-				window.pegRainbowEnabled = !window.pegRainbowEnabled;
-			}
-			if (typeof ms === 'number') window.pegRainbowMs = ms;
-			if (window.pegRainbowEnabled) {
-				window.startPegRainbow(window.pegRainbowMs);
-			} else {
-				window.stopPegRainbow();
-			}
-			return window.pegRainbowEnabled;
-		};
 		window.resetCounters = () => {
 			Object.assign(gameState, { totalDrops: 0, orangeHits: 0, blueHits: 0, missHits: 0 });
 			window.__BATCH_SUPPRESSED_COUNT = 0;
-			gameState.totalPegCollisions = 0;
 			updateStats();
 		};
-
-		// apply initial rainbow config after helpers are available
-		if (C.DEBUG && C.DEBUG.PEG_RAINBOW_ENABLED) {
-			try { window.setPegRainbowEnabled(true, C.DEBUG.PEG_RAINBOW_MS); } catch (e) { /* ignore */ }
-		}
 	}
 
 	init();
-
 })();
