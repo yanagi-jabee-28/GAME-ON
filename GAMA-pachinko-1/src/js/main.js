@@ -660,7 +660,8 @@
 	function updatePhysics() {
 		// Use physics module if available to update windmills with per-frame limiting
 		if (window.PHYSICS && typeof window.PHYSICS.updateWindmills === 'function') {
-			window.PHYSICS.updateWindmills(windmills, { maxAngularStep: C.WINDMILL && C.WINDMILL.maxAngularStep });
+			const delta = (engine && engine.timing && engine.timing.lastDelta) ? engine.timing.lastDelta : 16.6667;
+			window.PHYSICS.updateWindmills(windmills, { maxAngularStep: C.WINDMILL && C.WINDMILL.maxAngularStep, delta });
 		} else {
 			// fallback: previous behavior
 			windmills.forEach(w => Body.setAngle(w.body, w.body.angle + w.speed));
@@ -847,7 +848,7 @@
 	function sweepAndPrune() {
 		const targets = Composite.allBodies(world).filter(b => b.label === 'startChucker' || b.label === 'tulip');
 		if (window.PHYSICS && typeof window.PHYSICS.sweepAndDetect === 'function') {
-			window.PHYSICS.sweepAndDetect(targets, (ball, target) => handleHit(ball, target.label));
+			window.PHYSICS.sweepAndDetect(targets, (ball, target) => handleHit(ball, target.label), { world, delta: (engine && engine.timing && engine.timing.lastDelta) ? engine.timing.lastDelta : 16.6667 });
 		} else if (window.PHYSICS && typeof window.PHYSICS.sweepAndDetect === 'function') {
 			// no-op duplicate safety path
 		} else {

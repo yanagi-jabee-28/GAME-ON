@@ -7,6 +7,8 @@
 
 	// internal registries
 	const _balls = new Set();
+	// reuse array for removals to avoid per-frame allocation churn
+	const _toRemove = [];
 
 	// Register / unregister balls so PHYSICS can manage light-weight bookkeeping
 	Physics.registerBall = function (body) { if (body) _balls.add(body); };
@@ -17,9 +19,12 @@
 	Physics.updateWindmills = function (windmills, options) {
 		options = options || {};
 		const maxStep = (typeof options.maxAngularStep === 'number') ? options.maxAngularStep : 0.08;
+		// scale angular step by delta time so rotation is frame-rate independent
+		const delta = (typeof options.delta === 'number' && options.delta > 0) ? options.delta : 16.6667;
+		const timeScale = Math.max(0.0001, delta / 16.6667);
 		for (let i = 0; i < windmills.length; i++) {
 			const w = windmills[i];
-			let step = w.speed || 0;
+			let step = (w.speed || 0) * timeScale;
 			if (Math.abs(step) > maxStep) step = (step > 0) ? maxStep : -maxStep;
 			// Apply a small incremental rotation instead of setting absolute angle.
 			// Using rotate for small deltas is cheaper and reduces solver instability
@@ -31,22 +36,32 @@
 	// Lightweight sweep helper: predict crossings for registered balls against targets
 	// targets: array of bodies to test (with bounds)
 	// callback(ball, target) is invoked when a crossing is detected (approx.)
-	Physics.sweepAndDetect = function (targets, callback) {
+	Physics.sweepAndDetect = function (targets, callback, options) {
 		if (!Array.isArray(targets) || typeof callback !== 'function') return;
+		options = options || {};
 		const cfgGameHeight = (window.CONFIG && window.CONFIG.GAME_HEIGHT) ? window.CONFIG.GAME_HEIGHT : 700;
 		const offscreenY = cfgGameHeight + 300;
-		const toRemove = [];
+		// reuse toRemove buffer
+		_toRemove.length = 0;
+
+		// micro-optimizations: cache frequently used locals
+		const targetsLen = targets.length;
+		if (targetsLen === 0) return;
+
 		for (const ball of _balls) {
 			if (ball.isHitting) continue;
 			const prev = ball.lastPos || ball.position;
 			const curr = ball.position;
+			const dy = curr.y - prev.y;
 			// only proceed when ball is moving downward enough to possibly cross targets
-			if ((curr.y - prev.y) > 0.05) {
-				for (let i = 0; i < targets.length; i++) {
+			if (dy > 0.05) {
+				const dx = curr.x - prev.x;
+				for (let i = 0; i < targetsLen; i++) {
 					const target = targets[i];
-					if (prev.y < target.bounds.min.y && curr.y >= target.bounds.min.y) {
-						const tRatio = (target.bounds.min.y - prev.y) / ((curr.y - prev.y) || 1);
-						const xCross = prev.x + (curr.x - prev.x) * tRatio;
+					const tminY = target.bounds.min.y;
+					if (prev.y < tminY && curr.y >= tminY) {
+						const tRatio = (tminY - prev.y) / (dy || 1);
+						const xCross = prev.x + dx * tRatio;
 						if (xCross >= target.bounds.min.x - 3 && xCross <= target.bounds.max.x + 3) {
 							callback(ball, target);
 							break;
@@ -55,8 +70,8 @@
 				}
 			}
 			// mark for removal - defer actual Composite.remove to caller/periodic cleaner
-			if (ball.position.y > offscreenY) {
-				toRemove.push(ball);
+			if (curr.y > offscreenY) {
+				_toRemove.push(ball);
 				_balls.delete(ball);
 			}
 			// update lastPos in-place to reduce allocations
@@ -64,11 +79,11 @@
 			else { ball.lastPos.x = curr.x; ball.lastPos.y = curr.y; }
 		}
 		// perform removals in a short loop outside of iteration to avoid iterator invalidation
-		if (toRemove.length) {
+		if (_toRemove.length) {
 			try {
-				const world = (window.engine && window.engine.world) ? window.engine.world : null;
-				for (let i = 0; i < toRemove.length; i++) {
-					try { Matter.Composite.remove(world, toRemove[i]); } catch (e) { /* ignore individual failures */ }
+				const world = options.world || ((window.engine && window.engine.world) ? window.engine.world : null);
+				for (let i = 0; i < _toRemove.length; i++) {
+					try { if (world) Matter.Composite.remove(world, _toRemove[i]); } catch (e) { /* ignore individual failures */ }
 				}
 			} catch (e) { /* ignore */ }
 		}
