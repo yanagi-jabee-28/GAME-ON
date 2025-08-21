@@ -18,7 +18,9 @@ const GAME_CONFIG = {
 	width: 650,  // ゲームエリアの描画幅 (px)
 	// デザイン時の基準幅。width を変更した際、この値との差分で水平オフセットを計算します。
 	baseWidth: 450,
-	height: 700, // ゲームエリアの描画高 (px)
+	// デザイン時の基準高さ。height を変更した際、この値との差分で垂直オフセットを計算します。
+	baseHeight: 600,
+	height: 900, // ゲームエリアの描画高 (px)
 	renderOptions: {
 		wireframes: false, // falseにするとオブジェクトが塗りつぶされる (trueだと線画)
 		background: '#ffffff', // 背景色
@@ -113,9 +115,9 @@ GAME_CONFIG.launch = {
 // - y: 発射点の明示的な y 座標（ピクセル）を指定する場合はこちらを使います
 // - yOffsetFromBottom: 明示的な y を指定しない場合、ゲーム領域の下端からのオフセットで指定します
 GAME_CONFIG.launch.spawn = {
-	x: -10,
+	x: -100,
 	// デフォルトはコンテナ下端から 40px 上
-	yOffsetFromBottom: 40
+	yOffsetFromBottom: 300
 };
 
 

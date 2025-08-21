@@ -54,9 +54,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	const rotators = rotatorPositions.map(pos => {
 		const xOffset = ((GAME_CONFIG.width || 0) - (GAME_CONFIG.baseWidth || GAME_CONFIG.width || 0)) / 2;
 		const defaults = windmillConfig.defaults || {};
+		const yOffset = ((GAME_CONFIG.height || 0) - (GAME_CONFIG.baseHeight || GAME_CONFIG.height || 0)) / 2;
 		const blueprint = {
 			x: pos.x + xOffset,
-			y: pos.y,
+			y: pos.y + yOffset,
 			render: windmillConfig.render,
 			// optional: 個別の中心色を指定できる
 			centerFill: pos.centerFill,
@@ -125,12 +126,13 @@ document.addEventListener('DOMContentLoaded', () => {
 		const spawnCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.spawn) || {};
 		const xOffset = ((GAME_CONFIG.width || 0) - (GAME_CONFIG.baseWidth || GAME_CONFIG.width || 0)) / 2;
 		const startX = (typeof spawnCfg.x === 'number') ? (spawnCfg.x + xOffset) : (40 + xOffset);
-		const startY = (typeof spawnCfg.y === 'number') ? spawnCfg.y : (GAME_CONFIG.height - (spawnCfg.yOffsetFromBottom || 40));
+		const yOffsetForSpawn = ((GAME_CONFIG.height || 0) - (GAME_CONFIG.baseHeight || GAME_CONFIG.height || 0)) / 2;
+		const startY = (typeof spawnCfg.y === 'number') ? (spawnCfg.y + yOffsetForSpawn) : (GAME_CONFIG.height - (spawnCfg.yOffsetFromBottom || 40) + yOffsetForSpawn);
 		const start = { x: startX, y: startY };
 		// 着弾ターゲット：画面上部の釘エリアのランダムな点（中央寄り）
 		const target = {
 			x: GAME_CONFIG.width * (0.35 + Math.random() * 0.3),
-			y: GAME_CONFIG.height * 0.18 + Math.random() * (GAME_CONFIG.height * 0.08)
+			y: (GAME_CONFIG.height * 0.18 + Math.random() * (GAME_CONFIG.height * 0.08)) + yOffsetForSpawn
 		};
 
 		// UI で指定された角度(度)と速度(px/s)
