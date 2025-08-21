@@ -31,8 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	// --- 4. オブジェクトの生成 ---
 	// objects.jsに定義された関数を呼び出し、壁や釘をワールドに配置します。
 	createBounds(world);
-	// main.jsの場所がjs/内に移動したため、プリセットファイルへのパスを修正
-	loadPegs('./pegs-presets/pegs3.json', world);
+	// fetchのパスは、main.jsからではなくindex.htmlからの相対パスで解決される
+	loadPegs('pegs-presets/pegs3.json', world);
 
 	// --- 5. イベントリスナーの設定 ---
 	// 「ボールを追加」ボタンのクリックイベント
@@ -43,15 +43,24 @@ document.addEventListener('DOMContentLoaded', () => {
 		World.add(world, ball);
 	});
 
-	// 衝突開始イベント（ボールが床に触れたかを検出）
+	// 衝突開始イベント (デバッグのため一時的に無効化)
+	/*
 	Events.on(engine, 'collisionStart', (event) => {
 		const pairs = event.pairs;
 		for (const pair of pairs) {
 			const { bodyA, bodyB } = pair;
+
+			// --- 材質に基づいた物理係数の動的適用 ---
+			// bodyに材質が設定されていれば、physics.jsの定義に基づいて衝突係数を上書き
+			if (bodyA.material && bodyB.material) {
+				const interaction = getMaterialInteraction(bodyA.material, bodyB.material);
+				pair.restitution = interaction.restitution;
+				pair.friction = interaction.friction;
+			}
+
+			// --- 床とボールの衝突判定 ---
 			const ballLabel = GAME_CONFIG.objects.ball.label;
 			const floorLabel = GAME_CONFIG.objects.floor.label;
-
-			// 衝突したペアが「ボール」と「床」であれば、ボールを削除します
 			if (bodyA.label === ballLabel && bodyB.label === floorLabel) {
 				World.remove(world, bodyA);
 			} else if (bodyB.label === ballLabel && bodyA.label === floorLabel) {
@@ -59,4 +68,5 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 		}
 	});
+	*/
 });
