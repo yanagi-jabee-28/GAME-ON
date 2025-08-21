@@ -181,8 +181,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 
 			// 床とボールの衝突判定
-			// NOTE: ユーザ要望により、ここでの即時削除を無効化しました。観察用にボールが消えないようにします。
-			/*
 			const ballLabel = GAME_CONFIG.objects.ball.label;
 			const floorLabel = GAME_CONFIG.objects.floor.label;
 			if (bodyA.label === ballLabel && bodyB.label === floorLabel) {
@@ -190,7 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			} else if (bodyB.label === ballLabel && bodyA.label === floorLabel) {
 				World.remove(world, bodyB);
 			}
-			*/
 		}
 	});
 

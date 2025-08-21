@@ -101,11 +101,11 @@ const GAME_CONFIG = {
 // 発射関連の調整パラメータ（UI の速度値を実際の初速に変換するためのスケール等）
 GAME_CONFIG.launch = {
 	// UI の px/s 値に乗じる係数。値を上げると速くなる。
-	// 0.16 はスライダーの中間値を使って視認しやすい速度にする調整値です。
-	speedScale: 0.16,
+	// 0.6 にして、スライダーの値がより力強い初速になるよう調整しました。
+	speedScale: 0.6,
 	// スライダーと一致させたい最小/最大（必要ならここで参照できます）
 	minSpeed: 5,
-	maxSpeed: 120
+	maxSpeed: 400
 };
 
 // 発射の初期位置設定（config で制御可能にする）
@@ -113,7 +113,7 @@ GAME_CONFIG.launch = {
 // - y: 発射点の明示的な y 座標（ピクセル）を指定する場合はこちらを使います
 // - yOffsetFromBottom: 明示的な y を指定しない場合、ゲーム領域の下端からのオフセットで指定します
 GAME_CONFIG.launch.spawn = {
-	x: 10,
+	x: -10,
 	// デフォルトはコンテナ下端から 40px 上
 	yOffsetFromBottom: 40
 };
