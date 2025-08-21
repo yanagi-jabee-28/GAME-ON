@@ -900,7 +900,8 @@
 		createGates();
 		createFeatures();
 		createGuards();
-		window.PEG_PRESET = window.PEG_PRESET || 'pegs2';
+		// force startup preset to configured default (DEFAULT_PEG_PRESET). This ensures pegs3 is used on load.
+		window.PEG_PRESET = (C && C.DEFAULT_PEG_PRESET) ? C.DEFAULT_PEG_PRESET : 'pegs3';
 		loadPresetAndBuild(window.PEG_PRESET);
 		setupEventListeners();
 		if (C.EDITOR_ENABLED) setupEditorAPI();

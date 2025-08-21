@@ -31,6 +31,9 @@
 			centerCW: true,
 			blades: 4,
 			radius: 40,
+
+			// デフォルトで読み込む釘プレセット名（例: 'pegs1', 'pegs2', 'pegs3'）
+			DEFAULT_PEG_PRESET: 'pegs3',
 			bladeW: 8,
 			bladeH: 40,
 			color: '#f39c12',
