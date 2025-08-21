@@ -53,37 +53,63 @@ function createBounds(world) {
 	if (GAME_CONFIG.topPlate && GAME_CONFIG.topPlate.enabled) {
 		const tp = GAME_CONFIG.topPlate;
 		const cx = width / 2 + (tp.centerOffsetX || 0); // arc の中心 x (config でオフセット可能)
-		// arc の中心 y を調整して、円弧の中間がキャンバス上部に見えるようにする。
-		// 以前は中心を大量に上にずらしていたため円弧が画面外に出ていました。
-		// ここではデフォルトで中間点を厚さの半分程度に置き、centerOffsetY で微調整可能にします。
-		const cy = (tp.centerOffsetY || 0) + ((tp.thickness || 20) / 2);
-		console.info('topPlate debug: cx=', cx, 'cy=', cy, 'radius=', tp.radius, 'thickness=', tp.thickness);
+		// arc の中心 y を計算して、ドーム（半円）がキャンバス上部に収まるようにする。
+		// ドームの円心は画像の上部外側にあるため、円心 y を下に寄せてドーム本体がキャンバスに入るよう計算します。
+		// ここでは円心を (tp.radius - tp.thickness/2 - margin) 分だけ上にして、ドームの山頂がキャンバス内に来るようにします。
+		const margin = 8;
+		const cy = (tp.centerOffsetY || 0) + (tp.radius - (tp.thickness || 20) / 2 - margin);
+		console.info('topPlate debug: cx=', cx, 'cy=', cy, 'radius=', tp.radius, 'thickness=', tp.thickness, 'mode=', tp.mode);
 		const segs = Math.max(6, tp.segments || 24);
 		const arcWidth = width; // cover the width
 		const halfChordOverRadius = (arcWidth / 2) / tp.radius;
 
-		// asin の定義域外（>1）になると NaN を返すため、その場合は
-		// フォールバックとして従来の矩形上壁を追加する。
-		if (!isFinite(tp.radius) || halfChordOverRadius >= 1) {
-			console.warn('topPlate: radius too small for width; falling back to flat top. radius=', tp.radius, 'width=', width);
-			// フォールバック矩形をキャンバス内に配置する（中心を厚さの半分に）
-			const topY = (tp.thickness || 20) / 2;
-			bounds.push(Matter.Bodies.rectangle(width / 2, topY, width, tp.thickness || 20, wallOptions));
-		} else {
-			const totalAngle = 2 * Math.asin(Math.min(0.999, halfChordOverRadius)); // chord angle spanning the width
-			const startAngle = -totalAngle / 2;
+		if (tp.mode === 'dome') {
+			// dome の半径が画面幅/2 より小さいと不整合なので自動調整
+			if (tp.radius < (width / 2)) {
+				console.info('topPlate dome: adjusting radius to fit width');
+				tp.radius = Math.round(width / 2);
+			}
+			const startAngle = Math.PI; // leftmost on circle
+			const endAngle = 2 * Math.PI; // rightmost
+			// 画面内に山頂が来るように円心 y を再計算する
+			const marginTop = 8;
+			const topApexY = (tp.thickness || 20) / 2 + marginTop;
+			const centerY = (tp.centerOffsetY || 0) + topApexY + tp.radius;
 			for (let i = 0; i < segs; i++) {
-				const a0 = startAngle + (i / segs) * totalAngle;
-				const a1 = startAngle + ((i + 1) / segs) * totalAngle;
-				const mx = (Math.cos(a0) + Math.cos(a1)) / 2;
-				const my = (Math.sin(a0) + Math.sin(a1)) / 2;
-				const px = cx + tp.radius * mx;
-				const py = cy + tp.radius * my;
-				// segment length approximated by arc chord
+				const a0 = startAngle + (i / segs) * (endAngle - startAngle);
+				const a1 = startAngle + ((i + 1) / segs) * (endAngle - startAngle);
+				const aMid = (a0 + a1) / 2;
+				const px = cx + tp.radius * Math.cos(aMid);
+				const py = centerY + tp.radius * Math.sin(aMid);
 				const chord = Math.hypot(tp.radius * Math.cos(a1) - tp.radius * Math.cos(a0), tp.radius * Math.sin(a1) - tp.radius * Math.sin(a0));
 				const rect = Matter.Bodies.rectangle(px, py, chord + 2, tp.thickness, wallOptions);
-				Matter.Body.rotate(rect, (a0 + a1) / 2 + Math.PI / 2);
+				Matter.Body.rotate(rect, aMid + Math.PI / 2);
 				bounds.push(rect);
+			}
+		} else {
+			// asin の定義域外（>1）になると NaN を返すため、その場合は
+			// フォールバックとして従来の矩形上壁を追加する。
+			if (!isFinite(tp.radius) || halfChordOverRadius >= 1) {
+				console.warn('topPlate: radius too small for width; falling back to flat top. radius=', tp.radius, 'width=', width);
+				// フォールバック矩形をキャンバス内に配置する（中心を厚さの半分に）
+				const topY = (tp.thickness || 20) / 2;
+				bounds.push(Matter.Bodies.rectangle(width / 2, topY, width, tp.thickness || 20, wallOptions));
+			} else {
+				const totalAngle = 2 * Math.asin(Math.min(0.999, halfChordOverRadius)); // chord angle spanning the width
+				const startAngle = -totalAngle / 2;
+				for (let i = 0; i < segs; i++) {
+					const a0 = startAngle + (i / segs) * totalAngle;
+					const a1 = startAngle + ((i + 1) / segs) * totalAngle;
+					const mx = (Math.cos(a0) + Math.cos(a1)) / 2;
+					const my = (Math.sin(a0) + Math.sin(a1)) / 2;
+					const px = cx + tp.radius * mx;
+					const py = cy + tp.radius * my;
+					// segment length approximated by arc chord
+					const chord = Math.hypot(tp.radius * Math.cos(a1) - tp.radius * Math.cos(a0), tp.radius * Math.sin(a1) - tp.radius * Math.sin(a0));
+					const rect = Matter.Bodies.rectangle(px, py, chord + 2, tp.thickness, wallOptions);
+					Matter.Body.rotate(rect, (a0 + a1) / 2 + Math.PI / 2);
+					bounds.push(rect);
+				}
 			}
 		}
 	} else {

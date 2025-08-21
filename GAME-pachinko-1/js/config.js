@@ -130,13 +130,18 @@ GAME_CONFIG.topPlate = {
 	enabled: true,
 	// 円の半径(px)。大きいほど浅い弧になります。
 	// 注意: radius が画面幅 / 2 より小さいと円弧が作成できず矩形にフォールバックします。
-	//       幅を変更する場合は radius を width * 0.6 等で再計算してください。
-	radius: Math.round((450) * 0.6),
+	//       デフォルトを画面幅に基づいて設定しておく（起動時に main.js でも再調整されます）。
+	radius: Math.round((GAME_CONFIG.width || 650) * 0.6),
 	// 厚み（板の高さ）
 	thickness: 20,
 	// 分割数（多いほど滑らか）。パフォーマンスを考慮して 24 程度が良い。
-	segments: 32
+	segments: 48,
+	// 板の厚み。見た目をわかりやすくするために増やす。
+	thickness: 28
 };
+
+// 表示モード: 'arc'（幅に合わせた弧）または 'dome'（左右対称の半円ドーム）
+GAME_CONFIG.topPlate.mode = 'dome';
 
 // topPlate の中心オフセット（画面中央からの差分、px）
 GAME_CONFIG.topPlate.centerOffsetX = 0; // 水平オフセット
