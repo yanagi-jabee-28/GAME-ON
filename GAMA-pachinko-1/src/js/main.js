@@ -34,10 +34,11 @@
 	// --- Engine and World Setup ---
 	const engine = Engine.create({
 		gravity: { y: C.GRAVITY_Y ?? 0.6 },
-		positionIterations: C.PHYSICS?.positionIterations ?? 8,
-		velocityIterations: C.PHYSICS?.velocityIterations ?? 6,
+		// tune iterations: position a bit lower, velocity a bit higher for stable contacts
+		positionIterations: C.PHYSICS?.positionIterations ?? 6,
+		velocityIterations: C.PHYSICS?.velocityIterations ?? 8,
 		constraintIterations: C.PHYSICS?.constraintIterations ?? 2,
-		// disable sleeping by default to avoid renderer dimming or skipped updates
+		// leave sleeping configurable; default to false during debugging but allow true in prod
 		enableSleeping: C.PHYSICS?.enableSleeping ?? false,
 	});
 	const world = engine.world;
@@ -533,8 +534,12 @@
 
 	// --- Lightweight particle system (miss & hit) ---
 	// Shared container and single afterRender renderer for minimal overhead
+	// particle pool to avoid allocations
 	window._missParticles = window._missParticles || [];
+	const _particlePool = window._particlePool || [];
 	let _particleRendererInstalled = false;
+	// budgeted update: how many particles to integrate per frame at most
+	const PARTICLE_UPDATES_PER_FRAME = (C.DEBRIS && C.DEBRIS.UPDATES_PER_FRAME) || 80;
 	function ensureParticleRendererInstalled() {
 		if (_particleRendererInstalled) return;
 		_particleRendererInstalled = true;
@@ -547,13 +552,29 @@
 			const grav = (C.GRAVITY_Y ?? 1) * 0.001; // small gravity factor for particles
 			try {
 				ctx.save();
+				// budgeted updates: update up to N particles per frame to smooth CPU cost
+				let updated = 0;
 				for (let i = list.length - 1; i >= 0; i--) {
 					const p = list[i];
-					p.vy += grav * dt; // integrate gravity
-					p.x += p.vx * dtS;
-					p.y += p.vy * dtS;
-					p.life -= dt;
-					if (p.life <= 0 || p.y > GAME_HEIGHT + 400) { list.splice(i, 1); continue; }
+					// skip heavy integration if budget exceeded but still draw
+					if (updated < PARTICLE_UPDATES_PER_FRAME) {
+						p.vy += grav * dt; // integrate gravity
+						p.x += p.vx * dtS;
+						p.y += p.vy * dtS;
+						p.life -= dt;
+						updated++;
+					} else {
+						// age slowly when skipped to avoid frozen particles
+						p.life -= dt * 0.5;
+					}
+					if (p.life <= 0 || p.y > GAME_HEIGHT + 400) {
+						const rem = list.splice(i, 1)[0];
+						// return to pool
+						if (_particlePool.length < (C.DEBRIS?.MAX ?? 200)) {
+							_particlePool.push(rem);
+						}
+						continue;
+					}
 					ctx.beginPath();
 					ctx.fillStyle = p.color;
 					ctx.globalAlpha = Math.max(0, Math.min(1, p.life / (p.lifeMax || 400)));
@@ -584,16 +605,17 @@
 			if (window._missParticles.length >= MAX) break;
 			const a = (Math.random() * Math.PI) + Math.PI / 4; // biased upward
 			const s = sMin + Math.random() * (sMax - sMin);
-			window._missParticles.push({
-				x: x + (Math.random() - 0.5) * spread,
-				y: y + (Math.random() - 0.5) * spread,
-				vx: Math.cos(a) * s * (0.6 + Math.random() * 0.8),
-				vy: Math.sin(a) * s * (0.4 + Math.random() * 0.8) - 1.0,
-				life: lifeMin + Math.random() * (lifeMax - lifeMin),
-				lifeMax,
-				r: 1 + Math.random() * 2,
-				color: color || (dcfg.MISS_COLOR || '#ff0000')
-			});
+			let p;
+			if (_particlePool.length) p = _particlePool.pop(); else p = {};
+			p.x = x + (Math.random() - 0.5) * spread;
+			p.y = y + (Math.random() - 0.5) * spread;
+			p.vx = Math.cos(a) * s * (0.6 + Math.random() * 0.8);
+			p.vy = Math.sin(a) * s * (0.4 + Math.random() * 0.8) - 1.0;
+			p.life = lifeMin + Math.random() * (lifeMax - lifeMin);
+			p.lifeMax = lifeMax;
+			p.r = 1 + Math.random() * 2;
+			p.color = color || (dcfg.MISS_COLOR || '#ff0000');
+			window._missParticles.push(p);
 		}
 	}
 
@@ -613,16 +635,17 @@
 			if (window._missParticles.length >= MAX) break;
 			const a = (Math.random() * Math.PI) + Math.PI / 6; // upward bias
 			const s = sMin + Math.random() * (sMax - sMin);
-			window._missParticles.push({
-				x: x + (Math.random() - 0.5) * spread,
-				y: y + (Math.random() - 0.5) * spread,
-				vx: Math.cos(a) * s * (0.6 + Math.random() * 0.6),
-				vy: Math.sin(a) * s * (0.5 + Math.random() * 0.8) - 1.2,
-				life: lifeMin + Math.random() * (lifeMax - lifeMin),
-				lifeMax,
-				r: 1.5 + Math.random() * 2.5,
-				color: color || '#ffffff'
-			});
+			let p;
+			if (_particlePool.length) p = _particlePool.pop(); else p = {};
+			p.x = x + (Math.random() - 0.5) * spread;
+			p.y = y + (Math.random() - 0.5) * spread;
+			p.vx = Math.cos(a) * s * (0.6 + Math.random() * 0.6);
+			p.vy = Math.sin(a) * s * (0.5 + Math.random() * 0.8) - 1.2;
+			p.life = lifeMin + Math.random() * (lifeMax - lifeMin);
+			p.lifeMax = lifeMax;
+			p.r = 1.5 + Math.random() * 2.5;
+			p.color = color || '#ffffff';
+			window._missParticles.push(p);
 		}
 	}
 
