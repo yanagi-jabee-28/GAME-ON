@@ -469,7 +469,8 @@
 			// spawn lightweight miss particles using DEBRIS config
 			try {
 				const dcfg = C.DEBRIS || {};
-				const color = dcfg.MISS_COLOR || '#ff0000ff';
+				// prefer the ball's visual color when available (ball.render.fillStyle), otherwise use configured MISS_COLOR
+				const color = (ball && ball.render && ball.render.fillStyle) ? ball.render.fillStyle : (dcfg.MISS_COLOR || '#ff0000ff');
 				spawnMissParticles(ball.position.x, ball.position.y, color);
 			} catch (e) { /* ignore */ }
 		} else if (type === 'startChucker') {
