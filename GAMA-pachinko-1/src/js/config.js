@@ -84,7 +84,7 @@
 		// ガード（当たりの左右に置く板など）の反発係数。個別設定が無ければこの値を使用します。
 		GUARD_RESTITUTION: 0.5,
 		WINDMILL_RESTITUTION: 0.98, // 風車パーツの反発係数（1付近でも可）
-		DROP_INTERVAL_MS: 50, // 自動連続ドロップ時の間隔（ms）
+		DROP_INTERVAL_MS: 100, // 自動連続ドロップ時の間隔（ms）
 		BALLS_INTERACT: true, // ボール同士の衝突を有効にするか
 		BALL_GROUP_ID: 1000, // ボール衝突グループID
 
