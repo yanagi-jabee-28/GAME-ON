@@ -30,6 +30,9 @@
 	// stats display removed per user request; keep a placeholder to avoid undefined refs
 	const statsEl = null;
 
+	// Developer palette (separate from runtime editor UI). Created during init().
+	let devPaletteEl = null;
+
 	// --- Batch execution state (for dev-tools) ---
 	window.__BATCH_NO_RESPAWN = window.__BATCH_NO_RESPAWN || false;
 	window.__BATCH_SUPPRESSED_COUNT = window.__BATCH_SUPPRESSED_COUNT || 0;
@@ -894,6 +897,24 @@
 	function updateStats() {
 		// no-op: stats UI disabled. Keep counters synced for dev-tools.
 		syncWindowCounters();
+		// update developer palette if present (including percentages)
+		if (devPaletteEl) {
+			const { totalDrops, orangeHits, blueHits, missHits } = gameState;
+			const totalHits = (orangeHits || 0) + (blueHits || 0);
+			const drops = totalDrops || 0;
+			const hitPct = drops ? Math.round((totalHits / drops) * 100) : 0;
+			const orangePct = drops ? Math.round((orangeHits / drops) * 100) : 0;
+			const bluePct = drops ? Math.round((blueHits / drops) * 100) : 0;
+
+			devPaletteEl.querySelector('.dp-total').textContent = drops;
+			devPaletteEl.querySelector('.dp-hit-total').textContent = totalHits;
+			devPaletteEl.querySelector('.dp-hit-pct').textContent = hitPct + '%';
+			devPaletteEl.querySelector('.dp-orange').textContent = orangeHits;
+			devPaletteEl.querySelector('.dp-orange-pct').textContent = orangePct + '%';
+			devPaletteEl.querySelector('.dp-blue').textContent = blueHits;
+			devPaletteEl.querySelector('.dp-blue-pct').textContent = bluePct + '%';
+			devPaletteEl.querySelector('.dp-miss').textContent = missHits;
+		}
 	}
 
 	function showMessage(text, duration = 2000) {
@@ -995,6 +1016,34 @@
 		window.setPegPreset = (name) => { window.PEG_PRESET = name || 'default'; if (typeof loadPresetAndBuild === 'function') loadPresetAndBuild(window.PEG_PRESET); else buildPegs(window.PEG_PRESET); };
 	}
 
+	function createDevPalette() {
+		if (devPaletteEl) return devPaletteEl;
+		const el = document.createElement('div');
+		el.className = 'dev-palette';
+		el.style.cssText = 'position:fixed; right:18px; bottom:18px; background:rgba(0,0,0,0.7); color:#fff; padding:10px 12px; border-radius:8px; font-size:13px; z-index:10000;';
+		el.innerHTML = '<div style="font-weight:600;margin-bottom:6px;">開発者パレット</div>' +
+			'<div>投入: <span class="dp-total">0</span></div>' +
+			'<div>当たり(合計): <span class="dp-hit-total">0</span> <span class="dp-hit-pct" style="margin-left:8px;font-size:11px;opacity:0.9">0%</span></div>' +
+			'<div>オレンジ: <span class="dp-orange">0</span> <span class="dp-orange-pct" style="margin-left:8px;font-size:11px;opacity:0.9">0%</span></div>' +
+			'<div>青: <span class="dp-blue">0</span> <span class="dp-blue-pct" style="margin-left:8px;font-size:11px;opacity:0.9">0%</span></div>' +
+			'<div>ハズレ: <span class="dp-miss">0</span></div>' +
+			'<div style="margin-top:8px; font-size:11px; opacity:0.8;">Editor independent</div>';
+		document.body.appendChild(el);
+		devPaletteEl = el;
+		return el;
+	}
+
+	// toggle developer palette independently of editor UI
+	window.toggleDevPalette = (on) => {
+		if (typeof on === 'boolean') {
+			if (on) createDevPalette(); else { if (devPaletteEl) { devPaletteEl.remove(); devPaletteEl = null; } }
+			return !!on;
+		}
+		if (devPaletteEl) { devPaletteEl.remove(); devPaletteEl = null; return false; }
+		createDevPalette();
+		return true;
+	};
+
 	function syncWindowCounters() {
 		window.totalDrops = gameState.totalDrops;
 		window.orangeHits = gameState.orangeHits;
@@ -1017,6 +1066,8 @@
 		else buildPegs(window.PEG_PRESET);
 		setupEventListeners();
 		if (C.EDITOR_ENABLED) setupEditorAPI();
+		// create developer palette independently of editor UI if enabled in config
+		if (C.DEV_PALETTE_ENABLED === undefined ? true : C.DEV_PALETTE_ENABLED) createDevPalette();
 		updateStats();
 
 		// Periodic logging for peg collision summary (can be toggled via window.LOGGING)
