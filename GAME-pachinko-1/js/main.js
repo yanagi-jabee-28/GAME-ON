@@ -38,10 +38,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// ここで複数配置したい座標を列挙します。必要に応じて座標を編集してください。
 	// 各要素はオプションで `rps` (rotations per second) と `direction` (1 または -1) を含められます。
-	// 例: { x: 110, y: 430, rps: 0.5, direction: -1 }
+	// 例: { x: 135, y: 430, rps: 0.5, direction: -1 }
 	const rotatorPositions = [
-		{ x: 110, y: 430, direction: -1 },
-		{ x: 340, y: 430, direction: 1 }
+		{ x: 138, y: 314, rps: 1, direction: -1 },
+		{ x: 313, y: 314, rps: 1, direction: 1 }
 	];
 
 	// rotators 配列に { body, anglePerFrame } を保持して、afterUpdate で個別に回転させます。
@@ -51,6 +51,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			x: pos.x,
 			y: pos.y,
 			render: windmillConfig.render,
+			// optional: 個別の中心色を指定できる
+			centerFill: pos.centerFill,
 			shape: {
 				type: 'windmill',
 				centerRadius: 6,

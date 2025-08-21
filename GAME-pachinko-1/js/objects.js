@@ -96,24 +96,29 @@ function loadPegs(presetUrl, world) {
  * @returns {Matter.Body} 生成された役物の複合ボディ
  */
 function createRotatingYakumono(blueprint) {
-	const { x, y, shape, render } = blueprint;
+	const { x, y, shape, render, centerFill } = blueprint;
 	const commonBodyOptions = GAME_CONFIG.objects.yakumono_blade;
 	let bodyParts = [];
 
+	// 中心色の決定：blueprint の centerFill が優先、無ければ config のデフォルト
+	const centerColor = centerFill || (GAME_CONFIG.objects.windmill && GAME_CONFIG.objects.windmill.centerFill) || '#333';
+
 	if (shape.type === 'windmill') {
-		const partOptions = {
+		// 羽根用のオプション
+		const bladeOptions = {
 			...commonBodyOptions.options,
 			label: commonBodyOptions.label,
 			material: commonBodyOptions.material,
 			render: render
 		};
 
-		// 1. 中心円を作成
+		// 中心円は個別に色を設定
 		if (shape.centerRadius > 0) {
-			bodyParts.push(Matter.Bodies.circle(x, y, shape.centerRadius, partOptions));
+			const centerOptions = { ...bladeOptions, render: { ...(bladeOptions.render || {}), fillStyle: centerColor } };
+			bodyParts.push(Matter.Bodies.circle(x, y, shape.centerRadius, centerOptions));
 		}
 
-		// 2. 羽根を作成
+		// 羽根を作成
 		const bladeLength = shape.bladeLength;
 		const bladeWidth = shape.bladeWidth;
 		const bladeOffset = shape.centerRadius + (bladeLength / 2);
@@ -125,7 +130,7 @@ function createRotatingYakumono(blueprint) {
 			const partX = x + bladeOffset * Math.cos(angleRad);
 			const partY = y + bladeOffset * Math.sin(angleRad);
 
-			const blade = Matter.Bodies.rectangle(partX, partY, bladeLength, bladeWidth, partOptions);
+			const blade = Matter.Bodies.rectangle(partX, partY, bladeLength, bladeWidth, bladeOptions);
 			Matter.Body.setAngle(blade, angleRad);
 			bodyParts.push(blade);
 		}

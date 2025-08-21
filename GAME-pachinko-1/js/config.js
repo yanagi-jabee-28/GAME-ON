@@ -43,8 +43,7 @@ const GAME_CONFIG = {
 			label: 'peg',
 			material: GAME_MATERIALS.METAL, // 材質を金属に設定
 			options: {
-				isStatic: true,   // trueにするとその場に固定される
-				// restitutionとfrictionは材質ペアで定義
+				isStatic: true,
 			},
 			render: {
 				fillStyle: '#555' // 塗りつぶしの色
@@ -54,8 +53,10 @@ const GAME_CONFIG = {
 		windmill: {
 			rotationsPerSecond: 1, // 毎秒の回転数
 			render: {
-				fillStyle: '#ff0000' // デフォルトの色は赤
-			}
+				fillStyle: '#ff0000' // デフォルトの色は赤（羽根）
+			},
+			// 歯車の中心円の塗り色（デフォルト）
+			centerFill: '#333'
 		},
 		// --- 壁の定義 ---
 		wall: {
