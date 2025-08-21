@@ -124,6 +124,24 @@ GAME_CONFIG.launch.spawn = {
 	yOffsetFromBottom: 300
 };
 
+// 天板（上部の板）設定 - 円弧で作る場合のパラメータ
+GAME_CONFIG.topPlate = {
+	// 有効化フラグ。false の場合は従来どおり長方形の上壁を使います。
+	enabled: true,
+	// 円の半径(px)。大きいほど浅い弧になります。
+	// 注意: radius が画面幅 / 2 より小さいと円弧が作成できず矩形にフォールバックします。
+	//       幅を変更する場合は radius を width * 0.6 等で再計算してください。
+	radius: Math.round((450) * 0.6),
+	// 厚み（板の高さ）
+	thickness: 20,
+	// 分割数（多いほど滑らか）。パフォーマンスを考慮して 24 程度が良い。
+	segments: 32
+};
+
+// topPlate の中心オフセット（画面中央からの差分、px）
+GAME_CONFIG.topPlate.centerOffsetX = 0; // 水平オフセット
+GAME_CONFIG.topPlate.centerOffsetY = 0; // 垂直オフセット（正なら下に移動）
+
 
 // --- 物理相互作用の定義 ---
 

@@ -34,6 +34,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	Runner.run(runner, engine);
 
 	// --- 4. オブジェクトの生成 ---
+	// topPlate の radius が現在の幅に対して小さすぎると arc が作れないため、
+	// 幅に応じて自動調整を行う（既に大きければ変更しない）。
+	if (GAME_CONFIG.topPlate && GAME_CONFIG.topPlate.enabled) {
+		const suggested = Math.round(GAME_CONFIG.width * 0.6);
+		if (!GAME_CONFIG.topPlate.radius || GAME_CONFIG.topPlate.radius < (GAME_CONFIG.width / 2)) {
+			console.info('Adjusting topPlate.radius from', GAME_CONFIG.topPlate.radius, 'to', suggested);
+			GAME_CONFIG.topPlate.radius = suggested;
+		}
+	}
 	createBounds(world);
 	loadPegs('pegs-presets/pegs3.json', world);
 
