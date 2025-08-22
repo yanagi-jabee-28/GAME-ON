@@ -42,6 +42,20 @@
 	</div>
 
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+	<!-- 凹多角形の分解ライブラリ（Bodies.fromVertices 用） -->
+	<script src="https://cdn.jsdelivr.net/npm/poly-decomp@0.3.0/build/decomp.min.js"></script>
+	<script>
+		(function () {
+			var ok = false;
+			if (window.decomp && window.Matter && window.Matter.Common) {
+				window.Matter.Common.setDecomp(window.decomp);
+				ok = true;
+			}
+			if (!ok) {
+				console.warn('[topPlate] poly-decomp の登録に失敗しました。複雑な頂点形状が凸包化される可能性があります。');
+			}
+		})();
+	</script>
 	<!-- スクリプトの読み込み順序が重要です -->
 	<script src="js/config.js"></script>
 	<script src="js/objects.js"></script>

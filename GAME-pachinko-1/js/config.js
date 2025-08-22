@@ -160,19 +160,20 @@ GAME_CONFIG.topPlate = {
 	// 注意: radius が画面幅 / 2 より小さいと円弧が作成できず矩形にフォールバックします。
 	//       明示的な半径(px)をここで設定できます。例: radius: 340
 	//       空にすると起動時に幅に基づく推奨値が設定されます。
-	radius: 345,
+	radius: 360,
 	// 分割数（多いほど滑らか）。パフォーマンスを考慮して 24 程度が良い。
 	segments: 100,
 	// 板の厚み。見た目をわかりやすくするために増やす。
-	thickness: 20
+	thickness: 30,
+	// 天板の中心オフセット（画面中央からの差分、px）。ここで初期値を変更できます。
+	centerOffsetX: 0,
+	centerOffsetY: -235
 };
 
 // 表示モード: 'arc'（幅に合わせた弧）または 'dome'（左右対称の半円ドーム）
 GAME_CONFIG.topPlate.mode = 'dome';
 
-// topPlate の中心オフセット（画面中央からの差分、px）
-GAME_CONFIG.topPlate.centerOffsetX = 0; // 水平オフセット
-GAME_CONFIG.topPlate.centerOffsetY = 0; // 垂直オフセット（正なら下に移動）
+// (centerOffsetX/centerOffsetY are set in the GAME_CONFIG.topPlate block above)
 
 
 // --- 物理相互作用の定義 ---

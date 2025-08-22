@@ -10,6 +10,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// --- 1. エンジンの初期化 ---
 	const engine = Engine.create();
+	// Increase solver iterations to reduce tunneling through thin/segmented walls
+	engine.positionIterations = 10; // default ~6
+	engine.velocityIterations = 8;  // default ~4
+	engine.constraintIterations = 4; // default ~2
 	const world = engine.world;
 
 	// --- 2. レンダラーの作成 (簡潔に) ---
@@ -18,12 +22,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	const width = dims.width || cfg.width || 650;
 	const height = dims.height || cfg.height || 900;
 	const renderOptions = cfg.render || cfg.renderOptions || {};
-
 	const container = document.getElementById('game-container');
 	container.style.width = width + 'px';
 	container.style.height = height + 'px';
 
-	const render = Render.create({ element: container, engine, options: { width, height, ...renderOptions } });
+	const render = Render.create({ element: container, engine, options: { width, height, pixelRatio: 1, ...renderOptions } });
 
 	// --- 3. 物理演算と描画の開始 ---
 	Render.run(render);
@@ -214,22 +217,30 @@ document.addEventListener('DOMContentLoaded', () => {
 	angleSlider.addEventListener('input', updateArrow);
 	speedSlider.addEventListener('input', updateArrow);
 
-	// topPlate UI handlers: update GAME_CONFIG and recreate bounds
-	function recreateTopPlate() {
-		if (!GAME_CONFIG.topPlate) GAME_CONFIG.topPlate = {};
-		GAME_CONFIG.topPlate.mode = tpMode.value;
-		GAME_CONFIG.topPlate.radius = Number(tpRadius.value);
-		GAME_CONFIG.topPlate.thickness = Number(tpThickness.value);
-		GAME_CONFIG.topPlate.segments = Number(tpSegments.value);
-		GAME_CONFIG.topPlate.centerOffsetX = Number(tpOffX.value);
-		GAME_CONFIG.topPlate.centerOffsetY = Number(tpOffY.value);
-		// remove existing bounds
-		if (currentBounds && currentBounds.length) {
-			currentBounds.forEach(b => Matter.Composite.remove(world, b, true));
-		}
-		currentBounds = createBounds();
-		addBoundsToWorld(currentBounds, world);
-	}
+	// topPlate UI handlers: update GAME_CONFIG and recreate bounds (debounced)
+	const recreateTopPlate = (() => {
+		let timer = 0;
+		return function () {
+			clearTimeout(timer);
+			timer = setTimeout(() => {
+				if (!GAME_CONFIG.topPlate) GAME_CONFIG.topPlate = {};
+				GAME_CONFIG.topPlate.mode = tpMode.value;
+				GAME_CONFIG.topPlate.radius = Number(tpRadius.value);
+				GAME_CONFIG.topPlate.thickness = Number(tpThickness.value);
+				GAME_CONFIG.topPlate.segments = Number(tpSegments.value);
+				GAME_CONFIG.topPlate.centerOffsetX = Number(tpOffX.value);
+				GAME_CONFIG.topPlate.centerOffsetY = Number(tpOffY.value);
+				// remove existing bounds
+				if (currentBounds && currentBounds.length) {
+					currentBounds.forEach(b => Matter.Composite.remove(world, b, true));
+				}
+				currentBounds = createBounds();
+				addBoundsToWorld(currentBounds, world);
+				applyPadConfig();
+				updateLaunchPadPosition();
+			}, 50);
+		};
+	})();
 
 	// 汎用的なUI値更新ヘルパー
 	function createSliderUpdater(slider, display, callback) {

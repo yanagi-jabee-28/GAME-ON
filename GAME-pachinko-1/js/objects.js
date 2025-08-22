@@ -64,67 +64,111 @@ function createBounds() {
 	const bounds = [];
 
 	// 上壁：通常は長方形1枚だが、configで円弧天板を有効化している場合は
-	// 複数の短い長方形セグメントで円弧を近似する
+	// 頂点配列から“単一の多角形”を生成して隙間をゼロにします
 	if (GAME_CONFIG.topPlate && GAME_CONFIG.topPlate.enabled) {
+		// ヘルパー: 多角形の重心を求めて原点に平行移動する
+		function centerVertices(vertices) {
+			// 多角形の重心（Shoelace formula）
+			let area = 0, cxSum = 0, cySum = 0;
+			for (let i = 0, n = vertices.length; i < n; i++) {
+				const p0 = vertices[i];
+				const p1 = vertices[(i + 1) % n];
+				const cross = p0.x * p1.y - p1.x * p0.y;
+				area += cross;
+				cxSum += (p0.x + p1.x) * cross;
+				cySum += (p0.y + p1.y) * cross;
+			}
+			area *= 0.5;
+			let cx = 0, cy = 0;
+			if (Math.abs(area) > 1e-8) {
+				cx = cxSum / (6 * area);
+				cy = cySum / (6 * area);
+			}
+			const shifted = vertices.map(v => ({ x: v.x - cx, y: v.y - cy }));
+			return { verts: shifted, centroid: { x: cx, y: cy } };
+		}
 		const tp = GAME_CONFIG.topPlate;
-		const cx = width / 2 + (tp.centerOffsetX || 0); // arc の中心 x (config でオフセット可能)
-		// arc の中心 y を計算して、ドーム（半円）がキャンバス上部に収まるようにする。
-		// ドームの円心は画像の上部外側にあるため、円心 y を下に寄せてドーム本体がキャンバスに入るよう計算します。
-		// ここでは円心を (tp.radius - tp.thickness/2 - margin) 分だけ上にして、ドームの山頂がキャンバス内に来るようにします。
-		const margin = 8;
-		const cy = (tp.centerOffsetY || 0) + (tp.radius - (tp.thickness || 20) / 2 - margin);
-		console.info('topPlate debug: cx=', cx, 'cy=', cy, 'radius=', tp.radius, 'thickness=', tp.thickness, 'mode=', tp.mode);
-		const segs = Math.max(6, tp.segments || 24);
-		const arcWidth = width; // cover the width
-		const halfChordOverRadius = (arcWidth / 2) / tp.radius;
+		const cx = width / 2 + (tp.centerOffsetX || 0);
+		// 角度分割数（多いほどスムーズ）
+		const segs = Math.max(12, tp.segments || 24);
+		const thickness = Math.max(2, tp.thickness || 20);
+		const radius = tp.radius;
 
-		if (tp.mode === 'dome') {
-			// dome の半径が画面幅/2 より小さいと不整合なので自動調整
-			if (tp.radius < (width / 2)) {
-				console.info('topPlate dome: adjusting radius to fit width');
-				tp.radius = Math.round(width / 2);
-			}
-			const startAngle = Math.PI; // leftmost on circle
-			const endAngle = 2 * Math.PI; // rightmost
-			// 画面内に山頂が来るように円心 y を再計算する
+		// 無効な半径の場合はフラットな上壁にフォールバック
+		if (!isFinite(radius) || radius <= thickness) {
+			const topY = thickness / 2;
+			bounds.push(Matter.Bodies.rectangle(width / 2, topY, width, thickness, wallOptions));
+		} else if (tp.mode === 'dome') {
+			// 半円ドーム: 角度は π から 2π
+			const rOuter = radius;
+			const rInner = Math.max(1, radius - thickness);
+			// ドームの中心Y（既存ロジックを継承）
 			const marginTop = 8;
-			const topApexY = (tp.thickness || 20) / 2 + marginTop;
-			const centerY = (tp.centerOffsetY || 0) + topApexY + tp.radius;
+			const topApexY = thickness / 2 + marginTop;
+			const centerY = (tp.centerOffsetY || 0) + topApexY + radius;
+
+			// 連結クアッド帯で作成
+			const parts = [];
 			for (let i = 0; i < segs; i++) {
-				const a0 = startAngle + (i / segs) * (endAngle - startAngle);
-				const a1 = startAngle + ((i + 1) / segs) * (endAngle - startAngle);
-				const aMid = (a0 + a1) / 2;
-				const px = cx + tp.radius * Math.cos(aMid);
-				const py = centerY + tp.radius * Math.sin(aMid);
-				const chord = Math.hypot(tp.radius * Math.cos(a1) - tp.radius * Math.cos(a0), tp.radius * Math.sin(a1) - tp.radius * Math.sin(a0));
-				const rect = Matter.Bodies.rectangle(px, py, chord + 2, tp.thickness, wallOptions);
-				Matter.Body.rotate(rect, aMid + Math.PI / 2);
-				bounds.push(rect);
+				const a0 = Math.PI + (i / segs) * Math.PI;
+				const a1 = Math.PI + ((i + 1) / segs) * Math.PI;
+				const p0 = { x: cx + rOuter * Math.cos(a0), y: centerY + rOuter * Math.sin(a0) };
+				const p1 = { x: cx + rOuter * Math.cos(a1), y: centerY + rOuter * Math.sin(a1) };
+				const p2 = { x: cx + rInner * Math.cos(a1), y: centerY + rInner * Math.sin(a1) };
+				const p3 = { x: cx + rInner * Math.cos(a0), y: centerY + rInner * Math.sin(a0) };
+				const cxq = (p0.x + p1.x + p2.x + p3.x) / 4;
+				const cyq = (p0.y + p1.y + p2.y + p3.y) / 4;
+				const verts = [[
+					{ x: p0.x - cxq, y: p0.y - cyq },
+					{ x: p1.x - cxq, y: p1.y - cyq },
+					{ x: p2.x - cxq, y: p2.y - cyq },
+					{ x: p3.x - cxq, y: p3.y - cyq }
+				]];
+				const quad = Matter.Bodies.fromVertices(cxq, cyq, verts, { ...wallOptions, isStatic: true }, false);
+				parts.push(quad);
 			}
+			const body = Matter.Body.create({ parts, isStatic: true, label: wallConfig.label || 'wall' });
+			body.render = Object.assign({ visible: true }, wallOptions.render || {});
+			bounds.push(body);
 		} else {
-			// asin の定義域外（>1）になると NaN を返すため、その場合は
-			// フォールバックとして従来の矩形上壁を追加する。
-			if (!isFinite(tp.radius) || halfChordOverRadius >= 1) {
-				console.warn('topPlate: radius too small for width; falling back to flat top. radius=', tp.radius, 'width=', width);
-				// フォールバック矩形をキャンバス内に配置する（中心を厚さの半分に）
-				const topY = (tp.thickness || 20) / 2;
-				bounds.push(Matter.Bodies.rectangle(width / 2, topY, width, tp.thickness || 20, wallOptions));
+			// 幅に合わせた円弧
+			const halfChordOverRadius = (width / 2) / radius;
+			if (!isFinite(radius) || halfChordOverRadius >= 1) {
+				const topY = thickness / 2;
+				bounds.push(Matter.Bodies.rectangle(width / 2, topY, width, thickness, wallOptions));
 			} else {
-				const totalAngle = 2 * Math.asin(Math.min(0.999, halfChordOverRadius)); // chord angle spanning the width
+				const totalAngle = 2 * Math.asin(Math.min(0.999, halfChordOverRadius));
 				const startAngle = -totalAngle / 2;
+				const endAngle = totalAngle / 2;
+				const rOuter = radius;
+				const rInner = Math.max(1, radius - thickness);
+				// 既存ロジックの中心Y（弧を上部に配置）
+				const margin = 8;
+				const centerY = (tp.centerOffsetY || 0) + (radius - thickness / 2 - margin);
+
+				// 連結クアッド帯で作成
+				const parts = [];
 				for (let i = 0; i < segs; i++) {
-					const a0 = startAngle + (i / segs) * totalAngle;
-					const a1 = startAngle + ((i + 1) / segs) * totalAngle;
-					const mx = (Math.cos(a0) + Math.cos(a1)) / 2;
-					const my = (Math.sin(a0) + Math.sin(a1)) / 2;
-					const px = cx + tp.radius * mx;
-					const py = cy + tp.radius * my;
-					// segment length approximated by arc chord
-					const chord = Math.hypot(tp.radius * Math.cos(a1) - tp.radius * Math.cos(a0), tp.radius * Math.sin(a1) - tp.radius * Math.sin(a0));
-					const rect = Matter.Bodies.rectangle(px, py, chord + 2, tp.thickness, wallOptions);
-					Matter.Body.rotate(rect, (a0 + a1) / 2 + Math.PI / 2);
-					bounds.push(rect);
+					const a0 = startAngle + (i / segs) * (endAngle - startAngle);
+					const a1 = startAngle + ((i + 1) / segs) * (endAngle - startAngle);
+					const p0 = { x: cx + rOuter * Math.cos(a0), y: centerY + rOuter * Math.sin(a0) };
+					const p1 = { x: cx + rOuter * Math.cos(a1), y: centerY + rOuter * Math.sin(a1) };
+					const p2 = { x: cx + rInner * Math.cos(a1), y: centerY + rInner * Math.sin(a1) };
+					const p3 = { x: cx + rInner * Math.cos(a0), y: centerY + rInner * Math.sin(a0) };
+					const cxq = (p0.x + p1.x + p2.x + p3.x) / 4;
+					const cyq = (p0.y + p1.y + p2.y + p3.y) / 4;
+					const verts = [[
+						{ x: p0.x - cxq, y: p0.y - cyq },
+						{ x: p1.x - cxq, y: p1.y - cyq },
+						{ x: p2.x - cxq, y: p2.y - cyq },
+						{ x: p3.x - cxq, y: p3.y - cyq }
+					]];
+					const quad = Matter.Bodies.fromVertices(cxq, cyq, verts, { ...wallOptions, isStatic: true }, false);
+					parts.push(quad);
 				}
+				const body = Matter.Body.create({ parts, isStatic: true, label: wallConfig.label || 'wall' });
+				body.render = Object.assign({ visible: true }, wallOptions.render || {});
+				bounds.push(body);
 			}
 		}
 	} else {
