@@ -33,6 +33,13 @@ function createBall(x, y, options = {}) {
 	);
 }
 
+// helper: compute layout offsets once for reuse
+function getOffsets() {
+	const xOffset = ((GAME_CONFIG.width || 0) - (GAME_CONFIG.baseWidth || GAME_CONFIG.width || 0)) / 2;
+	const yOffset = ((GAME_CONFIG.height || 0) - (GAME_CONFIG.baseHeight || GAME_CONFIG.height || 0)) / 2;
+	return { xOffset, yOffset };
+}
+
 /**
  * ゲームエリアの境界（壁と床）を作成し、ワールドに追加します。
  * @param {Matter.World} world - オブジェクトを追加するMatter.jsのワールド
@@ -153,11 +160,8 @@ function loadPegs(presetUrl, world) {
 			return response.json();
 		})
 		.then(pegs => {
-			const xOffset = ((GAME_CONFIG.width || 0) - (GAME_CONFIG.baseWidth || GAME_CONFIG.width || 0)) / 2;
-			const yOffset = ((GAME_CONFIG.height || 0) - (GAME_CONFIG.baseHeight || GAME_CONFIG.height || 0)) / 2;
-			const pegObjects = pegs.map(peg => {
-				return Matter.Bodies.circle(peg.x + xOffset, peg.y + yOffset, pegConfig.radius, pegOptions);
-			});
+			const { xOffset, yOffset } = getOffsets();
+			const pegObjects = pegs.map(peg => Matter.Bodies.circle(peg.x + xOffset, peg.y + yOffset, pegConfig.radius, pegOptions));
 			Matter.World.add(world, pegObjects);
 		})
 		.catch(error => console.error('Error loading pegs:', error));

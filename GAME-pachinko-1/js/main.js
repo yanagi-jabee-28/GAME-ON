@@ -65,15 +65,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// rotators 配列に { body, anglePerFrame } を保持して、afterUpdate で個別に回転させます。
 	// anglePerFrame は各役物の rps と direction を元に計算します。
+	// use shared offsets helper from objects.js
+	const { xOffset: globalXOffset, yOffset: globalYOffset } = (typeof getOffsets === 'function') ? getOffsets() : { xOffset: 0, yOffset: 0 };
 	const rotators = rotatorPositions.map(pos => {
-		const xOffset = ((GAME_CONFIG.width || 0) - (GAME_CONFIG.baseWidth || GAME_CONFIG.width || 0)) / 2;
 		const defaults = windmillConfig.defaults || {};
-		const yOffset = ((GAME_CONFIG.height || 0) - (GAME_CONFIG.baseHeight || GAME_CONFIG.height || 0)) / 2;
 		const blueprint = {
-			x: pos.x + xOffset,
-			y: pos.y + yOffset,
+			x: pos.x + globalXOffset,
+			y: pos.y + globalYOffset,
 			render: windmillConfig.render,
-			// optional: 個別の中心色を指定できる
 			centerFill: pos.centerFill,
 			shape: Object.assign({ type: 'windmill' }, defaults, pos.shape || {})
 		};
@@ -81,18 +80,22 @@ document.addEventListener('DOMContentLoaded', () => {
 		const body = createRotatingYakumono(blueprint);
 		World.add(world, body);
 
-		// 個別設定があれば優先、無ければ共通設定を使用
+		// rotations per second -> use time-based rotation in afterUpdate
 		const rps = (typeof pos.rps === 'number') ? pos.rps : windmillConfig.rotationsPerSecond;
 		const direction = (pos.direction === -1) ? -1 : 1; // -1 で反時計回り
-		const anglePerFrameForThis = (rps * 2 * Math.PI / 60) * direction;
+		const anglePerSecond = rps * 2 * Math.PI * direction; // radians per second
 
-		return { body, anglePerFrame: anglePerFrameForThis };
+		return { body, anglePerSecond };
 	});
 
 	// フレーム更新ごとのイベント — 各役物の anglePerFrame を使って回転させる
 	Events.on(engine, 'afterUpdate', () => {
+		// engine.timing.delta is ms elapsed for the last tick; fall back to 16.666ms
+		const deltaMs = (engine && engine.timing && engine.timing.delta) ? engine.timing.delta : 16.6667;
+		const deltaSec = deltaMs / 1000;
 		rotators.forEach(rotator => {
-			Body.rotate(rotator.body, rotator.anglePerFrame);
+			const angle = (rotator.anglePerSecond || 0) * deltaSec;
+			if (angle) Body.rotate(rotator.body, angle);
 		});
 	});
 
@@ -111,10 +114,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	// helper: compute spawn start coords based on GAME_CONFIG and offsets
 	function computeSpawnCoords() {
 		const spawnCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.spawn) || {};
-		const xOffset = ((GAME_CONFIG.width || 0) - (GAME_CONFIG.baseWidth || GAME_CONFIG.width || 0)) / 2;
-		const startX = (typeof spawnCfg.x === 'number') ? (spawnCfg.x + xOffset) : (40 + xOffset);
-		const yOffsetForSpawn = ((GAME_CONFIG.height || 0) - (GAME_CONFIG.baseHeight || GAME_CONFIG.height || 0)) / 2;
-		const startY = (typeof spawnCfg.y === 'number') ? (spawnCfg.y + yOffsetForSpawn) : (GAME_CONFIG.height - (spawnCfg.yOffsetFromBottom || 40) + yOffsetForSpawn);
+		const { xOffset: sxOff, yOffset: syOff } = (typeof getOffsets === 'function') ? getOffsets() : { xOffset: 0, yOffset: 0 };
+		const startX = (typeof spawnCfg.x === 'number') ? (spawnCfg.x + sxOff) : (40 + sxOff);
+		const startY = (typeof spawnCfg.y === 'number') ? (spawnCfg.y + syOff) : (GAME_CONFIG.height - (spawnCfg.yOffsetFromBottom || 40) + syOff);
 		return { x: startX, y: startY };
 	}
 
@@ -205,6 +207,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	speedActual.id = 'speed-actual';
 	// attach after speedVal for visibility (we'll update textContent each frame)
 	function updateArrow() {
+		const launchArrow = document.getElementById('launch-arrow');
+		if (!launchArrow) return; // arrow removed via CSS/HTML — no-op
 		const angle = Number(angleSlider.value);
 		const sliderValue = Number(speedSlider.value);
 		// map slider 0..100 -> px/s using config scale and min/max

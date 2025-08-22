@@ -48,19 +48,8 @@ button {
     width: 140px;
 }
 
-/* launch arrow for visualizing angle */
 #launch-arrow {
-    position: absolute;
-    left: 24px;
-    /* will be adjusted by JS relative to container */
-    top: 80px;
-    width: 120px;
-    height: 6px;
-    background: linear-gradient(90deg, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.6));
-    transform-origin: left center;
-    pointer-events: none;
-    z-index: 1000;
-    border-radius: 3px;
+    display: none !important;
 }
 
 /* visible launch pad */
@@ -78,14 +67,3 @@ button {
 }
 
 /* no pseudo indicator */
-
-/* arrow head */
-#launch-arrow::after {
-    content: '';
-    position: absolute;
-    right: -8px;
-    top: -6px;
-    border-left: 8px solid rgba(0, 0, 0, 0.6);
-    border-top: 6px solid transparent;
-    border-bottom: 6px solid transparent;
-}
