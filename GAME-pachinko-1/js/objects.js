@@ -43,7 +43,8 @@ function createBounds() {
 	const floorConfig = GAME_CONFIG.objects.floor;
 
 	// Matter.jsでは、オプションオブジェクトは都度新しいものを作成することが推奨されます
-	const wallOptions = { ...wallConfig.options, render: { ...wallConfig.render } };
+	// 天板セグメントは滑らかにするため摩擦を低くし、角を少し面取り(chamfer)
+	const wallOptions = { ...wallConfig.options, render: { ...wallConfig.render }, friction: 0.05, frictionStatic: 0.05, chamfer: { radius: 2 }, label: wallConfig.label, material: wallConfig.material };
 	const floorOptions = { ...floorConfig.options, label: floorConfig.label, render: { ...floorConfig.render } };
 
 	const bounds = [];
@@ -69,20 +70,26 @@ function createBounds() {
 				console.info('topPlate dome: adjusting radius to fit width');
 				tp.radius = Math.round(width / 2);
 			}
-			const startAngle = Math.PI; // leftmost on circle
-			const endAngle = 2 * Math.PI; // rightmost
-			// 画面内に山頂が来るように円心 y を再計算する
+			// dome の円心 y を計算（山頂が見える位置に来るように調整）
 			const marginTop = 8;
 			const topApexY = (tp.thickness || 20) / 2 + marginTop;
 			const centerY = (tp.centerOffsetY || 0) + topApexY + tp.radius;
-			for (let i = 0; i < segs; i++) {
-				const a0 = startAngle + (i / segs) * (endAngle - startAngle);
-				const a1 = startAngle + ((i + 1) / segs) * (endAngle - startAngle);
+			// store center for reflection correction
+			GAME_CONFIG.topPlate = GAME_CONFIG.topPlate || {};
+			GAME_CONFIG.topPlate._center = { x: cx, y: centerY, radius: tp.radius };
+			// ドームは高分割の面取り長方形で作る（角の丸めを大きくして凹凸を滑らかにする）
+			const domeSegs = Math.max(segs, 96); // 高分割で法線の段差を減らす
+			for (let i = 0; i < domeSegs; i++) {
+				const a0 = Math.PI + (i / domeSegs) * (Math.PI);
+				const a1 = Math.PI + ((i + 1) / domeSegs) * (Math.PI);
 				const aMid = (a0 + a1) / 2;
 				const px = cx + tp.radius * Math.cos(aMid);
 				const py = centerY + tp.radius * Math.sin(aMid);
 				const chord = Math.hypot(tp.radius * Math.cos(a1) - tp.radius * Math.cos(a0), tp.radius * Math.sin(a1) - tp.radius * Math.sin(a0));
-				const rect = Matter.Bodies.rectangle(px, py, chord + 2, tp.thickness, wallOptions);
+				const segWidth = Math.max(8, Math.round(chord * 1.05)); // 少し重ねる
+				const segHeight = tp.thickness || 20;
+				const segOptions = { isStatic: true, render: wallOptions.render, friction: 0.04, frictionStatic: 0.04, restitution: 0.05, chamfer: { radius: Math.round(segHeight / 2) }, label: 'topPlate', material: wallOptions.material };
+				const rect = Matter.Bodies.rectangle(px, py, segWidth, segHeight, segOptions);
 				Matter.Body.rotate(rect, aMid + Math.PI / 2);
 				bounds.push(rect);
 			}
@@ -93,7 +100,9 @@ function createBounds() {
 				console.warn('topPlate: radius too small for width; falling back to flat top. radius=', tp.radius, 'width=', width);
 				// フォールバック矩形をキャンバス内に配置する（中心を厚さの半分に）
 				const topY = (tp.thickness || 20) / 2;
-				bounds.push(Matter.Bodies.rectangle(width / 2, topY, width, tp.thickness || 20, wallOptions));
+				GAME_CONFIG.topPlate = GAME_CONFIG.topPlate || {};
+				GAME_CONFIG.topPlate._center = { x: width / 2, y: topY + (tp.thickness || 20) / 2, radius: tp.radius };
+				bounds.push(Matter.Bodies.rectangle(width / 2, topY, width, tp.thickness || 20, { ...wallOptions, label: 'topPlate' }));
 			} else {
 				const totalAngle = 2 * Math.asin(Math.min(0.999, halfChordOverRadius)); // chord angle spanning the width
 				const startAngle = -totalAngle / 2;
@@ -106,7 +115,8 @@ function createBounds() {
 					const py = cy + tp.radius * my;
 					// segment length approximated by arc chord
 					const chord = Math.hypot(tp.radius * Math.cos(a1) - tp.radius * Math.cos(a0), tp.radius * Math.sin(a1) - tp.radius * Math.sin(a0));
-					const rect = Matter.Bodies.rectangle(px, py, chord + 2, tp.thickness, wallOptions);
+					const segOptions = { isStatic: true, render: wallOptions.render, friction: wallOptions.friction, frictionStatic: wallOptions.frictionStatic, chamfer: { radius: 2 }, label: 'topPlate', material: wallOptions.material };
+					const rect = Matter.Bodies.rectangle(px, py, chord + 4, tp.thickness, segOptions);
 					Matter.Body.rotate(rect, (a0 + a1) / 2 + Math.PI / 2);
 					bounds.push(rect);
 				}
@@ -118,9 +128,9 @@ function createBounds() {
 	}
 
 	// 床と左右の壁は従来どおり
-	bounds.push(Matter.Bodies.rectangle(width / 2, height + 10, width, 20, floorOptions));
-	bounds.push(Matter.Bodies.rectangle(-10, height / 2, 20, height, wallOptions));
-	bounds.push(Matter.Bodies.rectangle(width + 10, height / 2, 20, height, wallOptions));
+	bounds.push(Matter.Bodies.rectangle(width / 2, height + 10, width, 20, { ...floorOptions, chamfer: { radius: 2 }, material: floorConfig.material, label: floorConfig.label }));
+	bounds.push(Matter.Bodies.rectangle(-10, height / 2, 20, height, { ...wallOptions, chamfer: { radius: 2 }, material: wallConfig.material, label: wallConfig.label }));
+	bounds.push(Matter.Bodies.rectangle(width + 10, height / 2, 20, height, { ...wallOptions, chamfer: { radius: 2 }, material: wallConfig.material, label: wallConfig.label }));
 	return bounds;
 }
 

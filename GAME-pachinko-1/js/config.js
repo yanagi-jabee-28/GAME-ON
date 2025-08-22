@@ -19,7 +19,7 @@ const GAME_CONFIG = {
 	// デザイン時の基準幅。width を変更した際、この値との差分で水平オフセットを計算します。
 	baseWidth: 450,
 	// デザイン時の基準高さ。height を変更した際、この値との差分で垂直オフセットを計算します。
-	baseHeight: 600,
+	baseHeight: 675,
 	height: 900, // ゲームエリアの描画高 (px)
 	renderOptions: {
 		wireframes: false, // falseにするとオブジェクトが塗りつぶされる (trueだと線画)
@@ -72,8 +72,9 @@ const GAME_CONFIG = {
 		// --- 壁の定義 ---
 		wall: {
 			label: 'wall',
+			material: GAME_MATERIALS.METAL,
 			options: {
-				isStatic: true,
+				isStatic: true
 			},
 			render: {
 				fillStyle: '#333'
@@ -82,8 +83,9 @@ const GAME_CONFIG = {
 		// --- 床の定義 ---
 		floor: {
 			label: 'floor',
+			material: GAME_MATERIALS.METAL,
 			options: {
-				isStatic: true,
+				isStatic: true
 			},
 			render: {
 				fillStyle: '#333'
@@ -107,7 +109,7 @@ GAME_CONFIG.launch = {
 	speedScale: 0.6,
 	// スライダーと一致させたい最小/最大（ここで maxSpeed を下げて上限を制御します）
 	minSpeed: 30,
-	maxSpeed: 50,
+	maxSpeed: 55,
 	// angle control: min/max degrees and default
 	angleMin: 75,
 	angleMax: 90,
