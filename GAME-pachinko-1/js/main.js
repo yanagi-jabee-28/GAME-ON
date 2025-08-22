@@ -10,10 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// --- 1. エンジンの初期化 ---
 	const engine = Engine.create();
-	// 衝突解決の精度を上げてトンネリング/引っかかりを軽減
-	engine.positionIterations = 12; // default 6
-	engine.velocityIterations = 12; // default 4
-	engine.constraintIterations = 6; // default 2
 	const world = engine.world;
 
 	// --- 2. レンダラーの作成 ---
@@ -282,32 +278,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			// 床とボールの衝突判定
 			const ballLabel = GAME_CONFIG.objects.ball.label;
 			const floorLabel = GAME_CONFIG.objects.floor.label;
-			const topPlateCenter = GAME_CONFIG.topPlate && GAME_CONFIG.topPlate._center;
-
-			// If ball hits the topPlate, correct reflection using ideal normal from dome center
-			if (topPlateCenter) {
-				if (bodyA.label === ballLabel && bodyB.label === 'topPlate') {
-					const rel = { x: bodyA.position.x - topPlateCenter.x, y: bodyA.position.y - topPlateCenter.y };
-					const len = Math.hypot(rel.x, rel.y) || 1;
-					const nx = rel.x / len, ny = rel.y / len; // outward normal from center
-					// reflect velocity v' = v - 2*(v·n)*n
-					const v = bodyA.velocity;
-					const vdotn = v.x * nx + v.y * ny;
-					const rx = v.x - 2 * vdotn * nx;
-					const ry = v.y - 2 * vdotn * ny;
-					Matter.Body.setVelocity(bodyA, { x: rx, y: ry });
-				} else if (bodyB.label === ballLabel && bodyA.label === 'topPlate') {
-					const rel = { x: bodyB.position.x - topPlateCenter.x, y: bodyB.position.y - topPlateCenter.y };
-					const len = Math.hypot(rel.x, rel.y) || 1;
-					const nx = rel.x / len, ny = rel.y / len;
-					const v = bodyB.velocity;
-					const vdotn = v.x * nx + v.y * ny;
-					const rx = v.x - 2 * vdotn * nx;
-					const ry = v.y - 2 * vdotn * ny;
-					Matter.Body.setVelocity(bodyB, { x: rx, y: ry });
-				}
-			}
-
 			if (bodyA.label === ballLabel && bodyB.label === floorLabel) {
 				World.remove(world, bodyA);
 			} else if (bodyB.label === ballLabel && bodyA.label === floorLabel) {
