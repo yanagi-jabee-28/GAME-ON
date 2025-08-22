@@ -119,9 +119,21 @@ GAME_CONFIG.launch = {
 // - y: 発射点の明示的な y 座標（ピクセル）を指定する場合はこちらを使います
 // - yOffsetFromBottom: 明示的な y を指定しない場合、ゲーム領域の下端からのオフセットで指定します
 GAME_CONFIG.launch.spawn = {
-	x: -100,
+	x: -90,
 	// デフォルトはコンテナ下端から 40px 上
 	yOffsetFromBottom: 300
+};
+
+// 発射台の見た目設定（UIではライブ変更あり）
+GAME_CONFIG.launch.pad = {
+	visible: true,
+	width: 20,          // px
+	height: 200,         // px
+	borderRadius: 8,    // px
+	background: '#444', // single color fallback
+	borderColor: '#fff',
+	// pad の垂直オフセット量（px）をボールの座標に対して追加で下に移動
+	offsetY: 90
 };
 
 // 天板（上部の板）設定 - 円弧で作る場合のパラメータ
@@ -136,7 +148,7 @@ GAME_CONFIG.topPlate = {
 	// 分割数（多いほど滑らか）。パフォーマンスを考慮して 24 程度が良い。
 	segments: 100,
 	// 板の厚み。見た目をわかりやすくするために増やす。
-	thickness: 30
+	thickness: 20
 };
 
 // 表示モード: 'arc'（幅に合わせた弧）または 'dome'（左右対称の半円ドーム）

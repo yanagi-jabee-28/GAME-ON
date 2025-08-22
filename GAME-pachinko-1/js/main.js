@@ -58,7 +58,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	// 例: { x: 135, y: 430, rps: 0.5, direction: -1 }
 	const rotatorPositions = [
 		{ x: 138, y: 314, rps: 1, direction: -1 },
-		{ x: 313, y: 314, rps: 1, direction: 1 }
+		{ x: 313, y: 314, rps: 1, direction: 1 },
+		{ x: 332, y: 465, rps: 2, direction: 1 },
+		{ x: 121, y: 465, rps: 2, direction: -1 }
 	];
 
 	// rotators 配列に { body, anglePerFrame } を保持して、afterUpdate で個別に回転させます。
@@ -105,6 +107,53 @@ document.addEventListener('DOMContentLoaded', () => {
 		const vy = (dy - 0.5 * g * time * time) / time;
 		return { x: vx, y: vy };
 	}
+
+	// helper: compute spawn start coords based on GAME_CONFIG and offsets
+	function computeSpawnCoords() {
+		const spawnCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.spawn) || {};
+		const xOffset = ((GAME_CONFIG.width || 0) - (GAME_CONFIG.baseWidth || GAME_CONFIG.width || 0)) / 2;
+		const startX = (typeof spawnCfg.x === 'number') ? (spawnCfg.x + xOffset) : (40 + xOffset);
+		const yOffsetForSpawn = ((GAME_CONFIG.height || 0) - (GAME_CONFIG.baseHeight || GAME_CONFIG.height || 0)) / 2;
+		const startY = (typeof spawnCfg.y === 'number') ? (spawnCfg.y + yOffsetForSpawn) : (GAME_CONFIG.height - (spawnCfg.yOffsetFromBottom || 40) + yOffsetForSpawn);
+		return { x: startX, y: startY };
+	}
+
+	// create launch pad element and keep reference
+	let launchPad = document.getElementById('launch-pad');
+	if (!launchPad) {
+		launchPad = document.createElement('div');
+		launchPad.id = 'launch-pad';
+		container.appendChild(launchPad);
+	}
+
+	function applyPadConfig() {
+		const padCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
+		launchPad.style.display = padCfg.visible === false ? 'none' : 'block';
+		launchPad.style.width = (padCfg.width || 64) + 'px';
+		launchPad.style.height = (padCfg.height || 14) + 'px';
+		launchPad.style.borderRadius = (padCfg.borderRadius || 8) + 'px';
+		launchPad.style.background = padCfg.background || 'linear-gradient(180deg,#444,#222)';
+		launchPad.style.border = '3px solid ' + (padCfg.borderColor || '#fff');
+		// indicator removed; no inner yellow dot
+	}
+
+	function updateLaunchPadPosition() {
+		const p = computeSpawnCoords();
+		const padCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
+		launchPad.style.left = p.x + 'px';
+		const offsetY = padCfg.offsetY || 8;
+		launchPad.style.top = (p.y + offsetY) + 'px'; // small offset so pad sits under ball
+	}
+
+	// apply initial pad config and position
+	applyPadConfig();
+	updateLaunchPadPosition();
+
+	// initial placement
+	updateLaunchPadPosition();
+
+	// update when window resizes or when topPlate recreated
+	window.addEventListener('resize', updateLaunchPadPosition);
 
 	// UI 要素を取得
 
@@ -203,6 +252,9 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (el === tpOffX) tpOffXVal.textContent = el.value;
 			if (el === tpOffY) tpOffYVal.textContent = el.value;
 			recreateTopPlate();
+			// when topplate / spawn may change, update pad position and apply pad config
+			applyPadConfig();
+			updateLaunchPadPosition();
 		});
 	});
 	// insert speedActual after speedVal in DOM
@@ -247,20 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		World.add(world, ball);
 		Body.setVelocity(ball, { x: vx, y: vy });
 
-		// debug marker at spawn point (position relative to container)
-		const marker = document.createElement('div');
-		marker.style.position = 'absolute';
-		marker.style.width = '8px';
-		marker.style.height = '8px';
-		marker.style.borderRadius = '50%';
-		marker.style.background = 'yellow';
-		// container is the positioned parent, so place marker using start coords
-		marker.style.left = (start.x) + 'px';
-		marker.style.top = (start.y - 8) + 'px';
-		marker.style.zIndex = '9999';
-		marker.id = 'debug-spawn-marker';
-		container.appendChild(marker);
-		setTimeout(() => marker.remove(), 1200);
+		// debug marker removed: no temporary visual marker at spawn
 	});
 
 	// 衝突開始イベント
