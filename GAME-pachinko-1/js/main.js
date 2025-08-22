@@ -12,25 +12,18 @@ document.addEventListener('DOMContentLoaded', () => {
 	const engine = Engine.create();
 	const world = engine.world;
 
-	// --- 2. レンダラーの作成 ---
-	// 設定から寸法を取得（後方互換性を保持）
-	const width = GAME_CONFIG.dimensions?.width || GAME_CONFIG.width || 650;
-	const height = GAME_CONFIG.dimensions?.height || GAME_CONFIG.height || 900;
-	const renderOptions = GAME_CONFIG.render || GAME_CONFIG.renderOptions || {};
+	// --- 2. レンダラーの作成 (簡潔に) ---
+	const cfg = GAME_CONFIG;
+	const dims = cfg.dimensions || cfg;
+	const width = dims.width || cfg.width || 650;
+	const height = dims.height || cfg.height || 900;
+	const renderOptions = cfg.render || cfg.renderOptions || {};
 
 	const container = document.getElementById('game-container');
 	container.style.width = width + 'px';
 	container.style.height = height + 'px';
 
-	const render = Render.create({
-		element: container,
-		engine: engine,
-		options: {
-			width,
-			height,
-			...renderOptions
-		}
-	});
+	const render = Render.create({ element: container, engine, options: { width, height, ...renderOptions } });
 
 	// --- 3. 物理演算と描画の開始 ---
 	Render.run(render);
@@ -73,27 +66,22 @@ document.addEventListener('DOMContentLoaded', () => {
 	const { xOffset: globalXOffset, yOffset: globalYOffset } = (typeof getOffsets === 'function') ? getOffsets() : { xOffset: 0, yOffset: 0 };
 	const rotators = rotatorPositions.map(pos => {
 		const defaults = windmillConfig.defaults || {};
-		// Determine blade and center colors from per-pos overrides or global defaults.
-		const bladeColor = pos.bladeColor || (pos.render && pos.render.fillStyle) || windmillConfig.bladeColor || (windmillConfig.render && windmillConfig.render.fillStyle);
-		const centerColor = pos.centerColor || pos.centerFill || windmillConfig.centerColor || windmillConfig.centerFill;
+		const bladeColor = pos.bladeColor ?? pos.render?.fillStyle ?? windmillConfig.bladeColor ?? windmillConfig.render?.fillStyle;
+		const centerColor = pos.centerColor ?? pos.centerFill ?? windmillConfig.centerColor ?? windmillConfig.centerFill;
 		const blueprint = {
 			x: pos.x + globalXOffset,
 			y: pos.y + globalYOffset,
-			// keep blueprint.render empty unless explicitly provided; bladeColor will map to fillStyle in objects.js
 			render: pos.render || {},
-			bladeColor: bladeColor,
-			centerColor: centerColor,
+			bladeColor,
+			centerColor,
 			shape: Object.assign({ type: 'windmill' }, defaults, pos.shape || {})
 		};
 
 		const body = createRotatingYakumono(blueprint);
 		World.add(world, body);
 
-		// rotations per second -> use time-based rotation in afterUpdate
-		const rps = (typeof pos.rps === 'number') ? pos.rps : windmillConfig.rotationsPerSecond;
-		const direction = (pos.direction === -1) ? -1 : 1; // -1 で反時計回り
-		const anglePerSecond = rps * 2 * Math.PI * direction; // radians per second
-
+		const rps = Number(pos.rps ?? windmillConfig.rotationsPerSecond);
+		const anglePerSecond = rps * 2 * Math.PI * (pos.direction === -1 ? -1 : 1);
 		return { body, anglePerSecond };
 	});
 
@@ -109,16 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	});
 
 	// --- 6. イベントリスナーの設定 ---
-	// --- ボール投射（放物線） ---
-	// 画面左下外から放物線で投射し、画面上部の釘エリアに着弾させる。
-	function computeLaunchVelocity(start, target, g, time) {
-		// g: 正の値（下向き）
-		const dx = target.x - start.x;
-		const dy = target.y - start.y; // 下方向が正
-		const vx = dx / time;
-		const vy = (dy - 0.5 * g * time * time) / time;
-		return { x: vx, y: vy };
-	}
 
 	// helper: compute spawn start coords based on GAME_CONFIG and offsets
 	function computeSpawnCoords() {
@@ -158,9 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// apply initial pad config and position
 	applyPadConfig();
-	updateLaunchPadPosition();
-
-	// initial placement
 	updateLaunchPadPosition();
 
 	// update when window resizes or when topPlate recreated

@@ -50,9 +50,13 @@ const GAME_CONFIG = {
 				// restitutionとfrictionは材質ペアで定義するため、ここでは設定しない
 				density: 0.01,    // 密度 (値が大きいほど重くなる)
 			},
+			// ボールの描画設定: デフォルト色は指定できるが、randomColor を true にすると生成時に
+			// ランダム色が割り当てられます。
 			render: {
-				// fillStyleは動的に変わるため、ここでは定義しない
-			}
+				// fillStyle: '#000000ff' // 固定色を使いたいときはここを設定
+			},
+			// true: 生成時にランダムな色を割り当てる（デフォルト true）
+			randomColor: false
 		},
 		// --- 釘の定義 ---
 		peg: {

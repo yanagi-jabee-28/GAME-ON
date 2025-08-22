@@ -13,8 +13,11 @@
  */
 function createBall(x, y, options = {}) {
 	const ballConfig = GAME_CONFIG.objects.ball;
-	// 色相をランダムにすることで、毎回異なる色のボールを生成します
-	const randomColor = `hsl(${Math.random() * 360}, 90%, 60%)`;
+	// decide fill color: priority -> options.render.fillStyle -> random (if enabled) -> config.render.fillStyle -> fallback
+	const optionFill = options && options.render && options.render.fillStyle;
+	const useRandom = (typeof ballConfig.randomColor === 'undefined') ? true : Boolean(ballConfig.randomColor);
+	const generatedColor = `hsl(${Math.random() * 360}, 90%, 60%)`;
+	const fill = optionFill || (useRandom ? generatedColor : (ballConfig.render && ballConfig.render.fillStyle) || '#ccc');
 
 	return Matter.Bodies.circle(
 		x,
@@ -24,10 +27,7 @@ function createBall(x, y, options = {}) {
 			...ballConfig.options,
 			label: ballConfig.label,
 			material: ballConfig.material,
-			render: {
-				...ballConfig.render, // 基本の描画設定を継承
-				fillStyle: randomColor // 色だけを上書き
-			},
+			render: Object.assign({}, ballConfig.render || {}, { fillStyle: fill }),
 			...options // 個別のインスタンスでさらに上書き可能
 		}
 	);
