@@ -53,7 +53,8 @@ const GAME_CONFIG = {
 			// ボールの描画設定: デフォルト色は指定できるが、randomColor を true にすると生成時に
 			// ランダム色が割り当てられます。
 			render: {
-				// fillStyle: '#000000ff' // 固定色を使いたいときはここを設定
+				// デフォルトのボール色（固定色を使いたい場合はこちらを設定）
+				fillStyle: '#000000ff'
 			},
 			// true: 生成時にランダムな色を割り当てる（デフォルト true）
 			randomColor: false
