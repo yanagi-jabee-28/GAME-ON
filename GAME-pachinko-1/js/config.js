@@ -107,7 +107,7 @@ const GAME_CONFIG = {
 			label: 'yakumono_blade',
 			material: GAME_MATERIALS.METAL,
 			options: {
-				density: 0.01 // ボールと同じ密度
+				density: 0.2 // ボールと同じ密度
 			}
 		}
 	}
