@@ -19,7 +19,7 @@ const GAME_CONFIG = {
 	// デザイン時の基準幅。width を変更した際、この値との差分で水平オフセットを計算します。
 	baseWidth: 450,
 	// デザイン時の基準高さ。height を変更した際、この値との差分で垂直オフセットを計算します。
-	baseHeight: 600,
+	baseHeight: 675,
 	height: 900, // ゲームエリアの描画高 (px)
 	renderOptions: {
 		wireframes: false, // falseにするとオブジェクトが塗りつぶされる (trueだと線画)
