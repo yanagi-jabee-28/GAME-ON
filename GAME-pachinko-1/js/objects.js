@@ -33,10 +33,16 @@ function createBall(x, y, options = {}) {
 	);
 }
 
-// helper: compute layout offsets once for reuse
+// helper: compute layout offsets once for reuse  
 function getOffsets() {
-	const xOffset = ((GAME_CONFIG.width || 0) - (GAME_CONFIG.baseWidth || GAME_CONFIG.width || 0)) / 2;
-	const yOffset = ((GAME_CONFIG.height || 0) - (GAME_CONFIG.baseHeight || GAME_CONFIG.height || 0)) / 2;
+	// 新しい設定構造に対応しつつ、後方互換性を保持
+	const width = GAME_CONFIG.dimensions?.width || GAME_CONFIG.width || 0;
+	const height = GAME_CONFIG.dimensions?.height || GAME_CONFIG.height || 0;
+	const baseWidth = GAME_CONFIG.dimensions?.baseWidth || GAME_CONFIG.baseWidth || width;
+	const baseHeight = GAME_CONFIG.dimensions?.baseHeight || GAME_CONFIG.baseHeight || height;
+
+	const xOffset = (width - baseWidth) / 2;
+	const yOffset = (height - baseHeight) / 2;
 	return { xOffset, yOffset };
 }
 
@@ -45,7 +51,9 @@ function getOffsets() {
  * @param {Matter.World} world - オブジェクトを追加するMatter.jsのワールド
  */
 function createBounds() {
-	const { width, height } = GAME_CONFIG;
+	// 設定から寸法を取得（後方互換性を保持）
+	const width = GAME_CONFIG.dimensions?.width || GAME_CONFIG.width || 650;
+	const height = GAME_CONFIG.dimensions?.height || GAME_CONFIG.height || 900;
 	const wallConfig = GAME_CONFIG.objects.wall;
 	const floorConfig = GAME_CONFIG.objects.floor;
 

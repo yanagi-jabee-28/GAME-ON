@@ -12,18 +12,31 @@ const GAME_MATERIALS = {
 
 /**
  * ゲーム全体の設定を管理するオブジェクト。
+ * シンプルで再利用しやすい構造を目指しています。
  */
 const GAME_CONFIG = {
-	// ▼▼▼ ゲーム全体の基本設定 ▼▼▼
-	width: 650,  // ゲームエリアの描画幅 (px)
-	// デザイン時の基準幅。width を変更した際、この値との差分で水平オフセットを計算します。
+	// 後方互換性のため従来の設定も保持
+	width: 650,
+	height: 900,
 	baseWidth: 450,
-	// デザイン時の基準高さ。height を変更した際、この値との差分で垂直オフセットを計算します。
 	baseHeight: 675,
-	height: 900, // ゲームエリアの描画高 (px)
 	renderOptions: {
-		wireframes: false, // falseにするとオブジェクトが塗りつぶされる (trueだと線画)
-		background: '#ffffff', // 背景色
+		wireframes: false,
+		background: '#ffffff'
+	},
+
+	// 基本的なゲーム領域設定
+	dimensions: {
+		width: 650,
+		height: 900,
+		baseWidth: 450,   // レイアウト計算の基準
+		baseHeight: 675   // レイアウト計算の基準
+	},
+
+	// 描画設定
+	render: {
+		wireframes: false,
+		background: '#ffffff'
 	},
 
 	// ▼▼▼ オブジェクトの定義 ▼▼▼

@@ -13,18 +13,22 @@ document.addEventListener('DOMContentLoaded', () => {
 	const world = engine.world;
 
 	// --- 2. レンダラーの作成 ---
-	// ゲームコンテナに config の幅高さを反映（CSS 側の固定をやめて config に一本化）
+	// 設定から寸法を取得（後方互換性を保持）
+	const width = GAME_CONFIG.dimensions?.width || GAME_CONFIG.width || 650;
+	const height = GAME_CONFIG.dimensions?.height || GAME_CONFIG.height || 900;
+	const renderOptions = GAME_CONFIG.render || GAME_CONFIG.renderOptions || {};
+
 	const container = document.getElementById('game-container');
-	container.style.width = GAME_CONFIG.width + 'px';
-	container.style.height = GAME_CONFIG.height + 'px';
+	container.style.width = width + 'px';
+	container.style.height = height + 'px';
 
 	const render = Render.create({
 		element: container,
 		engine: engine,
 		options: {
-			width: GAME_CONFIG.width,
-			height: GAME_CONFIG.height,
-			...GAME_CONFIG.renderOptions
+			width,
+			height,
+			...renderOptions
 		}
 	});
 
@@ -34,14 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	Runner.run(runner, engine);
 
 	// --- 4. オブジェクトの生成 ---
-	// topPlate の初期調整（幅に合わせる）
-	if (GAME_CONFIG.topPlate && GAME_CONFIG.topPlate.enabled) {
-		const suggested = Math.round(GAME_CONFIG.width * 0.6);
-		// 明示的に radius を設定している場合は上書きしない。
-		if (typeof GAME_CONFIG.topPlate.radius === 'undefined' || GAME_CONFIG.topPlate.radius === null) {
-			console.info('Setting topPlate.radius to suggested', suggested);
-			GAME_CONFIG.topPlate.radius = suggested;
-		}
+	// topPlate の初期調整をより簡潔に
+	if (GAME_CONFIG.topPlate?.enabled) {
+		GAME_CONFIG.topPlate.radius = GAME_CONFIG.topPlate.radius || Math.round(width * 0.6);
 	}
 
 	// create and add bounds (createBounds now returns an array)
@@ -247,20 +246,41 @@ document.addEventListener('DOMContentLoaded', () => {
 		addBoundsToWorld(currentBounds, world);
 	}
 
-	[tpMode, tpRadius, tpThickness, tpSegments, tpOffX, tpOffY].forEach(el => {
-		if (!el) return;
-		el.addEventListener('input', () => {
-			if (el === tpRadius) tpRadiusVal.textContent = el.value;
-			if (el === tpThickness) tpThicknessVal.textContent = el.value;
-			if (el === tpSegments) tpSegVal.textContent = el.value;
-			if (el === tpOffX) tpOffXVal.textContent = el.value;
-			if (el === tpOffY) tpOffYVal.textContent = el.value;
+	// 汎用的なUI値更新ヘルパー
+	function createSliderUpdater(slider, display, callback) {
+		return () => {
+			if (display) display.textContent = slider.value;
+			if (callback) callback();
+		};
+	}
+
+	// topPlate UI の設定を単純化
+	const topPlateUpdaters = [
+		[tpRadius, tpRadiusVal],
+		[tpThickness, tpThicknessVal],
+		[tpSegments, tpSegVal],
+		[tpOffX, tpOffXVal],
+		[tpOffY, tpOffYVal]
+	];
+
+	topPlateUpdaters.forEach(([slider, display]) => {
+		if (slider && display) {
+			slider.addEventListener('input', createSliderUpdater(slider, display, () => {
+				recreateTopPlate();
+				applyPadConfig();
+				updateLaunchPadPosition();
+			}));
+		}
+	});
+
+	// mode select の処理
+	if (tpMode) {
+		tpMode.addEventListener('change', () => {
 			recreateTopPlate();
-			// when topplate / spawn may change, update pad position and apply pad config
 			applyPadConfig();
 			updateLaunchPadPosition();
 		});
-	});
+	}
 	// insert speedActual after speedVal in DOM
 	if (speedVal && speedVal.parentNode) {
 		speedVal.parentNode.insertBefore(speedActual, speedVal.nextSibling);
@@ -269,39 +289,36 @@ document.addEventListener('DOMContentLoaded', () => {
 	updateArrow();
 
 	document.getElementById('add-ball').addEventListener('click', () => {
-		// 発射元：config の spawn 設定を使って決定
-		const spawnCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.spawn) || {};
-		const xOffset = ((GAME_CONFIG.width || 0) - (GAME_CONFIG.baseWidth || GAME_CONFIG.width || 0)) / 2;
-		const startX = (typeof spawnCfg.x === 'number') ? (spawnCfg.x + xOffset) : (40 + xOffset);
-		const yOffsetForSpawn = ((GAME_CONFIG.height || 0) - (GAME_CONFIG.baseHeight || GAME_CONFIG.height || 0)) / 2;
-		const startY = (typeof spawnCfg.y === 'number') ? (spawnCfg.y + yOffsetForSpawn) : (GAME_CONFIG.height - (spawnCfg.yOffsetFromBottom || 40) + yOffsetForSpawn);
-		const start = { x: startX, y: startY };
+		// 発射元：getOffsets を使用して統一された座標計算
+		const start = computeSpawnCoords();
+
 		// 着弾ターゲット：画面上部の釘エリアのランダムな点（中央寄り）
+		const { yOffset } = getOffsets();
 		const target = {
 			x: GAME_CONFIG.width * (0.35 + Math.random() * 0.3),
-			y: (GAME_CONFIG.height * 0.18 + Math.random() * (GAME_CONFIG.height * 0.08)) + yOffsetForSpawn
+			y: (GAME_CONFIG.height * 0.18 + Math.random() * (GAME_CONFIG.height * 0.08)) + yOffset
 		};
 
-		// UI で指定された角度(度)と速度(px/s)
+		// UI で指定された角度(度)と速度を使用してシンプルな初速計算
 		const angleDeg = Number(angleSlider.value);
-		const sliderValue = Number(speedSlider.value); // 0..100
-		const min = GAME_CONFIG.launch && GAME_CONFIG.launch.minSpeed ? GAME_CONFIG.launch.minSpeed : 5;
-		const max = GAME_CONFIG.launch && GAME_CONFIG.launch.maxSpeed ? GAME_CONFIG.launch.maxSpeed : 400;
-		// convert slider 0..100 -> base px/s, then apply global speedScale
-		const baseSpeed = min + (sliderValue / 100) * (max - min);
-		const speedPxPerSec = baseSpeed * (GAME_CONFIG.launch && GAME_CONFIG.launch.speedScale ? GAME_CONFIG.launch.speedScale : 1);
+		const sliderValue = Number(speedSlider.value);
+
+		// 設定から速度レンジを取得
+		const { minSpeed = 5, maxSpeed = 400, speedScale = 1 } = GAME_CONFIG.launch || {};
+		const baseSpeed = minSpeed + (sliderValue / 100) * (maxSpeed - minSpeed);
+		const speedPxPerSec = baseSpeed * speedScale;
+
+		// 物理的に自然な初速ベクトル計算
 		const angleRad = angleDeg * Math.PI / 180;
+		const velocity = {
+			x: Math.cos(angleRad) * speedPxPerSec,
+			y: -Math.sin(angleRad) * speedPxPerSec // 上向きは負
+		};
 
-		// シンプルに角度と速度から初速を決定（物理はMatter.jsに任せる）
-		const vx = Math.cos(angleRad) * speedPxPerSec;
-		const vy = -Math.sin(angleRad) * speedPxPerSec; // 上向きは負
-
-		console.log('[spawn] creating ball at', start, 'slider', sliderValue, 'baseSpeed', Math.round(baseSpeed), 'scaledSpeed', Math.round(speedPxPerSec), 'velocity', { x: vx, y: vy }, 'angle', angleDeg);
-
-		// ボールを作成してワールドに追加、初速をセット
+		// ボール作成とMatter.jsの物理エンジンに委ねる
 		const ball = createBall(start.x, start.y);
 		World.add(world, ball);
-		Body.setVelocity(ball, { x: vx, y: vy });
+		Body.setVelocity(ball, velocity);
 
 		// debug marker removed: no temporary visual marker at spawn
 	});
