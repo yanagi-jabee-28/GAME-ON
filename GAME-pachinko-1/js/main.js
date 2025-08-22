@@ -55,11 +55,16 @@ document.addEventListener('DOMContentLoaded', () => {
 	// ここで複数配置したい座標を列挙します。必要に応じて座標を編集してください。
 	// 各要素はオプションで `rps` (rotations per second) と `direction` (1 または -1) を含められます。
 	// 例: { x: 135, y: 430, rps: 0.5, direction: -1 }
+	// rotatorPositions: you can provide per-gear overrides here.
+	// Supported per-gear fields (human-friendly keys):
+	// - bladeColor: '#rrggbb'                -> blade (rotor) color
+	// - centerColor: '#rrggbb'               -> center circle color
+	// - shape: { numBlades, bladeLength, bladeWidth, centerRadius } -> shape overrides
 	const rotatorPositions = [
-		{ x: 138, y: 314, rps: 1, direction: -1 },
-		{ x: 313, y: 314, rps: 1, direction: 1 },
-		{ x: 332, y: 465, rps: 2, direction: 1 },
-		{ x: 121, y: 465, rps: 2, direction: -1 }
+		{ x: 138, y: 314, rps: 1, direction: -1, shape: { numBlades: 5, bladeLength: 25 } },
+		{ x: 313, y: 314, rps: 1, direction: 1, shape: { numBlades: 5, bladeLength: 25 } },
+		{ x: 332, y: 465, rps: 2, direction: -1, shape: { numBlades: 6, bladeLength: 22 } },
+		{ x: 121, y: 465, rps: 2, direction: 1, shape: { numBlades: 6, bladeLength: 22 } }
 	];
 
 	// rotators 配列に { body, anglePerFrame } を保持して、afterUpdate で個別に回転させます。
@@ -68,11 +73,16 @@ document.addEventListener('DOMContentLoaded', () => {
 	const { xOffset: globalXOffset, yOffset: globalYOffset } = (typeof getOffsets === 'function') ? getOffsets() : { xOffset: 0, yOffset: 0 };
 	const rotators = rotatorPositions.map(pos => {
 		const defaults = windmillConfig.defaults || {};
+		// Determine blade and center colors from per-pos overrides or global defaults.
+		const bladeColor = pos.bladeColor || (pos.render && pos.render.fillStyle) || windmillConfig.bladeColor || (windmillConfig.render && windmillConfig.render.fillStyle);
+		const centerColor = pos.centerColor || pos.centerFill || windmillConfig.centerColor || windmillConfig.centerFill;
 		const blueprint = {
 			x: pos.x + globalXOffset,
 			y: pos.y + globalYOffset,
-			render: windmillConfig.render,
-			centerFill: pos.centerFill,
+			// keep blueprint.render empty unless explicitly provided; bladeColor will map to fillStyle in objects.js
+			render: pos.render || {},
+			bladeColor: bladeColor,
+			centerColor: centerColor,
 			shape: Object.assign({ type: 'windmill' }, defaults, pos.shape || {})
 		};
 

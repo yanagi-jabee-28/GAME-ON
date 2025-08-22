@@ -192,8 +192,15 @@ function createRotatingYakumono(blueprint) {
 	if (shape.type !== 'windmill') return null;
 
 	// 描画オプション
-	const bladeRender = blueprint.render || windDef.render || {};
-	const centerColor = blueprint.centerFill || windDef.centerFill || '#333';
+	// Accept human-facing config keys (bladeColor / centerColor) and map them
+	// to renderer-specific properties (fillStyle). Keep backward compatibility
+	// with existing `render`/`centerFill` keys.
+	const bladeRender = Object.assign({}, windDef.render || {}, blueprint.render || {});
+	// blueprint may specify bladeColor (human friendly). If present, map to fillStyle.
+	if (blueprint.bladeColor) bladeRender.fillStyle = blueprint.bladeColor;
+
+	// center color: prefer human-friendly `centerColor`, fall back to legacy keys
+	const centerColor = blueprint.centerColor || blueprint.centerFill || windDef.centerColor || windDef.centerFill || '#333';
 
 	// 羽根用オプション
 	const bladeOptions = Object.assign({}, commonBodyOptions.options || {}, {

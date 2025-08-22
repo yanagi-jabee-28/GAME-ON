@@ -69,11 +69,9 @@ const GAME_CONFIG = {
 		// --- 風車の定義 ---
 		windmill: {
 			rotationsPerSecond: 1, // 毎秒の回転数
-			render: {
-				fillStyle: '#ff0000' // デフォルトの色は赤（羽根）
-			},
-			// 歯車の中心円の塗り色（デフォルト）
-			centerFill: '#333',
+			// human-facing color names (not renderer-specific)
+			bladeColor: '#ff0000', // 羽の色（人間が理解するキー）
+			centerColor: '#333',   // 中心円の色（人間が理解するキー）
 			// 形状のデフォルト値（ここを変えれば全体のデフォルト挙動が変わる）
 			defaults: {
 				centerRadius: 6,
