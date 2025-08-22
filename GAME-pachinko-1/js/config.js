@@ -119,7 +119,7 @@ GAME_CONFIG.launch = {
 // - y: 発射点の明示的な y 座標（ピクセル）を指定する場合はこちらを使います
 // - yOffsetFromBottom: 明示的な y を指定しない場合、ゲーム領域の下端からのオフセットで指定します
 GAME_CONFIG.launch.spawn = {
-	x: -90,
+	x: -20,
 	// デフォルトはコンテナ下端から 40px 上
 	yOffsetFromBottom: 300
 };
