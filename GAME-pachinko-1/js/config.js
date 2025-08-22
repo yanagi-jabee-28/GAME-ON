@@ -111,7 +111,7 @@ GAME_CONFIG.launch = {
 	// angle control: min/max degrees and default
 	angleMin: 75,
 	angleMax: 90,
-	defaultAngle: 70
+	defaultAngle: 90
 };
 
 // 発射の初期位置設定（config で制御可能にする）
@@ -132,13 +132,11 @@ GAME_CONFIG.topPlate = {
 	// 注意: radius が画面幅 / 2 より小さいと円弧が作成できず矩形にフォールバックします。
 	//       明示的な半径(px)をここで設定できます。例: radius: 340
 	//       空にすると起動時に幅に基づく推奨値が設定されます。
-	radius: 340,
-	// 厚み（板の高さ）
-	thickness: 30,
+	radius: 345,
 	// 分割数（多いほど滑らか）。パフォーマンスを考慮して 24 程度が良い。
-	segments: 48,
+	segments: 100,
 	// 板の厚み。見た目をわかりやすくするために増やす。
-	thickness: 28
+	thickness: 30
 };
 
 // 表示モード: 'arc'（幅に合わせた弧）または 'dome'（左右対称の半円ドーム）
