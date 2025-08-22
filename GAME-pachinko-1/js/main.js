@@ -37,8 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	// topPlate の初期調整（幅に合わせる）
 	if (GAME_CONFIG.topPlate && GAME_CONFIG.topPlate.enabled) {
 		const suggested = Math.round(GAME_CONFIG.width * 0.6);
-		if (!GAME_CONFIG.topPlate.radius || GAME_CONFIG.topPlate.radius < (GAME_CONFIG.width / 2)) {
-			console.info('Adjusting topPlate.radius from', GAME_CONFIG.topPlate.radius, 'to', suggested);
+		// 明示的に radius を設定している場合は上書きしない。
+		if (typeof GAME_CONFIG.topPlate.radius === 'undefined' || GAME_CONFIG.topPlate.radius === null) {
+			console.info('Setting topPlate.radius to suggested', suggested);
 			GAME_CONFIG.topPlate.radius = suggested;
 		}
 	}
