@@ -138,8 +138,8 @@ GAME_CONFIG.launch = {
 	minSpeed: 30,
 	maxSpeed: 55,
 	// angle control: min/max degrees and default
-	angleMin: 75,
-	angleMax: 90,
+	angleMin: 0,
+	angleMax: 180,
 	defaultAngle: 90
 };
 
@@ -148,7 +148,7 @@ GAME_CONFIG.launch = {
 // - y: 発射点の明示的な y 座標（ピクセル）を指定する場合はこちらを使います
 // - yOffsetFromBottom: 明示的な y を指定しない場合、ゲーム領域の下端からのオフセットで指定します
 GAME_CONFIG.launch.spawn = {
-	x: -90,
+	x: -85,
 	// デフォルトはコンテナ下端から 40px 上
 	yOffsetFromBottom: 300
 };
@@ -162,7 +162,7 @@ GAME_CONFIG.launch.pad = {
 	background: '#444', // single color fallback
 	borderColor: '#fff',
 	// pad の垂直オフセット量（px）をボールの座標に対して追加で下に移動
-	offsetY: 90
+	offsetY: 0
 };
 
 // 天板（上部の板）設定 - 円弧で作る場合のパラメータ
@@ -204,8 +204,8 @@ const MATERIAL_INTERACTIONS = {
 
 	// --- 金属と天板の衝突 ---
 	'metal:top_plate': {
-		restitution: 0.99,
-		friction: 0.1
+		restitution: 0.0001,
+		friction: 0.05
 	},
 
 	// --- プラスチック同士の衝突 ---

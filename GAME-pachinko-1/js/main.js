@@ -129,15 +129,32 @@ document.addEventListener('DOMContentLoaded', () => {
 		launchPad.style.borderRadius = (padCfg.borderRadius || 8) + 'px';
 		launchPad.style.background = padCfg.background || 'linear-gradient(180deg,#444,#222)';
 		launchPad.style.border = '3px solid ' + (padCfg.borderColor || '#fff');
+		// 発射角回転の軸を「発射位置」に固定
+		launchPad.style.position = 'absolute';
+		launchPad.style.transformOrigin = '0 0';
 		// indicator removed; no inner yellow dot
 	}
 
 	function updateLaunchPadPosition() {
 		const p = computeSpawnCoords();
 		const padCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
-		launchPad.style.left = p.x + 'px';
-		const offsetY = padCfg.offsetY || 8;
-		launchPad.style.top = (p.y + offsetY) + 'px'; // small offset so pad sits under ball
+		// パッド実寸を取得
+		const cs = window.getComputedStyle(launchPad);
+		const padW = parseFloat(cs.width) || (padCfg.width || 64);
+		const padH = parseFloat(cs.height) || (padCfg.height || 14);
+		// 近端中心を原点にする（長辺方向に沿って伸びる想定）
+		const longIsWidth = padW >= padH;
+		const originX = longIsWidth ? 0 : (padW / 2);
+		const originY = longIsWidth ? (padH / 2) : 0;
+		launchPad.style.transformOrigin = `${originX}px ${originY}px`;
+		// 原点が発射位置に一致するよう補正
+		launchPad.style.left = (p.x - originX) + 'px';
+		launchPad.style.top = (p.y - originY) + 'px';
+		// 角度に合わせて回転
+		const angleDeg = Number((document.getElementById('angle-slider') || { value: GAME_CONFIG.launch?.defaultAngle || 90 }).value);
+		const offsetY = padCfg.offsetY || 0;
+		// オフセットを回転と一緒に回すため、translate を先に適用する（右から左で評価されるため rotate が最後）
+		launchPad.style.transform = `rotate(${90 - angleDeg}deg) translate(0px, ${offsetY}px)`;
 	}
 
 	// apply initial pad config and position
@@ -214,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		launchArrow.style.top = (rect.height - 80) + 'px';
 		launchArrow.style.transform = `rotate(${-angle}deg)`; // negative because CSS y-axis
 	}
-	angleSlider.addEventListener('input', updateArrow);
+	angleSlider.addEventListener('input', () => { updateArrow(); updateLaunchPadPosition(); });
 	speedSlider.addEventListener('input', updateArrow);
 
 	// topPlate UI handlers: update GAME_CONFIG and recreate bounds (debounced)
@@ -283,6 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	// 初期ラベル表示
 	updateArrow();
+	updateLaunchPadPosition();
 
 	document.getElementById('add-ball').addEventListener('click', () => {
 		// 発射元：getOffsets を使用して統一された座標計算
