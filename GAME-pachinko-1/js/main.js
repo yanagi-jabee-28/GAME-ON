@@ -23,6 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	const height = dims.height || cfg.height || 900;
 	const renderOptions = cfg.render || cfg.renderOptions || {};
 	const container = document.getElementById('game-container');
+	if (!container) {
+		console.error('Game container element (#game-container) not found.');
+		return; // 以降の処理はコンテナがないと成立しないため早期終了
+	}
 	container.style.width = width + 'px';
 	container.style.height = height + 'px';
 
@@ -48,16 +52,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	const windmillConfig = GAME_CONFIG.objects.windmill;
 	const { xOffset: globalXOffset, yOffset: globalYOffset } = (typeof getOffsets === 'function') ? getOffsets() : { xOffset: 0, yOffset: 0 };
 
-	async function loadObjectsPreset(url) {
-		const res = await fetch(url);
-		if (!res.ok) throw new Error(`Failed to load objects preset: ${res.status} ${res.statusText}`);
-		return res.json();
-	}
-
 	// rotators 配列に { body, anglePerSecond } を保持し、afterUpdate で回す
 	let rotators = [];
-	loadObjectsPreset('objects-presets/default.json')
-		.then(preset => {
+	(async () => {
+		try {
+			const res = await fetch('objects-presets/default.json');
+			if (!res.ok) throw new Error(`Failed to load objects preset: ${res.status} ${res.statusText}`);
+			const preset = await res.json();
 			const items = Array.isArray(preset.rotators) ? preset.rotators : [];
 			rotators = items.map(item => {
 				if (item.type !== 'windmill') return null;
@@ -78,8 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
 				const anglePerSecond = rps * 2 * Math.PI * (item.direction === -1 ? -1 : 1);
 				return { body, anglePerSecond };
 			}).filter(Boolean);
-		})
-		.catch(err => console.error('Failed to init rotators from preset:', err));
+		} catch (err) {
+			console.error('Failed to init rotators from preset:', err);
+		}
+	})();
 
 	// フレーム更新ごとのイベント — 各役物の anglePerFrame を使って回転させる
 	Events.on(engine, 'afterUpdate', () => {
@@ -200,11 +203,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		speedVal.textContent = sliderValue;
 		// position arrow near bottom-left of container (use container-relative coords)
 		const rect = container.getBoundingClientRect();
-		// left/top relative to the container element
-		const containerLeft = 0; // since arrow is absolutely positioned inside container
-		const containerTop = 0;
-		launchArrow.style.left = (24 + containerLeft) + 'px';
-		launchArrow.style.top = (rect.height - 80 + containerTop) + 'px';
+		launchArrow.style.left = '24px';
+		launchArrow.style.top = (rect.height - 80) + 'px';
 		launchArrow.style.transform = `rotate(${-angle}deg)`; // negative because CSS y-axis
 	}
 	angleSlider.addEventListener('input', updateArrow);

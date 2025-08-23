@@ -66,27 +66,6 @@ function createBounds() {
 	// 上壁：通常は長方形1枚だが、configで円弧天板を有効化している場合は
 	// 頂点配列から“単一の多角形”を生成して隙間をゼロにします
 	if (GAME_CONFIG.topPlate && GAME_CONFIG.topPlate.enabled) {
-		// ヘルパー: 多角形の重心を求めて原点に平行移動する
-		function centerVertices(vertices) {
-			// 多角形の重心（Shoelace formula）
-			let area = 0, cxSum = 0, cySum = 0;
-			for (let i = 0, n = vertices.length; i < n; i++) {
-				const p0 = vertices[i];
-				const p1 = vertices[(i + 1) % n];
-				const cross = p0.x * p1.y - p1.x * p0.y;
-				area += cross;
-				cxSum += (p0.x + p1.x) * cross;
-				cySum += (p0.y + p1.y) * cross;
-			}
-			area *= 0.5;
-			let cx = 0, cy = 0;
-			if (Math.abs(area) > 1e-8) {
-				cx = cxSum / (6 * area);
-				cy = cySum / (6 * area);
-			}
-			const shifted = vertices.map(v => ({ x: v.x - cx, y: v.y - cy }));
-			return { verts: shifted, centroid: { x: cx, y: cy } };
-		}
 		const tp = GAME_CONFIG.topPlate;
 		const cx = width / 2 + (tp.centerOffsetX || 0);
 		// 角度分割数（多いほどスムーズ）
@@ -202,14 +181,11 @@ function loadPegs(presetUrl, world) {
 	const num = (v, d = 0) => (typeof v === 'number' && isFinite(v)) ? v : d;
 	const getColor = (obj) => obj?.color || obj?.render?.fillStyle;
 
-	fetch(presetUrl)
-		.then(response => {
-			if (!response.ok) {
-				throw new Error(`Failed to load peg preset: ${response.statusText}`);
-			}
-			return response.json();
-		})
-		.then(data => {
+	(async () => {
+		try {
+			const response = await fetch(presetUrl);
+			if (!response.ok) throw new Error(`Failed to load peg preset: ${response.status} ${response.statusText}`);
+			const data = await response.json();
 			const { xOffset, yOffset } = getOffsets();
 
 			// 後方互換: 旧形式（配列） [{x,y}, ...]
@@ -241,6 +217,13 @@ function loadPegs(presetUrl, world) {
 			const globalRadius = num(global?.radius, pegConfig.radius);
 			const globalColor = getColor(global) || pegConfig.render?.fillStyle;
 
+			const makeOptions = (color) => ({
+				...pegConfig.options,
+				label: pegConfig.label,
+				material: pegConfig.material,
+				render: Object.assign({}, pegConfig.render || {}, color ? { fillStyle: color } : {})
+			});
+
 			const bodies = [];
 			groups.forEach(group => {
 				const gOffX = num(group?.offset?.x ?? group?.dx, 0);
@@ -256,13 +239,7 @@ function loadPegs(presetUrl, world) {
 					const py = num(pt.y) + gOffY + globalOffsetY + yOffset;
 					const radius = num(pt.radius, gRadius);
 					const color = getColor(pt) || gColor;
-					const options = {
-						...pegConfig.options,
-						label: pegConfig.label,
-						material: pegConfig.material,
-						render: Object.assign({}, pegConfig.render || {}, color ? { fillStyle: color } : {})
-					};
-					bodies.push(Matter.Bodies.circle(px, py, radius, options));
+					bodies.push(Matter.Bodies.circle(px, py, radius, makeOptions(color)));
 				});
 			});
 
@@ -275,13 +252,7 @@ function loadPegs(presetUrl, world) {
 					const py = num(pt.y) + globalOffsetY + yOffset;
 					const radius = num(pt.radius, globalRadius);
 					const color = getColor(pt) || globalColor;
-					const options = {
-						...pegConfig.options,
-						label: pegConfig.label,
-						material: pegConfig.material,
-						render: Object.assign({}, pegConfig.render || {}, color ? { fillStyle: color } : {})
-					};
-					bodies.push(Matter.Bodies.circle(px, py, radius, options));
+					bodies.push(Matter.Bodies.circle(px, py, radius, makeOptions(color)));
 				});
 			}
 
@@ -290,8 +261,10 @@ function loadPegs(presetUrl, world) {
 			} else {
 				console.warn('No pegs found in preset:', presetUrl);
 			}
-		})
-		.catch(error => console.error('Error loading pegs:', error));
+		} catch (error) {
+			console.error('Error loading pegs:', error);
+		}
+	})();
 }
 
 /**
@@ -328,29 +301,30 @@ function createRotatingYakumono(blueprint) {
 		render: bladeRender
 	});
 
-	// 作成: 中心と羽根（Compositeに追加）
+	// 作成: 中心と羽根（パーツ群）
 	const parts = [];
-	if (shape.centerRadius > 0) {
+	const centerRadius = Math.max(0, Number(shape.centerRadius) || 0);
+	const numBlades = Math.max(1, Number(shape.numBlades) || 1);
+	const bladeLength = Math.max(1, Number(shape.bladeLength) || 1);
+	const bladeWidth = Math.max(1, Number(shape.bladeWidth) || 1);
+
+	if (centerRadius > 0) {
 		const centerOptions = Object.assign({}, bladeOptions, { render: Object.assign({}, bladeOptions.render || {}, { fillStyle: centerColor }) });
-		parts.push(Matter.Bodies.circle(x, y, shape.centerRadius, centerOptions));
+		parts.push(Matter.Bodies.circle(x, y, centerRadius, centerOptions));
 	}
 
-	const bladeOffset = shape.centerRadius + (shape.bladeLength / 2);
-	for (let i = 0; i < shape.numBlades; i++) {
+	const bladeOffset = centerRadius + (bladeLength / 2);
+	for (let i = 0; i < numBlades; i++) {
 		const angle = (360 / shape.numBlades) * i;
 		const angleRad = angle * Math.PI / 180;
 		const partX = x + bladeOffset * Math.cos(angleRad);
 		const partY = y + bladeOffset * Math.sin(angleRad);
-		const blade = Matter.Bodies.rectangle(partX, partY, shape.bladeLength, shape.bladeWidth, bladeOptions);
+		const blade = Matter.Bodies.rectangle(partX, partY, bladeLength, bladeWidth, bladeOptions);
 		Matter.Body.setAngle(blade, angleRad);
 		parts.push(blade);
 	}
 
-	// Composite を使って作ると拡張しやすい（将来ジョイントなどを追加可能）
-	const composite = Matter.Composite.create();
-	parts.forEach(p => Matter.Composite.add(composite, p));
-
-	// 便宜上、Composite から Body を扱う箇所があるコード互換のために複合Bodyを返す
+	// 複合Bodyを返す（既存コード互換）
 	const compound = Matter.Body.create({ parts, isStatic: true });
 	return compound;
 }
