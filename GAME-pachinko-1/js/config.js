@@ -121,7 +121,7 @@ const GAME_CONFIG = {
 		// --- 役物パーツの共通定義 ---
 		yakumono_blade: {
 			label: 'yakumono_blade',
-			material: GAME_MATERIALS.METAL,
+			material: GAME_MATERIALS.PLASTIC,
 			options: {
 				density: 0.2 // ボールと同じ密度
 			}
@@ -198,7 +198,7 @@ GAME_CONFIG.topPlate.mode = 'dome';
 const MATERIAL_INTERACTIONS = {
 	// --- 金属同士の衝突 ---
 	'metal:metal': {
-		restitution: 0.8, // 挙動を安定させつつ、よく弾むように調整
+		restitution: 0.7, // 挙動を安定させつつ、よく弾むように調整
 		friction: 0.2     // 表面が滑らかなので摩擦は比較的小さい
 	},
 
