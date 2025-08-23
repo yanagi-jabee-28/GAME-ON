@@ -44,49 +44,42 @@ document.addEventListener('DOMContentLoaded', () => {
 	addBoundsToWorld(currentBounds, world);
 	loadPegs('pegs-presets/pegs3.json', world);
 
-	// --- 5. 回転役物の生成（複数対応） ---
-	// windmillConfig の設定を元に、配置座標を複数用意して複数の回転役物を生成します。
+	// --- 5. 回転役物の生成（JSONプリセット駆動） ---
 	const windmillConfig = GAME_CONFIG.objects.windmill;
-
-	// ここで複数配置したい座標を列挙します。必要に応じて座標を編集してください。
-	// 各要素はオプションで `rps` (rotations per second) と `direction` (1 または -1) を含められます。
-	// 例: { x: 135, y: 430, rps: 0.5, direction: -1 }
-	// rotatorPositions: you can provide per-gear overrides here.
-	// Supported per-gear fields (human-friendly keys):
-	// - bladeColor: '#rrggbb'                -> blade (rotor) color
-	// - centerColor: '#rrggbb'               -> center circle color
-	// - shape: { numBlades, bladeLength, bladeWidth, centerRadius } -> shape overrides
-	const rotatorPositions = [
-		{ x: 138, y: 314, rps: 1, direction: -1, shape: { numBlades: 5, bladeLength: 25 } },
-		{ x: 313, y: 314, rps: 1, direction: 1, shape: { numBlades: 5, bladeLength: 25 } },
-		{ x: 332, y: 465, rps: 2, direction: -1, shape: { numBlades: 6, bladeLength: 22 } },
-		{ x: 121, y: 465, rps: 2, direction: 1, shape: { numBlades: 6, bladeLength: 22 } }
-	];
-
-	// rotators 配列に { body, anglePerFrame } を保持して、afterUpdate で個別に回転させます。
-	// anglePerFrame は各役物の rps と direction を元に計算します。
-	// use shared offsets helper from objects.js
 	const { xOffset: globalXOffset, yOffset: globalYOffset } = (typeof getOffsets === 'function') ? getOffsets() : { xOffset: 0, yOffset: 0 };
-	const rotators = rotatorPositions.map(pos => {
-		const defaults = windmillConfig.defaults || {};
-		const bladeColor = pos.bladeColor ?? pos.render?.fillStyle ?? windmillConfig.bladeColor ?? windmillConfig.render?.fillStyle;
-		const centerColor = pos.centerColor ?? pos.centerFill ?? windmillConfig.centerColor ?? windmillConfig.centerFill;
-		const blueprint = {
-			x: pos.x + globalXOffset,
-			y: pos.y + globalYOffset,
-			render: pos.render || {},
-			bladeColor,
-			centerColor,
-			shape: Object.assign({ type: 'windmill' }, defaults, pos.shape || {})
-		};
 
-		const body = createRotatingYakumono(blueprint);
-		World.add(world, body);
+	async function loadObjectsPreset(url) {
+		const res = await fetch(url);
+		if (!res.ok) throw new Error(`Failed to load objects preset: ${res.status} ${res.statusText}`);
+		return res.json();
+	}
 
-		const rps = Number(pos.rps ?? windmillConfig.rotationsPerSecond);
-		const anglePerSecond = rps * 2 * Math.PI * (pos.direction === -1 ? -1 : 1);
-		return { body, anglePerSecond };
-	});
+	// rotators 配列に { body, anglePerSecond } を保持し、afterUpdate で回す
+	let rotators = [];
+	loadObjectsPreset('objects-presets/default.json')
+		.then(preset => {
+			const items = Array.isArray(preset.rotators) ? preset.rotators : [];
+			rotators = items.map(item => {
+				if (item.type !== 'windmill') return null;
+				const defaults = windmillConfig.defaults || {};
+				const bladeColor = item.bladeColor ?? item.render?.fillStyle ?? windmillConfig.bladeColor ?? windmillConfig.render?.fillStyle;
+				const centerColor = item.centerColor ?? item.centerFill ?? windmillConfig.centerColor ?? windmillConfig.centerFill;
+				const blueprint = {
+					x: (item.x || 0) + globalXOffset,
+					y: (item.y || 0) + globalYOffset,
+					render: item.render || {},
+					bladeColor,
+					centerColor,
+					shape: Object.assign({ type: 'windmill' }, defaults, item.shape || {})
+				};
+				const body = createRotatingYakumono(blueprint);
+				World.add(world, body);
+				const rps = Number(item.rps ?? windmillConfig.rotationsPerSecond);
+				const anglePerSecond = rps * 2 * Math.PI * (item.direction === -1 ? -1 : 1);
+				return { body, anglePerSecond };
+			}).filter(Boolean);
+		})
+		.catch(err => console.error('Failed to init rotators from preset:', err));
 
 	// フレーム更新ごとのイベント — 各役物の anglePerFrame を使って回転させる
 	Events.on(engine, 'afterUpdate', () => {

@@ -197,12 +197,10 @@ function addBoundsToWorld(bounds, world) {
  */
 function loadPegs(presetUrl, world) {
 	const pegConfig = GAME_CONFIG.objects.peg;
-	const pegOptions = {
-		...pegConfig.options,
-		label: pegConfig.label,
-		material: pegConfig.material,
-		render: { ...pegConfig.render }
-	};
+
+	// ヘルパー: 安全な数値化
+	const num = (v, d = 0) => (typeof v === 'number' && isFinite(v)) ? v : d;
+	const getColor = (obj) => obj?.color || obj?.render?.fillStyle;
 
 	fetch(presetUrl)
 		.then(response => {
@@ -211,10 +209,87 @@ function loadPegs(presetUrl, world) {
 			}
 			return response.json();
 		})
-		.then(pegs => {
+		.then(data => {
 			const { xOffset, yOffset } = getOffsets();
-			const pegObjects = pegs.map(peg => Matter.Bodies.circle(peg.x + xOffset, peg.y + yOffset, pegConfig.radius, pegOptions));
-			Matter.World.add(world, pegObjects);
+
+			// 後方互換: 旧形式（配列） [{x,y}, ...]
+			if (Array.isArray(data)) {
+				const baseOptions = {
+					...pegConfig.options,
+					label: pegConfig.label,
+					material: pegConfig.material,
+					render: { ...pegConfig.render }
+				};
+				const pegObjects = data.map(peg =>
+					Matter.Bodies.circle(
+						num(peg.x) + xOffset,
+						num(peg.y) + yOffset,
+						pegConfig.radius,
+						baseOptions
+					)
+				);
+				Matter.World.add(world, pegObjects);
+				return;
+			}
+
+			// 新形式
+			const global = data?.defaults || {};
+			const groups = Array.isArray(data?.groups) ? data.groups : [];
+
+			const globalOffsetX = num(global?.offset?.x ?? global?.dx, 0);
+			const globalOffsetY = num(global?.offset?.y ?? global?.dy, 0);
+			const globalRadius = num(global?.radius, pegConfig.radius);
+			const globalColor = getColor(global) || pegConfig.render?.fillStyle;
+
+			const bodies = [];
+			groups.forEach(group => {
+				const gOffX = num(group?.offset?.x ?? group?.dx, 0);
+				const gOffY = num(group?.offset?.y ?? group?.dy, 0);
+				const gRadius = num(group?.radius, globalRadius);
+				const gColor = getColor(group) || globalColor;
+
+				const points = Array.isArray(group?.points) ? group.points
+					: (Array.isArray(group?.pegs) ? group.pegs : []);
+
+				points.forEach(pt => {
+					const px = num(pt.x) + gOffX + globalOffsetX + xOffset;
+					const py = num(pt.y) + gOffY + globalOffsetY + yOffset;
+					const radius = num(pt.radius, gRadius);
+					const color = getColor(pt) || gColor;
+					const options = {
+						...pegConfig.options,
+						label: pegConfig.label,
+						material: pegConfig.material,
+						render: Object.assign({}, pegConfig.render || {}, color ? { fillStyle: color } : {})
+					};
+					bodies.push(Matter.Bodies.circle(px, py, radius, options));
+				});
+			});
+
+			// groups が空で、かつ data.points/pegs が直下にある場合にも対応
+			if (!bodies.length) {
+				const points = Array.isArray(data?.points) ? data.points
+					: (Array.isArray(data?.pegs) ? data.pegs : []);
+				points.forEach(pt => {
+					const px = num(pt.x) + globalOffsetX + xOffset;
+					const py = num(pt.y) + globalOffsetY + yOffset;
+					const radius = num(pt.radius, globalRadius);
+					const color = getColor(pt) || globalColor;
+					const options = {
+						...pegConfig.options,
+						label: pegConfig.label,
+						material: pegConfig.material,
+						render: Object.assign({}, pegConfig.render || {}, color ? { fillStyle: color } : {})
+					};
+					bodies.push(Matter.Bodies.circle(px, py, radius, options));
+				});
+			}
+
+			if (bodies.length) {
+				Matter.World.add(world, bodies);
+			} else {
+				console.warn('No pegs found in preset:', presetUrl);
+			}
 		})
 		.catch(error => console.error('Error loading pegs:', error));
 }
