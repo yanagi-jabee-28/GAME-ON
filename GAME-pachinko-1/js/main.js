@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		try {
 			const res = await fetch('objects-presets/default.json');
 			if (!res.ok) throw new Error(`Failed to load objects preset: ${res.status} ${res.statusText}`);
-	    const preset = await res.json();
+			const preset = await res.json();
 			const items = Array.isArray(preset.rotators) ? preset.rotators : [];
 			rotators = items.map(item => {
 				if (item.type !== 'windmill') return null;
@@ -76,8 +76,8 @@ document.addEventListener('DOMContentLoaded', () => {
 					render: item.render || {},
 					bladeColor,
 					centerColor,
-		    material: item.material,           // JSONで指定があれば上書き
-		    centerMaterial: item.centerMaterial, // 中心だけ異材質を許可
+					material: item.material,           // JSONで指定があれば上書き
+					centerMaterial: item.centerMaterial, // 中心だけ異材質を許可
 					shape: Object.assign({ type: 'windmill' }, defaults, item.shape || {})
 				};
 				const body = createRotatingYakumono(blueprint);
