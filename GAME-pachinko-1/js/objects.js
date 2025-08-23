@@ -28,14 +28,13 @@ function createBall(x, y, options = {}) {
 			label: ballConfig.label,
 			material: ballConfig.material,
 			render: Object.assign({}, ballConfig.render || {}, { fillStyle: fill }),
-			...options // 個別のインスタンスでさらに上書き可能
+			...options
 		}
 	);
 }
 
-// helper: compute layout offsets once for reuse  
+// helper: compute layout offsets once for reuse
 function getOffsets() {
-	// 新しい設定構造に対応しつつ、後方互換性を保持
 	const width = GAME_CONFIG.dimensions?.width || GAME_CONFIG.width || 0;
 	const height = GAME_CONFIG.dimensions?.height || GAME_CONFIG.height || 0;
 	const baseWidth = GAME_CONFIG.dimensions?.baseWidth || GAME_CONFIG.baseWidth || width;
@@ -47,115 +46,161 @@ function getOffsets() {
 }
 
 /**
- * ゲームエリアの境界（壁と床）を作成し、ワールドに追加します。
- * @param {Matter.World} world - オブジェクトを追加するMatter.jsのワールド
+ * ゲームエリアの境界（壁と床）を作成します。
+ * @returns {Matter.Body[]} bounds
  */
 function createBounds() {
-	// 設定から寸法を取得（後方互換性を保持）
 	const width = GAME_CONFIG.dimensions?.width || GAME_CONFIG.width || 650;
 	const height = GAME_CONFIG.dimensions?.height || GAME_CONFIG.height || 900;
 	const wallConfig = GAME_CONFIG.objects.wall;
 	const floorConfig = GAME_CONFIG.objects.floor;
 
-	// Matter.jsでは、オプションオブジェクトは都度新しいものを作成することが推奨されます
 	const wallOptions = { ...wallConfig.options, render: { ...wallConfig.render } };
 	const floorOptions = { ...floorConfig.options, label: floorConfig.label, render: { ...floorConfig.render } };
 
 	const bounds = [];
 
-	// 上壁：通常は長方形1枚だが、configで円弧天板を有効化している場合は
-	// 頂点配列から“単一の多角形”を生成して隙間をゼロにします
+	// 上壁の生成
 	if (GAME_CONFIG.topPlate && GAME_CONFIG.topPlate.enabled) {
 		const tp = GAME_CONFIG.topPlate;
 		const cx = width / 2 + (tp.centerOffsetX || 0);
-		// 角度分割数（多いほどスムーズ）
-		const segs = Math.max(12, tp.segments || 24);
+		// 極端な分割数は負荷と数値誤差の原因になるため上限を設ける
+		const segs = Math.min(64, Math.max(12, tp.segments || 24));
 		const thickness = Math.max(2, tp.thickness || 20);
 		const radius = tp.radius;
 
-		// 無効な半径の場合はフラットな上壁にフォールバック
+		const hasDecomp = (typeof window !== 'undefined' && typeof window.decomp !== 'undefined');
+		// poly-decomp の quickDecomp が複雑形状（環状セクタ）で暴走するため、
+		// 天板に関しては常にクアッド分割で安全に生成する。
+		const useSinglePolygon = false;
+
+		// 無効な半径は矩形にフォールバック
 		if (!isFinite(radius) || radius <= thickness) {
 			const topY = thickness / 2;
 			bounds.push(Matter.Bodies.rectangle(width / 2, topY, width, thickness, wallOptions));
 		} else if (tp.mode === 'dome') {
-			// 半円ドーム: 角度は π から 2π
+			// 半円: π..2π の環状セクタ
 			const rOuter = radius;
 			const rInner = Math.max(1, radius - thickness);
-			// ドームの中心Y（既存ロジックを継承）
 			const marginTop = 8;
-			const topApexY = thickness / 2 + marginTop;
+			const topApexY = thickness / 2 + marginTop; // ドームの最上点の視覚オフセット
 			const centerY = (tp.centerOffsetY || 0) + topApexY + radius;
 
-			// 連結クアッド帯で作成
-			const parts = [];
-			for (let i = 0; i < segs; i++) {
-				const a0 = Math.PI + (i / segs) * Math.PI;
-				const a1 = Math.PI + ((i + 1) / segs) * Math.PI;
-				const p0 = { x: cx + rOuter * Math.cos(a0), y: centerY + rOuter * Math.sin(a0) };
-				const p1 = { x: cx + rOuter * Math.cos(a1), y: centerY + rOuter * Math.sin(a1) };
-				const p2 = { x: cx + rInner * Math.cos(a1), y: centerY + rInner * Math.sin(a1) };
-				const p3 = { x: cx + rInner * Math.cos(a0), y: centerY + rInner * Math.sin(a0) };
-				const cxq = (p0.x + p1.x + p2.x + p3.x) / 4;
-				const cyq = (p0.y + p1.y + p2.y + p3.y) / 4;
-				const verts = [[
-					{ x: p0.x - cxq, y: p0.y - cyq },
-					{ x: p1.x - cxq, y: p1.y - cyq },
-					{ x: p2.x - cxq, y: p2.y - cyq },
-					{ x: p3.x - cxq, y: p3.y - cyq }
-				]];
-				const quad = Matter.Bodies.fromVertices(cxq, cyq, verts, { ...wallOptions, isStatic: true }, false);
-				parts.push(quad);
-			}
-			const body = Matter.Body.create({ parts, isStatic: true, label: wallConfig.label || 'wall' });
-			body.render = Object.assign({ visible: true }, wallOptions.render || {});
-			bounds.push(body);
-		} else {
-			// 幅に合わせた円弧
-			const halfChordOverRadius = (width / 2) / radius;
-			if (!isFinite(radius) || halfChordOverRadius >= 1) {
-				const topY = thickness / 2;
-				bounds.push(Matter.Bodies.rectangle(width / 2, topY, width, thickness, wallOptions));
+			const start = Math.PI, end = 2 * Math.PI;
+			if (hasDecomp && useSinglePolygon) {
+				// アンカーを (cx, centerY) に固定し、局所頂点を渡す（重複端点は排除）
+				const localVerts = [];
+				for (let i = 0; i <= segs; i++) {
+					const a = start + (i / segs) * (end - start);
+					localVerts.push({ x: rOuter * Math.cos(a), y: rOuter * Math.sin(a) });
+				}
+				for (let i = segs - 1; i >= 1; i--) { // 端点の二重追加を避ける
+					const a = start + (i / segs) * (end - start);
+					localVerts.push({ x: rInner * Math.cos(a), y: rInner * Math.sin(a) });
+				}
+				const plateOptions = { ...wallOptions, isStatic: true, slop: 0.02 };
+				// removeCollinear を小さくして分解時の誤差を抑える
+				const poly = Matter.Bodies.fromVertices(cx, centerY, [localVerts], plateOptions, true, 0.0001);
+				poly.label = wallConfig.label || 'wall';
+				poly.render = Object.assign({ visible: true }, wallOptions.render || {});
+				bounds.push(poly);
 			} else {
-				const totalAngle = 2 * Math.asin(Math.min(0.999, halfChordOverRadius));
-				const startAngle = -totalAngle / 2;
-				const endAngle = totalAngle / 2;
-				const rOuter = radius;
-				const rInner = Math.max(1, radius - thickness);
-				// 既存ロジックの中心Y（弧を上部に配置）
-				const margin = 8;
-				const centerY = (tp.centerOffsetY || 0) + (radius - thickness / 2 - margin);
-
-				// 連結クアッド帯で作成
+				// フォールバック: 連結クアッド（極小オーバーラップ）
 				const parts = [];
+				const delta = (end - start) / segs;
+				const eps = Math.max(delta * 0.003, 0.0015); // オーバーラップ角度（より小さく）
+				const plateOptions = { ...wallOptions, isStatic: true, slop: 0.02 };
 				for (let i = 0; i < segs; i++) {
-					const a0 = startAngle + (i / segs) * (endAngle - startAngle);
-					const a1 = startAngle + ((i + 1) / segs) * (endAngle - startAngle);
+					let a0 = start + i * delta - eps;
+					let a1 = start + (i + 1) * delta + eps;
+					if (i === 0) a0 = start;
+					if (i === segs - 1) a1 = end;
 					const p0 = { x: cx + rOuter * Math.cos(a0), y: centerY + rOuter * Math.sin(a0) };
 					const p1 = { x: cx + rOuter * Math.cos(a1), y: centerY + rOuter * Math.sin(a1) };
 					const p2 = { x: cx + rInner * Math.cos(a1), y: centerY + rInner * Math.sin(a1) };
 					const p3 = { x: cx + rInner * Math.cos(a0), y: centerY + rInner * Math.sin(a0) };
 					const cxq = (p0.x + p1.x + p2.x + p3.x) / 4;
 					const cyq = (p0.y + p1.y + p2.y + p3.y) / 4;
-					const verts = [[
+					const qverts = [[
 						{ x: p0.x - cxq, y: p0.y - cyq },
 						{ x: p1.x - cxq, y: p1.y - cyq },
 						{ x: p2.x - cxq, y: p2.y - cyq },
 						{ x: p3.x - cxq, y: p3.y - cyq }
 					]];
-					const quad = Matter.Bodies.fromVertices(cxq, cyq, verts, { ...wallOptions, isStatic: true }, false);
-					parts.push(quad);
+					parts.push(Matter.Bodies.fromVertices(cxq, cyq, qverts, plateOptions, false));
 				}
 				const body = Matter.Body.create({ parts, isStatic: true, label: wallConfig.label || 'wall' });
 				body.render = Object.assign({ visible: true }, wallOptions.render || {});
 				bounds.push(body);
 			}
+		} else {
+			// 画面幅に合わせた円弧（弦長 = width）
+			const halfChordOverRadius = (width / 2) / radius;
+			if (!isFinite(radius) || halfChordOverRadius >= 1) {
+				const topY = thickness / 2;
+				bounds.push(Matter.Bodies.rectangle(width / 2, topY, width, thickness, wallOptions));
+			} else {
+				const totalAngle = 2 * Math.asin(Math.min(0.999, halfChordOverRadius));
+				const start = -totalAngle / 2;
+				const end = totalAngle / 2;
+				const rOuter = radius;
+				const rInner = Math.max(1, radius - thickness);
+				const margin = 8;
+				const centerY = (tp.centerOffsetY || 0) + (radius - thickness / 2 - margin);
+
+				if (hasDecomp && useSinglePolygon) {
+					// アンカーを (cx, centerY) に固定し、局所頂点で渡す（端点重複は避ける）
+					const localVerts = [];
+					for (let i = 0; i <= segs; i++) {
+						const a = start + (i / segs) * (end - start);
+						localVerts.push({ x: rOuter * Math.cos(a), y: rOuter * Math.sin(a) });
+					}
+					for (let i = segs - 1; i >= 1; i--) {
+						const a = start + (i / segs) * (end - start);
+						localVerts.push({ x: rInner * Math.cos(a), y: rInner * Math.sin(a) });
+					}
+					const plateOptions = { ...wallOptions, isStatic: true, slop: 0.04 };
+					const poly = Matter.Bodies.fromVertices(cx, centerY, [localVerts], plateOptions, true, 0.0001);
+					poly.label = wallConfig.label || 'wall';
+					poly.render = Object.assign({ visible: true }, wallOptions.render || {});
+					bounds.push(poly);
+				} else {
+					// フォールバック: 連結クアッド
+					const parts = [];
+					const delta = (end - start) / segs;
+					const eps = Math.max(delta * 0.003, 0.0015);
+					const plateOptions = { ...wallOptions, isStatic: true, slop: 0.01 };
+					for (let i = 0; i < segs; i++) {
+						let a0 = start + i * delta - eps;
+						let a1 = start + (i + 1) * delta + eps;
+						if (i === 0) a0 = start;
+						if (i === segs - 1) a1 = end;
+						const p0 = { x: cx + rOuter * Math.cos(a0), y: centerY + rOuter * Math.sin(a0) };
+						const p1 = { x: cx + rOuter * Math.cos(a1), y: centerY + rOuter * Math.sin(a1) };
+						const p2 = { x: cx + rInner * Math.cos(a1), y: centerY + rInner * Math.sin(a1) };
+						const p3 = { x: cx + rInner * Math.cos(a0), y: centerY + rInner * Math.sin(a0) };
+						const cxq = (p0.x + p1.x + p2.x + p3.x) / 4;
+						const cyq = (p0.y + p1.y + p2.y + p3.y) / 4;
+						const qverts = [[
+							{ x: p0.x - cxq, y: p0.y - cyq },
+							{ x: p1.x - cxq, y: p1.y - cyq },
+							{ x: p2.x - cxq, y: p2.y - cyq },
+							{ x: p3.x - cxq, y: p3.y - cyq }
+						]];
+						parts.push(Matter.Bodies.fromVertices(cxq, cyq, qverts, plateOptions, false));
+					}
+					const body = Matter.Body.create({ parts, isStatic: true, label: wallConfig.label || 'wall' });
+					body.render = Object.assign({ visible: true }, wallOptions.render || {});
+					bounds.push(body);
+				}
+			}
 		}
 	} else {
-		// 上壁（従来の単一矩形）
+		// 従来の単一矩形
 		bounds.push(Matter.Bodies.rectangle(width / 2, -10, width, 20, wallOptions));
 	}
 
-	// 床と左右の壁は従来どおり
+	// 床と左右の壁
 	bounds.push(Matter.Bodies.rectangle(width / 2, height + 10, width, 20, floorOptions));
 	bounds.push(Matter.Bodies.rectangle(-10, height / 2, 20, height, wallOptions));
 	bounds.push(Matter.Bodies.rectangle(width + 10, height / 2, 20, height, wallOptions));
@@ -177,7 +222,6 @@ function addBoundsToWorld(bounds, world) {
 function loadPegs(presetUrl, world) {
 	const pegConfig = GAME_CONFIG.objects.peg;
 
-	// ヘルパー: 安全な数値化
 	const num = (v, d = 0) => (typeof v === 'number' && isFinite(v)) ? v : d;
 	const getColor = (obj) => obj?.color || obj?.render?.fillStyle;
 
@@ -188,7 +232,7 @@ function loadPegs(presetUrl, world) {
 			const data = await response.json();
 			const { xOffset, yOffset } = getOffsets();
 
-			// 後方互換: 旧形式（配列） [{x,y}, ...]
+			// 旧形式（配列） [{x,y}, ...]
 			if (Array.isArray(data)) {
 				const baseOptions = {
 					...pegConfig.options,
@@ -243,7 +287,6 @@ function loadPegs(presetUrl, world) {
 				});
 			});
 
-			// groups が空で、かつ data.points/pegs が直下にある場合にも対応
 			if (!bodies.length) {
 				const points = Array.isArray(data?.points) ? data.points
 					: (Array.isArray(data?.pegs) ? data.pegs : []);
@@ -277,31 +320,22 @@ function createRotatingYakumono(blueprint) {
 	const defaults = windDef.defaults || {};
 	const commonBodyOptions = GAME_CONFIG.objects.yakumono_blade || {};
 
-	// blueprint の shape を defaults で補完
 	const shape = Object.assign({}, defaults, blueprint.shape || {});
 	const x = blueprint.x, y = blueprint.y;
 
 	if (shape.type !== 'windmill') return null;
 
-	// 描画オプション
-	// Accept human-facing config keys (bladeColor / centerColor) and map them
-	// to renderer-specific properties (fillStyle). Keep backward compatibility
-	// with existing `render`/`centerFill` keys.
 	const bladeRender = Object.assign({}, windDef.render || {}, blueprint.render || {});
-	// blueprint may specify bladeColor (human friendly). If present, map to fillStyle.
 	if (blueprint.bladeColor) bladeRender.fillStyle = blueprint.bladeColor;
 
-	// center color: prefer human-friendly `centerColor`, fall back to legacy keys
 	const centerColor = blueprint.centerColor || blueprint.centerFill || windDef.centerColor || windDef.centerFill || '#333';
 
-	// 羽根用オプション
 	const bladeOptions = Object.assign({}, commonBodyOptions.options || {}, {
 		label: commonBodyOptions.label,
 		material: commonBodyOptions.material,
 		render: bladeRender
 	});
 
-	// 作成: 中心と羽根（パーツ群）
 	const parts = [];
 	const centerRadius = Math.max(0, Number(shape.centerRadius) || 0);
 	const numBlades = Math.max(1, Number(shape.numBlades) || 1);
@@ -324,7 +358,6 @@ function createRotatingYakumono(blueprint) {
 		parts.push(blade);
 	}
 
-	// 複合Bodyを返す（既存コード互換）
 	const compound = Matter.Body.create({ parts, isStatic: true });
 	return compound;
 }

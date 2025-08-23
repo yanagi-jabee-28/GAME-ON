@@ -10,10 +10,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// --- 1. エンジンの初期化 ---
 	const engine = Engine.create();
-	// Increase solver iterations to reduce tunneling through thin/segmented walls
+	// 過度な反復は負荷源になるため、適正値に調整（トンネリング耐性と負荷のバランス）
 	engine.positionIterations = 10; // default ~6
 	engine.velocityIterations = 8;  // default ~4
-	engine.constraintIterations = 4; // default ~2
+	engine.constraintIterations = 6; // default ~2
+	// すり抜け緩和のためスロップをやや小さめに
+	engine.timing.timeScale = 1;
+	engine.world.gravity.y = engine.world.gravity.y; // no-op for clarity
+	// Matter v0.19+ では pair/constraint 単位の slop が使われるが、Engine の default slop も尊重
+	engine.enableSleeping = false;
 	const world = engine.world;
 
 	// --- 2. レンダラーの作成 (簡潔に) ---
@@ -32,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	const render = Render.create({ element: container, engine, options: { width, height, pixelRatio: 1, ...renderOptions } });
 
-	// --- 3. 物理演算と描画の開始 ---
+	// --- 3. 物理演算と描画の開始（標準の Runner を使用） ---
 	Render.run(render);
 	const runner = Runner.create();
 	Runner.run(runner, engine);
