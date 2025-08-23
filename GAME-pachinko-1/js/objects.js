@@ -4,6 +4,37 @@
  * 「オブジェクトの工場」のような役割を担います。
  */
 
+// --- 共通ユーティリティ: 材料・ラベル・描画の適用を一元化 ---
+function getObjectDef(key) {
+	return (GAME_CONFIG && GAME_CONFIG.objects && GAME_CONFIG.objects[key]) || {};
+}
+
+function makeBodyOptions(key, overrides = {}) {
+	const def = getObjectDef(key);
+	const baseOpts = Object.assign({}, def.options || {});
+	const baseRender = Object.assign({}, def.render || {});
+	const merged = Object.assign({}, baseOpts, { label: def.label, material: def.material, render: baseRender }, overrides);
+	if (overrides && overrides.render) {
+		merged.render = Object.assign({}, baseRender, overrides.render);
+	}
+	return merged;
+}
+
+function tagBodyWithDef(body, defOrKey) {
+	const def = typeof defOrKey === 'string' ? getObjectDef(defOrKey) : (defOrKey || {});
+	if (!body) return body;
+	if (def.label) body.label = def.label;
+	if (def.material) body.material = def.material;
+	if (Array.isArray(body.parts)) {
+		for (const p of body.parts) {
+			if (p === body) continue;
+			if (def.label) p.label = def.label;
+			if (def.material) p.material = def.material;
+		}
+	}
+	return body;
+}
+
 /**
  * 新しいボールを作成します。
  * @param {number} x - 生成するx座標
@@ -12,25 +43,14 @@
  * @returns {Matter.Body} Matter.jsのボールボディ
  */
 function createBall(x, y, options = {}) {
-	const ballConfig = GAME_CONFIG.objects.ball;
-	// decide fill color: priority -> options.render.fillStyle -> random (if enabled) -> config.render.fillStyle -> fallback
+	const ballConfig = getObjectDef('ball');
 	const optionFill = options && options.render && options.render.fillStyle;
 	const useRandom = (typeof ballConfig.randomColor === 'undefined') ? true : Boolean(ballConfig.randomColor);
 	const generatedColor = `hsl(${Math.random() * 360}, 90%, 60%)`;
 	const fill = optionFill || (useRandom ? generatedColor : (ballConfig.render && ballConfig.render.fillStyle) || '#ccc');
-
-	return Matter.Bodies.circle(
-		x,
-		y,
-		ballConfig.radius,
-		{
-			...ballConfig.options,
-			label: ballConfig.label,
-			material: ballConfig.material,
-			render: Object.assign({}, ballConfig.render || {}, { fillStyle: fill }),
-			...options
-		}
-	);
+	const opt = makeBodyOptions('ball', { render: { fillStyle: fill } });
+	const body = Matter.Bodies.circle(x, y, ballConfig.radius, Object.assign({}, opt, options));
+	return tagBodyWithDef(body, 'ball');
 }
 
 // helper: compute layout offsets once for reuse
@@ -52,12 +72,12 @@ function getOffsets() {
 function createBounds() {
 	const width = GAME_CONFIG.dimensions?.width || GAME_CONFIG.width || 650;
 	const height = GAME_CONFIG.dimensions?.height || GAME_CONFIG.height || 900;
-	const wallConfig = GAME_CONFIG.objects.wall;
-	const floorConfig = GAME_CONFIG.objects.floor;
+	const wallConfig = getObjectDef('wall');
+	const floorConfig = getObjectDef('floor');
 
-	const wallOptions = { ...wallConfig.options, render: { ...wallConfig.render } };
+	const wallOptions = makeBodyOptions('wall');
 	const tpBodyCfg = (GAME_CONFIG.objects && GAME_CONFIG.objects.topPlateBody) || { label: 'top-plate', material: (GAME_MATERIALS && GAME_MATERIALS.TOP_PLATE) || 'top_plate' };
-	const floorOptions = { ...floorConfig.options, label: floorConfig.label, render: { ...floorConfig.render } };
+	const floorOptions = makeBodyOptions('floor');
 
 	const bounds = [];
 
@@ -233,7 +253,7 @@ function addBoundsToWorld(bounds, world) {
  * @param {Matter.World} world - オブジェクトを追加するMatter.jsのワールド
  */
 function loadPegs(presetUrl, world) {
-	const pegConfig = GAME_CONFIG.objects.peg;
+	const pegConfig = getObjectDef('peg');
 
 	const num = (v, d = 0) => (typeof v === 'number' && isFinite(v)) ? v : d;
 	const getColor = (obj) => obj?.color || obj?.render?.fillStyle;
@@ -247,12 +267,7 @@ function loadPegs(presetUrl, world) {
 
 			// 旧形式（配列） [{x,y}, ...]
 			if (Array.isArray(data)) {
-				const baseOptions = {
-					...pegConfig.options,
-					label: pegConfig.label,
-					material: pegConfig.material,
-					render: { ...pegConfig.render }
-				};
+				const baseOptions = makeBodyOptions('peg');
 				const pegObjects = data.map(peg =>
 					Matter.Bodies.circle(
 						num(peg.x) + xOffset,
@@ -274,12 +289,7 @@ function loadPegs(presetUrl, world) {
 			const globalRadius = num(global?.radius, pegConfig.radius);
 			const globalColor = getColor(global) || pegConfig.render?.fillStyle;
 
-			const makeOptions = (color) => ({
-				...pegConfig.options,
-				label: pegConfig.label,
-				material: pegConfig.material,
-				render: Object.assign({}, pegConfig.render || {}, color ? { fillStyle: color } : {})
-			});
+			const makeOptions = (color) => makeBodyOptions('peg', color ? { render: { fillStyle: color } } : {});
 
 			const bodies = [];
 			groups.forEach(group => {
@@ -329,9 +339,9 @@ function loadPegs(presetUrl, world) {
  * @returns {Matter.Body} 生成された役物の複合ボディ
  */
 function createRotatingYakumono(blueprint) {
-	const windDef = GAME_CONFIG.objects.windmill || {};
+	const windDef = getObjectDef('windmill') || {};
 	const defaults = windDef.defaults || {};
-	const commonBodyOptions = GAME_CONFIG.objects.yakumono_blade || {};
+	const commonBodyOptions = getObjectDef('yakumono_blade') || {};
 
 	const shape = Object.assign({}, defaults, blueprint.shape || {});
 	const x = blueprint.x, y = blueprint.y;
@@ -343,11 +353,7 @@ function createRotatingYakumono(blueprint) {
 
 	const centerColor = blueprint.centerColor || blueprint.centerFill || windDef.centerColor || windDef.centerFill || '#333';
 
-	const bladeOptions = Object.assign({}, commonBodyOptions.options || {}, {
-		label: commonBodyOptions.label,
-		material: commonBodyOptions.material,
-		render: bladeRender
-	});
+	const bladeOptions = makeBodyOptions('yakumono_blade', { render: bladeRender });
 
 	const parts = [];
 	const centerRadius = Math.max(0, Number(shape.centerRadius) || 0);
@@ -356,7 +362,7 @@ function createRotatingYakumono(blueprint) {
 	const bladeWidth = Math.max(1, Number(shape.bladeWidth) || 1);
 
 	if (centerRadius > 0) {
-		const centerOptions = Object.assign({}, bladeOptions, { render: Object.assign({}, bladeOptions.render || {}, { fillStyle: centerColor }) });
+		const centerOptions = makeBodyOptions('yakumono_blade', { render: Object.assign({}, bladeOptions.render || {}, { fillStyle: centerColor }) });
 		parts.push(Matter.Bodies.circle(x, y, centerRadius, centerOptions));
 	}
 
