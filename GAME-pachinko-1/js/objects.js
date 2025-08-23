@@ -35,6 +35,21 @@ function tagBodyWithDef(body, defOrKey) {
 	return body;
 }
 
+// JSON由来の材質文字列を正規化（'METAL2' or 'metal2' → GAME_MATERIALSの値、見つからなければそのまま）
+function normalizeMaterialId(m) {
+	if (typeof m !== 'string') return undefined;
+	const s = m.trim();
+	if (!s) return undefined;
+	const lut = (typeof GAME_MATERIALS !== 'undefined' && GAME_MATERIALS) ? GAME_MATERIALS : {};
+	const lower = s.toLowerCase();
+	for (const [k, v] of Object.entries(lut)) {
+		if (String(k).toLowerCase() === lower) return v;
+		if (String(v).toLowerCase() === lower) return v;
+	}
+	// 未登録の材質名も許容（相互作用未定義なら default にフォールバック）
+	return s;
+}
+
 /**
  * 新しいボールを作成します。
  * @param {number} x - 生成するx座標
@@ -267,15 +282,17 @@ function loadPegs(presetUrl, world) {
 
 			// 旧形式（配列） [{x,y}, ...]
 			if (Array.isArray(data)) {
-				const baseOptions = makeBodyOptions('peg');
-				const pegObjects = data.map(peg =>
-					Matter.Bodies.circle(
+				const pegObjects = data.map(peg => {
+					const color = getColor(peg);
+					const mat = normalizeMaterialId(peg?.material) || pegConfig.material;
+					const opts = makeBodyOptions('peg', Object.assign({}, color ? { render: { fillStyle: color } } : {}, mat ? { material: mat } : {}));
+					return Matter.Bodies.circle(
 						num(peg.x) + xOffset,
 						num(peg.y) + yOffset,
 						pegConfig.radius,
-						baseOptions
-					)
-				);
+						opts
+					);
+				});
 				Matter.World.add(world, pegObjects);
 				return;
 			}
@@ -288,8 +305,9 @@ function loadPegs(presetUrl, world) {
 			const globalOffsetY = num(global?.offset?.y ?? global?.dy, 0);
 			const globalRadius = num(global?.radius, pegConfig.radius);
 			const globalColor = getColor(global) || pegConfig.render?.fillStyle;
+			const globalMaterial = normalizeMaterialId(global?.material) || pegConfig.material;
 
-			const makeOptions = (color) => makeBodyOptions('peg', color ? { render: { fillStyle: color } } : {});
+			const makeOptions = (material, color) => makeBodyOptions('peg', Object.assign({}, material ? { material } : {}, color ? { render: { fillStyle: color } } : {}));
 
 			const bodies = [];
 			groups.forEach(group => {
@@ -297,6 +315,7 @@ function loadPegs(presetUrl, world) {
 				const gOffY = num(group?.offset?.y ?? group?.dy, 0);
 				const gRadius = num(group?.radius, globalRadius);
 				const gColor = getColor(group) || globalColor;
+				const gMaterial = normalizeMaterialId(group?.material) || globalMaterial;
 
 				const points = Array.isArray(group?.points) ? group.points
 					: (Array.isArray(group?.pegs) ? group.pegs : []);
@@ -306,7 +325,8 @@ function loadPegs(presetUrl, world) {
 					const py = num(pt.y) + gOffY + globalOffsetY + yOffset;
 					const radius = num(pt.radius, gRadius);
 					const color = getColor(pt) || gColor;
-					bodies.push(Matter.Bodies.circle(px, py, radius, makeOptions(color)));
+					const mat = normalizeMaterialId(pt?.material) || gMaterial;
+					bodies.push(Matter.Bodies.circle(px, py, radius, makeOptions(mat, color)));
 				});
 			});
 
@@ -318,7 +338,8 @@ function loadPegs(presetUrl, world) {
 					const py = num(pt.y) + globalOffsetY + yOffset;
 					const radius = num(pt.radius, globalRadius);
 					const color = getColor(pt) || globalColor;
-					bodies.push(Matter.Bodies.circle(px, py, radius, makeOptions(color)));
+					const mat = normalizeMaterialId(pt?.material) || globalMaterial;
+					bodies.push(Matter.Bodies.circle(px, py, radius, makeOptions(mat, color)));
 				});
 			}
 
@@ -352,8 +373,10 @@ function createRotatingYakumono(blueprint) {
 	if (blueprint.bladeColor) bladeRender.fillStyle = blueprint.bladeColor;
 
 	const centerColor = blueprint.centerColor || blueprint.centerFill || windDef.centerColor || windDef.centerFill || '#333';
+	const bladeMaterial = normalizeMaterialId(blueprint.material) || commonBodyOptions.material;
+	const centerMaterial = normalizeMaterialId(blueprint.centerMaterial) || bladeMaterial;
 
-	const bladeOptions = makeBodyOptions('yakumono_blade', { render: bladeRender });
+	const bladeOptions = makeBodyOptions('yakumono_blade', { render: bladeRender, material: bladeMaterial });
 
 	const parts = [];
 	const centerRadius = Math.max(0, Number(shape.centerRadius) || 0);
@@ -362,7 +385,7 @@ function createRotatingYakumono(blueprint) {
 	const bladeWidth = Math.max(1, Number(shape.bladeWidth) || 1);
 
 	if (centerRadius > 0) {
-		const centerOptions = makeBodyOptions('yakumono_blade', { render: Object.assign({}, bladeOptions.render || {}, { fillStyle: centerColor }) });
+		const centerOptions = makeBodyOptions('yakumono_blade', { material: centerMaterial, render: Object.assign({}, bladeOptions.render || {}, { fillStyle: centerColor }) });
 		parts.push(Matter.Bodies.circle(x, y, centerRadius, centerOptions));
 	}
 
