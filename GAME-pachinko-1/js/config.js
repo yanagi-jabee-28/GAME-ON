@@ -204,8 +204,8 @@ const MATERIAL_INTERACTIONS = {
 
 	// --- 金属と天板の衝突 ---
 	'metal:top_plate': {
-		restitution: 1.0,
-		friction: 0.0
+		restitution: 0.99,
+		friction: 0.1
 	},
 
 	// --- プラスチック同士の衝突 ---
