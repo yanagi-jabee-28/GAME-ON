@@ -9,6 +9,7 @@
 const GAME_MATERIALS = {
 	METAL: 'metal',
 	PLASTIC: 'plastic',
+	TOP_PLATE: 'top_plate',
 };
 
 /**
@@ -106,6 +107,17 @@ const GAME_CONFIG = {
 				fillStyle: '#333'
 			}
 		},
+		// --- 天板（物理用ボディ設定） ---
+		topPlateBody: {
+			label: 'top-plate',
+			material: GAME_MATERIALS.TOP_PLATE,
+			options: {
+				isStatic: true,
+			},
+			render: {
+				fillStyle: '#333'
+			}
+		},
 		// --- 役物パーツの共通定義 ---
 		yakumono_blade: {
 			label: 'yakumono_blade',
@@ -188,6 +200,12 @@ const MATERIAL_INTERACTIONS = {
 	'metal:metal': {
 		restitution: 0.8, // 挙動を安定させつつ、よく弾むように調整
 		friction: 0.2     // 表面が滑らかなので摩擦は比較的小さい
+	},
+
+	// --- 金属と天板の衝突 ---
+	'metal:top_plate': {
+		restitution: 1.0,
+		friction: 0.0
 	},
 
 	// --- プラスチック同士の衝突 ---

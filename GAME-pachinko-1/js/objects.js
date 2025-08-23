@@ -56,6 +56,7 @@ function createBounds() {
 	const floorConfig = GAME_CONFIG.objects.floor;
 
 	const wallOptions = { ...wallConfig.options, render: { ...wallConfig.render } };
+	const tpBodyCfg = (GAME_CONFIG.objects && GAME_CONFIG.objects.topPlateBody) || { label: 'top-plate', material: (GAME_MATERIALS && GAME_MATERIALS.TOP_PLATE) || 'top_plate' };
 	const floorOptions = { ...floorConfig.options, label: floorConfig.label, render: { ...floorConfig.render } };
 
 	const bounds = [];
@@ -77,7 +78,9 @@ function createBounds() {
 		// 無効な半径は矩形にフォールバック
 		if (!isFinite(radius) || radius <= thickness) {
 			const topY = thickness / 2;
-			bounds.push(Matter.Bodies.rectangle(width / 2, topY, width, thickness, wallOptions));
+			const rect = Matter.Bodies.rectangle(width / 2, topY, width, thickness, { ...wallOptions, isStatic: true, label: tpBodyCfg.label });
+			rect.material = tpBodyCfg.material;
+			bounds.push(rect);
 		} else if (tp.mode === 'dome') {
 			// 半円: π..2π の環状セクタ
 			const rOuter = radius;
@@ -127,9 +130,13 @@ function createBounds() {
 						{ x: p2.x - cxq, y: p2.y - cyq },
 						{ x: p3.x - cxq, y: p3.y - cyq }
 					]];
-					parts.push(Matter.Bodies.fromVertices(cxq, cyq, qverts, plateOptions, false));
+					const part = Matter.Bodies.fromVertices(cxq, cyq, qverts, plateOptions, false);
+					part.label = tpBodyCfg.label;
+					part.material = tpBodyCfg.material;
+					parts.push(part);
 				}
-				const body = Matter.Body.create({ parts, isStatic: true, label: wallConfig.label || 'wall' });
+				const body = Matter.Body.create({ parts, isStatic: true, label: tpBodyCfg.label });
+				body.material = tpBodyCfg.material;
 				body.render = Object.assign({ visible: true }, wallOptions.render || {});
 				bounds.push(body);
 			}
@@ -138,7 +145,9 @@ function createBounds() {
 			const halfChordOverRadius = (width / 2) / radius;
 			if (!isFinite(radius) || halfChordOverRadius >= 1) {
 				const topY = thickness / 2;
-				bounds.push(Matter.Bodies.rectangle(width / 2, topY, width, thickness, wallOptions));
+				const rect = Matter.Bodies.rectangle(width / 2, topY, width, thickness, { ...wallOptions, isStatic: true, label: tpBodyCfg.label });
+				rect.material = tpBodyCfg.material;
+				bounds.push(rect);
 			} else {
 				const totalAngle = 2 * Math.asin(Math.min(0.999, halfChordOverRadius));
 				const start = -totalAngle / 2;
@@ -169,7 +178,7 @@ function createBounds() {
 					const parts = [];
 					const delta = (end - start) / segs;
 					const eps = Math.max(delta * 0.003, 0.0015);
-					const plateOptions = { ...wallOptions, isStatic: true, slop: 0.01 };
+					const plateOptions = { ...wallOptions, isStatic: true, slop: 0.02 };
 					for (let i = 0; i < segs; i++) {
 						let a0 = start + i * delta - eps;
 						let a1 = start + (i + 1) * delta + eps;
@@ -187,9 +196,13 @@ function createBounds() {
 							{ x: p2.x - cxq, y: p2.y - cyq },
 							{ x: p3.x - cxq, y: p3.y - cyq }
 						]];
-						parts.push(Matter.Bodies.fromVertices(cxq, cyq, qverts, plateOptions, false));
+						const part = Matter.Bodies.fromVertices(cxq, cyq, qverts, plateOptions, false);
+						part.label = tpBodyCfg.label;
+						part.material = tpBodyCfg.material;
+						parts.push(part);
 					}
-					const body = Matter.Body.create({ parts, isStatic: true, label: wallConfig.label || 'wall' });
+					const body = Matter.Body.create({ parts, isStatic: true, label: tpBodyCfg.label });
+					body.material = tpBodyCfg.material;
 					body.render = Object.assign({ visible: true }, wallOptions.render || {});
 					bounds.push(body);
 				}
