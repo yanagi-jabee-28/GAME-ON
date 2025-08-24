@@ -254,8 +254,9 @@ function createBounds() {
 
 	// 床と左右の壁
 	bounds.push(Matter.Bodies.rectangle(width / 2, height + 10, width, 20, floorOptions));
-	bounds.push(Matter.Bodies.rectangle(-10, height / 2, 20, height, wallOptions));
-	bounds.push(Matter.Bodies.rectangle(width + 10, height / 2, 20, height, wallOptions));
+	// 厚みを増やすが、内側の境界位置は従来どおりに保つ（外側へ厚く）
+	bounds.push(Matter.Bodies.rectangle(-20, height / 2, 40, height, wallOptions));
+	bounds.push(Matter.Bodies.rectangle(width + 20, height / 2, 40, height, wallOptions));
 	return bounds;
 }
 

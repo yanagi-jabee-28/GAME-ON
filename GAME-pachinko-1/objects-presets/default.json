@@ -65,7 +65,7 @@
 		{
 			"label": "guide-center-bottom",
 			"x": -10,
-			"y": 100,
+			"y": 90,
 			"width": 20,
 			"height": 1000,
 			"anchor": "topleft",
