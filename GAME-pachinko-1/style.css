@@ -67,3 +67,53 @@ button {
 }
 
 /* no pseudo indicator */
+
+/* --- Prevent slider layout shift when number of digits changes --- */
+/* Use tabular/monospace numerals and fixed-width slots for value readouts */
+#angle-val,
+#speed-val,
+#tp-radius-val,
+#tp-thickness-val,
+#tp-seg-val,
+#tp-offx-val,
+#tp-offy-val,
+#speed-actual {
+    font-variant-numeric: tabular-nums;
+    /* enable if supported */
+    font-feature-settings: "tnum";
+    /* fallback for some browsers */
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+#angle-val {
+    display: inline-block;
+    width: 4ch;
+    /* e.g., 90.0 */
+    text-align: right;
+}
+
+#speed-val {
+    display: inline-block;
+    width: 5ch;
+    /* e.g., 100.0 */
+    text-align: right;
+}
+
+#tp-radius-val,
+#tp-thickness-val,
+#tp-seg-val,
+#tp-offx-val,
+#tp-offy-val {
+    display: inline-block;
+    width: 6ch;
+    /* allow sign and up to 4 digits */
+    text-align: right;
+}
+
+#speed-actual {
+    display: inline-block;
+    min-width: 12ch;
+    /* reserve space for px/s text */
+    text-align: left;
+    opacity: 0.85;
+}

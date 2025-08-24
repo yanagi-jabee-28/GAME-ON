@@ -135,12 +135,12 @@ GAME_CONFIG.launch = {
 	// 0.6 にして、スライダーの値がより力強い初速になるよう調整しました。
 	speedScale: 0.6,
 	// スライダーと一致させたい最小/最大（ここで maxSpeed を下げて上限を制御します）
-	minSpeed: 40,
-	maxSpeed: 70,
+	minSpeed: 50,
+	maxSpeed: 60,
 	// angle control: min/max degrees and default
 	angleMin: 0,
 	angleMax: 180,
-	defaultAngle: 90
+	defaultAngle: 120
 	,
 	// 長押しで一定間隔発射するモード
 	holdToFireEnabled: true,      // false にすると従来方式のみ
@@ -208,8 +208,8 @@ const MATERIAL_INTERACTIONS = {
 
 	// --- 金属と天板の衝突 ---
 	'metal:top_plate': {
-		restitution: 0.00001,
-		friction: 0.02
+		restitution: 0,
+		friction: 0
 	},
 
 	// --- プラスチック同士の衝突 ---

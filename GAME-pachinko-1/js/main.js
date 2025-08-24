@@ -92,14 +92,29 @@ document.addEventListener('DOMContentLoaded', () => {
 	})();
 
 	// フレーム更新ごとのイベント — 各役物の anglePerFrame を使って回転させる
+	// 連射タイマー（物理ループと同期）
+	let holdActive = false;
+	let holdAccumMs = 0;
+	let holdIntervalMsCfg = Number((GAME_CONFIG.launch && GAME_CONFIG.launch.holdIntervalMs) || 300);
+
 	Events.on(engine, 'afterUpdate', () => {
-		// engine.timing.delta is ms elapsed for the last tick; fall back to 16.666ms
-		const deltaMs = (engine && engine.timing && engine.timing.delta) ? engine.timing.delta : 16.6667;
+		// engine.timing.delta is ms elapsed for the last tick; fall back to ~16.67ms
+		const deltaMsRaw = (engine && engine.timing && engine.timing.delta) ? engine.timing.delta : 16.6667;
+		const deltaMs = Math.min(deltaMsRaw, 32); // 休止復帰時のバースト抑制
 		const deltaSec = deltaMs / 1000;
 		rotators.forEach(rotator => {
 			const angle = (rotator.anglePerSecond || 0) * deltaSec;
 			if (angle) Body.rotate(rotator.body, angle);
 		});
+		// 物理ループ同期の連射
+		if (holdActive) {
+			holdAccumMs += deltaMs;
+			const interval = Math.max(50, holdIntervalMsCfg);
+			if (holdAccumMs >= interval) {
+				holdAccumMs = 0; // 1発/フレーム上限（バースト防止）
+				spawnBallFromUI();
+			}
+		}
 	});
 
 	// --- 6. イベントリスナーの設定 ---
@@ -138,10 +153,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	function updateLaunchPadPosition() {
 		const p = computeSpawnCoords();
 		const padCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
-		// パッド実寸を取得
-		const cs = window.getComputedStyle(launchPad);
-		const padW = parseFloat(cs.width) || (padCfg.width || 64);
-		const padH = parseFloat(cs.height) || (padCfg.height || 14);
+		// パッド実寸は基本的に config 値を使用（reflow回避）。未設定なら最後にcomputedを参照
+		let padW = Number(padCfg.width || 64);
+		let padH = Number(padCfg.height || 14);
+		if (!(padW > 0 && padH > 0)) {
+			const cs = window.getComputedStyle(launchPad);
+			padW = parseFloat(cs.width) || padW;
+			padH = parseFloat(cs.height) || padH;
+		}
 		// 近端中心を原点にする（長辺方向に沿って伸びる想定）
 		const longIsWidth = padW >= padH;
 		const originX = longIsWidth ? 0 : (padW / 2);
@@ -189,6 +208,10 @@ document.addEventListener('DOMContentLoaded', () => {
 		angleSlider.min = GAME_CONFIG.launch.angleMin;
 		angleSlider.max = GAME_CONFIG.launch.angleMax;
 		angleSlider.value = GAME_CONFIG.launch.defaultAngle;
+		// speed slider: 0..100 を 0.1% 刻みに
+		speedSlider.min = 0;
+		speedSlider.max = 100;
+		speedSlider.step = 0.1;
 	}
 
 	// initialize topPlate UI from config
@@ -212,6 +235,26 @@ document.addEventListener('DOMContentLoaded', () => {
 	const launchArrow = document.getElementById('launch-arrow');
 	const speedActual = document.createElement('span');
 	speedActual.id = 'speed-actual';
+	// スピードスライダー初期値は 0 に固定
+	speedSlider.value = 0;
+
+	// 連射モード用の視認性・操作性向上スタイルを注入
+	function injectHoldUiStyles() {
+		if (document.getElementById('hold-fire-style')) return;
+		const style = document.createElement('style');
+		style.id = 'hold-fire-style';
+		style.textContent = `
+			#speed-slider.hold-ui{ width:80%; max-width:360px; height:40px; margin:10px 0; }
+			#speed-slider.hold-ui::-webkit-slider-runnable-track{ height:14px; border-radius:10px; background:linear-gradient(90deg,#6c6c6c,#3a3a3a); }
+			#speed-slider.hold-ui::-webkit-slider-thumb{ -webkit-appearance:none; width:26px; height:26px; margin-top:-6px; border-radius:50%; background:#ff9800; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.4); }
+			#speed-slider.hold-ui.active::-webkit-slider-thumb{ background:#ffc107; transform:scale(1.08); }
+			#speed-slider.hold-ui::-moz-range-track{ height:14px; border-radius:10px; background:linear-gradient(90deg,#6c6c6c,#3a3a3a); }
+			#speed-slider.hold-ui::-moz-range-thumb{ width:26px; height:26px; border-radius:50%; background:#ff9800; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.4); }
+			#speed-slider.hold-ui.active::-moz-range-thumb{ background:#ffc107; }
+			#speed-val.hold-ui{ font-size:1.2em; font-weight:600; margin-left:6px; }
+		`;
+		document.head.appendChild(style);
+	}
 	// attach after speedVal for visibility (we'll update textContent each frame)
 	function updateArrow() {
 		const launchArrow = document.getElementById('launch-arrow');
@@ -224,7 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		const speed = min + (sliderValue / 100) * (max - min);
 		speedActual.textContent = ` (${Math.round(speed)} px/s)`;
 		angleVal.textContent = angle.toFixed(1);
-		speedVal.textContent = sliderValue;
+		speedVal.textContent = sliderValue.toFixed(1);
 		// position arrow near bottom-left of container (use container-relative coords)
 		const rect = container.getBoundingClientRect();
 		launchArrow.style.left = '24px';
@@ -325,24 +368,26 @@ document.addEventListener('DOMContentLoaded', () => {
 	(function wireHoldToFire() {
 		const launchCfg = GAME_CONFIG.launch || {};
 		if (!launchCfg.holdToFireEnabled) return;
-		let holdTimer = null;
+		injectHoldUiStyles();
+		speedSlider.classList.add('hold-ui');
+		speedVal.classList.add('hold-ui');
+		holdIntervalMsCfg = Number(launchCfg.holdIntervalMs) || holdIntervalMsCfg;
 		function startHold() {
-			if (holdTimer) return;
-			spawnBallFromUI();
-			holdTimer = setInterval(() => {
-				spawnBallFromUI();
-			}, Math.max(50, Number(launchCfg.holdIntervalMs) || 300));
+			if (holdActive) return;
+			holdActive = true;
+			holdAccumMs = 0;
+			spawnBallFromUI(); // 初回は即時
+			speedSlider.classList.add('active');
 		}
 		function stopHold() {
-			if (holdTimer) {
-				clearInterval(holdTimer);
-				holdTimer = null;
-				// 離したら強さを0へ
-				speedSlider.value = 0;
-				updateArrow();
-			}
+			if (!holdActive) return;
+			holdActive = false;
+			holdAccumMs = 0;
+			// 離したら強さを0へ
+			speedSlider.value = 0;
+			updateArrow();
+			speedSlider.classList.remove('active');
 		}
-		// pointer系で統一。離しはwindowで拾う
 		speedSlider.addEventListener('pointerdown', startHold);
 		window.addEventListener('pointerup', stopHold);
 		window.addEventListener('pointercancel', stopHold);
