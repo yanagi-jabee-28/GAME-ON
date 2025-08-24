@@ -59,6 +59,26 @@
 				"bladeWidth": 5,
 				"centerRadius": 6
 			}
+		},
+		{
+			"type": "windmill",
+			"x": 225,
+			"y": 600,
+			"rotation": {
+				"startDeg": 0,
+				"endDeg": -75,
+				"durationMs": 1000,
+				"loop": true,
+				"yoyo": true
+			},
+			"//bladeColor": "#98FF98",
+			"centerColor": "#333333",
+			"shape": {
+				"numBlades": 1,
+				"bladeLength": 22,
+				"bladeWidth": 5,
+				"centerRadius": 6
+			}
 		}
 	],
 	"polygons": [

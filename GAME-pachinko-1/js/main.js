@@ -87,8 +87,17 @@ document.addEventListener('DOMContentLoaded', () => {
 	const windmillConfig = GAME_CONFIG.objects.windmill;
 	const { xOffset: globalXOffset, yOffset: globalYOffset } = (typeof getOffsets === 'function') ? getOffsets() : { xOffset: 0, yOffset: 0 };
 
-	// rotators 配列に { body, anglePerSecond } を保持し、afterUpdate で回す
+	// rotators 配列に { body, mode, anglePerSecond?, pivot, program? } を保持し、afterUpdate で回す
 	let rotators = [];
+
+	// helper: set compound body to an absolute angle around a pivot
+	function setBodyAngleAroundPivot(body, pivot, targetAngleRad) {
+		const cur = body.angle || 0;
+		let delta = targetAngleRad - cur;
+		// wrap small numerical noise
+		if (Math.abs(delta) < 1e-6) return;
+		Body.rotate(body, delta, pivot);
+	}
 
 	// 回転役物（windmill）をプリセットから初期化
 	function initRotatorsFromPreset(preset) {
@@ -112,9 +121,32 @@ document.addEventListener('DOMContentLoaded', () => {
 			};
 			const body = createRotatingYakumono(blueprint);
 			World.add(world, body);
+			// pivot は常に中心円の中心（設計図の x,y）
+			const pivot = { x: blueprint.x, y: blueprint.y };
+			const zeroAngle = body.angle || 0;
+			// 回転制御モードの設定を解釈（item.rotation または item.rotate）
+			const rotCfg = item.rotation || item.rotate;
+			if (rotCfg && (Number.isFinite(rotCfg.durationMs || rotCfg.duration))) {
+				const startDeg = Number(rotCfg.startDeg ?? rotCfg.fromDeg ?? rotCfg.startAngleDeg ?? rotCfg.from) || 0;
+				const endDeg = Number(rotCfg.endDeg ?? rotCfg.toDeg ?? rotCfg.endAngleDeg ?? rotCfg.to);
+				const hasEnd = Number.isFinite(endDeg);
+				const durationMs = Number(rotCfg.durationMs ?? rotCfg.duration) || 1000;
+				const loop = rotCfg.loop !== false; // 既定: ループする
+				const yoyo = rotCfg.yoyo === true;  // 既定: しない
+				const offsetMs = Number(rotCfg.offsetMs || 0) % durationMs;
+				if (hasEnd) {
+					const startRad = startDeg * Math.PI / 180;
+					const endRad = endDeg * Math.PI / 180;
+					const program = { startRad, endRad, durationMs, loop, yoyo, elapsedMs: offsetMs };
+					// 初期角へ設定
+					setBodyAngleAroundPivot(body, pivot, zeroAngle + startRad);
+					return { body, mode: 'program', program, pivot, zeroAngle };
+				}
+			}
+			// 既定: 従来の等速回転
 			const rps = Number(item.rps ?? windmillConfig.rotationsPerSecond);
 			const anglePerSecond = rps * 2 * Math.PI * (item.direction === -1 ? -1 : 1);
-			return { body, anglePerSecond };
+			return { body, mode: 'constant', anglePerSecond, pivot, zeroAngle };
 		}).filter(Boolean);
 	}
 
@@ -231,9 +263,32 @@ document.addEventListener('DOMContentLoaded', () => {
 		const deltaMsRaw = (engine && engine.timing && engine.timing.delta) ? engine.timing.delta : 16.6667;
 		const deltaMs = Math.min(deltaMsRaw, 32); // 休止復帰時のバースト抑制
 		const deltaSec = deltaMs / 1000;
-		rotators.forEach(rotator => {
-			const angle = (rotator.anglePerSecond || 0) * deltaSec;
-			if (angle) Body.rotate(rotator.body, angle);
+		rotators.forEach(rot => {
+			if (rot.mode === 'program' && rot.program) {
+				const p = rot.program;
+				if (!p.loop && p.elapsedMs >= p.durationMs) {
+					// 非ループ: 終端で固定
+					setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + p.endRad);
+					return;
+				}
+				p.elapsedMs += deltaMs;
+				let t = p.elapsedMs / p.durationMs;
+				if (p.loop) t = t % 1;
+				else t = Math.min(1, t);
+				if (p.yoyo) {
+					// 0->1->0 の往復
+					const cycle = t * 2;
+					const dir = cycle <= 1 ? cycle : (2 - cycle);
+					const angle = p.startRad + (p.endRad - p.startRad) * dir;
+					setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + angle);
+				} else {
+					const angle = p.startRad + (p.endRad - p.startRad) * t;
+					setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + angle);
+				}
+			} else {
+				const angle = (rot.anglePerSecond || 0) * deltaSec;
+				if (angle) Body.rotate(rot.body, angle, rot.pivot);
+			}
 		});
 		// 物理ループ同期の連射（初回ディレイ対応）
 		if (holdActive) {

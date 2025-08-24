@@ -200,7 +200,7 @@ GAME_CONFIG.launch = {
 	,
 	// 長押しで一定間隔発射するモード
 	holdToFireEnabled: true,      // false にすると従来方式のみ
-	holdIntervalMs: 600,          // 連射間隔（ミリ秒）
+	holdIntervalMs: 800,          // 連射間隔（ミリ秒）
 	// 連射モード開始から最初の発射までの遅延（ミリ秒）
 	holdFirstShotDelayMs: 100
 };
