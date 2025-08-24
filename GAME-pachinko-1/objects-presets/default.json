@@ -5,7 +5,7 @@
 			"x": 138,
 			"y": 314,
 			"rps": 1,
-			"direction": -1,
+			"direction": 1,
 			"//bladeColor": "#FFFF00",
 			"centerColor": "#333333",
 			"shape": {
@@ -20,7 +20,7 @@
 			"x": 313,
 			"y": 314,
 			"rps": 1,
-			"direction": 1,
+			"direction": -1,
 			"//bladeColor": "#FF0000",
 			"centerColor": "#333333",
 			"shape": {
@@ -35,7 +35,7 @@
 			"x": 313,
 			"y": 465,
 			"rps": 1.2,
-			"direction": -1,
+			"direction": 1,
 			"//bladeColor": "#FFA500",
 			"centerColor": "#333333",
 			"shape": {
@@ -50,7 +50,7 @@
 			"x": 138,
 			"y": 465,
 			"rps": 1.2,
-			"direction": 1,
+			"direction": -1,
 			"//bladeColor": "#98FF98",
 			"centerColor": "#333333",
 			"shape": {
