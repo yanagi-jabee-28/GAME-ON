@@ -53,41 +53,77 @@ document.addEventListener('DOMContentLoaded', () => {
 	addBoundsToWorld(currentBounds, world);
 	loadPegs('pegs-presets/pegs3.json', world);
 
-	// --- 5. 回転役物の生成（JSONプリセット駆動） ---
+	// --- 5. プリセットの読み込みと適用（オブジェクト全般・拡張可能） ---
 	const windmillConfig = GAME_CONFIG.objects.windmill;
 	const { xOffset: globalXOffset, yOffset: globalYOffset } = (typeof getOffsets === 'function') ? getOffsets() : { xOffset: 0, yOffset: 0 };
 
 	// rotators 配列に { body, anglePerSecond } を保持し、afterUpdate で回す
 	let rotators = [];
+
+	// 回転役物（windmill）をプリセットから初期化
+	function initRotatorsFromPreset(preset) {
+		const items = Array.isArray(preset.rotators) ? preset.rotators : [];
+		return items.map(item => {
+			if (item.type !== 'windmill') return null;
+			const defaults = windmillConfig.defaults || {};
+			const bladeColor = item.bladeColor ?? item.render?.fillStyle ?? windmillConfig.bladeColor ?? windmillConfig.render?.fillStyle;
+			const centerColor = item.centerColor ?? item.centerFill ?? windmillConfig.centerColor ?? windmillConfig.centerFill;
+			const blueprint = {
+				x: (item.x || 0) + globalXOffset,
+				y: (item.y || 0) + globalYOffset,
+				render: item.render || {},
+				bladeColor,
+				centerColor,
+				material: item.material,
+				centerMaterial: item.centerMaterial,
+				shape: Object.assign({ type: 'windmill' }, defaults, item.shape || {})
+			};
+			const body = createRotatingYakumono(blueprint);
+			World.add(world, body);
+			const rps = Number(item.rps ?? windmillConfig.rotationsPerSecond);
+			const anglePerSecond = rps * 2 * Math.PI * (item.direction === -1 ? -1 : 1);
+			return { body, anglePerSecond };
+		}).filter(Boolean);
+	}
+
+	// 任意長方形（rectangles）をプリセットから初期化
+	function initRectanglesFromPreset(preset) {
+		const rects = Array.isArray(preset.rectangles) ? preset.rectangles : [];
+		if (!rects.length) return;
+		const bodies = rects.map(r => createRectangle(Object.assign({}, r, {
+			x: (r.x || 0) + globalXOffset,
+			y: (r.y || 0) + globalYOffset
+		}))).filter(Boolean);
+		if (bodies.length) World.add(world, bodies);
+	}
+	// プリセット適用ハンドラ（拡張しやすい登録方式）
+	function applyPresetWindmills(preset) {
+		rotators = initRotatorsFromPreset(preset);
+	}
+	function applyPresetRectangles(preset) {
+		initRectanglesFromPreset(preset);
+	}
+	const presetApplicators = [
+		applyPresetWindmills,
+		applyPresetRectangles,
+	];
+	function applyPresetObjects(preset) {
+		for (const fn of presetApplicators) {
+			try { fn(preset); } catch (e) {
+				console.warn('Preset applicator failed:', fn && fn.name ? fn.name : '(anonymous)', e);
+			}
+		}
+	}
+
 	(async () => {
 		try {
 			const res = await fetch('objects-presets/default.json');
 			if (!res.ok) throw new Error(`Failed to load objects preset: ${res.status} ${res.statusText}`);
 			const preset = await res.json();
-			const items = Array.isArray(preset.rotators) ? preset.rotators : [];
-			rotators = items.map(item => {
-				if (item.type !== 'windmill') return null;
-				const defaults = windmillConfig.defaults || {};
-				const bladeColor = item.bladeColor ?? item.render?.fillStyle ?? windmillConfig.bladeColor ?? windmillConfig.render?.fillStyle;
-				const centerColor = item.centerColor ?? item.centerFill ?? windmillConfig.centerColor ?? windmillConfig.centerFill;
-				const blueprint = {
-					x: (item.x || 0) + globalXOffset,
-					y: (item.y || 0) + globalYOffset,
-					render: item.render || {},
-					bladeColor,
-					centerColor,
-					material: item.material,           // JSONで指定があれば上書き
-					centerMaterial: item.centerMaterial, // 中心だけ異材質を許可
-					shape: Object.assign({ type: 'windmill' }, defaults, item.shape || {})
-				};
-				const body = createRotatingYakumono(blueprint);
-				World.add(world, body);
-				const rps = Number(item.rps ?? windmillConfig.rotationsPerSecond);
-				const anglePerSecond = rps * 2 * Math.PI * (item.direction === -1 ? -1 : 1);
-				return { body, anglePerSecond };
-			}).filter(Boolean);
+			// 登録された適用ハンドラを順に実行（種類追加に強い）
+			applyPresetObjects(preset);
 		} catch (err) {
-			console.error('Failed to init rotators from preset:', err);
+			console.error('Failed to init objects from preset:', err);
 		}
 	})();
 

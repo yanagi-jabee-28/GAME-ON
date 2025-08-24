@@ -263,6 +263,29 @@ function addBoundsToWorld(bounds, world) {
 }
 
 /**
+ * 任意の長方形ボディを生成します。
+ * @param {object} spec - { x, y, width, height, angleDeg?, isStatic?, material?, color?, label? }
+ * @returns {Matter.Body}
+ */
+function createRectangle(spec = {}) {
+	const x = Number(spec.x) || 0;
+	const y = Number(spec.y) || 0;
+	const w = Math.max(1, Number(spec.width) || 1);
+	const h = Math.max(1, Number(spec.height) || 1);
+	const angleDeg = Number(spec.angleDeg || spec.angle || 0);
+	const angleRad = angleDeg * Math.PI / 180;
+	const mat = normalizeMaterialId(spec.material) || getObjectDef('rect').material;
+	const label = spec.label || getObjectDef('rect').label;
+	const color = (spec.color || spec.fill || spec.fillStyle || getObjectDef('rect').render?.fillStyle);
+	const opts = makeBodyOptions('rect', Object.assign({}, mat ? { material: mat } : {}, label ? { label } : {}, color ? { render: { fillStyle: color } } : {},
+		(typeof spec.isStatic === 'boolean') ? { isStatic: spec.isStatic } : {}));
+
+	const body = Matter.Bodies.rectangle(x, y, w, h, opts);
+	if (angleRad) Matter.Body.setAngle(body, angleRad);
+	return body;
+}
+
+/**
  * 指定されたプリセットファイルから釘のデータを読み込み、ワールドに配置します。
  * @param {string} presetUrl - 釘の座標が定義されたJSONファイルのURL
  * @param {Matter.World} world - オブジェクトを追加するMatter.jsのワールド

@@ -125,6 +125,17 @@ const GAME_CONFIG = {
 			options: {
 				density: 0.2 // ボールと同じ密度
 			}
+		},
+		// --- 任意長方形（ユーザーが追加する矩形） ---
+		rect: {
+			label: 'rect',
+			material: GAME_MATERIALS.METAL,
+			options: {
+				isStatic: true
+			},
+			render: {
+				fillStyle: '#666'
+			}
 		}
 	}
 };
