@@ -19,15 +19,6 @@ const GAME_MATERIALS = {
  * シンプルで再利用しやすい構造を目指しています。
  */
 const GAME_CONFIG = {
-	// 後方互換性のため従来の設定も保持
-	width: 650,
-	height: 900,
-	baseWidth: 450,
-	baseHeight: 675,
-	renderOptions: {
-		wireframes: false,
-		background: '#ffffff'
-	},
 
 	// 基本的なゲーム領域設定
 	dimensions: {
@@ -40,7 +31,13 @@ const GAME_CONFIG = {
 	// 描画設定
 	render: {
 		wireframes: false,
-		background: '#ffffff'
+		background: '#FAF7E8'  // 明るい背景色に変更
+	},
+
+	// UI/ページ全体に関する見た目設定
+	ui: {
+		// ゲーム外（ページの背景色）
+		outerBackground: '#EDE8DB'
 	},
 
 	// ▼▼▼ オブジェクトの定義 ▼▼▼
@@ -58,7 +55,7 @@ const GAME_CONFIG = {
 			// ランダム色が割り当てられます。
 			render: {
 				// デフォルトのボール色（固定色を使いたい場合はこちらを設定）
-				fillStyle: '#000000ff',
+				fillStyle: '#FFB300',
 				// 既存資材はすべてレイヤー1（未指定時も1）
 				layer: 1
 			},
@@ -74,7 +71,7 @@ const GAME_CONFIG = {
 				isStatic: true,
 			},
 			render: {
-				fillStyle: '#555', // 塗りつぶしの色
+				fillStyle: '#B0B0B0', // 塗りつぶしの色
 				layer: 1
 			}
 		},
@@ -82,8 +79,8 @@ const GAME_CONFIG = {
 		windmill: {
 			rotationsPerSecond: 1, // 毎秒の回転数
 			// human-facing color names (not renderer-specific)
-			bladeColor: '#ff0000', // 羽の色（人間が理解するキー）
-			centerColor: '#333',   // 中心円の色（人間が理解するキー）
+			bladeColor: '#1E88E5', // 羽の色（人間が理解するキー）
+			centerColor: '#263238',   // 中心円の色（人間が理解するキー）
 			// 形状のデフォルト値（ここを変えれば全体のデフォルト挙動が変わる）
 			defaults: {
 				centerRadius: 6,
@@ -224,10 +221,10 @@ GAME_CONFIG.launch.pad = {
 	width: 20,          // px
 	height: 50,         // px
 	borderRadius: 8,    // px
-	background: '#444', // single color fallback
+	background: '#2F3B45', // single color fallback
 	borderColor: '#fff',
 	// レイヤー（DOM要素は z-index に反映）。未指定は1。
-	layer: 1,
+	layer: 2,
 	// pad の垂直オフセット量（px）をボールの座標に対して追加で下に移動
 	offsetY: 0
 };
@@ -247,7 +244,9 @@ GAME_CONFIG.topPlate = {
 	thickness: 20,
 	// 天板の中心オフセット（画面中央からの差分、px）。ここで初期値を変更できます。
 	centerOffsetX: 0,
-	centerOffsetY: -15
+	centerOffsetY: -15,
+	// 天板の描画色（指定があれば topPlateBody.render より優先）
+	color: '#2A2F36'
 };
 
 // 表示モード: 'arc'（幅に合わせた弧）または 'dome'（左右対称の半円ドーム）

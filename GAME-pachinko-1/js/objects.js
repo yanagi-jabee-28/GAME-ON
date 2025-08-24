@@ -71,10 +71,10 @@ function createBall(x, y, options = {}) {
 
 // helper: compute layout offsets once for reuse
 function getOffsets() {
-	const width = GAME_CONFIG.dimensions?.width || GAME_CONFIG.width || 0;
-	const height = GAME_CONFIG.dimensions?.height || GAME_CONFIG.height || 0;
-	const baseWidth = GAME_CONFIG.dimensions?.baseWidth || GAME_CONFIG.baseWidth || width;
-	const baseHeight = GAME_CONFIG.dimensions?.baseHeight || GAME_CONFIG.baseHeight || height;
+	const width = GAME_CONFIG.dimensions?.width || 0;
+	const height = GAME_CONFIG.dimensions?.height || 0;
+	const baseWidth = GAME_CONFIG.dimensions?.baseWidth || width;
+	const baseHeight = GAME_CONFIG.dimensions?.baseHeight || height;
 
 	const xOffset = (width - baseWidth) / 2;
 	const yOffset = (height - baseHeight) / 2;
@@ -86,14 +86,21 @@ function getOffsets() {
  * @returns {Matter.Body[]} bounds
  */
 function createBounds() {
-	const width = GAME_CONFIG.dimensions?.width || GAME_CONFIG.width || 650;
-	const height = GAME_CONFIG.dimensions?.height || GAME_CONFIG.height || 900;
+	const width = GAME_CONFIG.dimensions?.width || 650;
+	const height = GAME_CONFIG.dimensions?.height || 900;
 	const wallConfig = getObjectDef('wall');
 	const floorConfig = getObjectDef('floor');
 
 	const wallOptions = makeBodyOptions('wall');
 	const tpBodyCfg = (GAME_CONFIG.objects && GAME_CONFIG.objects.topPlateBody) || { label: 'top-plate', material: (GAME_MATERIALS && GAME_MATERIALS.TOP_PLATE) || 'top_plate' };
-	const topPlateOptions = makeBodyOptions('topPlateBody');
+	let topPlateOptions = makeBodyOptions('topPlateBody');
+	// 天板の色を config から上書き（指定があれば）
+	if (GAME_CONFIG.topPlate && GAME_CONFIG.topPlate.color) {
+		const tpColor = GAME_CONFIG.topPlate.color;
+		topPlateOptions = Object.assign({}, topPlateOptions, {
+			render: Object.assign({}, topPlateOptions.render || {}, { fillStyle: tpColor })
+		});
+	}
 	const floorOptions = makeBodyOptions('floor');
 
 	const bounds = [];

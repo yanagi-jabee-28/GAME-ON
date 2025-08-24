@@ -6,7 +6,7 @@
 			"y": 314,
 			"rps": 1,
 			"direction": -1,
-			"bladeColor": "#ff4d4d",
+			"//bladeColor": "#FFFF00",
 			"centerColor": "#333333",
 			"shape": {
 				"numBlades": 5,
@@ -21,7 +21,7 @@
 			"y": 314,
 			"rps": 1,
 			"direction": 1,
-			"bladeColor": "#4da3ff",
+			"//bladeColor": "#FF0000",
 			"centerColor": "#333333",
 			"shape": {
 				"numBlades": 5,
@@ -36,7 +36,7 @@
 			"y": 465,
 			"rps": 1.2,
 			"direction": -1,
-			"bladeColor": "#ffd24d",
+			"//bladeColor": "#FFA500",
 			"centerColor": "#333333",
 			"shape": {
 				"numBlades": 6,
@@ -51,7 +51,7 @@
 			"y": 465,
 			"rps": 1.2,
 			"direction": 1,
-			"bladeColor": "#7dff4d",
+			"//bladeColor": "#98FF98",
 			"centerColor": "#333333",
 			"shape": {
 				"numBlades": 6,

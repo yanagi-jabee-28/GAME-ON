@@ -23,10 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// --- 2. レンダラーの作成 (簡潔に) ---
 	const cfg = GAME_CONFIG;
-	const dims = cfg.dimensions || cfg;
-	const width = dims.width || cfg.width || 650;
-	const height = dims.height || cfg.height || 900;
-	const renderOptions = cfg.render || cfg.renderOptions || {};
+	const dims = cfg.dimensions;
+	const width = dims.width;
+	const height = dims.height;
+	const renderOptions = cfg.render || {};
 	const container = document.getElementById('game-container');
 	if (!container) {
 		console.error('Game container element (#game-container) not found.');
@@ -38,6 +38,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	if (!container.style.position) container.style.position = 'relative';
 
 	const render = Render.create({ element: container, engine, options: { width, height, pixelRatio: 1, ...renderOptions } });
+
+	// ページ側の背景色（ゲーム外）を設定
+	try {
+		if (GAME_CONFIG.ui && GAME_CONFIG.ui.outerBackground) {
+			document.body.style.backgroundColor = GAME_CONFIG.ui.outerBackground;
+		}
+	} catch (_) { /* no-op */ }
 
 	// レンダリング順序をレイヤーで制御（未指定は1、負値対応、数値大きいほど前面）
 	(function injectLayeredRendering() {
@@ -254,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		const spawnCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.spawn) || {};
 		const { xOffset: sxOff, yOffset: syOff } = (typeof getOffsets === 'function') ? getOffsets() : { xOffset: 0, yOffset: 0 };
 		const startX = (typeof spawnCfg.x === 'number') ? (spawnCfg.x + sxOff) : (40 + sxOff);
-		const startY = (typeof spawnCfg.y === 'number') ? (spawnCfg.y + syOff) : (GAME_CONFIG.height - (spawnCfg.yOffsetFromBottom || 40) + syOff);
+		const startY = (typeof spawnCfg.y === 'number') ? (spawnCfg.y + syOff) : (height - (spawnCfg.yOffsetFromBottom || 40) + syOff);
 		return { x: startX, y: startY };
 	}
 
@@ -345,8 +352,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	if (GAME_CONFIG.topPlate) {
 		tpMode.value = GAME_CONFIG.topPlate.mode || 'dome';
 		tpRadius.min = 50;
-		tpRadius.max = Math.max(1000, GAME_CONFIG.width * 2);
-		tpRadius.value = GAME_CONFIG.topPlate.radius || Math.round(GAME_CONFIG.width * 0.6);
+		tpRadius.max = Math.max(1000, width * 2);
+		tpRadius.value = GAME_CONFIG.topPlate.radius || Math.round(width * 0.6);
 		tpRadiusVal.textContent = tpRadius.value;
 		tpThickness.value = GAME_CONFIG.topPlate.thickness || 20;
 		tpThicknessVal.textContent = tpThickness.value;
