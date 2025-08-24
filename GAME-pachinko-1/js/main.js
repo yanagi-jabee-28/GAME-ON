@@ -483,9 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// angle slider configuration from config.js
 	if (GAME_CONFIG.launch) {
-		angleSlider.min = GAME_CONFIG.launch.angleMin;
-		angleSlider.max = GAME_CONFIG.launch.angleMax;
-		angleSlider.value = GAME_CONFIG.launch.defaultAngle;
+		// angle UI は無い可能性があるため速度のみ設定
 		// speed slider: 0..100 を 0.01 刻みに
 		speedSlider.min = 0;
 		speedSlider.max = 100;
@@ -524,7 +522,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	function updateArrow() {
 		const launchArrow = document.getElementById('launch-arrow');
 		if (!launchArrow) return; // arrow removed via CSS/HTML — no-op
-		const angle = Number(angleSlider.value);
+		const angle = Number(angleSlider?.value ?? GAME_CONFIG.launch?.defaultAngle ?? 90);
 		const sliderValue = Number(speedSlider.value);
 		// map slider 0..100 -> px/s using config min/max and speedScale
 		const { minSpeed = 5, maxSpeed = 400, speedScale = 1 } = GAME_CONFIG.launch || {};
@@ -533,7 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			? Math.max(0, Math.min(3, Number(GAME_CONFIG.launch.speedPrecision)))
 			: 1;
 		speedActual.textContent = ` (${speed.toFixed(decimals)} px/s)`;
-		angleVal.textContent = angle.toFixed(1);
+		if (angleVal) angleVal.textContent = angle.toFixed(1);
 		speedVal.textContent = sliderValue.toFixed(2);
 		// position arrow near bottom-left of container (use container-relative coords)
 		const rect = container.getBoundingClientRect();
@@ -541,7 +539,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		launchArrow.style.top = (rect.height - 80) + 'px';
 		launchArrow.style.transform = `rotate(${-angle}deg)`; // negative because CSS y-axis
 	}
-	angleSlider.addEventListener('input', () => { updateArrow(); updateLaunchPadPosition(); });
+	if (angleSlider) angleSlider.addEventListener('input', () => { updateArrow(); updateLaunchPadPosition(); });
 	speedSlider.addEventListener('input', updateArrow);
 
 	// 天板UIは削除（設定変更ハンドラ無し）
@@ -556,8 +554,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// 天板UIは削除（イベント配線無し）
 	// insert speedActual after speedVal in DOM
-	if (speedVal && speedVal.parentNode) {
-		speedVal.parentNode.insertBefore(speedActual, speedVal.nextSibling);
+	const sliderInfo = document.querySelector('.slider-info');
+	if (sliderInfo) {
+		// 強さラベルの隣に速度表記を配置（中央揃えコンテナ内）
+		const labelInInfo = sliderInfo.querySelector('label');
+		if (labelInInfo) labelInInfo.appendChild(speedActual);
 	}
 	// 初期ラベル表示
 	updateArrow();
@@ -566,7 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	// 共通: 現在のUI値から1発スポーン
 	function spawnBallFromUI() {
 		const start = computeSpawnCoords();
-		const angleDeg = Number(angleSlider.value || GAME_CONFIG.launch?.defaultAngle || 90);
+		const angleDeg = Number((angleSlider && angleSlider.value) || GAME_CONFIG.launch?.defaultAngle || 90);
 		const sliderValue = Number(speedSlider.value || 0);
 		const { minSpeed = 5, maxSpeed = 400, speedScale = 1 } = GAME_CONFIG.launch || {};
 		const baseSpeed = minSpeed + (sliderValue / 100) * (maxSpeed - minSpeed);
@@ -584,8 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	});
 
 	// 従来のボタン発射は維持
-	const addBtn = document.getElementById('add-ball');
-	if (addBtn) addBtn.addEventListener('click', spawnBallFromUI);
+	// 追加ボタンは廃止（連射のみ）
 
 	// スライダー長押し連射モード（設定で有効化時のみ）
 	(function wireHoldToFire() {
