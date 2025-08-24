@@ -58,7 +58,9 @@ const GAME_CONFIG = {
 			// ランダム色が割り当てられます。
 			render: {
 				// デフォルトのボール色（固定色を使いたい場合はこちらを設定）
-				fillStyle: '#000000ff'
+				fillStyle: '#000000ff',
+				// 既存資材はすべてレイヤー1（未指定時も1）
+				layer: 1
 			},
 			// true: 生成時にランダムな色を割り当てる（デフォルト true）
 			randomColor: false
@@ -72,7 +74,8 @@ const GAME_CONFIG = {
 				isStatic: true,
 			},
 			render: {
-				fillStyle: '#555' // 塗りつぶしの色
+				fillStyle: '#555', // 塗りつぶしの色
+				layer: 1
 			}
 		},
 		// --- 風車の定義 ---
@@ -96,7 +99,8 @@ const GAME_CONFIG = {
 				isStatic: true,
 			},
 			render: {
-				fillStyle: '#333'
+				fillStyle: '#333',
+				layer: 1
 			}
 		},
 		// --- 床の定義 ---
@@ -106,7 +110,8 @@ const GAME_CONFIG = {
 				isStatic: true,
 			},
 			render: {
-				fillStyle: '#333'
+				fillStyle: '#333',
+				layer: 1
 			}
 		},
 		// --- 天板（物理用ボディ設定） ---
@@ -117,7 +122,8 @@ const GAME_CONFIG = {
 				isStatic: true,
 			},
 			render: {
-				fillStyle: '#333'
+				fillStyle: '#333',
+				layer: 1
 			}
 		},
 		// --- 役物パーツの共通定義 ---
@@ -126,7 +132,8 @@ const GAME_CONFIG = {
 			material: GAME_MATERIALS.PLASTIC,
 			options: {
 				density: 0.2 // ボールと同じ密度
-			}
+			},
+			render: { layer: 1 }
 		},
 		// --- 任意長方形（ユーザーが追加する矩形） ---
 		rect: {
@@ -136,7 +143,8 @@ const GAME_CONFIG = {
 				isStatic: true
 			},
 			render: {
-				fillStyle: '#66bb6a'
+				fillStyle: '#66bb6a',
+				layer: 1
 			}
 		},
 		// --- 物理的に干渉しない装飾用（描画のみ） ---
@@ -148,7 +156,8 @@ const GAME_CONFIG = {
 				isStatic: true
 			},
 			render: {
-				fillStyle: '#9e9e9e'
+				fillStyle: '#9e9e9e',
+				layer: 1
 			}
 		}
 	}

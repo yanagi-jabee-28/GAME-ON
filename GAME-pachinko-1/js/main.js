@@ -37,6 +37,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	const render = Render.create({ element: container, engine, options: { width, height, pixelRatio: 1, ...renderOptions } });
 
+	// レンダリング順序をレイヤーで制御（未指定は1、負値対応、数値大きいほど前面）
+	(function injectLayeredRendering() {
+		const getLayer = (b) => {
+			const v = b && b.render && typeof b.render.layer === 'number' ? b.render.layer : (b && b.render && b.render.layer != null ? Number(b.render.layer) : 1);
+			return Number.isFinite(v) ? v : 1;
+		};
+		const origBodies = Render.bodies;
+		Render.bodies = function (render, bodies, context) {
+			try {
+				const sorted = Array.isArray(bodies) ? bodies.slice().sort((a, b) => {
+					const la = getLayer(a), lb = getLayer(b);
+					if (la !== lb) return la - lb; // 小さい層を背面に、大きい層を前面に
+					return (a && a.id || 0) - (b && b.id || 0);
+				}) : bodies;
+				return origBodies.call(this, render, sorted, context);
+			} catch (_) {
+				return origBodies.call(this, render, bodies, context);
+			}
+		};
+	})();
+
 	// --- 3. 物理演算と描画の開始（標準の Runner を使用） ---
 	Render.run(render);
 	const runner = Runner.create();
@@ -68,10 +89,12 @@ document.addEventListener('DOMContentLoaded', () => {
 			const defaults = windmillConfig.defaults || {};
 			const bladeColor = item.bladeColor ?? item.render?.fillStyle ?? windmillConfig.bladeColor ?? windmillConfig.render?.fillStyle;
 			const centerColor = item.centerColor ?? item.centerFill ?? windmillConfig.centerColor ?? windmillConfig.centerFill;
+			const render = Object.assign({}, item.render || {});
+			if (item.layer != null && render.layer == null) render.layer = Number(item.layer);
 			const blueprint = {
 				x: (item.x || 0) + globalXOffset,
 				y: (item.y || 0) + globalYOffset,
-				render: item.render || {},
+				render,
 				bladeColor,
 				centerColor,
 				material: item.material,

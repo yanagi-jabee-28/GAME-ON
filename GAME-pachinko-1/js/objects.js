@@ -12,7 +12,7 @@ function getObjectDef(key) {
 function makeBodyOptions(key, overrides = {}) {
 	const def = getObjectDef(key);
 	const baseOpts = Object.assign({}, def.options || {});
-	const baseRender = Object.assign({}, def.render || {});
+	const baseRender = Object.assign({ layer: 1 }, def.render || {});
 	const merged = Object.assign({}, baseOpts, { label: def.label, material: def.material, render: baseRender }, overrides);
 	if (overrides && overrides.render) {
 		merged.render = Object.assign({}, baseRender, overrides.render);
@@ -63,7 +63,8 @@ function createBall(x, y, options = {}) {
 	const useRandom = (typeof ballConfig.randomColor === 'undefined') ? true : Boolean(ballConfig.randomColor);
 	const generatedColor = `hsl(${Math.random() * 360}, 90%, 60%)`;
 	const fill = optionFill || (useRandom ? generatedColor : (ballConfig.render && ballConfig.render.fillStyle) || '#ccc');
-	const opt = makeBodyOptions('ball', { render: { fillStyle: fill } });
+	const layerVal = (options && options.render && options.render.layer) ?? (ballConfig.render && ballConfig.render.layer) ?? 1;
+	const opt = makeBodyOptions('ball', { render: { fillStyle: fill, layer: layerVal } });
 	const body = Matter.Bodies.circle(x, y, ballConfig.radius, Object.assign({}, opt, options));
 	return tagBodyWithDef(body, 'ball');
 }
@@ -92,6 +93,7 @@ function createBounds() {
 
 	const wallOptions = makeBodyOptions('wall');
 	const tpBodyCfg = (GAME_CONFIG.objects && GAME_CONFIG.objects.topPlateBody) || { label: 'top-plate', material: (GAME_MATERIALS && GAME_MATERIALS.TOP_PLATE) || 'top_plate' };
+	const topPlateOptions = makeBodyOptions('topPlateBody');
 	const floorOptions = makeBodyOptions('floor');
 
 	const bounds = [];
@@ -113,7 +115,7 @@ function createBounds() {
 		// 無効な半径は矩形にフォールバック
 		if (!isFinite(radius) || radius <= thickness) {
 			const topY = thickness / 2;
-			const rect = Matter.Bodies.rectangle(width / 2, topY, width, thickness, { ...wallOptions, isStatic: true, label: tpBodyCfg.label });
+			const rect = Matter.Bodies.rectangle(width / 2, topY, width, thickness, { ...topPlateOptions, isStatic: true, label: tpBodyCfg.label });
 			rect.material = tpBodyCfg.material;
 			bounds.push(rect);
 		} else if (tp.mode === 'dome') {
@@ -136,18 +138,19 @@ function createBounds() {
 					const a = start + (i / segs) * (end - start);
 					localVerts.push({ x: rInner * Math.cos(a), y: rInner * Math.sin(a) });
 				}
-				const plateOptions = { ...wallOptions, isStatic: true, slop: 0.02 };
+				const plateOptions = { ...topPlateOptions, isStatic: true, slop: 0.02 };
 				// removeCollinear を小さくして分解時の誤差を抑える
 				const poly = Matter.Bodies.fromVertices(cx, centerY, [localVerts], plateOptions, true, 0.0001);
-				poly.label = wallConfig.label || 'wall';
-				poly.render = Object.assign({ visible: true }, wallOptions.render || {});
+				poly.label = tpBodyCfg.label;
+				poly.material = tpBodyCfg.material;
+				poly.render = Object.assign({ visible: true }, topPlateOptions.render || {});
 				bounds.push(poly);
 			} else {
 				// フォールバック: 連結クアッド（極小オーバーラップ）
 				const parts = [];
 				const delta = (end - start) / segs;
 				const eps = Math.max(delta * 0.003, 0.0015); // オーバーラップ角度（より小さく）
-				const plateOptions = { ...wallOptions, isStatic: true, slop: 0.02 };
+				const plateOptions = { ...topPlateOptions, isStatic: true, slop: 0.02 };
 				for (let i = 0; i < segs; i++) {
 					let a0 = start + i * delta - eps;
 					let a1 = start + (i + 1) * delta + eps;
@@ -172,7 +175,7 @@ function createBounds() {
 				}
 				const body = Matter.Body.create({ parts, isStatic: true, label: tpBodyCfg.label });
 				body.material = tpBodyCfg.material;
-				body.render = Object.assign({ visible: true }, wallOptions.render || {});
+				body.render = Object.assign({ visible: true }, topPlateOptions.render || {});
 				bounds.push(body);
 			}
 		} else {
@@ -180,7 +183,7 @@ function createBounds() {
 			const halfChordOverRadius = (width / 2) / radius;
 			if (!isFinite(radius) || halfChordOverRadius >= 1) {
 				const topY = thickness / 2;
-				const rect = Matter.Bodies.rectangle(width / 2, topY, width, thickness, { ...wallOptions, isStatic: true, label: tpBodyCfg.label });
+				const rect = Matter.Bodies.rectangle(width / 2, topY, width, thickness, { ...topPlateOptions, isStatic: true, label: tpBodyCfg.label });
 				rect.material = tpBodyCfg.material;
 				bounds.push(rect);
 			} else {
@@ -203,17 +206,18 @@ function createBounds() {
 						const a = start + (i / segs) * (end - start);
 						localVerts.push({ x: rInner * Math.cos(a), y: rInner * Math.sin(a) });
 					}
-					const plateOptions = { ...wallOptions, isStatic: true, slop: 0.04 };
+					const plateOptions = { ...topPlateOptions, isStatic: true, slop: 0.04 };
 					const poly = Matter.Bodies.fromVertices(cx, centerY, [localVerts], plateOptions, true, 0.0001);
-					poly.label = wallConfig.label || 'wall';
-					poly.render = Object.assign({ visible: true }, wallOptions.render || {});
+					poly.label = tpBodyCfg.label;
+					poly.material = tpBodyCfg.material;
+					poly.render = Object.assign({ visible: true }, topPlateOptions.render || {});
 					bounds.push(poly);
 				} else {
 					// フォールバック: 連結クアッド
 					const parts = [];
 					const delta = (end - start) / segs;
 					const eps = Math.max(delta * 0.003, 0.0015);
-					const plateOptions = { ...wallOptions, isStatic: true, slop: 0.02 };
+					const plateOptions = { ...topPlateOptions, isStatic: true, slop: 0.02 };
 					for (let i = 0; i < segs; i++) {
 						let a0 = start + i * delta - eps;
 						let a1 = start + (i + 1) * delta + eps;
@@ -238,7 +242,7 @@ function createBounds() {
 					}
 					const body = Matter.Body.create({ parts, isStatic: true, label: tpBodyCfg.label });
 					body.material = tpBodyCfg.material;
-					body.render = Object.assign({ visible: true }, wallOptions.render || {});
+					body.render = Object.assign({ visible: true }, topPlateOptions.render || {});
 					bounds.push(body);
 				}
 			}
@@ -285,8 +289,12 @@ function createRectangle(spec = {}) {
 	const mat = normalizeMaterialId(spec.material) || getObjectDef('rect').material;
 	const label = spec.label || getObjectDef('rect').label;
 	const color = (spec.color || spec.fill || spec.fillStyle || getObjectDef('rect').render?.fillStyle);
-	const opts = makeBodyOptions('rect', Object.assign({}, mat ? { material: mat } : {}, label ? { label } : {}, color ? { render: { fillStyle: color } } : {},
-		(typeof spec.isStatic === 'boolean') ? { isStatic: spec.isStatic } : {}));
+	const layer = (spec.layer != null ? Number(spec.layer) : (getObjectDef('rect').render?.layer ?? 1));
+	const renderOverride = {};
+	if (color) renderOverride.fillStyle = color;
+	renderOverride.layer = layer;
+	const opts = makeBodyOptions('rect', Object.assign({}, mat ? { material: mat } : {}, label ? { label } : {},
+		(typeof spec.isStatic === 'boolean') ? { isStatic: spec.isStatic } : {}, { render: renderOverride }));
 
 	const body = Matter.Bodies.rectangle(x, y, w, h, opts);
 	if (angleRad) Matter.Body.setAngle(body, angleRad);
@@ -298,7 +306,7 @@ function createRectangle(spec = {}) {
  * spec: { x,y,width,height, angleDeg?, color?, label?, anchor/origin? }
  */
 function createDecorRectangle(spec = {}) {
-	const base = Object.assign({ material: getObjectDef('decor').material }, spec);
+	const base = Object.assign({ material: getObjectDef('decor').material, layer: (spec.layer != null ? Number(spec.layer) : (getObjectDef('decor').render?.layer ?? 1)) }, spec);
 	// isSensor/static はオプション合成により付与される
 	const body = createRectangle(base);
 	// 念のためセンサー化（物理干渉しない）
@@ -334,7 +342,8 @@ function loadPegs(presetUrl, world) {
 				const pegObjects = data.map(peg => {
 					const color = getColor(peg);
 					const mat = normalizeMaterialId(peg?.material) || pegConfig.material;
-					const opts = makeBodyOptions('peg', Object.assign({}, color ? { render: { fillStyle: color } } : {}, mat ? { material: mat } : {}));
+					const layer = (peg && peg.layer != null) ? Number(peg.layer) : (pegConfig.render?.layer ?? 1);
+					const opts = makeBodyOptions('peg', Object.assign({}, color ? { render: { fillStyle: color } } : {}, mat ? { material: mat } : {}, { render: { layer } }));
 					return Matter.Bodies.circle(
 						num(peg.x) + xOffset,
 						num(peg.y) + yOffset,
@@ -355,6 +364,7 @@ function loadPegs(presetUrl, world) {
 			const globalRadius = num(global?.radius, pegConfig.radius);
 			const globalColor = getColor(global) || pegConfig.render?.fillStyle;
 			const globalMaterial = normalizeMaterialId(global?.material) || pegConfig.material;
+			const globalLayer = (global && global.layer != null) ? Number(global.layer) : (pegConfig.render?.layer ?? 1);
 
 			const makeOptions = (material, color) => makeBodyOptions('peg', Object.assign({}, material ? { material } : {}, color ? { render: { fillStyle: color } } : {}));
 
@@ -365,6 +375,7 @@ function loadPegs(presetUrl, world) {
 				const gRadius = num(group?.radius, globalRadius);
 				const gColor = getColor(group) || globalColor;
 				const gMaterial = normalizeMaterialId(group?.material) || globalMaterial;
+				const gLayer = (group && group.layer != null) ? Number(group.layer) : globalLayer;
 
 				const points = Array.isArray(group?.points) ? group.points
 					: (Array.isArray(group?.pegs) ? group.pegs : []);
@@ -375,7 +386,10 @@ function loadPegs(presetUrl, world) {
 					const radius = num(pt.radius, gRadius);
 					const color = getColor(pt) || gColor;
 					const mat = normalizeMaterialId(pt?.material) || gMaterial;
-					bodies.push(Matter.Bodies.circle(px, py, radius, makeOptions(mat, color)));
+					const layer = (pt && pt.layer != null) ? Number(pt.layer) : gLayer;
+					const opts = makeOptions(mat, color);
+					opts.render = Object.assign({}, opts.render || {}, { layer });
+					bodies.push(Matter.Bodies.circle(px, py, radius, opts));
 				});
 			});
 
@@ -388,7 +402,10 @@ function loadPegs(presetUrl, world) {
 					const radius = num(pt.radius, globalRadius);
 					const color = getColor(pt) || globalColor;
 					const mat = normalizeMaterialId(pt?.material) || globalMaterial;
-					bodies.push(Matter.Bodies.circle(px, py, radius, makeOptions(mat, color)));
+					const layer = (pt && pt.layer != null) ? Number(pt.layer) : globalLayer;
+					const opts = makeOptions(mat, color);
+					opts.render = Object.assign({}, opts.render || {}, { layer });
+					bodies.push(Matter.Bodies.circle(px, py, radius, opts));
 				});
 			}
 
@@ -418,7 +435,7 @@ function createRotatingYakumono(blueprint) {
 
 	if (shape.type !== 'windmill') return null;
 
-	const bladeRender = Object.assign({}, windDef.render || {}, blueprint.render || {});
+	const bladeRender = Object.assign({}, windDef.render || {}, { layer: (windDef.render?.layer ?? 1) }, blueprint.render || {});
 	if (blueprint.bladeColor) bladeRender.fillStyle = blueprint.bladeColor;
 
 	const centerColor = blueprint.centerColor || blueprint.centerFill || windDef.centerColor || windDef.centerFill || '#333';
