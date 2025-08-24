@@ -294,6 +294,24 @@ function createRectangle(spec = {}) {
 }
 
 /**
+ * 描画専用（物理干渉なし）の長方形を生成。
+ * spec: { x,y,width,height, angleDeg?, color?, label?, anchor/origin? }
+ */
+function createDecorRectangle(spec = {}) {
+	const base = Object.assign({ material: getObjectDef('decor').material }, spec);
+	// isSensor/static はオプション合成により付与される
+	const body = createRectangle(base);
+	// 念のためセンサー化（物理干渉しない）
+	body.isSensor = true;
+	body.isStatic = true;
+	// ラベルをdecorに統一（指定があれば尊重）
+	body.label = spec.label || getObjectDef('decor').label;
+	// マテリアルはDECOR
+	body.material = getObjectDef('decor').material;
+	return body;
+}
+
+/**
  * 指定されたプリセットファイルから釘のデータを読み込み、ワールドに配置します。
  * @param {string} presetUrl - 釘の座標が定義されたJSONファイルのURL
  * @param {Matter.World} world - オブジェクトを追加するMatter.jsのワールド

@@ -96,6 +96,17 @@ document.addEventListener('DOMContentLoaded', () => {
 		}))).filter(Boolean);
 		if (bodies.length) World.add(world, bodies);
 	}
+
+	// 装飾用（物理干渉なし）長方形をプリセットから初期化
+	function initDecorRectanglesFromPreset(preset) {
+		const items = Array.isArray(preset.decorRectangles) ? preset.decorRectangles : [];
+		if (!items.length) return;
+		const bodies = items.map(r => createDecorRectangle(Object.assign({}, r, {
+			x: (r.x || 0) + globalXOffset,
+			y: (r.y || 0) + globalYOffset
+		}))).filter(Boolean);
+		if (bodies.length) World.add(world, bodies);
+	}
 	// プリセット適用ハンドラ（拡張しやすい登録方式）
 	function applyPresetWindmills(preset) {
 		rotators = initRotatorsFromPreset(preset);
@@ -103,9 +114,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	function applyPresetRectangles(preset) {
 		initRectanglesFromPreset(preset);
 	}
+	function applyPresetDecorRectangles(preset) {
+		initDecorRectanglesFromPreset(preset);
+	}
 	const presetApplicators = [
 		applyPresetWindmills,
 		applyPresetRectangles,
+		applyPresetDecorRectangles,
 	];
 	function applyPresetObjects(preset) {
 		for (const fn of presetApplicators) {

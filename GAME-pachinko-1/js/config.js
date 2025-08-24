@@ -11,6 +11,7 @@ const GAME_MATERIALS = {
 	PLASTIC: 'plastic',
 	TOP_PLATE: 'top_plate',
 	GUIDE: 'guide',
+	DECOR: 'decor',
 };
 
 /**
@@ -137,6 +138,18 @@ const GAME_CONFIG = {
 			render: {
 				fillStyle: '#66bb6a'
 			}
+		},
+		// --- 物理的に干渉しない装飾用（描画のみ） ---
+		decor: {
+			label: 'decor',
+			material: GAME_MATERIALS.DECOR,
+			options: {
+				isSensor: true,   // 衝突は検出するが力は伝えない
+				isStatic: true
+			},
+			render: {
+				fillStyle: '#9e9e9e'
+			}
 		}
 	}
 };
@@ -254,7 +267,10 @@ function getMaterialInteraction(materialA, materialB) {
 	// ガイド材質は常に摩擦0・反発0（他材質と組み合わせても同様）
 	const a = (materialA || '').toString().toLowerCase();
 	const b = (materialB || '').toString().toLowerCase();
-	if (a === GAME_MATERIALS.GUIDE || b === GAME_MATERIALS.GUIDE || a === 'guide' || b === 'guide') {
+	if (
+		a === GAME_MATERIALS.GUIDE || b === GAME_MATERIALS.GUIDE || a === 'guide' || b === 'guide' ||
+		a === GAME_MATERIALS.DECOR || b === GAME_MATERIALS.DECOR || a === 'decor' || b === 'decor'
+	) {
 		return { restitution: 0, friction: 0 };
 	}
 	const key = [materialA, materialB].sort().join(':');
