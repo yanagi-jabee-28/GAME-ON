@@ -32,7 +32,7 @@
 		},
 		{
 			"type": "windmill",
-			"x": 332,
+			"x": 313,
 			"y": 465,
 			"rps": 1.2,
 			"direction": -1,
@@ -47,7 +47,7 @@
 		},
 		{
 			"type": "windmill",
-			"x": 121,
+			"x": 138,
 			"y": 465,
 			"rps": 1.2,
 			"direction": 1,
@@ -61,41 +61,36 @@
 			}
 		}
 	],
-	"rectangles": [
-		{
-			"label": "guide-center-bottom",
-			"x": -10,
-			"y": 90,
-			"width": 20,
-			"height": 1000,
-			"anchor": "topleft",
-			"angleDeg": 0,
-			"isStatic": true,
-			"material": "GUIDE",
-			"color": "#000000"
-		}
-	],
 	"polygons": [
 		{
-			"label": "guide-triangle-small",
+			"label": "guide-center-combined",
 			"coordMode": "world",
 			"points": [
 				{
 					"x": 0,
-					"y": 70
+					"y": 50
 				},
 				{
 					"x": 10,
-					"y": 90.1
+					"y": 70.1
+				},
+				{
+					"x": 10,
+					"y": 800
 				},
 				{
 					"x": -10,
-					"y": 90.1
+					"y": 800
+				},
+				{
+					"x": -10,
+					"y": 70.1
 				}
 			],
 			"layer": 2,
 			"material": "GUIDE",
-			"color": "#000000"
+			"color": "#000000",
+			"isStatic": true
 		}
 	]
 }
