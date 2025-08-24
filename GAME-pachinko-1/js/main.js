@@ -126,6 +126,67 @@ document.addEventListener('DOMContentLoaded', () => {
 			const zeroAngle = body.angle || 0;
 			// 回転制御モードの設定を解釈（item.rotation または item.rotate）
 			const rotCfg = item.rotation || item.rotate;
+			// 1) シーケンス（角度->待機->角度…）優先
+			if (rotCfg && Array.isArray(rotCfg.sequence || rotCfg.keyframes || rotCfg.waypoints)) {
+				const seqIn = (rotCfg.sequence || rotCfg.keyframes || rotCfg.waypoints);
+				const defMove = Number(rotCfg.moveMs) || 600;
+				const defHold = Number(rotCfg.holdMs);
+				const steps = seqIn.map(s => {
+					if (typeof s === 'number') {
+						return { angleDeg: s, moveMs: defMove, holdMs: Number.isFinite(defHold) ? defHold : 300 };
+					}
+					const angleDeg = Number(s.angleDeg ?? s.deg ?? s.angle ?? s.a ?? 0);
+					const moveMs = Number(s.moveMs ?? defMove);
+					const holdMs = Number.isFinite(s.holdMs) ? Number(s.holdMs) : (Number.isFinite(defHold) ? defHold : 300);
+					return { angleDeg, moveMs, holdMs };
+				}).map(s => ({ angleRad: s.angleDeg * Math.PI / 180, moveMs: Math.max(0, s.moveMs || 0), holdMs: Math.max(0, s.holdMs || 0) }));
+				if (!steps.length) return null;
+				const loop = rotCfg.loop !== false; // 既定: ループ
+				const offsetMs = Math.max(0, Number(rotCfg.offsetMs || 0));
+				const totalCycleMs = steps.reduce((acc, st) => acc + st.holdMs + st.moveMs, 0) || 1;
+				const program = {
+					type: 'seq',
+					steps,
+					loop,
+					totalCycleMs,
+					curIndex: 0,
+					phase: 'hold', // 'hold' | 'move'
+					phaseElapsed: 0,
+					completed: false
+				};
+				// 初期角
+				setBodyAngleAroundPivot(body, pivot, zeroAngle + steps[0].angleRad);
+				// オフセットがあれば消化
+				if (offsetMs) {
+					let remain = loop ? (offsetMs % totalCycleMs) : Math.min(offsetMs, totalCycleMs);
+					while (remain > 0 && !(program.completed && !loop)) {
+						const st = steps[program.curIndex];
+						if (program.phase === 'hold') {
+							const use = Math.min(remain, st.holdMs - program.phaseElapsed);
+							program.phaseElapsed += use;
+							remain -= use;
+							if (program.phaseElapsed >= st.holdMs) { program.phase = 'move'; program.phaseElapsed = 0; }
+						} else {
+							const use = Math.min(remain, st.moveMs - program.phaseElapsed);
+							program.phaseElapsed += use;
+							remain -= use;
+							const nextIndex = (program.curIndex + 1) % steps.length;
+							const a0 = steps[program.curIndex].angleRad;
+							const a1 = steps[nextIndex].angleRad;
+							const t = st.moveMs ? (program.phaseElapsed / st.moveMs) : 1;
+							const ang = a0 + (a1 - a0) * Math.min(1, t);
+							setBodyAngleAroundPivot(body, pivot, zeroAngle + ang);
+							if (program.phaseElapsed >= st.moveMs) { program.curIndex = nextIndex; program.phase = 'hold'; program.phaseElapsed = 0; }
+						}
+						if (!loop && program.curIndex === steps.length - 1 && program.phase === 'hold' && program.phaseElapsed >= steps[program.curIndex].holdMs) {
+							program.completed = true;
+							break;
+						}
+					}
+				}
+				return { body, mode: 'program', program, pivot, zeroAngle };
+			}
+			// 2) 開始/終了角のレンジ指定（従来のプログラム回転）
 			if (rotCfg && (Number.isFinite(rotCfg.durationMs || rotCfg.duration))) {
 				const startDeg = Number(rotCfg.startDeg ?? rotCfg.fromDeg ?? rotCfg.startAngleDeg ?? rotCfg.from) || 0;
 				const endDeg = Number(rotCfg.endDeg ?? rotCfg.toDeg ?? rotCfg.endAngleDeg ?? rotCfg.to);
@@ -137,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				if (hasEnd) {
 					const startRad = startDeg * Math.PI / 180;
 					const endRad = endDeg * Math.PI / 180;
-					const program = { startRad, endRad, durationMs, loop, yoyo, elapsedMs: offsetMs };
+					const program = { type: 'range', startRad, endRad, durationMs, loop, yoyo, elapsedMs: offsetMs };
 					// 初期角へ設定
 					setBodyAngleAroundPivot(body, pivot, zeroAngle + startRad);
 					return { body, mode: 'program', program, pivot, zeroAngle };
@@ -266,24 +327,58 @@ document.addEventListener('DOMContentLoaded', () => {
 		rotators.forEach(rot => {
 			if (rot.mode === 'program' && rot.program) {
 				const p = rot.program;
-				if (!p.loop && p.elapsedMs >= p.durationMs) {
-					// 非ループ: 終端で固定
-					setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + p.endRad);
-					return;
-				}
-				p.elapsedMs += deltaMs;
-				let t = p.elapsedMs / p.durationMs;
-				if (p.loop) t = t % 1;
-				else t = Math.min(1, t);
-				if (p.yoyo) {
-					// 0->1->0 の往復
-					const cycle = t * 2;
-					const dir = cycle <= 1 ? cycle : (2 - cycle);
-					const angle = p.startRad + (p.endRad - p.startRad) * dir;
-					setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + angle);
+				if (p.type === 'seq') {
+					if (p.completed && !p.loop) return;
+					let remaining = deltaMs;
+					while (remaining > 0) {
+						const st = p.steps[p.curIndex];
+						if (p.phase === 'hold') {
+							const need = st.holdMs - p.phaseElapsed;
+							const use = Math.min(remaining, Math.max(0, need));
+							p.phaseElapsed += use;
+							remaining -= use;
+							if (p.phaseElapsed >= st.holdMs) { p.phase = 'move'; p.phaseElapsed = 0; }
+							else break;
+						} else {
+							const need = st.moveMs - p.phaseElapsed;
+							const use = Math.min(remaining, Math.max(0, need));
+							p.phaseElapsed += use;
+							remaining -= use;
+							const nextIndex = (p.curIndex + 1) % p.steps.length;
+							const a0 = p.steps[p.curIndex].angleRad;
+							const a1 = p.steps[nextIndex].angleRad;
+							const t = st.moveMs ? (p.phaseElapsed / st.moveMs) : 1;
+							const ang = a0 + (a1 - a0) * Math.min(1, t);
+							setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + ang);
+							if (p.phaseElapsed >= st.moveMs) {
+								p.curIndex = nextIndex;
+								p.phase = 'hold';
+								p.phaseElapsed = 0;
+								if (!p.loop && p.curIndex === 0) { p.completed = true; break; }
+							}
+							else break;
+						}
+					}
 				} else {
-					const angle = p.startRad + (p.endRad - p.startRad) * t;
-					setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + angle);
+					if (!p.loop && p.elapsedMs >= p.durationMs) {
+						// 非ループ: 終端で固定
+						setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + p.endRad);
+						return;
+					}
+					p.elapsedMs += deltaMs;
+					let t = p.elapsedMs / p.durationMs;
+					if (p.loop) t = t % 1;
+					else t = Math.min(1, t);
+					if (p.yoyo) {
+						// 0->1->0 の往復
+						const cycle = t * 2;
+						const dir = cycle <= 1 ? cycle : (2 - cycle);
+						const angle = p.startRad + (p.endRad - p.startRad) * dir;
+						setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + angle);
+					} else {
+						const angle = p.startRad + (p.endRad - p.startRad) * t;
+						setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + angle);
+					}
 				}
 			} else {
 				const angle = (rot.anglePerSecond || 0) * deltaSec;
