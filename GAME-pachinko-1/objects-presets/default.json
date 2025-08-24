@@ -74,5 +74,29 @@
 			"material": "GUIDE",
 			"color": "#000000"
 		}
+	],
+	"polygons": [
+		{
+			"label": "guide-triangle-small",
+			"x": 80,
+			"y": 160,
+			"points": [
+				{
+					"x": 0,
+					"y": -12
+				},
+				{
+					"x": 10,
+					"y": 6
+				},
+				{
+					"x": -10,
+					"y": 6
+				}
+			],
+			"layer": 2,
+			"material": "GUIDE",
+			"color": "#66bb6a"
+		}
 	]
 }

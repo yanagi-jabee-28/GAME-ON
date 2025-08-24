@@ -321,6 +321,44 @@ function createDecorRectangle(spec = {}) {
 }
 
 /**
+ * 任意多角形（静的）の生成。
+ * spec: { x, y, points: [{x,y},...], angleDeg?, isStatic?, material?, color?, label?, layer? }
+ */
+function createPolygon(spec = {}) {
+	const x = Number(spec.x) || 0;
+	const y = Number(spec.y) || 0;
+	const pts = Array.isArray(spec.points) ? spec.points : [];
+	if (pts.length < 3) return null; // 要三点以上
+	const angleDeg = Number(spec.angleDeg || spec.angle || 0);
+	const angleRad = angleDeg * Math.PI / 180;
+	const mat = normalizeMaterialId(spec.material) || getObjectDef('polygon').material;
+	const label = spec.label || getObjectDef('polygon').label;
+	const color = (spec.color || spec.fill || spec.fillStyle || getObjectDef('polygon').render?.fillStyle);
+	const layer = (spec.layer != null ? Number(spec.layer) : (getObjectDef('polygon').render?.layer ?? 1));
+	// ローカル頂点（中心 x,y に配置）
+	const localVerts = pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
+	const opts = makeBodyOptions('polygon', Object.assign({}, mat ? { material: mat } : {}, label ? { label } : {},
+		(typeof spec.isStatic === 'boolean') ? { isStatic: spec.isStatic } : {}, { render: Object.assign({}, color ? { fillStyle: color } : {}, { layer }) }));
+	const body = Matter.Bodies.fromVertices(x, y, [localVerts], opts, true, 0.0001);
+	if (angleRad) Matter.Body.setAngle(body, angleRad);
+	return body;
+}
+
+/**
+ * 描画専用多角形（非干渉）。
+ */
+function createDecorPolygon(spec = {}) {
+	const base = Object.assign({ material: getObjectDef('decorPolygon').material, isStatic: true }, spec);
+	const body = createPolygon(base);
+	if (!body) return body;
+	body.isSensor = true;
+	body.isStatic = true;
+	body.label = spec.label || getObjectDef('decorPolygon').label;
+	body.material = getObjectDef('decorPolygon').material;
+	return body;
+}
+
+/**
  * 発射台（キャンバス描画用、非干渉）の矩形ボディを生成。
  * spec: { width, height, color?, borderColor?, layer? }
  */

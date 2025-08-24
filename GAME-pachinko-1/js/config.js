@@ -147,12 +147,37 @@ const GAME_CONFIG = {
 				layer: 1
 			}
 		},
+		// --- 任意多角形（ユーザーが追加するポリゴン） ---
+		polygon: {
+			label: 'guide_polygon',
+			material: GAME_MATERIALS.GUIDE,
+			options: {
+				isStatic: true
+			},
+			render: {
+				fillStyle: '#66bb6a',
+				layer: 1
+			}
+		},
 		// --- 物理的に干渉しない装飾用（描画のみ） ---
 		decor: {
 			label: 'decor',
 			material: GAME_MATERIALS.DECOR,
 			options: {
 				isSensor: true,   // 衝突は検出するが力は伝えない
+				isStatic: true
+			},
+			render: {
+				fillStyle: '#9e9e9e',
+				layer: 1
+			}
+		},
+		// --- 描画専用の多角形（装飾・非干渉） ---
+		decorPolygon: {
+			label: 'decor_polygon',
+			material: GAME_MATERIALS.DECOR,
+			options: {
+				isSensor: true,
 				isStatic: true
 			},
 			render: {

@@ -132,6 +132,28 @@ document.addEventListener('DOMContentLoaded', () => {
 		}))).filter(Boolean);
 		if (bodies.length) World.add(world, bodies);
 	}
+
+	// 任意多角形（polygons）
+	function initPolygonsFromPreset(preset) {
+		const items = Array.isArray(preset.polygons) ? preset.polygons : [];
+		if (!items.length) return;
+		const bodies = items.map(p => createPolygon(Object.assign({}, p, {
+			x: (p.x || 0) + globalXOffset,
+			y: (p.y || 0) + globalYOffset
+		}))).filter(Boolean);
+		if (bodies.length) World.add(world, bodies);
+	}
+
+	// 装飾用多角形（非干渉）
+	function initDecorPolygonsFromPreset(preset) {
+		const items = Array.isArray(preset.decorPolygons) ? preset.decorPolygons : [];
+		if (!items.length) return;
+		const bodies = items.map(p => createDecorPolygon(Object.assign({}, p, {
+			x: (p.x || 0) + globalXOffset,
+			y: (p.y || 0) + globalYOffset
+		}))).filter(Boolean);
+		if (bodies.length) World.add(world, bodies);
+	}
 	// プリセット適用ハンドラ（拡張しやすい登録方式）
 	function applyPresetWindmills(preset) {
 		rotators = initRotatorsFromPreset(preset);
@@ -146,6 +168,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		applyPresetWindmills,
 		applyPresetRectangles,
 		applyPresetDecorRectangles,
+		initPolygonsFromPreset,
+		initDecorPolygonsFromPreset,
 	];
 	function applyPresetObjects(preset) {
 		for (const fn of presetApplicators) {
