@@ -268,10 +268,18 @@ function addBoundsToWorld(bounds, world) {
  * @returns {Matter.Body}
  */
 function createRectangle(spec = {}) {
-	const x = Number(spec.x) || 0;
-	const y = Number(spec.y) || 0;
+	let x = Number(spec.x) || 0;
+	let y = Number(spec.y) || 0;
 	const w = Math.max(1, Number(spec.width) || 1);
 	const h = Math.max(1, Number(spec.height) || 1);
+	// 座標の基準（anchor/origin）: 'center'（既定） or 'top-left'
+	const rawAnchor = (spec.anchor || spec.origin || 'center');
+	const anchor = String(rawAnchor).toLowerCase().replace(/\s+/g, '-');
+	if (anchor === 'top-left' || anchor === 'topleft' || anchor === 'left-top') {
+		// 与えられた (x,y) は左上基準→Matter は中心基準のため、中心に変換
+		x = x + w / 2;
+		y = y + h / 2;
+	}
 	const angleDeg = Number(spec.angleDeg || spec.angle || 0);
 	const angleRad = angleDeg * Math.PI / 180;
 	const mat = normalizeMaterialId(spec.material) || getObjectDef('rect').material;

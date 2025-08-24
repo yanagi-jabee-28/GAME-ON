@@ -60,5 +60,19 @@
 				"centerRadius": 6
 			}
 		}
+	],
+	"rectangles": [
+		{
+			"label": "guide-center-bottom",
+			"x": -10,
+			"y": 600,
+			"width": 20,
+			"height": 1000,
+			"anchor": "center",
+			"angleDeg": 0,
+			"isStatic": true,
+			"material": "GUIDE",
+			"color": "#000000"
+		}
 	]
 }

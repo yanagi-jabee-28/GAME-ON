@@ -10,6 +10,7 @@ const GAME_MATERIALS = {
 	METAL: 'metal',
 	PLASTIC: 'plastic',
 	TOP_PLATE: 'top_plate',
+	GUIDE: 'guide',
 };
 
 /**
@@ -128,13 +129,13 @@ const GAME_CONFIG = {
 		},
 		// --- 任意長方形（ユーザーが追加する矩形） ---
 		rect: {
-			label: 'rect',
-			material: GAME_MATERIALS.METAL,
+			label: 'guide_rect',
+			material: GAME_MATERIALS.GUIDE,
 			options: {
 				isStatic: true
 			},
 			render: {
-				fillStyle: '#666'
+				fillStyle: '#66bb6a'
 			}
 		}
 	}
@@ -250,6 +251,12 @@ const MATERIAL_INTERACTIONS = {
  */
 function getMaterialInteraction(materialA, materialB) {
 	// キーを生成するために、材質名をアルファベット順にソートします。
+	// ガイド材質は常に摩擦0・反発0（他材質と組み合わせても同様）
+	const a = (materialA || '').toString().toLowerCase();
+	const b = (materialB || '').toString().toLowerCase();
+	if (a === GAME_MATERIALS.GUIDE || b === GAME_MATERIALS.GUIDE || a === 'guide' || b === 'guide') {
+		return { restitution: 0, friction: 0 };
+	}
 	const key = [materialA, materialB].sort().join(':');
 	return MATERIAL_INTERACTIONS[key] || MATERIAL_INTERACTIONS.default;
 }
