@@ -216,6 +216,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	let holdActive = false;
 	let holdAccumMs = 0;
 	let holdIntervalMsCfg = Number((GAME_CONFIG.launch && GAME_CONFIG.launch.holdIntervalMs) || 300);
+	let holdFirstDelayMsCfg = Number((GAME_CONFIG.launch && GAME_CONFIG.launch.holdFirstShotDelayMs) || 0);
+	let holdFirstShotPending = false;
 
 	Events.on(engine, 'afterUpdate', () => {
 		// engine.timing.delta is ms elapsed for the last tick; fall back to ~16.67ms
@@ -226,13 +228,21 @@ document.addEventListener('DOMContentLoaded', () => {
 			const angle = (rotator.anglePerSecond || 0) * deltaSec;
 			if (angle) Body.rotate(rotator.body, angle);
 		});
-		// 物理ループ同期の連射
+		// 物理ループ同期の連射（初回ディレイ対応）
 		if (holdActive) {
 			holdAccumMs += deltaMs;
-			const interval = Math.max(50, holdIntervalMsCfg);
-			if (holdAccumMs >= interval) {
-				holdAccumMs = 0; // 1発/フレーム上限（バースト防止）
-				spawnBallFromUI();
+			if (holdFirstShotPending) {
+				if (holdAccumMs >= holdFirstDelayMsCfg) {
+					holdAccumMs = 0;
+					holdFirstShotPending = false;
+					spawnBallFromUI();
+				}
+			} else {
+				const interval = Math.max(50, holdIntervalMsCfg);
+				if (holdAccumMs >= interval) {
+					holdAccumMs = 0; // 1発/フレーム上限（バースト防止）
+					spawnBallFromUI();
+				}
 			}
 		}
 	});
@@ -489,17 +499,19 @@ document.addEventListener('DOMContentLoaded', () => {
 		speedSlider.classList.add('hold-ui');
 		speedVal.classList.add('hold-ui');
 		holdIntervalMsCfg = Number(launchCfg.holdIntervalMs) || holdIntervalMsCfg;
+		holdFirstDelayMsCfg = Number(launchCfg.holdFirstShotDelayMs) || 0;
 		function startHold() {
 			if (holdActive) return;
 			holdActive = true;
 			holdAccumMs = 0;
-			spawnBallFromUI(); // 初回は即時
+			holdFirstShotPending = true; // 初回はディレイ適用（0なら即時相当）
 			speedSlider.classList.add('active');
 		}
 		function stopHold() {
 			if (!holdActive) return;
 			holdActive = false;
 			holdAccumMs = 0;
+			holdFirstShotPending = false;
 			// 離したら強さを0へ
 			speedSlider.value = 0;
 			updateArrow();
