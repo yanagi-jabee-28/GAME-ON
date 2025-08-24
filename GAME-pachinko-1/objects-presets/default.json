@@ -72,7 +72,7 @@
 				},
 				{
 					"x": 10,
-					"y": 70
+					"y": 70.1
 				},
 				{
 					"x": 10,
@@ -84,12 +84,14 @@
 				},
 				{
 					"x": -10,
-					"y": 70
+					"y": 70.1
 				}
 			],
 			"layer": 2,
 			"material": "GUIDE",
 			"color": "#000000",
+			"pivotMode": "centroid",
+			"angleOffsetDeg": 0,
 			"isStatic": true
 		}
 	]

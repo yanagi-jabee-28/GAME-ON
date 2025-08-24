@@ -329,23 +329,27 @@ function createPolygon(spec = {}) {
 	if (pts.length < 3) return null; // 要三点以上
 	const angleDeg = Number(spec.angleDeg || spec.angle || 0);
 	const angleRad = angleDeg * Math.PI / 180;
-	const angleOffsetDeg = Number(spec.angleOffsetDeg ?? spec.offsetAngleDeg ?? spec.tiltDeg ?? 0);
-	const angleOffsetRad = angleOffsetDeg * Math.PI / 180;
 	const mat = normalizeMaterialId(spec.material) || getObjectDef('polygon').material;
 	const label = spec.label || getObjectDef('polygon').label;
 	const color = (spec.color || spec.fill || spec.fillStyle || getObjectDef('polygon').render?.fillStyle);
 	const layer = (spec.layer != null ? Number(spec.layer) : (getObjectDef('polygon').render?.layer ?? 1));
 	const modeRaw = spec.coordMode || spec.pointsMode || (spec.useWorldPoints ? 'world' : 'local');
 	const mode = (String(modeRaw || 'local').toLowerCase() === 'world') ? 'world' : 'local';
-	const offX = Number(spec.offset?.x ?? spec.dx ?? 0);
-	const offY = Number(spec.offset?.y ?? spec.dy ?? 0);
+	const offX = Number(spec.offsetX ?? (spec.offset && spec.offset.x)) || 0;
+	const offY = Number(spec.offsetY ?? (spec.offset && spec.offset.y)) || 0;
+	const rotOffDeg = Number(spec.angleOffsetDeg ?? spec.angleOffset) || 0;
+	const rotOffRad = rotOffDeg * Math.PI / 180;
+	const pivotModeRaw = spec.pivotMode || (spec.pivot && spec.pivot.mode) || 'centroid';
+	const pivotMode = String(pivotModeRaw).toLowerCase() === 'point' ? 'point' : 'centroid';
+	const pivotX = Number(spec.pivot && spec.pivot.x);
+	const pivotY = Number(spec.pivot && spec.pivot.y);
 	const opts = makeBodyOptions('polygon', Object.assign({}, mat ? { material: mat } : {}, label ? { label } : {},
 		(typeof spec.isStatic === 'boolean') ? { isStatic: spec.isStatic } : {}, { render: Object.assign({}, color ? { fillStyle: color } : {}, { layer }) }));
 
 	let body;
 	if (mode === 'world') {
 		// ワールド座標で与えられた頂点群を、その重心位置にボディを配置してローカル化
-		const worldVerts = pts.map(p => ({ x: (Number(p.x) || 0) + offX, y: (Number(p.y) || 0) + offY }));
+		let worldVerts = pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
 		// 可能なら Matter の重心計算を使用
 		let c;
 		try {
@@ -358,17 +362,53 @@ function createPolygon(spec = {}) {
 			const sy = worldVerts.reduce((s, v) => s + v.y, 0);
 			c = { x: sx / worldVerts.length, y: sy / worldVerts.length };
 		}
+		// 回転オフセット（基準: 指定点 or 重心）を適用
+		if (rotOffRad) {
+			const pivot = (pivotMode === 'point' && isFinite(pivotX) && isFinite(pivotY)) ? { x: pivotX, y: pivotY } : c;
+			worldVerts = worldVerts.map(v => {
+				const dx = v.x - pivot.x, dy = v.y - pivot.y;
+				const rx = dx * Math.cos(rotOffRad) - dy * Math.sin(rotOffRad);
+				const ry = dx * Math.sin(rotOffRad) + dy * Math.cos(rotOffRad);
+				return { x: pivot.x + rx, y: pivot.y + ry };
+			});
+		}
+		// 位置オフセット（ワールド）
+		if (offX || offY) {
+			worldVerts = worldVerts.map(v => ({ x: v.x + offX, y: v.y + offY }));
+		}
+		// 変換後の重心で再配置
+		try {
+			c = Matter.Vertices && typeof Matter.Vertices.centre === 'function'
+				? Matter.Vertices.centre(worldVerts)
+				: c;
+		} catch (_) { /* keep c */ }
 		const localVerts = worldVerts.map(v => ({ x: v.x - c.x, y: v.y - c.y }));
 		body = Matter.Bodies.fromVertices(c.x, c.y, [localVerts], opts, true, 0.0001);
 	} else {
 		// ローカル座標: x,y を中心として配置
-		const x = (Number(spec.x) || 0) + offX;
-		const y = (Number(spec.y) || 0) + offY;
-		const localVerts = pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
+		let x = Number(spec.x) || 0;
+		let y = Number(spec.y) || 0;
+		// オフセットは中心を移動
+		x += offX; y += offY;
+		let localVerts = pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
+		// 回転オフセット適用（基準: 指定点=ローカル座標 or 重心）
+		if (rotOffRad) {
+			// 重心（ローカル）を計算
+			let lc = { x: 0, y: 0 };
+			try {
+				lc = (Matter.Vertices && typeof Matter.Vertices.centre === 'function') ? Matter.Vertices.centre(localVerts) : lc;
+			} catch (_) { /* no-op */ }
+			const pivotLocal = (pivotMode === 'point' && isFinite(pivotX) && isFinite(pivotY)) ? { x: pivotX, y: pivotY } : lc;
+			localVerts = localVerts.map(v => {
+				const dx = v.x - pivotLocal.x, dy = v.y - pivotLocal.y;
+				const rx = dx * Math.cos(rotOffRad) - dy * Math.sin(rotOffRad);
+				const ry = dx * Math.sin(rotOffRad) + dy * Math.cos(rotOffRad);
+				return { x: pivotLocal.x + rx, y: pivotLocal.y + ry };
+			});
+		}
 		body = Matter.Bodies.fromVertices(x, y, [localVerts], opts, true, 0.0001);
 	}
-	const finalAngle = angleRad + angleOffsetRad;
-	if (finalAngle) Matter.Body.setAngle(body, finalAngle);
+	if (angleRad) Matter.Body.setAngle(body, angleRad);
 	return body;
 }
 
