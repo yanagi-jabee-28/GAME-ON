@@ -259,6 +259,17 @@ GAME_CONFIG.topPlate.mode = 'dome';
 
 // --- 物理相互作用の定義 ---
 
+// 開発者機能の有効化設定
+GAME_CONFIG.dev = {
+	enabled: true,         // オン/オフ切り替え
+	hotkeys: {             // 任意: ホットキー上書き
+		toggle: 'F1',
+		wire: 'F2',
+		collide: 'F3',
+		bounds: 'F4'
+	}
+};
+
 /**
  * 材質ペアの相互作用を定義するマトリクス。
  * キーは材質名をアルファベット順にソートし、':'で結合したものです。

@@ -72,6 +72,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	const runner = Runner.create();
 	Runner.run(runner, engine);
 
+	// 開発者ツール: 有効化されていれば初期化
+	try {
+		if (window.GAME_CONFIG?.dev?.enabled && window.GAME_DEVTOOLS && typeof window.GAME_DEVTOOLS.init === 'function') {
+			window.GAME_DEVTOOLS.init({ engine, render, runner, world, Matter, container, config: window.GAME_CONFIG.dev });
+		}
+	} catch (_) { /* no-op */ }
+
 	// --- 4. オブジェクトの生成 ---
 	// topPlate の初期調整をより簡潔に
 	if (GAME_CONFIG.topPlate?.enabled) {
@@ -570,6 +577,11 @@ document.addEventListener('DOMContentLoaded', () => {
 		World.add(world, ball);
 		Body.setVelocity(ball, velocity);
 	}
+
+	// dev tools hook: spawn ball
+	window.addEventListener('devtools:spawnBall', () => {
+		try { spawnBallFromUI(); } catch (_) { /* no-op */ }
+	});
 
 	// 従来のボタン発射は維持
 	const addBtn = document.getElementById('add-ball');
