@@ -157,7 +157,7 @@ GAME_CONFIG.launch.spawn = {
 GAME_CONFIG.launch.pad = {
 	visible: true,
 	width: 20,          // px
-	height: 200,         // px
+	height: 100,         // px
 	borderRadius: 8,    // px
 	background: '#444', // single color fallback
 	borderColor: '#fff',
