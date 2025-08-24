@@ -44,7 +44,7 @@ const GAME_CONFIG = {
 	objects: {
 		// --- ボールの定義 ---
 		ball: {
-			radius: 6,     // ボールの半径
+			radius: 7,     // ボールの半径
 			label: 'ball', // 衝突判定などで使用する識別子
 			material: GAME_MATERIALS.METAL, // 材質を金属に設定
 			options: {
@@ -64,7 +64,7 @@ const GAME_CONFIG = {
 		},
 		// --- 釘の定義 ---
 		peg: {
-			radius: 5,
+			radius: 4,
 			label: 'peg',
 			material: GAME_MATERIALS.METAL, // 材質を金属に設定
 			options: {
