@@ -270,6 +270,12 @@ GAME_CONFIG.dev = {
 	}
 };
 
+// 使用するプリセットファイルの指定（相対パス）
+GAME_CONFIG.presets = {
+	pegs: 'pegs-presets/pegs3.json',           // 釘の配置
+	objects: 'objects-presets/default.json'    // 風車やポリゴン等のオブジェクト
+};
+
 /**
  * 材質ペアの相互作用を定義するマトリクス。
  * キーは材質名をアルファベット順にソートし、':'で結合したものです。

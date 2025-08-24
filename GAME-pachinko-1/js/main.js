@@ -88,7 +88,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	// create and add bounds (createBounds now returns an array)
 	let currentBounds = createBounds();
 	addBoundsToWorld(currentBounds, world);
-	loadPegs('pegs-presets/pegs3.json', world);
+	// pegs preset path from config
+	try {
+		const pegsPath = (GAME_CONFIG.presets && GAME_CONFIG.presets.pegs) || 'pegs-presets/pegs3.json';
+		loadPegs(pegsPath, world);
+	} catch (_) {
+		loadPegs('pegs-presets/pegs3.json', world);
+	}
 
 	// --- 5. プリセットの読み込みと適用（オブジェクト全般・拡張可能） ---
 	const windmillConfig = GAME_CONFIG.objects.windmill;
@@ -308,7 +314,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	(async () => {
 		try {
-			const res = await fetch('objects-presets/default.json');
+			const objPath = (GAME_CONFIG.presets && GAME_CONFIG.presets.objects) || 'objects-presets/default.json';
+			const res = await fetch(objPath);
 			if (!res.ok) throw new Error(`Failed to load objects preset: ${res.status} ${res.statusText}`);
 			const preset = await res.json();
 			// 登録された適用ハンドラを順に実行（種類追加に強い）
