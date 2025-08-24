@@ -9,24 +9,36 @@
 </head>
 
 <body>
+	<!-- ゲームタイトル -->
 	<h1></h1>
+
+	<!-- Matter.jsのレンダリングが行われるコンテナ -->
 	<div id="game-container"></div>
+
+	<!-- ボールの発射方向を示す矢印 -->
 	<div id="launch-arrow" aria-hidden="true"></div>
+
+	<!-- ゲームの操作パネル -->
 	<div class="controls">
+		<!-- 発射強度を調整するスライダー -->
 		<input id="speed-slider" type="range" min="0" max="100" step="1" value="50">
 		<div class="slider-info">
 			<label>強さ (0〜100): <span id="speed-val">50</span></label>
 		</div>
-
 	</div>
 
+	<!-- 物理エンジンライブラリ -->
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-	<!-- 凹多角形の分解ライブラリ（Bodies.fromVertices 用） -->
+	<!-- 凹多角形の分解ライブラリ（Matter.jsのBodies.fromVerticesで必要） -->
 	<script src="https://cdn.jsdelivr.net/npm/poly-decomp@0.3.0/build/decomp.min.js"></script>
+	
+	<!-- poly-decompをMatter.jsに登録 -->
 	<script>
 		(function () {
 			var ok = false;
+			// ライブラリが正しく読み込まれているか確認
 			if (window.decomp && window.Matter && window.Matter.Common) {
+				// 凹多角形を扱えるように設定
 				window.Matter.Common.setDecomp(window.decomp);
 				ok = true;
 			}
@@ -35,11 +47,12 @@
 			}
 		})();
 	</script>
-	<!-- スクリプトの読み込み順序が重要です -->
-	<script src="js/config.js"></script>
-	<script src="js/objects.js"></script>
-	<script src="js/dev-tools.js"></script>
-	<script src="js/main.js"></script>
+
+	<!-- ゲームスクリプト（読み込み順序が重要） -->
+	<script src="js/config.js"></script>      <!-- 設定ファイル -->
+	<script src="js/objects.js"></script>     <!-- ゲームオブジェクト定義 -->
+	<script src="js/dev-tools.js"></script>   <!-- 開発用ツール -->
+	<script src="js/main.js"></script>        <!-- メインロジック -->
 </body>
 
 </html>

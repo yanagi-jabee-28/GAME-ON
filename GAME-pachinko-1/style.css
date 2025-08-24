@@ -1,3 +1,4 @@
+/* --- 全体の基本スタイル --- */
 body {
     font-family: sans-serif;
     text-align: center;
@@ -10,14 +11,14 @@ h1 {
     color: #333;
 }
 
+/* --- ゲーム関連のコンテナとキャンバス --- */
 #game-container {
     margin: 20px auto;
     border: 1px solid #ccc;
-    /* width/height are controlled by GAME_CONFIG at runtime */
+    /* 幅と高さは実行時にGAME_CONFIGによって制御されます */
     width: auto;
     height: auto;
-    position: relative;
-    /* allow absolutely positioned overlays (arrow, debug markers) */
+    position: relative; /* 矢印などの絶対配置要素の基準となります */
 }
 
 canvas {
@@ -25,6 +26,7 @@ canvas {
     background-color: #fff;
 }
 
+/* --- UIコントロール --- */
 button {
     margin-top: 20px;
     padding: 10px 20px;
@@ -32,9 +34,6 @@ button {
     cursor: pointer;
     border: none;
     background-color: #4CAF50;
-
-    /* indicator removed - styles handled via JS or omitted */
-
     gap: 10px;
     flex-wrap: wrap;
     justify-content: center;
@@ -54,50 +53,45 @@ button {
     text-align: center;
 }
 
+/* --- 現在は使用されていない要素 --- */
 #launch-arrow {
-    display: none !important;
+    display: none !important; /* 現在はキャンバスに直接描画 */
 }
 
-/* legacy launch pad is disabled; drawn on canvas now */
+/* 以前のバージョンの発射台は無効化 */
 #launch-pad {
     display: none !important;
 }
 
-/* no pseudo indicator */
 
-/* --- Prevent slider layout shift when number of digits changes --- */
-/* Use tabular/monospace numerals and fixed-width slots for value readouts */
+/* --- 数値表示のレイアウト崩れ防止 --- */
+/* 等幅フォントを使用して、数値の桁数が変わってもガタつかないようにする */
 #angle-val,
 #speed-val,
 #speed-actual {
-    font-variant-numeric: tabular-nums;
-    /* enable if supported */
-    font-feature-settings: "tnum";
-    /* fallback for some browsers */
+    font-variant-numeric: tabular-nums; /* 対応ブラウザで等幅数値を有効化 */
+    font-feature-settings: "tnum";     /* 一部のブラウザ用のフォールバック */
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
+/* 角度表示用の幅を確保 */
 #angle-val {
     display: inline-block;
-    width: 6ch;
-    /* allow up to 180.0 */
-    /* e.g., 90.0 */
+    width: 6ch; /* "180.0" のような表示に対応 */
     text-align: right;
 }
 
+/* 発射強度表示用の幅を確保 */
 #speed-val {
     display: inline-block;
-    width: 5ch;
-    /* e.g., 100.0 */
+    width: 5ch; /* "100.0" のような表示に対応 */
     text-align: right;
 }
 
-/* removed: top plate UI value slots */
-
+/* 実際の速度表示用の幅を確保 */
 #speed-actual {
     display: inline-block;
-    min-width: 12ch;
-    /* reserve space for px/s text */
+    min-width: 12ch; /* "px/s" という単位表示のためのスペース */
     text-align: left;
     opacity: 0.85;
 }
