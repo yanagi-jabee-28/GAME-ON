@@ -136,22 +136,42 @@ document.addEventListener('DOMContentLoaded', () => {
 	// 任意多角形（polygons）
 	function initPolygonsFromPreset(preset) {
 		const items = Array.isArray(preset.polygons) ? preset.polygons : [];
+		const defMode = (preset.polygonsDefaults?.coordMode) || (preset.defaults?.polygons?.coordMode) || (preset.defaults?.polygon?.coordMode);
 		if (!items.length) return;
-		const bodies = items.map(p => createPolygon(Object.assign({}, p, {
-			x: (p.x || 0) + globalXOffset,
-			y: (p.y || 0) + globalYOffset
-		}))).filter(Boolean);
+		const bodies = items.map(p => {
+			const coordMode = (p.coordMode || p.pointsMode || (p.useWorldPoints ? 'world' : undefined) || defMode || 'local');
+			if (String(coordMode).toLowerCase() === 'world') {
+				// world座標指定: points にオフセットを適用
+				const pts = Array.isArray(p.points) ? p.points.map(pt => ({ x: (pt.x || 0) + globalXOffset, y: (pt.y || 0) + globalYOffset })) : p.points;
+				return createPolygon(Object.assign({}, p, { points: pts }));
+			}
+			// local座標指定: x,y にオフセット
+			return createPolygon(Object.assign({}, p, {
+				x: (p.x || 0) + globalXOffset,
+				y: (p.y || 0) + globalYOffset,
+				coordMode: coordMode
+			}));
+		}).filter(Boolean);
 		if (bodies.length) World.add(world, bodies);
 	}
 
 	// 装飾用多角形（非干渉）
 	function initDecorPolygonsFromPreset(preset) {
 		const items = Array.isArray(preset.decorPolygons) ? preset.decorPolygons : [];
+		const defMode = (preset.decorPolygonsDefaults?.coordMode) || (preset.defaults?.decorPolygons?.coordMode) || (preset.defaults?.decorPolygon?.coordMode);
 		if (!items.length) return;
-		const bodies = items.map(p => createDecorPolygon(Object.assign({}, p, {
-			x: (p.x || 0) + globalXOffset,
-			y: (p.y || 0) + globalYOffset
-		}))).filter(Boolean);
+		const bodies = items.map(p => {
+			const coordMode = (p.coordMode || p.pointsMode || (p.useWorldPoints ? 'world' : undefined) || defMode || 'local');
+			if (String(coordMode).toLowerCase() === 'world') {
+				const pts = Array.isArray(p.points) ? p.points.map(pt => ({ x: (pt.x || 0) + globalXOffset, y: (pt.y || 0) + globalYOffset })) : p.points;
+				return createDecorPolygon(Object.assign({}, p, { points: pts }));
+			}
+			return createDecorPolygon(Object.assign({}, p, {
+				x: (p.x || 0) + globalXOffset,
+				y: (p.y || 0) + globalYOffset,
+				coordMode: coordMode
+			}));
+		}).filter(Boolean);
 		if (bodies.length) World.add(world, bodies);
 	}
 	// プリセット適用ハンドラ（拡張しやすい登録方式）

@@ -325,8 +325,6 @@ function createDecorRectangle(spec = {}) {
  * spec: { x, y, points: [{x,y},...], angleDeg?, isStatic?, material?, color?, label?, layer? }
  */
 function createPolygon(spec = {}) {
-	const x = Number(spec.x) || 0;
-	const y = Number(spec.y) || 0;
 	const pts = Array.isArray(spec.points) ? spec.points : [];
 	if (pts.length < 3) return null; // 要三点以上
 	const angleDeg = Number(spec.angleDeg || spec.angle || 0);
@@ -335,11 +333,36 @@ function createPolygon(spec = {}) {
 	const label = spec.label || getObjectDef('polygon').label;
 	const color = (spec.color || spec.fill || spec.fillStyle || getObjectDef('polygon').render?.fillStyle);
 	const layer = (spec.layer != null ? Number(spec.layer) : (getObjectDef('polygon').render?.layer ?? 1));
-	// ローカル頂点（中心 x,y に配置）
-	const localVerts = pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
+	const modeRaw = spec.coordMode || spec.pointsMode || (spec.useWorldPoints ? 'world' : 'local');
+	const mode = (String(modeRaw || 'local').toLowerCase() === 'world') ? 'world' : 'local';
 	const opts = makeBodyOptions('polygon', Object.assign({}, mat ? { material: mat } : {}, label ? { label } : {},
 		(typeof spec.isStatic === 'boolean') ? { isStatic: spec.isStatic } : {}, { render: Object.assign({}, color ? { fillStyle: color } : {}, { layer }) }));
-	const body = Matter.Bodies.fromVertices(x, y, [localVerts], opts, true, 0.0001);
+
+	let body;
+	if (mode === 'world') {
+		// ワールド座標で与えられた頂点群を、その重心位置にボディを配置してローカル化
+		const worldVerts = pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
+		// 可能なら Matter の重心計算を使用
+		let c;
+		try {
+			c = Matter.Vertices && typeof Matter.Vertices.centre === 'function'
+				? Matter.Vertices.centre(worldVerts)
+				: null;
+		} catch (_) { c = null; }
+		if (!c) {
+			const sx = worldVerts.reduce((s, v) => s + v.x, 0);
+			const sy = worldVerts.reduce((s, v) => s + v.y, 0);
+			c = { x: sx / worldVerts.length, y: sy / worldVerts.length };
+		}
+		const localVerts = worldVerts.map(v => ({ x: v.x - c.x, y: v.y - c.y }));
+		body = Matter.Bodies.fromVertices(c.x, c.y, [localVerts], opts, true, 0.0001);
+	} else {
+		// ローカル座標: x,y を中心として配置
+		const x = Number(spec.x) || 0;
+		const y = Number(spec.y) || 0;
+		const localVerts = pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
+		body = Matter.Bodies.fromVertices(x, y, [localVerts], opts, true, 0.0001);
+	}
 	if (angleRad) Matter.Body.setAngle(body, angleRad);
 	return body;
 }
