@@ -319,19 +319,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// UI 要素を取得
 
-	// topPlate UI elements
-	const tpMode = document.getElementById('tp-mode');
-	const tpRadius = document.getElementById('tp-radius');
-	const tpRadiusVal = document.getElementById('tp-radius-val');
-	const tpThickness = document.getElementById('tp-thickness');
-	const tpThicknessVal = document.getElementById('tp-thickness-val');
-	const tpSegments = document.getElementById('tp-segments');
-	const tpSegVal = document.getElementById('tp-seg-val');
-	const tpOffX = document.getElementById('tp-offx');
-	const tpOffXVal = document.getElementById('tp-offx-val');
-	const tpOffY = document.getElementById('tp-offy');
-	const tpOffYVal = document.getElementById('tp-offy-val');
-
 	const angleSlider = document.getElementById('angle-slider');
 	const speedSlider = document.getElementById('speed-slider');
 	const angleVal = document.getElementById('angle-val');
@@ -348,22 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		speedSlider.step = 0.1;
 	}
 
-	// initialize topPlate UI from config
-	if (GAME_CONFIG.topPlate) {
-		tpMode.value = GAME_CONFIG.topPlate.mode || 'dome';
-		tpRadius.min = 50;
-		tpRadius.max = Math.max(1000, width * 2);
-		tpRadius.value = GAME_CONFIG.topPlate.radius || Math.round(width * 0.6);
-		tpRadiusVal.textContent = tpRadius.value;
-		tpThickness.value = GAME_CONFIG.topPlate.thickness || 20;
-		tpThicknessVal.textContent = tpThickness.value;
-		tpSegments.value = GAME_CONFIG.topPlate.segments || 24;
-		(tpSegVal.textContent = tpSegments.value);
-		tpOffX.value = GAME_CONFIG.topPlate.centerOffsetX || 0;
-		tpOffXVal.textContent = tpOffX.value;
-		tpOffY.value = GAME_CONFIG.topPlate.centerOffsetY || 0;
-		tpOffYVal.textContent = tpOffY.value;
-	}
+	// 天板UIは削除
 
 	// UI 表示更新
 	const launchArrow = document.getElementById('launch-arrow');
@@ -411,30 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	angleSlider.addEventListener('input', () => { updateArrow(); updateLaunchPadPosition(); });
 	speedSlider.addEventListener('input', updateArrow);
 
-	// topPlate UI handlers: update GAME_CONFIG and recreate bounds (debounced)
-	const recreateTopPlate = (() => {
-		let timer = 0;
-		return function () {
-			clearTimeout(timer);
-			timer = setTimeout(() => {
-				if (!GAME_CONFIG.topPlate) GAME_CONFIG.topPlate = {};
-				GAME_CONFIG.topPlate.mode = tpMode.value;
-				GAME_CONFIG.topPlate.radius = Number(tpRadius.value);
-				GAME_CONFIG.topPlate.thickness = Number(tpThickness.value);
-				GAME_CONFIG.topPlate.segments = Number(tpSegments.value);
-				GAME_CONFIG.topPlate.centerOffsetX = Number(tpOffX.value);
-				GAME_CONFIG.topPlate.centerOffsetY = Number(tpOffY.value);
-				// remove existing bounds
-				if (currentBounds && currentBounds.length) {
-					currentBounds.forEach(b => Matter.Composite.remove(world, b, true));
-				}
-				currentBounds = createBounds();
-				addBoundsToWorld(currentBounds, world);
-				applyPadConfig();
-				updateLaunchPadPosition();
-			}, 50);
-		};
-	})();
+	// 天板UIは削除（設定変更ハンドラ無し）
 
 	// 汎用的なUI値更新ヘルパー
 	function createSliderUpdater(slider, display, callback) {
@@ -444,33 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		};
 	}
 
-	// topPlate UI の設定を単純化
-	const topPlateUpdaters = [
-		[tpRadius, tpRadiusVal],
-		[tpThickness, tpThicknessVal],
-		[tpSegments, tpSegVal],
-		[tpOffX, tpOffXVal],
-		[tpOffY, tpOffYVal]
-	];
-
-	topPlateUpdaters.forEach(([slider, display]) => {
-		if (slider && display) {
-			slider.addEventListener('input', createSliderUpdater(slider, display, () => {
-				recreateTopPlate();
-				applyPadConfig();
-				updateLaunchPadPosition();
-			}));
-		}
-	});
-
-	// mode select の処理
-	if (tpMode) {
-		tpMode.addEventListener('change', () => {
-			recreateTopPlate();
-			applyPadConfig();
-			updateLaunchPadPosition();
-		});
-	}
+	// 天板UIは削除（イベント配線無し）
 	// insert speedActual after speedVal in DOM
 	if (speedVal && speedVal.parentNode) {
 		speedVal.parentNode.insertBefore(speedActual, speedVal.nextSibling);
