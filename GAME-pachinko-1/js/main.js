@@ -302,40 +302,52 @@ document.addEventListener('DOMContentLoaded', () => {
 	updateArrow();
 	updateLaunchPadPosition();
 
-	document.getElementById('add-ball').addEventListener('click', () => {
-		// 発射元：getOffsets を使用して統一された座標計算
+	// 共通: 現在のUI値から1発スポーン
+	function spawnBallFromUI() {
 		const start = computeSpawnCoords();
-
-		// 着弾ターゲット：画面上部の釘エリアのランダムな点（中央寄り）
-		const { yOffset } = getOffsets();
-		const target = {
-			x: GAME_CONFIG.width * (0.35 + Math.random() * 0.3),
-			y: (GAME_CONFIG.height * 0.18 + Math.random() * (GAME_CONFIG.height * 0.08)) + yOffset
-		};
-
-		// UI で指定された角度(度)と速度を使用してシンプルな初速計算
-		const angleDeg = Number(angleSlider.value);
-		const sliderValue = Number(speedSlider.value);
-
-		// 設定から速度レンジを取得
+		const angleDeg = Number(angleSlider.value || GAME_CONFIG.launch?.defaultAngle || 90);
+		const sliderValue = Number(speedSlider.value || 0);
 		const { minSpeed = 5, maxSpeed = 400, speedScale = 1 } = GAME_CONFIG.launch || {};
 		const baseSpeed = minSpeed + (sliderValue / 100) * (maxSpeed - minSpeed);
 		const speedPxPerSec = baseSpeed * speedScale;
-
-		// 物理的に自然な初速ベクトル計算
 		const angleRad = angleDeg * Math.PI / 180;
-		const velocity = {
-			x: Math.cos(angleRad) * speedPxPerSec,
-			y: -Math.sin(angleRad) * speedPxPerSec // 上向きは負
-		};
-
-		// ボール作成とMatter.jsの物理エンジンに委ねる
+		const velocity = { x: Math.cos(angleRad) * speedPxPerSec, y: -Math.sin(angleRad) * speedPxPerSec };
 		const ball = createBall(start.x, start.y);
 		World.add(world, ball);
 		Body.setVelocity(ball, velocity);
+	}
 
-		// debug marker removed: no temporary visual marker at spawn
-	});
+	// 従来のボタン発射は維持
+	const addBtn = document.getElementById('add-ball');
+	if (addBtn) addBtn.addEventListener('click', spawnBallFromUI);
+
+	// スライダー長押し連射モード（設定で有効化時のみ）
+	(function wireHoldToFire() {
+		const launchCfg = GAME_CONFIG.launch || {};
+		if (!launchCfg.holdToFireEnabled) return;
+		let holdTimer = null;
+		function startHold() {
+			if (holdTimer) return;
+			spawnBallFromUI();
+			holdTimer = setInterval(() => {
+				spawnBallFromUI();
+			}, Math.max(50, Number(launchCfg.holdIntervalMs) || 300));
+		}
+		function stopHold() {
+			if (holdTimer) {
+				clearInterval(holdTimer);
+				holdTimer = null;
+				// 離したら強さを0へ
+				speedSlider.value = 0;
+				updateArrow();
+			}
+		}
+		// pointer系で統一。離しはwindowで拾う
+		speedSlider.addEventListener('pointerdown', startHold);
+		window.addEventListener('pointerup', stopHold);
+		window.addEventListener('pointercancel', stopHold);
+		window.addEventListener('blur', stopHold);
+	})();
 
 	// 衝突開始イベント
 	Events.on(engine, 'collisionStart', (event) => {
