@@ -55,7 +55,7 @@ const GAME_CONFIG = {
 			// ランダム色が割り当てられます。
 			render: {
 				// デフォルトのボール色（固定色を使いたい場合はこちらを設定）
-				fillStyle: '#FFB300',
+				fillStyle: '#FFA07A',
 				// 既存資材はすべてレイヤー1（未指定時も1）
 				layer: 1
 			},

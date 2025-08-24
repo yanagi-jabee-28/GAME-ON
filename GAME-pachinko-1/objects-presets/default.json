@@ -89,7 +89,7 @@
 			],
 			"layer": 2,
 			"material": "GUIDE",
-			"color": "#000000",
+			"color": "#B0C4DE",
 			"pivotMode": "centroid",
 			"angleOffsetDeg": 0,
 			"isStatic": true
