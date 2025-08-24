@@ -479,10 +479,10 @@ document.addEventListener('DOMContentLoaded', () => {
 		angleSlider.min = GAME_CONFIG.launch.angleMin;
 		angleSlider.max = GAME_CONFIG.launch.angleMax;
 		angleSlider.value = GAME_CONFIG.launch.defaultAngle;
-		// speed slider: 0..100 を 0.1% 刻みに
+		// speed slider: 0..100 を 0.01 刻みに
 		speedSlider.min = 0;
 		speedSlider.max = 100;
-		speedSlider.step = 0.1;
+		speedSlider.step = 0.01;
 	}
 
 	// 天板UIは削除
@@ -491,6 +491,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	const launchArrow = document.getElementById('launch-arrow');
 	const speedActual = document.createElement('span');
 	speedActual.id = 'speed-actual';
+	// 数値が詰まり過ぎて視認性が落ちるのを防ぐ
+	speedActual.style.marginLeft = '6px';
 	// スピードスライダー初期値は 0 に固定
 	speedSlider.value = 0;
 
@@ -517,13 +519,15 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (!launchArrow) return; // arrow removed via CSS/HTML — no-op
 		const angle = Number(angleSlider.value);
 		const sliderValue = Number(speedSlider.value);
-		// map slider 0..100 -> px/s using config scale and min/max
-		const min = GAME_CONFIG.launch && GAME_CONFIG.launch.minSpeed ? GAME_CONFIG.launch.minSpeed : 5;
-		const max = GAME_CONFIG.launch && GAME_CONFIG.launch.maxSpeed ? GAME_CONFIG.launch.maxSpeed : 400;
-		const speed = min + (sliderValue / 100) * (max - min);
-		speedActual.textContent = ` (${Math.round(speed)} px/s)`;
+		// map slider 0..100 -> px/s using config min/max and speedScale
+		const { minSpeed = 5, maxSpeed = 400, speedScale = 1 } = GAME_CONFIG.launch || {};
+		const speed = (minSpeed + (sliderValue / 100) * (maxSpeed - minSpeed)) * speedScale;
+		const decimals = Number.isFinite(GAME_CONFIG.launch?.speedPrecision)
+			? Math.max(0, Math.min(3, Number(GAME_CONFIG.launch.speedPrecision)))
+			: 1;
+		speedActual.textContent = ` (${speed.toFixed(decimals)} px/s)`;
 		angleVal.textContent = angle.toFixed(1);
-		speedVal.textContent = sliderValue.toFixed(1);
+		speedVal.textContent = sliderValue.toFixed(2);
 		// position arrow near bottom-left of container (use container-relative coords)
 		const rect = container.getBoundingClientRect();
 		launchArrow.style.left = '24px';

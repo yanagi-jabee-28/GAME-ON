@@ -189,10 +189,12 @@ const GAME_CONFIG = {
 GAME_CONFIG.launch = {
 	// UI の px/s 値に乗じる係数。値を上げると速くなる。
 	// 0.6 にして、スライダーの値がより力強い初速になるよう調整しました。
-	speedScale: 0.6,
+	speedScale: 1,
+	// 速度表示の小数点桁数（0〜3）。UIの"(xx px/s)"に適用
+	speedPrecision: 2,
 	// スライダーと一致させたい最小/最大（ここで maxSpeed を下げて上限を制御します）
-	minSpeed: 50,
-	maxSpeed: 60,
+	minSpeed: 23,
+	maxSpeed: 31,
 	// angle control: min/max degrees and default
 	angleMin: 0,
 	angleMax: 180,
@@ -212,7 +214,7 @@ GAME_CONFIG.launch = {
 GAME_CONFIG.launch.spawn = {
 	x: -60,
 	// デフォルトはコンテナ下端から 40px 上
-	yOffsetFromBottom: 300
+	yOffsetFromBottom: 500
 };
 
 // 発射台の見た目設定（UIではライブ変更あり）
