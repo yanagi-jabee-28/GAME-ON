@@ -1,7 +1,7 @@
 /**
  * ゲーム全体の設定、材質、および物理相互作用のロジックを定義するファイル。
  * 設定値（データ）と、それに関連する単純なロジック（振る舞い）をこのファイルに集約しています。
- *'#ffffff'
+ *'#ffffffff'
 */
 
 // ゲームに登場する材質を定義します。
@@ -272,7 +272,7 @@ GAME_CONFIG.dev = {
 
 // 使用するプリセットファイルの指定（相対パス）
 GAME_CONFIG.presets = {
-	pegs: 'pegs-presets/pegs3.json',           // 釘の配置
+	pegs: 'pegs-presets/pegs4.json',           // 釘の配置
 	objects: 'objects-presets/default.json'    // 風車やポリゴン等のオブジェクト
 };
 
