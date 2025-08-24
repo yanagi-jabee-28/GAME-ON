@@ -329,19 +329,23 @@ function createPolygon(spec = {}) {
 	if (pts.length < 3) return null; // 要三点以上
 	const angleDeg = Number(spec.angleDeg || spec.angle || 0);
 	const angleRad = angleDeg * Math.PI / 180;
+	const angleOffsetDeg = Number(spec.angleOffsetDeg ?? spec.offsetAngleDeg ?? spec.tiltDeg ?? 0);
+	const angleOffsetRad = angleOffsetDeg * Math.PI / 180;
 	const mat = normalizeMaterialId(spec.material) || getObjectDef('polygon').material;
 	const label = spec.label || getObjectDef('polygon').label;
 	const color = (spec.color || spec.fill || spec.fillStyle || getObjectDef('polygon').render?.fillStyle);
 	const layer = (spec.layer != null ? Number(spec.layer) : (getObjectDef('polygon').render?.layer ?? 1));
 	const modeRaw = spec.coordMode || spec.pointsMode || (spec.useWorldPoints ? 'world' : 'local');
 	const mode = (String(modeRaw || 'local').toLowerCase() === 'world') ? 'world' : 'local';
+	const offX = Number(spec.offset?.x ?? spec.dx ?? 0);
+	const offY = Number(spec.offset?.y ?? spec.dy ?? 0);
 	const opts = makeBodyOptions('polygon', Object.assign({}, mat ? { material: mat } : {}, label ? { label } : {},
 		(typeof spec.isStatic === 'boolean') ? { isStatic: spec.isStatic } : {}, { render: Object.assign({}, color ? { fillStyle: color } : {}, { layer }) }));
 
 	let body;
 	if (mode === 'world') {
 		// ワールド座標で与えられた頂点群を、その重心位置にボディを配置してローカル化
-		const worldVerts = pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
+		const worldVerts = pts.map(p => ({ x: (Number(p.x) || 0) + offX, y: (Number(p.y) || 0) + offY }));
 		// 可能なら Matter の重心計算を使用
 		let c;
 		try {
@@ -358,12 +362,13 @@ function createPolygon(spec = {}) {
 		body = Matter.Bodies.fromVertices(c.x, c.y, [localVerts], opts, true, 0.0001);
 	} else {
 		// ローカル座標: x,y を中心として配置
-		const x = Number(spec.x) || 0;
-		const y = Number(spec.y) || 0;
+		const x = (Number(spec.x) || 0) + offX;
+		const y = (Number(spec.y) || 0) + offY;
 		const localVerts = pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
 		body = Matter.Bodies.fromVertices(x, y, [localVerts], opts, true, 0.0001);
 	}
-	if (angleRad) Matter.Body.setAngle(body, angleRad);
+	const finalAngle = angleRad + angleOffsetRad;
+	if (finalAngle) Matter.Body.setAngle(body, finalAngle);
 	return body;
 }
 
