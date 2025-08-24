@@ -10,15 +10,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// --- 1. エンジンの初期化 ---
 	const engine = Engine.create();
-	// 過度な反復は負荷源になるため、適正値に調整（トンネリング耐性と負荷のバランス）
-	engine.positionIterations = 10; // default ~6
-	engine.velocityIterations = 8;  // default ~4
-	engine.constraintIterations = 6; // default ~2
-	// すり抜け緩和のためスロップをやや小さめに
+	// パフォーマンス向上のため、物理演算の反復回数をデフォルト値に設定
+	engine.positionIterations = 6;
+	engine.velocityIterations = 4;
+	engine.constraintIterations = 2;
+	// 動きの停止した物体をスリープさせ、計算負荷を軽減
+	engine.enableSleeping = false;
 	engine.timing.timeScale = 1;
 	engine.world.gravity.y = engine.world.gravity.y; // no-op for clarity
-	// Matter v0.19+ では pair/constraint 単位の slop が使われるが、Engine の default slop も尊重
-	engine.enableSleeping = false;
 	const world = engine.world;
 
 	// --- 2. レンダラーの作成 (簡潔に) ---
@@ -72,12 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	const runner = Runner.create();
 	Runner.run(runner, engine);
 
-	// 開発者ツール: 有効化されていれば初期化
-	try {
-		if (window.GAME_CONFIG?.dev?.enabled && window.GAME_DEVTOOLS && typeof window.GAME_DEVTOOLS.init === 'function') {
-			window.GAME_DEVTOOLS.init({ engine, render, runner, world, Matter, container, config: window.GAME_CONFIG.dev });
-		}
-	} catch (_) { /* no-op */ }
+	
 
 	// --- 4. オブジェクトの生成 ---
 	// topPlate の初期調整をより簡潔に
