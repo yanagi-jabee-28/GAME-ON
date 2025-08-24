@@ -63,11 +63,11 @@
 		{
 			"type": "windmill",
 			"x": 205,
-			"y": 545,
+			"y": 610,
 			"rotation": {
 				"sequence": [
 					{
-						"angleDeg": 0,
+						"angleDeg": -30,
 						"holdMs": 500
 					},
 					{
@@ -90,11 +90,11 @@
 		{
 			"type": "windmill",
 			"x": 245,
-			"y": 545,
+			"y": 610,
 			"rotation": {
 				"sequence": [
 					{
-						"angleDeg": 180,
+						"angleDeg": 210,
 						"holdMs": 500
 					},
 					{

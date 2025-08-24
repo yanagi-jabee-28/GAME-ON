@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	engine.velocityIterations = 4;
 	engine.constraintIterations = 2;
 	// 動きの停止した物体をスリープさせ、計算負荷を軽減
-	engine.enableSleeping = false;
+	engine.enableSleeping = true;
 	engine.timing.timeScale = 1;
 	engine.world.gravity.y = engine.world.gravity.y; // no-op for clarity
 	const world = engine.world;
@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	// DOMレイヤリングのため relative を付与
 	if (!container.style.position) container.style.position = 'relative';
 
-	const render = Render.create({ element: container, engine, options: { width, height, pixelRatio: 1, ...renderOptions } });
+	const render = Render.create({ element: container, engine, options: { width, height, pixelRatio: 1, ...renderOptions, showSleeping: false } });
 
 	// ページ側の背景色（ゲーム外）を設定
 	try {
