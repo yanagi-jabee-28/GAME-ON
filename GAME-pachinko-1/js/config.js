@@ -31,7 +31,7 @@ const GAME_CONFIG = {
 	// 描画設定
 	render: {
 		wireframes: false,
-		background: '#FAF7E8'  // 明るい背景色に変更
+		background: '#F0F8FF'  // 明るい背景色に変更
 	},
 
 	// UI/ページ全体に関する見た目設定
@@ -71,7 +71,7 @@ const GAME_CONFIG = {
 				isStatic: true,
 			},
 			render: {
-				fillStyle: '#B0B0B0', // 塗りつぶしの色
+				fillStyle: '#778899', // 塗りつぶしの色
 				layer: 1
 			}
 		},
@@ -140,7 +140,7 @@ const GAME_CONFIG = {
 				isStatic: true
 			},
 			render: {
-				fillStyle: '#66bb6a',
+				fillStyle: '#B0C4DE',
 				layer: 1
 			}
 		},
