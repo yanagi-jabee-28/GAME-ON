@@ -186,7 +186,7 @@ GAME_CONFIG.launch = {
 // - y: 発射点の明示的な y 座標（ピクセル）を指定する場合はこちらを使います
 // - yOffsetFromBottom: 明示的な y を指定しない場合、ゲーム領域の下端からのオフセットで指定します
 GAME_CONFIG.launch.spawn = {
-	x: -85,
+	x: -60,
 	// デフォルトはコンテナ下端から 40px 上
 	yOffsetFromBottom: 300
 };
@@ -195,10 +195,12 @@ GAME_CONFIG.launch.spawn = {
 GAME_CONFIG.launch.pad = {
 	visible: true,
 	width: 20,          // px
-	height: 100,         // px
+	height: 50,         // px
 	borderRadius: 8,    // px
 	background: '#444', // single color fallback
 	borderColor: '#fff',
+	// レイヤー（DOM要素は z-index に反映）。未指定は1。
+	layer: 1,
 	// pad の垂直オフセット量（px）をボールの座標に対して追加で下に移動
 	offsetY: 0
 };

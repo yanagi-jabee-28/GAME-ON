@@ -74,17 +74,5 @@
 			"material": "GUIDE",
 			"color": "#000000"
 		}
-	],
-	"decorRectangles": [
-		{
-			"label": "decor-title-plate",
-			"x": -100,
-			"y": 100,
-			"width": 90,
-			"height": 1000,
-			"anchor": "topleft",
-			"// anchorの例（中央基準に戻す場合）": "center",
-			"color": "#9e9e9e"
-		}
 	]
 }

@@ -320,6 +320,29 @@ function createDecorRectangle(spec = {}) {
 }
 
 /**
+ * 発射台（キャンバス描画用、非干渉）の矩形ボディを生成。
+ * spec: { width, height, color?, borderColor?, layer? }
+ */
+function createLaunchPadBody(spec = {}) {
+	const padW = Math.max(1, Number(spec.width || 64));
+	const padH = Math.max(1, Number(spec.height || 14));
+	const color = spec.color || spec.background || '#444';
+	const borderColor = spec.borderColor || '#fff';
+	const layer = (spec.layer != null ? Number(spec.layer) : (GAME_CONFIG.objects?.rect?.render?.layer ?? 1));
+	const opts = makeBodyOptions('rect', {
+		label: 'launch-pad',
+		material: getObjectDef('decor')?.material,
+		isStatic: true,
+		isSensor: true,
+		render: { fillStyle: color, strokeStyle: borderColor, lineWidth: 3, layer }
+	});
+	const body = Matter.Bodies.rectangle(0, 0, padW, padH, opts);
+	// 完全非干渉（衝突しない）
+	body.collisionFilter = Object.assign({}, body.collisionFilter, { mask: 0x0000 });
+	return body;
+}
+
+/**
  * 指定されたプリセットファイルから釘のデータを読み込み、ワールドに配置します。
  * @param {string} presetUrl - 釘の座標が定義されたJSONファイルのURL
  * @param {Matter.World} world - オブジェクトを追加するMatter.jsのワールド

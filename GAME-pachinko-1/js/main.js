@@ -34,6 +34,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	container.style.width = width + 'px';
 	container.style.height = height + 'px';
+	// DOMレイヤリングのため relative を付与
+	if (!container.style.position) container.style.position = 'relative';
 
 	const render = Render.create({ element: container, engine, options: { width, height, pixelRatio: 1, ...renderOptions } });
 
@@ -202,52 +204,49 @@ document.addEventListener('DOMContentLoaded', () => {
 		return { x: startX, y: startY };
 	}
 
-	// create launch pad element and keep reference
-	let launchPad = document.getElementById('launch-pad');
-	if (!launchPad) {
-		launchPad = document.createElement('div');
-		launchPad.id = 'launch-pad';
-		container.appendChild(launchPad);
-	}
+	// DOM発射台は廃止（キャンバス側で描画）: 残っていれば非表示
+	const legacyPad = document.getElementById('launch-pad');
+	if (legacyPad) legacyPad.style.display = 'none';
+
+	// キャンバス側の発射台ボディを生成して追加
+	const padCfg0 = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
+	const launchPadBody = createLaunchPadBody({
+		width: padCfg0.width || 64,
+		height: padCfg0.height || 14,
+		color: padCfg0.background || '#444',
+		borderColor: padCfg0.borderColor || '#fff',
+		layer: Number(padCfg0.layer ?? 1)
+	});
+	World.add(world, launchPadBody);
 
 	function applyPadConfig() {
 		const padCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
-		launchPad.style.display = padCfg.visible === false ? 'none' : 'block';
-		launchPad.style.width = (padCfg.width || 64) + 'px';
-		launchPad.style.height = (padCfg.height || 14) + 'px';
-		launchPad.style.borderRadius = (padCfg.borderRadius || 8) + 'px';
-		launchPad.style.background = padCfg.background || 'linear-gradient(180deg,#444,#222)';
-		launchPad.style.border = '3px solid ' + (padCfg.borderColor || '#fff');
-		// 発射角回転の軸を「発射位置」に固定
-		launchPad.style.position = 'absolute';
-		launchPad.style.transformOrigin = '0 0';
-		// indicator removed; no inner yellow dot
+		// サイズ・見た目はボディ生成時のまま。必要なら再生成やスケール対応を追加可能。
+		// レイヤー変更のみ反映
+		const layer = Number(padCfg.layer ?? 1);
+		launchPadBody.render.layer = Number.isFinite(layer) ? layer : 1;
 	}
 
 	function updateLaunchPadPosition() {
 		const p = computeSpawnCoords();
 		const padCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
-		// パッド実寸は基本的に config 値を使用（reflow回避）。未設定なら最後にcomputedを参照
-		let padW = Number(padCfg.width || 64);
-		let padH = Number(padCfg.height || 14);
-		if (!(padW > 0 && padH > 0)) {
-			const cs = window.getComputedStyle(launchPad);
-			padW = parseFloat(cs.width) || padW;
-			padH = parseFloat(cs.height) || padH;
-		}
-		// 近端中心を原点にする（長辺方向に沿って伸びる想定）
+		const padW = Number(padCfg.width || 64);
+		const padH = Number(padCfg.height || 14);
 		const longIsWidth = padW >= padH;
 		const originX = longIsWidth ? 0 : (padW / 2);
 		const originY = longIsWidth ? (padH / 2) : 0;
-		launchPad.style.transformOrigin = `${originX}px ${originY}px`;
-		// 原点が発射位置に一致するよう補正
-		launchPad.style.left = (p.x - originX) + 'px';
-		launchPad.style.top = (p.y - originY) + 'px';
-		// 角度に合わせて回転
 		const angleDeg = Number((document.getElementById('angle-slider') || { value: GAME_CONFIG.launch?.defaultAngle || 90 }).value);
 		const offsetY = padCfg.offsetY || 0;
-		// オフセットを回転と一緒に回すため、translate を先に適用する（右から左で評価されるため rotate が最後）
-		launchPad.style.transform = `rotate(${90 - angleDeg}deg) translate(0px, ${offsetY}px)`;
+		// 近端中心を原点にする: launch point からのオフセットを回転座標に沿って適用
+		Matter.Body.setPosition(launchPadBody, { x: p.x - originX, y: p.y - originY });
+		Matter.Body.setAngle(launchPadBody, (90 - angleDeg) * Math.PI / 180);
+		// 追加のYオフセットを回転座標系で反映（ここでは近端からの+Yオフセットを前提）
+		if (offsetY) {
+			const a = (90 - angleDeg) * Math.PI / 180;
+			const dx = 0 * Math.cos(a) - offsetY * Math.sin(a);
+			const dy = 0 * Math.sin(a) + offsetY * Math.cos(a);
+			Matter.Body.setPosition(launchPadBody, { x: p.x - originX + dx, y: p.y - originY + dy });
+		}
 	}
 
 	// apply initial pad config and position
