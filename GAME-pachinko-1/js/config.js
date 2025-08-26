@@ -64,7 +64,7 @@ const GAME_CONFIG = {
 		},
 		// --- 釘の定義 ---
 		peg: {
-			radius: 4,
+			radius: 3,
 			label: 'peg',
 			material: GAME_MATERIALS.METAL, // 材質を金属に設定
 			options: {
