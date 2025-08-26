@@ -63,7 +63,7 @@
 		{
 			"type": "windmill",
 			"x": 205,
-			"y": 610,
+			"y": 630,
 			"rotation": {
 				"sequence": [
 					{
@@ -71,7 +71,7 @@
 						"holdMs": 500
 					},
 					{
-						"angleDeg": -75,
+						"angleDeg": -65,
 						"holdMs": 500
 					}
 				],
@@ -90,7 +90,7 @@
 		{
 			"type": "windmill",
 			"x": 245,
-			"y": 610,
+			"y": 630,
 			"rotation": {
 				"sequence": [
 					{
@@ -98,7 +98,7 @@
 						"holdMs": 500
 					},
 					{
-						"angleDeg": 255,
+						"angleDeg": 245,
 						"holdMs": 500
 					}
 				],
