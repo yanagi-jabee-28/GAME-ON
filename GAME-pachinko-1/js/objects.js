@@ -1,7 +1,17 @@
 /**
- * このファイルは、ゲームに登場する様々なオブジェクト（物体）を生成するための関数を定義します。
- * 各関数は、config.jsで定義された設定を基に、Matter.jsのボディを作成します。
- * 「オブジェクトの工場」のような役割を担います。
+ * Objects factory for Pachinko
+ *
+ * 役割：
+ * - 各種オブジェクト（ball/peg/rect/polygon/topPlate 等）を生成する純粋関数群
+ * - config.js の GAME_CONFIG を参照し、描画/物理特性（material, label, render.layer 等）を付与
+ * - main.js から呼び出されるユーティリティとして、生成とレイアウト適用に専念
+ *
+ * 読み方（セクション目次）：
+ *  1) ユーティリティ（定義取得・マージ・material正規化・オフセット）
+ *  2) プリミティブ生成（Ball/Rect/DecorRect/Polygon/DecorPolygon/LaunchPad）
+ *  3) 境界生成（createBounds + addBoundsToWorld）
+ *  4) データ駆動の生成（loadPegs：配列形式/グループ形式の両対応）
+ *  5) 役物（風車）の複合ボディ生成（createRotatingYakumono）
  */
 
 // --- 共通ユーティリティ: 材料・ラベル・描画の適用を一元化 ---
@@ -9,6 +19,7 @@ function getObjectDef(key) {
 	return (GAME_CONFIG && GAME_CONFIG.objects && GAME_CONFIG.objects[key]) || {};
 }
 
+// Matter.Body 生成用オプションを、GAME_CONFIG のデフォルト + 呼び出し元の上書きで合成する
 function makeBodyOptions(key, overrides = {}) {
 	const def = getObjectDef(key);
 	const baseOpts = Object.assign({}, def.options || {});
@@ -20,6 +31,7 @@ function makeBodyOptions(key, overrides = {}) {
 	return merged;
 }
 
+// 生成後の Body に label/material を再付与（複合ボディや parts にも波及）
 function tagBodyWithDef(body, defOrKey) {
 	const def = typeof defOrKey === 'string' ? getObjectDef(defOrKey) : (defOrKey || {});
 	if (!body) return body;
@@ -36,6 +48,7 @@ function tagBodyWithDef(body, defOrKey) {
 }
 
 // JSON由来の材質文字列を正規化（'METAL2' or 'metal2' → GAME_MATERIALSの値、見つからなければそのまま）
+// JSON 由来の材質名を GAME_MATERIALS に照合して正規化（未定義は素通し）
 function normalizeMaterialId(m) {
 	if (typeof m !== 'string') return undefined;
 	const s = m.trim();
@@ -51,11 +64,8 @@ function normalizeMaterialId(m) {
 }
 
 /**
- * 新しいボールを作成します。
- * @param {number} x - 生成するx座標
- * @param {number} y - 生成するy座標
- * @param {object} [options={}] - デフォルト設定を上書きするための追加オプション
- * @returns {Matter.Body} Matter.jsのボールボディ
+ * 新しいボールを作成
+ * - 既定ではランダム色（config.objects.ball.randomColor が false なら指定色）
  */
 function createBall(x, y, options = {}) {
 	const ballConfig = getObjectDef('ball');
@@ -69,7 +79,7 @@ function createBall(x, y, options = {}) {
 	return tagBodyWithDef(body, 'ball');
 }
 
-// helper: compute layout offsets once for reuse
+// レイアウト基準（baseWidth/baseHeight）との差分から、左右上下のセンターオフセットを算出
 function getOffsets() {
 	const width = GAME_CONFIG.dimensions?.width || 0;
 	const height = GAME_CONFIG.dimensions?.height || 0;
@@ -82,8 +92,9 @@ function getOffsets() {
 }
 
 /**
- * ゲームエリアの境界（壁と床）を作成します。
- * @returns {Matter.Body[]} bounds
+ * ゲームエリアの境界（壁・床・天板）を作成
+ * - topPlate.enabled が true の場合に、アーチ/ドームの天板を生成
+ * - poly-decomp 依存を避けるため、既定はクアッド分割（安定・堅牢）
  */
 function createBounds() {
 	const width = GAME_CONFIG.dimensions?.width || 650;
@@ -267,7 +278,7 @@ function createBounds() {
 	return bounds;
 }
 
-// helper to add bounds to a world (keeps callsites simple)
+// ワールドに境界群を一括追加（呼び出し箇所を簡潔に）
 function addBoundsToWorld(bounds, world) {
 	if (Array.isArray(bounds) && bounds.length) {
 		Matter.World.add(world, bounds);
@@ -275,9 +286,8 @@ function addBoundsToWorld(bounds, world) {
 }
 
 /**
- * 任意の長方形ボディを生成します。
- * @param {object} spec - { x, y, width, height, angleDeg?, isStatic?, material?, color?, label? }
- * @returns {Matter.Body}
+ * 任意の長方形（静的/動的）
+ * spec: { x, y, width, height, angleDeg?, isStatic?, material?, color?, label?, layer?, anchor? }
  */
 function createRectangle(spec = {}) {
 	let x = Number(spec.x) || 0;
@@ -310,8 +320,7 @@ function createRectangle(spec = {}) {
 }
 
 /**
- * 描画専用（物理干渉なし）の長方形を生成。
- * spec: { x,y,width,height, angleDeg?, color?, label?, anchor/origin? }
+ * 描画専用（非干渉）長方形
  */
 function createDecorRectangle(spec = {}) {
 	const base = Object.assign({ material: getObjectDef('decor').material, layer: (spec.layer != null ? Number(spec.layer) : (getObjectDef('decor').render?.layer ?? 1)) }, spec);
@@ -328,8 +337,9 @@ function createDecorRectangle(spec = {}) {
 }
 
 /**
- * 任意多角形（静的）の生成。
- * spec: { x, y, points: [{x,y},...], angleDeg?, isStatic?, material?, color?, label?, layer? }
+ * 任意多角形（静的）
+ * - coordMode: 'world' or 'local'（既定は 'local'）
+ * - 角度/位置オフセット、任意ピボットを用いた回転にも対応
  */
 function createPolygon(spec = {}) {
 	const pts = Array.isArray(spec.points) ? spec.points : [];
@@ -420,7 +430,7 @@ function createPolygon(spec = {}) {
 }
 
 /**
- * 描画専用多角形（非干渉）。
+ * 描画専用多角形（非干渉）
  */
 function createDecorPolygon(spec = {}) {
 	const base = Object.assign({ material: getObjectDef('decorPolygon').material, isStatic: true }, spec);
@@ -434,8 +444,7 @@ function createDecorPolygon(spec = {}) {
 }
 
 /**
- * 発射台（キャンバス描画用、非干渉）の矩形ボディを生成。
- * spec: { width, height, color?, borderColor?, layer? }
+ * 発射台（キャンバス描画用、非干渉）
  */
 function createLaunchPadBody(spec = {}) {
 	const padW = Math.max(1, Number(spec.width || 64));
@@ -457,9 +466,10 @@ function createLaunchPadBody(spec = {}) {
 }
 
 /**
- * 指定されたプリセットファイルから釘のデータを読み込み、ワールドに配置します。
- * @param {string} presetUrl - 釘の座標が定義されたJSONファイルのURL
- * @param {Matter.World} world - オブジェクトを追加するMatter.jsのワールド
+ * 釘プリセットのロードと配置
+ * - 旧形式: 配列 [{x,y}, ...]
+ * - 新形式: { defaults, groups:[ { offset|dx/dy, radius|color|material|layer, points|pegs:[{x,y,...}] } ] }
+ * - フォールバック: ルートの points / pegs
  */
 function loadPegs(presetUrl, world) {
 	const pegConfig = getObjectDef('peg');
@@ -558,9 +568,7 @@ function loadPegs(presetUrl, world) {
 }
 
 /**
- * 設計図に基づいて回転する役物を生成します。
- * @param {object} blueprint - 役物の形状、位置、挙動を定義する設計図オブジェクト
- * @returns {Matter.Body} 生成された役物の複合ボディ
+ * 回転役物（風車）の複合ボディ生成
  */
 function createRotatingYakumono(blueprint) {
 	const windDef = getObjectDef('windmill') || {};

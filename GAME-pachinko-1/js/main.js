@@ -1,14 +1,29 @@
 /**
- * ゲームのメインロジックを管理するファイル。
- * Matter.jsのエンジンのセットアップ、オブジェクトの生成（objects.jsへの委任）、
- * イベントハンドリング（ボールの追加、衝突判定）など、
- * ゲーム全体の流れを制御する「司令塔」の役割を担います。
+ * Pachinko main loop and orchestration
+ *
+ * 役割（何をするファイルか）：
+ * - Matter.js エンジン/レンダラの初期化と起動
+ * - ワールド生成（境界・釘・各オブジェクトの配置）
+ * - UI（強さスライダー）と発射ロジック（連射含む）
+ * - 回転ギミック（風車など）の駆動スケジューラ
+ * - 物理イベント（衝突）の軽いハンドリング
+ *
+ * 読み方（セクション目次）：
+ *  1) Engine/Render の初期化（ブートストラップ）
+ *  2) ワールドセットアップ（境界・釘・プリセットの読み込み）
+ *  3) 回転ギミックの初期化（プリセット→プログラム駆動 or 等速回転）
+ *  4) LaunchPad（発射台）の生成と座標更新
+ *  5) UI（スライダー表示と数値ラベルの反映）
+ *  6) 発射ロジック（単発/連射）
+ *  7) イベントループ（afterUpdateでの駆動）と衝突処理
  */
 document.addEventListener('DOMContentLoaded', () => {
 	// Matter.jsの主要モジュールを取得
 	const { Engine, Render, Runner, World, Events, Body } = Matter;
 
-	// --- 1. エンジンの初期化 ---
+	// ========================
+	// 1. エンジンの初期化（低レベル設定）
+	// ========================
 	const engine = Engine.create();
 	// パフォーマンス向上のため、物理演算の反復回数をデフォルト値に設定
 	engine.positionIterations = 6;
@@ -20,7 +35,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	engine.world.gravity.y = engine.world.gravity.y; // no-op for clarity
 	const world = engine.world;
 
-	// --- 2. レンダラーの作成 (簡潔に) ---
+	// ========================
+	// 2. レンダラーの作成（DOM要素・基本オプション）
+	// ========================
 	const cfg = GAME_CONFIG;
 	const dims = cfg.dimensions;
 	const width = dims.width;
@@ -45,7 +62,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	} catch (_) { /* no-op */ }
 
-	// レンダリング順序をレイヤーで制御（未指定は1、負値対応、数値大きいほど前面）
+	// レンダリング順序を render.layer で制御（小→大の順）
+	// - 同一 layer では id 昇順にしてデターミニズムを担保
 	(function injectLayeredRendering() {
 		const getLayer = (b) => {
 			const v = b && b.render && typeof b.render.layer === 'number' ? b.render.layer : (b && b.render && b.render.layer != null ? Number(b.render.layer) : 1);
@@ -66,15 +84,17 @@ document.addEventListener('DOMContentLoaded', () => {
 		};
 	})();
 
-	// --- 3. 物理演算と描画の開始（標準の Runner を使用） ---
+	// ========================
+	// 3. 物理演算と描画の開始（標準 Runner）
+	// ========================
 	Render.run(render);
 	const runner = Runner.create();
 	Runner.run(runner, engine);
 
-	
-
-	// --- 4. オブジェクトの生成 ---
-	// topPlate の初期調整をより簡潔に
+	// ========================
+	// 4. ワールド生成（境界・釘・プリセット適用）
+	// ========================
+	// topPlate の半径は未指定時、画面幅から推測
 	if (GAME_CONFIG.topPlate?.enabled) {
 		GAME_CONFIG.topPlate.radius = GAME_CONFIG.topPlate.radius || Math.round(width * 0.6);
 	}
@@ -319,8 +339,12 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	})();
 
-	// フレーム更新ごとのイベント — 各役物の anglePerFrame を使って回転させる
-	// 連射タイマー（物理ループと同期）
+	// ========================
+	// 5. ループ内処理（回転ギミックの駆動＆連射タイマー）
+	// ========================
+	// rotators の回転モード：
+	//  - program: シーケンス/範囲指定で角度を補間し追従
+	//  - constant: 等速回転（anglePerSecond）
 	let holdActive = false;
 	let holdAccumMs = 0;
 	let holdIntervalMsCfg = Number((GAME_CONFIG.launch && GAME_CONFIG.launch.holdIntervalMs) || 300);
@@ -412,7 +436,9 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	});
 
-	// --- 6. イベントリスナーの設定 ---
+	// ========================
+	// 6. 発射台（LaunchPad）と UI の初期化
+	// ========================
 
 	// helper: compute spawn start coords based on GAME_CONFIG and offsets
 	function computeSpawnCoords() {
@@ -423,7 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		return { x: startX, y: startY };
 	}
 
-	// DOM発射台は廃止（キャンバス側で描画）: 残っていれば非表示
+	// 旧 DOM 発射台は廃止（残っている場合は非表示にし、キャンバス描画に集約）
 	const legacyPad = document.getElementById('launch-pad');
 	if (legacyPad) legacyPad.style.display = 'none';
 
@@ -475,7 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	// update when window resizes or when topPlate recreated
 	window.addEventListener('resize', updateLaunchPadPosition);
 
-	// UI 要素を取得
+	// UI（スライダー/ラベル）
 
 	const angleSlider = document.getElementById('angle-slider');
 	const speedSlider = document.getElementById('speed-slider');
@@ -493,7 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// 天板UIは削除
 
-	// UI 表示更新
+	// UI 表示更新（矢印と速度数値）
 	const launchArrow = document.getElementById('launch-arrow');
 	const speedActual = document.createElement('span');
 	speedActual.id = 'speed-actual';
@@ -519,7 +545,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		`;
 		document.head.appendChild(style);
 	}
-	// attach after speedVal for visibility (we'll update textContent each frame)
+	// 表示更新は input イベントで行い、軽量に保つ
 	function updateArrow() {
 		const launchArrow = document.getElementById('launch-arrow');
 		if (!launchArrow) return; // arrow removed via CSS/HTML — no-op
@@ -543,29 +569,22 @@ document.addEventListener('DOMContentLoaded', () => {
 	if (angleSlider) angleSlider.addEventListener('input', () => { updateArrow(); updateLaunchPadPosition(); });
 	speedSlider.addEventListener('input', updateArrow);
 
-	// 天板UIは削除（設定変更ハンドラ無し）
-
-	// 汎用的なUI値更新ヘルパー
-	function createSliderUpdater(slider, display, callback) {
-		return () => {
-			if (display) display.textContent = slider.value;
-			if (callback) callback();
-		};
-	}
-
-	// 天板UIは削除（イベント配線無し）
-	// insert speedActual after speedVal in DOM
+	// （未使用の UI ヘルパーは削除し、必要最小限のイベントのみを維持）
+	// insert speedActual after speedVal in DOM（中央揃えのラベルに付加）
 	const sliderInfo = document.querySelector('.slider-info');
 	if (sliderInfo) {
 		// 強さラベルの隣に速度表記を配置（中央揃えコンテナ内）
 		const labelInInfo = sliderInfo.querySelector('label');
 		if (labelInInfo) labelInInfo.appendChild(speedActual);
 	}
-	// 初期ラベル表示
+	// 初期ラベル表示・初期位置反映
 	updateArrow();
 	updateLaunchPadPosition();
 
-	// 共通: 現在のUI値から1発スポーン
+	// ========================
+	// 7. 発射ロジック（単発/連射）
+	// ========================
+	// 現在の UI 値から 1 発スポーン（連射はこの関数を繰り返し呼ぶ）
 	function spawnBallFromUI() {
 		const start = computeSpawnCoords();
 		let angleDeg = Number((angleSlider && angleSlider.value) || GAME_CONFIG.launch?.defaultAngle || 90);
@@ -625,7 +644,9 @@ document.addEventListener('DOMContentLoaded', () => {
 		window.addEventListener('blur', stopHold);
 	})();
 
-	// 衝突開始イベント
+	// ========================
+	// 8. 衝突イベント（片付け・係数適用）
+	// ========================
 	Events.on(engine, 'collisionStart', (event) => {
 		const pairs = event.pairs;
 		for (const pair of pairs) {
