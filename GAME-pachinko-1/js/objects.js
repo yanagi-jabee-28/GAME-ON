@@ -65,7 +65,7 @@ function createBall(x, y, options = {}) {
 	const fill = optionFill || (useRandom ? generatedColor : (ballConfig.render && ballConfig.render.fillStyle) || '#ccc');
 	const layerVal = (options && options.render && options.render.layer) ?? (ballConfig.render && ballConfig.render.layer) ?? 1;
 	const opt = makeBodyOptions('ball', { render: { fillStyle: fill, layer: layerVal } });
-	const body = Matter.Bodies.circle(x, y, ballConfig.radius, Object.assign({}, opt, options));
+	const body = Matter.Bodies.circle(x, y, ballConfig.radius, Object.assign({}, opt, options, { sleepThreshold: Infinity }));
 	return tagBodyWithDef(body, 'ball');
 }
 

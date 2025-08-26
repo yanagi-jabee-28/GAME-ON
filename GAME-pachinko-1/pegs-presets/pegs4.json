@@ -724,6 +724,10 @@
 		{
 			"name": "win-guiding-pegs",
 			"color": "hsl(360, 80%, 50%)",
+			"offset":{
+				"x": 0,
+				"y": 5
+			},
 			"points": [
 				{
 					"x": 205,

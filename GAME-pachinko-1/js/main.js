@@ -568,7 +568,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	// 共通: 現在のUI値から1発スポーン
 	function spawnBallFromUI() {
 		const start = computeSpawnCoords();
-		const angleDeg = Number((angleSlider && angleSlider.value) || GAME_CONFIG.launch?.defaultAngle || 90);
+		let angleDeg = Number((angleSlider && angleSlider.value) || GAME_CONFIG.launch?.defaultAngle || 90);
+		const angleRandomness = GAME_CONFIG.launch?.angleRandomness || 0;
+		if (angleRandomness > 0) {
+			const randomAngleOffset = (Math.random() * 2 - 1) * angleRandomness;
+			angleDeg += randomAngleOffset;
+		}
 		const sliderValue = Number(speedSlider.value || 0);
 		const { minSpeed = 5, maxSpeed = 400, speedScale = 1 } = GAME_CONFIG.launch || {};
 		const baseSpeed = minSpeed + (sliderValue / 100) * (maxSpeed - minSpeed);
