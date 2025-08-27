@@ -8,6 +8,7 @@
 // この定義は他のどのファイルよりも先に読み込まれる必要があります。
 const GAME_MATERIALS = {
 	METAL: 'metal',
+	METAL2: 'metal2',
 	PLASTIC: 'plastic',
 	TOP_PLATE: 'top_plate',
 	GUIDE: 'guide',
@@ -289,6 +290,12 @@ const MATERIAL_INTERACTIONS = {
 		friction: 0.1     // 表面が滑らかなので摩擦は比較的小さい
 	},
 
+	// --- 金属とメタル2の衝突（ボール=metal と metal2）---
+	'metal:metal2': {
+		restitution: 0.7,
+		friction: 0
+	},
+
 	// --- 金属と天板の衝突 ---
 	'metal:top_plate': {
 		restitution: 0,
@@ -309,8 +316,8 @@ const MATERIAL_INTERACTIONS = {
 
 	// デフォルト値：万が一、定義されていない組み合わせがあった場合のフォールバック
 	default: {
-		restitution: 0.5,
-		friction: 0.3
+		restitution: 0,
+		friction: 0
 	}
 };
 
