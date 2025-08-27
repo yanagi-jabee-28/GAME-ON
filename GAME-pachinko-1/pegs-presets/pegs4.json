@@ -8,6 +8,7 @@
 	"groups": [
 		{
 			"name": "celestial-nails",
+			"color": "hsl(30, 100%, 50%)",
 			"points": [
 				{
 					"x": 225,
@@ -45,7 +46,7 @@
 		},
 		{
 			"name": "center-pegs",
-			"color": "hsl(210, 100%, 50%)",
+			"color": "hsl(180, 100%, 45%)",
 			"offset": {
 				"x": 0,
 				"y": 0
@@ -415,7 +416,7 @@
 		},
 		{
 			"name": "upper-dense-band",
-			"color": "hsl(120, 50%, 50%)",
+			"color": "hsl(160, 100%, 40%)",
 			"points": [
 				{
 					"x": 58,
@@ -737,6 +738,7 @@
 		},
 		{
 			"name": "win-guiding-pegs",
+			"radius": 3,
 			"color": "hsl(360, 80%, 50%)",
 			"material": "metal2",
 			"offset": {

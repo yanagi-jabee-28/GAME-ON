@@ -57,7 +57,7 @@ const GAME_CONFIG = {
 			// ランダム色が割り当てられます。
 			render: {
 				// デフォルトのボール色（固定色を使いたい場合はこちらを設定）
-				fillStyle: '#FFA07A',
+				fillStyle: 'hsla(345, 100%, 85%, 1.00)',
 				// 既存資材はすべてレイヤー1（未指定時も1）
 				layer: 1
 			},
@@ -66,7 +66,7 @@ const GAME_CONFIG = {
 		},
 		// --- 釘の定義 ---
 		peg: {
-			radius: 3,
+			radius: 4,
 			label: 'peg',
 			material: GAME_MATERIALS.METAL, // 材質を金属に設定
 			options: {
@@ -81,7 +81,7 @@ const GAME_CONFIG = {
 		windmill: {
 			rotationsPerSecond: 1, // 毎秒の回転数
 			// human-facing color names (not renderer-specific)
-			bladeColor: '#1E88E5', // 羽の色（人間が理解するキー）
+			bladeColor: 'hsl(210, 100%, 50%)', // 羽の色（人間が理解するキー）
 			centerColor: '#263238',   // 中心円の色（人間が理解するキー）
 			// 形状のデフォルト値（ここを変えれば全体のデフォルト挙動が変わる）
 			defaults: {
@@ -203,7 +203,7 @@ GAME_CONFIG.launch = {
 	angleMax: 180,
 	defaultAngle: 120,
 	// 発射角度のランダムな「ぶれ」の大きさ（度数）。0で無効。
-	angleRandomness: 0.5
+	angleRandomness: 0.25
 	,
 	// 長押しで一定間隔発射するモード
 	holdToFireEnabled: true,      // false にすると従来方式のみ
@@ -244,7 +244,7 @@ GAME_CONFIG.topPlate = {
 	// 注意: radius が画面幅 / 2 より小さいと円弧が作成できず矩形にフォールバックします。
 	//       明示的な半径(px)をここで設定できます。例: radius: 340
 	//       空にすると起動時に幅に基づく推奨値が設定されます。
-	radius: 350,
+	radius: 355,
 	// 分割数（多いほど滑らか）。パフォーマンスを考慮して 24 程度が良い。
 	segments: 30,
 	// 板の厚み。見た目をわかりやすくするために増やす。
