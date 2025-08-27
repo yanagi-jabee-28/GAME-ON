@@ -26,8 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	// ========================
 	const engine = Engine.create();
 	// パフォーマンス向上のため、物理演算の反復回数をデフォルト値に設定
-	engine.positionIterations = 6;
-	engine.velocityIterations = 4;
+	engine.positionIterations = 8;
+	engine.velocityIterations = 6;
 	engine.constraintIterations = 2;
 	// 動きの停止した物体をスリープさせ、計算負荷を軽減
 	engine.enableSleeping = true;
