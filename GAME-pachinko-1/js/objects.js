@@ -129,9 +129,8 @@ function createBounds() {
 		const radius = tp.radius;
 
 		const hasDecomp = (typeof window !== 'undefined' && typeof window.decomp !== 'undefined');
-		// poly-decomp の quickDecomp が複雑形状（環状セクタ）で暴走するため、
-		// 天板に関しては常にクアッド分割で安全に生成する。
-		const useSinglePolygon = false;
+		// 単一ポリゴン生成を許可（poly-decomp が利用可能で、設定で有効化された場合）
+		const useSinglePolygon = !!(GAME_CONFIG && GAME_CONFIG.topPlate && GAME_CONFIG.topPlate.useSinglePolygon) && hasDecomp;
 
 		// 無効な半径は矩形にフォールバック
 		if (!isFinite(radius) || radius <= thickness) {

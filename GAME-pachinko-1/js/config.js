@@ -203,7 +203,7 @@ GAME_CONFIG.launch = {
 	angleMax: 180,
 	defaultAngle: 120,
 	// 発射角度のランダムな「ぶれ」の大きさ（度数）。0で無効。
-	angleRandomness: 0.25
+	angleRandomness: 0
 	,
 	// 長押しで一定間隔発射するモード
 	holdToFireEnabled: true,      // false にすると従来方式のみ
@@ -246,16 +246,18 @@ GAME_CONFIG.topPlate = {
 	//       空にすると起動時に幅に基づく推奨値が設定されます。
 	radius: 355,
 	// 分割数（多いほど滑らか）。パフォーマンスを考慮して 24 程度が良い。
-	segments: 30,
+	segments: 48,
 	// 板の厚み。見た目をわかりやすくするために増やす。
 	thickness: 25,
 	// 接触解決の許容オーバーラップ（小さいほどめり込みが起きにくい）
-	slop: 0.008,
+	slop: 0.001,
 	// 天板の中心オフセット（画面中央からの差分、px）。ここで初期値を変更できます。
 	centerOffsetX: 0,
-	centerOffsetY: -15,
+	centerOffsetY: -245,
 	// 天板の描画色（指定があれば topPlateBody.render より優先）
-	color: '#2A2F36'
+	color: '#2A2F36',
+	// poly-decomp が使える環境では単一ポリゴンにできる（継ぎ目をなくす）
+	useSinglePolygon: true
 };
 
 // 表示モード: 'arc'（幅に合わせた弧）または 'dome'（左右対称の半円ドーム）
