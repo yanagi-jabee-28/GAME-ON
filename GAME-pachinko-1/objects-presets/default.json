@@ -61,7 +61,7 @@
 			}
 		},
 		{
-			"type": "windmill",
+			"type": "paddle",
 			"x": 205,
 			"y": 630,
 			"rotation": {
@@ -88,7 +88,7 @@
 			}
 		},
 		{
-			"type": "windmill",
+			"type": "paddle",
 			"x": 245,
 			"y": 630,
 			"rotation": {

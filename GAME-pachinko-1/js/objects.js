@@ -578,7 +578,8 @@ function createRotatingYakumono(blueprint) {
 	const shape = Object.assign({}, defaults, blueprint.shape || {});
 	const x = blueprint.x, y = blueprint.y;
 
-	if (shape.type !== 'windmill') return null;
+	// 'paddle' タイプは風車の1枚ブレード版として扱う
+	if (shape.type !== 'windmill' && shape.type !== 'paddle') return null;
 
 	const bladeRender = Object.assign({}, windDef.render || {}, { layer: (windDef.render?.layer ?? 1) }, blueprint.render || {});
 	if (blueprint.bladeColor) bladeRender.fillStyle = blueprint.bladeColor;
@@ -591,7 +592,7 @@ function createRotatingYakumono(blueprint) {
 
 	const parts = [];
 	const centerRadius = Math.max(0, Number(shape.centerRadius) || 0);
-	const numBlades = Math.max(1, Number(shape.numBlades) || 1);
+	const numBlades = Math.max(1, Number(shape.numBlades) || (shape.type === 'paddle' ? 1 : 1));
 	const bladeLength = Math.max(1, Number(shape.bladeLength) || 1);
 	const bladeWidth = Math.max(1, Number(shape.bladeWidth) || 1);
 

@@ -130,7 +130,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	function initRotatorsFromPreset(preset) {
 		const items = Array.isArray(preset.rotators) ? preset.rotators : [];
 		return items.map(item => {
-			if (item.type !== 'windmill') return null;
+			// 新タイプ 'paddle' は、風車ジオメトリを1枚ブレード前提で使う別名として扱う
+			const isWindmill = item.type === 'windmill';
+			const isPaddle = item.type === 'paddle';
+			if (!isWindmill && !isPaddle) return null;
 			const defaults = windmillConfig.defaults || {};
 			const bladeColor = item.bladeColor ?? item.render?.fillStyle ?? windmillConfig.bladeColor ?? windmillConfig.render?.fillStyle;
 			const centerColor = item.centerColor ?? item.centerFill ?? windmillConfig.centerColor ?? windmillConfig.centerFill;
@@ -144,7 +147,8 @@ document.addEventListener('DOMContentLoaded', () => {
 				centerColor,
 				material: item.material,
 				centerMaterial: item.centerMaterial,
-				shape: Object.assign({ type: 'windmill' }, defaults, item.shape || {})
+				// paddle の場合も内部の形状は windmill ベースだが、型識別のために type を通す
+				shape: Object.assign({ type: isPaddle ? 'paddle' : 'windmill' }, defaults, item.shape || {})
 			};
 			const body = createRotatingYakumono(blueprint);
 			World.add(world, body);
