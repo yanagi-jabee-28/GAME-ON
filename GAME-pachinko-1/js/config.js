@@ -203,7 +203,7 @@ GAME_CONFIG.launch = {
 	angleMax: 180,
 	defaultAngle: 120,
 	// 発射角度のランダムな「ぶれ」の大きさ（度数）。0で無効。
-	angleRandomness: 0
+	angleRandomness: 0.5
 	,
 	// 長押しで一定間隔発射するモード
 	holdToFireEnabled: true,      // false にすると従来方式のみ
@@ -314,7 +314,7 @@ const MATERIAL_INTERACTIONS = {
 	// metal2（準金属）関連
 	'metal2:metal2': { restitution: 0.6, friction: 0.08 },
 	'metal2:plastic': { restitution: 0.5, friction: 0.25 },
-	'metal2:tama': { restitution: 0.7, friction: 0.05 },
+	'metal2:tama': { restitution: 0.5, friction: 0.05 },
 	'metal2:top_plate': { restitution: 0, friction: 0 },
 
 	// プラスチック系
