@@ -48,8 +48,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		console.error('Game container element (#game-container) not found.');
 		return; // 以降の処理はコンテナがないと成立しないため早期終了
 	}
-	container.style.width = width + 'px';
-	container.style.height = height + 'px';
+	// レスポンシブ対応: コンテナのサイズは CSS に委ね、キャンバスは等比でスケールさせる
+	// （内部の物理演算・描画解像度は width/height で維持）
 	// DOMレイヤリングのため relative を付与
 	if (!container.style.position) container.style.position = 'relative';
 

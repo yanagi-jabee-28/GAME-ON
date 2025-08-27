@@ -4,7 +4,7 @@ body {
     text-align: center;
     background-color: #f0f0f0;
     margin: 0;
-    padding: 20px;
+    padding: 16px;
 }
 
 h1 {
@@ -12,18 +12,28 @@ h1 {
 }
 
 /* --- ゲーム関連のコンテナとキャンバス --- */
+/*
+    ゲームは内部的に 650x900（例）で描画しますが、コンテナ幅に合わせて等比スケールします。
+    - モバイルでは画面幅にフィット
+    - デスクトップでは最大幅を制限
+*/
 #game-container {
-    margin: 20px auto;
+    margin: 16px auto;
     border: 1px solid #ccc;
-    /* 幅と高さは実行時にGAME_CONFIGによって制御されます */
-    width: auto;
-    height: auto;
-    position: relative; /* 矢印などの絶対配置要素の基準となります */
+    position: relative;
+    /* 矢印などの絶対配置要素の基準となります */
+    width: min(95vw, 650px);
+    /* 650x900 の想定比 (約 0.722) を維持するため、aspect-ratio を使用 */
+    aspect-ratio: 650 / 900;
+    background: #fff;
 }
 
 canvas {
     display: block;
     background-color: #fff;
+    /* コンテナ幅いっぱいにスケール（内部解像度はJS側のwidth/heightで維持） */
+    width: 100% !important;
+    height: 100% !important;
 }
 
 /* --- UIコントロール --- */
@@ -43,9 +53,15 @@ button {
     font-size: 14px;
 }
 
+.controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
 .controls input[type="range"] {
-    width: 600px;
-    max-width: 90vw;
+    width: min(600px, 92vw);
 }
 
 .controls .slider-info {
@@ -55,7 +71,8 @@ button {
 
 /* --- 現在は使用されていない要素 --- */
 #launch-arrow {
-    display: none !important; /* 現在はキャンバスに直接描画 */
+    display: none !important;
+    /* 現在はキャンバスに直接描画 */
 }
 
 /* 以前のバージョンの発射台は無効化 */
@@ -69,29 +86,54 @@ button {
 #angle-val,
 #speed-val,
 #speed-actual {
-    font-variant-numeric: tabular-nums; /* 対応ブラウザで等幅数値を有効化 */
-    font-feature-settings: "tnum";     /* 一部のブラウザ用のフォールバック */
+    font-variant-numeric: tabular-nums;
+    /* 対応ブラウザで等幅数値を有効化 */
+    font-feature-settings: "tnum";
+    /* 一部のブラウザ用のフォールバック */
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 /* 角度表示用の幅を確保 */
 #angle-val {
     display: inline-block;
-    width: 6ch; /* "180.0" のような表示に対応 */
+    width: 6ch;
+    /* "180.0" のような表示に対応 */
     text-align: right;
 }
 
 /* 発射強度表示用の幅を確保 */
 #speed-val {
     display: inline-block;
-    width: 5ch; /* "100.0" のような表示に対応 */
+    width: 5ch;
+    /* "100.0" のような表示に対応 */
     text-align: right;
 }
 
 /* 実際の速度表示用の幅を確保 */
 #speed-actual {
     display: inline-block;
-    min-width: 12ch; /* "px/s" という単位表示のためのスペース */
+    min-width: 12ch;
+    /* "px/s" という単位表示のためのスペース */
     text-align: left;
     opacity: 0.85;
+}
+
+/* モバイル向け微調整 */
+@media (max-width: 480px) {
+    body {
+        padding: 12px;
+    }
+
+    #game-container {
+        width: 96vw;
+    }
+
+    .controls label {
+        font-size: 13px;
+    }
+
+    button {
+        font-size: 15px;
+        padding: 10px 16px;
+    }
 }
