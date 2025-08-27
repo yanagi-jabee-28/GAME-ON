@@ -286,55 +286,50 @@ GAME_CONFIG.presets = {
  * キーは材質名をアルファベット順にソートし、':'で結合したものです。
  */
 const MATERIAL_INTERACTIONS = {
-	// --- 金属同士の衝突 ---
-	'metal:metal': {
-		restitution: 0.7, // 挙動を安定させつつ、よく弾むように調整
-		friction: 0.1     // 表面が滑らかなので摩擦は比較的小さい
-	},
+	// 装飾は常に非干渉（レンダリングのみ） - 明示的に定義しておく（getMaterialInteraction でもガードあり）
+	'decor:decor': { restitution: 0, friction: 0 },
+	'decor:guide': { restitution: 0, friction: 0 },
+	'decor:metal': { restitution: 0, friction: 0 },
+	'decor:metal2': { restitution: 0, friction: 0 },
+	'decor:plastic': { restitution: 0, friction: 0 },
+	'decor:tama': { restitution: 0, friction: 0 },
+	'decor:top_plate': { restitution: 0, friction: 0 },
 
-	// --- 金属とメタル2の衝突（ボール=metal と metal2）---
-	'metal:metal2': {
-		restitution: 0.7,
-		friction: 0
-	},
+	// ガイド同士 / ガイドと各材質
+	'guide:guide': { restitution: 0.1, friction: 0.6 },   // ガイドは摩擦高めでボールの速度を調整
+	'guide:metal': { restitution: 0.2, friction: 0.2 },
+	'guide:metal2': { restitution: 0.2, friction: 0.2 },
+	'guide:plastic': { restitution: 0.15, friction: 0.4 },
+	'guide:tama': { restitution: 0.1, friction: 0.3 },
+	'guide:top_plate': { restitution: 0, friction: 0 },     // 境界扱い（非反発・非摩擦）
 
-	// --- 玉同士の衝突 ---
-	'tama:tama': {
-		restitution: 0.9,
-		friction: 0.05
-	},
+	// 金属系
+	'metal:metal': { restitution: 0.7, friction: 0.1 },
+	'metal:metal2': { restitution: 0.7, friction: 0 },
+	'metal:metal2': { restitution: 0.7, friction: 0 },
+	'metal:plastic': { restitution: 0.5, friction: 0.3 },
+	'metal:tama': { restitution: 0.7, friction: 0.1 },
+	'metal:top_plate': { restitution: 0, friction: 0 },
 
-	// --- 釘（金属）と玉の衝突（従来の metal:metal と同等に保つ） ---
-	'metal:tama': {
-		restitution: 0.7,
-		friction: 0.1
-	},
+	// metal2（準金属）関連
+	'metal2:metal2': { restitution: 0.6, friction: 0.08 },
+	'metal2:plastic': { restitution: 0.5, friction: 0.25 },
+	'metal2:tama': { restitution: 0.7, friction: 0.05 },
+	'metal2:top_plate': { restitution: 0, friction: 0 },
 
-	// --- 金属と天板の衝突 ---
-	'metal:top_plate': {
-		restitution: 0,
-		friction: 0
-	},
+	// プラスチック系
+	'plastic:plastic': { restitution: 0.4, friction: 0.4 },
+	'plastic:tama': { restitution: 0.45, friction: 0.2 },
+	'plastic:top_plate': { restitution: 0, friction: 0 },
 
-	// --- プラスチック同士の衝突 ---
-	'plastic:plastic': {
-		restitution: 0.4, // やや弾性が低い
-		friction: 0.4
-	},
+	// 玉（ボール）関連（tama:tama は高反発）
+	'tama:tama': { restitution: 0.9, friction: 0.05 },
+	'tama:top_plate': { restitution: 0, friction: 0 },
 
-	// --- 金属とプラスチックの衝突 ---
-	'metal:plastic': {
-		restitution: 0.5,
-		friction: 0.3
-	},
+	// 天板同士（冗長だが明示）
+	'top_plate:top_plate': { restitution: 0, friction: 0 },
 
-	// --- ガイドと金属の衝突 ---
-	'guide:metal': {
-		restitution: 0.2,
-		friction: 0.2
-	},
-
-	// デフォルト値：万が一、定義されていない組み合わせがあった場合のフォールバック
+	// フォールバック（未定義の組み合わせ用）
 	default: {
 		restitution: 0,
 		friction: 0
