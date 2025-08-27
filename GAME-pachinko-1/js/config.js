@@ -253,11 +253,11 @@ GAME_CONFIG.topPlate = {
 	slop: 0.001,
 	// 天板の中心オフセット（画面中央からの差分、px）。ここで初期値を変更できます。
 	centerOffsetX: 0,
-	centerOffsetY: -245,
+	centerOffsetY: -15,
 	// 天板の描画色（指定があれば topPlateBody.render より優先）
 	color: '#2A2F36',
 	// poly-decomp が使える環境では単一ポリゴンにできる（継ぎ目をなくす）
-	useSinglePolygon: true
+	useSinglePolygon: false
 };
 
 // 表示モード: 'arc'（幅に合わせた弧）または 'dome'（左右対称の半円ドーム）
