@@ -9,6 +9,7 @@
 const GAME_MATERIALS = {
 	METAL: 'metal',
 	METAL2: 'metal2',
+	TAMA: 'tama',
 	PLASTIC: 'plastic',
 	TOP_PLATE: 'top_plate',
 	GUIDE: 'guide',
@@ -47,7 +48,7 @@ const GAME_CONFIG = {
 		ball: {
 			radius: 6,     // ボールの半径
 			label: 'ball', // 衝突判定などで使用する識別子
-			material: GAME_MATERIALS.METAL, // 材質を金属に設定
+			material: GAME_MATERIALS.TAMA, // 玉専用の材質
 			options: {
 				// restitutionとfrictionは材質ペアで定義するため、ここでは設定しない
 				density: 0.01,    // 密度 (値が大きいほど重くなる)
@@ -295,6 +296,18 @@ const MATERIAL_INTERACTIONS = {
 	'metal:metal2': {
 		restitution: 0.7,
 		friction: 0
+	},
+
+	// --- 玉同士の衝突 ---
+	'tama:tama': {
+		restitution: 0.9,
+		friction: 0.05
+	},
+
+	// --- 釘（金属）と玉の衝突（従来の metal:metal と同等に保つ） ---
+	'metal:tama': {
+		restitution: 0.7,
+		friction: 0.1
 	},
 
 	// --- 金属と天板の衝突 ---
