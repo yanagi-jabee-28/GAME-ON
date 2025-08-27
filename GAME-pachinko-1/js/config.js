@@ -44,7 +44,7 @@ const GAME_CONFIG = {
 	objects: {
 		// --- ボールの定義 ---
 		ball: {
-			radius: 7,     // ボールの半径
+			radius: 6,     // ボールの半径
 			label: 'ball', // 衝突判定などで使用する識別子
 			material: GAME_MATERIALS.METAL, // 材質を金属に設定
 			options: {
@@ -200,13 +200,13 @@ GAME_CONFIG.launch = {
 	angleMax: 180,
 	defaultAngle: 120,
 	// 発射角度のランダムな「ぶれ」の大きさ（度数）。0で無効。
-	angleRandomness: 1
+	angleRandomness: 0.5
 	,
 	// 長押しで一定間隔発射するモード
 	holdToFireEnabled: true,      // false にすると従来方式のみ
-	holdIntervalMs: 800,          // 連射間隔（ミリ秒）
+	holdIntervalMs: 500,          // 連射間隔（ミリ秒）
 	// 連射モード開始から最初の発射までの遅延（ミリ秒）
-	holdFirstShotDelayMs: 100
+	holdFirstShotDelayMs: 500
 };
 
 // 発射の初期位置設定（config で制御可能にする）
