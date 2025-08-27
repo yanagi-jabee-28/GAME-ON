@@ -105,6 +105,9 @@ function createBounds() {
 	const wallOptions = makeBodyOptions('wall');
 	const tpBodyCfg = (GAME_CONFIG.objects && GAME_CONFIG.objects.topPlateBody) || { label: 'top-plate', material: (GAME_MATERIALS && GAME_MATERIALS.TOP_PLATE) || 'top_plate' };
 	let topPlateOptions = makeBodyOptions('topPlateBody');
+	const tpSlop = (GAME_CONFIG && GAME_CONFIG.topPlate && typeof GAME_CONFIG.topPlate.slop === 'number')
+		? GAME_CONFIG.topPlate.slop
+		: 0.02;
 	// 天板の色を config から上書き（指定があれば）
 	if (GAME_CONFIG.topPlate && GAME_CONFIG.topPlate.color) {
 		const tpColor = GAME_CONFIG.topPlate.color;
@@ -133,7 +136,7 @@ function createBounds() {
 		// 無効な半径は矩形にフォールバック
 		if (!isFinite(radius) || radius <= thickness) {
 			const topY = thickness / 2;
-			const rect = Matter.Bodies.rectangle(width / 2, topY, width, thickness, { ...topPlateOptions, isStatic: true, label: tpBodyCfg.label });
+			const rect = Matter.Bodies.rectangle(width / 2, topY, width, thickness, { ...topPlateOptions, isStatic: true, label: tpBodyCfg.label, slop: tpSlop });
 			rect.material = tpBodyCfg.material;
 			bounds.push(rect);
 		} else if (tp.mode === 'dome') {
@@ -156,7 +159,7 @@ function createBounds() {
 					const a = start + (i / segs) * (end - start);
 					localVerts.push({ x: rInner * Math.cos(a), y: rInner * Math.sin(a) });
 				}
-				const plateOptions = { ...topPlateOptions, isStatic: true, slop: 0.02 };
+				const plateOptions = { ...topPlateOptions, isStatic: true, slop: tpSlop };
 				// removeCollinear を小さくして分解時の誤差を抑える
 				const poly = Matter.Bodies.fromVertices(cx, centerY, [localVerts], plateOptions, true, 0.0001);
 				poly.label = tpBodyCfg.label;
@@ -168,7 +171,7 @@ function createBounds() {
 				const parts = [];
 				const delta = (end - start) / segs;
 				const eps = Math.max(delta * 0.003, 0.0015); // オーバーラップ角度（より小さく）
-				const plateOptions = { ...topPlateOptions, isStatic: true, slop: 0.02 };
+				const plateOptions = { ...topPlateOptions, isStatic: true, slop: tpSlop };
 				for (let i = 0; i < segs; i++) {
 					let a0 = start + i * delta - eps;
 					let a1 = start + (i + 1) * delta + eps;
@@ -224,7 +227,7 @@ function createBounds() {
 						const a = start + (i / segs) * (end - start);
 						localVerts.push({ x: rInner * Math.cos(a), y: rInner * Math.sin(a) });
 					}
-					const plateOptions = { ...topPlateOptions, isStatic: true, slop: 0.04 };
+					const plateOptions = { ...topPlateOptions, isStatic: true, slop: tpSlop };
 					const poly = Matter.Bodies.fromVertices(cx, centerY, [localVerts], plateOptions, true, 0.0001);
 					poly.label = tpBodyCfg.label;
 					poly.material = tpBodyCfg.material;
@@ -235,7 +238,7 @@ function createBounds() {
 					const parts = [];
 					const delta = (end - start) / segs;
 					const eps = Math.max(delta * 0.003, 0.0015);
-					const plateOptions = { ...topPlateOptions, isStatic: true, slop: 0.02 };
+					const plateOptions = { ...topPlateOptions, isStatic: true, slop: tpSlop };
 					for (let i = 0; i < segs; i++) {
 						let a0 = start + i * delta - eps;
 						let a1 = start + (i + 1) * delta + eps;

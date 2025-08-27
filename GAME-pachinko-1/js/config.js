@@ -249,6 +249,8 @@ GAME_CONFIG.topPlate = {
 	segments: 30,
 	// 板の厚み。見た目をわかりやすくするために増やす。
 	thickness: 25,
+	// 接触解決の許容オーバーラップ（小さいほどめり込みが起きにくい）
+	slop: 0.008,
 	// 天板の中心オフセット（画面中央からの差分、px）。ここで初期値を変更できます。
 	centerOffsetX: 0,
 	centerOffsetY: -15,
