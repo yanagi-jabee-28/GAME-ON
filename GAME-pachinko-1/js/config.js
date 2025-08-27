@@ -93,6 +93,7 @@ const GAME_CONFIG = {
 		// --- 壁の定義 ---
 		wall: {
 			label: 'wall',
+			material: GAME_MATERIALS.TOP_PLATE,
 			options: {
 				isStatic: true,
 			},
@@ -242,11 +243,11 @@ GAME_CONFIG.topPlate = {
 	// 注意: radius が画面幅 / 2 より小さいと円弧が作成できず矩形にフォールバックします。
 	//       明示的な半径(px)をここで設定できます。例: radius: 340
 	//       空にすると起動時に幅に基づく推奨値が設定されます。
-	radius: 345,
+	radius: 350,
 	// 分割数（多いほど滑らか）。パフォーマンスを考慮して 24 程度が良い。
-	segments: 40,
+	segments: 30,
 	// 板の厚み。見た目をわかりやすくするために増やす。
-	thickness: 20,
+	thickness: 25,
 	// 天板の中心オフセット（画面中央からの差分、px）。ここで初期値を変更できます。
 	centerOffsetX: 0,
 	centerOffsetY: -15,
@@ -314,6 +315,12 @@ const MATERIAL_INTERACTIONS = {
 		friction: 0.3
 	},
 
+	// --- ガイドと金属の衝突 ---
+	'guide:metal': {
+		restitution: 0.2,
+		friction: 0.2
+	},
+
 	// デフォルト値：万が一、定義されていない組み合わせがあった場合のフォールバック
 	default: {
 		restitution: 0,
@@ -329,13 +336,10 @@ const MATERIAL_INTERACTIONS = {
  */
 function getMaterialInteraction(materialA, materialB) {
 	// キーを生成するために、材質名をアルファベット順にソートします。
-	// ガイド材質は常に摩擦0・反発0（他材質と組み合わせても同様）
 	const a = (materialA || '').toString().toLowerCase();
 	const b = (materialB || '').toString().toLowerCase();
-	if (
-		a === GAME_MATERIALS.GUIDE || b === GAME_MATERIALS.GUIDE || a === 'guide' || b === 'guide' ||
-		a === GAME_MATERIALS.DECOR || b === GAME_MATERIALS.DECOR || a === 'decor' || b === 'decor'
-	) {
+	// 装飾（decor）は常に非干渉（摩擦0・反発0）
+	if (a === GAME_MATERIALS.DECOR || b === GAME_MATERIALS.DECOR || a === 'decor' || b === 'decor') {
 		return { restitution: 0, friction: 0 };
 	}
 	const key = [materialA, materialB].sort().join(':');
