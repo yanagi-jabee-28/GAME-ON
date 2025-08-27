@@ -286,7 +286,7 @@ const MATERIAL_INTERACTIONS = {
 	// --- 金属同士の衝突 ---
 	'metal:metal': {
 		restitution: 0.7, // 挙動を安定させつつ、よく弾むように調整
-		friction: 0.2     // 表面が滑らかなので摩擦は比較的小さい
+		friction: 0.1     // 表面が滑らかなので摩擦は比較的小さい
 	},
 
 	// --- 金属と天板の衝突 ---
