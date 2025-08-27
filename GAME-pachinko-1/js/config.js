@@ -196,8 +196,8 @@ GAME_CONFIG.launch = {
 	// 速度表示の小数点桁数（0〜3）。UIの"(xx px/s)"に適用
 	speedPrecision: 2,
 	// スライダーと一致させたい最小/最大（ここで maxSpeed を下げて上限を制御します）
-	minSpeed: 23,
-	maxSpeed: 31,
+	minSpeed: 25,
+	maxSpeed: 35,
 	// angle control: min/max degrees and default
 	angleMin: 0,
 	angleMax: 180,
@@ -219,7 +219,7 @@ GAME_CONFIG.launch = {
 GAME_CONFIG.launch.spawn = {
 	x: -60,
 	// デフォルトはコンテナ下端から 40px 上
-	yOffsetFromBottom: 500
+	yOffsetFromBottom: 400
 };
 
 // 発射台の見た目設定（UIではライブ変更あり）
