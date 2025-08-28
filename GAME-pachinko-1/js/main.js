@@ -704,6 +704,12 @@ document.addEventListener('DOMContentLoaded', () => {
 		// 総射出数をインクリメント
 		try {
 			if (GAME_CONFIG && GAME_CONFIG.metrics) GAME_CONFIG.metrics.totalSpawned = (Number(GAME_CONFIG.metrics.totalSpawned) || 0) + 1;
+			// 開発者ツール向けに発射イベントを通知（即時更新を促す）
+			try {
+				if (typeof window !== 'undefined' && window.dispatchEvent) {
+					window.dispatchEvent(new CustomEvent('devtools:ball-spawned', { detail: { total: GAME_CONFIG.metrics.totalSpawned } }));
+				}
+			} catch (_) { /* no-op */ }
 		} catch (_) { /* no-op */ }
 	}
 
@@ -819,6 +825,12 @@ document.addEventListener('DOMContentLoaded', () => {
 				sensorBody.sensorData.isEntered.add(ballId);
 				counter.enterCount++;
 				counter.currentInside++;
+				// センサー更新通知（devtools 用）
+				try {
+					if (typeof window !== 'undefined' && window.dispatchEvent) {
+						window.dispatchEvent(new CustomEvent('devtools:sensor-updated', { detail: { id: counterId, type: 'enter', counter: Object.assign({}, counter) } }));
+					}
+				} catch (_) { /* no-op */ }
 			}
 		} else if (eventType === 'exit') {
 			// 退出イベント
@@ -827,6 +839,12 @@ document.addEventListener('DOMContentLoaded', () => {
 				counter.exitCount++;
 				counter.currentInside = Math.max(0, counter.currentInside - 1);
 				counter.totalPassed++;
+				// センサー更新通知（devtools 用）
+				try {
+					if (typeof window !== 'undefined' && window.dispatchEvent) {
+						window.dispatchEvent(new CustomEvent('devtools:sensor-updated', { detail: { id: counterId, type: 'exit', counter: Object.assign({}, counter) } }));
+					}
+				} catch (_) { /* no-op */ }
 			}
 		}
 	}

@@ -355,6 +355,13 @@
 		}
 	}
 
-	// 定期的にセンサーカウントを更新（1秒ごと）
-	setInterval(updateSensorCounters, 1000);
+	// ポーリングを廃止し、イベント駆動のみで更新する
+	// 発射イベント・センサー更新イベントを受けて UI を更新する
+	window.addEventListener('devtools:ball-spawned', () => {
+		try { updateSensorCounters(); } catch (_) { /* no-op */ }
+	});
+
+	window.addEventListener('devtools:sensor-updated', (e) => {
+		try { updateSensorCounters(); } catch (_) { /* no-op */ }
+	});
 })();
