@@ -4,7 +4,7 @@
 			"type": "windmill",
 			"x": 138,
 			"y": 314,
-			"rps": 0.8,
+			"rps": 1,
 			"direction": -1,
 			"//bladeColor": "#FFFF00",
 			"centerColor": "#333333",
@@ -19,7 +19,7 @@
 			"type": "windmill",
 			"x": 313,
 			"y": 314,
-			"rps": 0.8,
+			"rps": 1,
 			"direction": 1,
 			"//bladeColor": "#FF0000",
 			"centerColor": "#333333",
@@ -75,7 +75,7 @@
 						"holdMs": 500
 					}
 				],
-				"moveMs": 300,
+				"moveMs": 200,
 				"loop": true
 			},
 			"bladeColor": "hsl(270,100%,45%)",
@@ -102,7 +102,7 @@
 						"holdMs": 500
 					}
 				],
-				"moveMs": 300,
+				"moveMs": 200,
 				"loop": true
 			},
 			"bladeColor": "hsl(270,100%,45%)",

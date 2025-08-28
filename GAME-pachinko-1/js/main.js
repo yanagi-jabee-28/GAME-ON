@@ -108,7 +108,15 @@ document.addEventListener('DOMContentLoaded', () => {
 			const elapsedRaw = now - last;
 			const elapsed = Math.min(elapsedRaw, 200);
 			last = now;
-			acc += elapsed;
+			const paused = Boolean(GAME_CONFIG.physics?.paused);
+			const tsRaw = engine?.timing?.timeScale ?? 1; // 0 を有効値として扱う
+			const ts = paused ? 0 : tsRaw;
+			if (ts === 0) {
+				// 時間停止: 物理アキュムレータを進めず、更新もしない
+				acc = 0;
+			} else {
+				acc += elapsed;
+			}
 			let steps = 0;
 			while (acc >= fixedDtMs && steps < maxFixedStepsPerFrame) {
 				const effSubsteps = (adaptiveSubsteps && elapsed > fixedDtMs * 1.5) ? 1 : substeps;
@@ -123,10 +131,10 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (acc >= fixedDtMs) {
 				acc = Math.min(acc, fixedDtMs);
 			}
-			// 回転ギミックは実時間で進行（フレーム/サブステップ非依存）
-			const rotDeltaMs = elapsed; // 実時間ms
+			// ワールド時間 = 実時間 * timeScale。回転・連射ともにこの時間で進行。
+			const rotDeltaMs = elapsed * ts; // シミュ/ワールド時間ms
 			const rotDeltaSec = rotDeltaMs / 1000;
-			if (Array.isArray(rotators) && rotators.length) {
+			if (ts !== 0 && Array.isArray(rotators) && rotators.length) {
 				for (const rot of rotators) {
 					if (rot.mode === 'program' && rot.program) {
 						const p = rot.program;
@@ -186,9 +194,9 @@ document.addEventListener('DOMContentLoaded', () => {
 					}
 				}
 			}
-			// UIの長押し連射タイマーは実時間で進める（timeScaleの影響を排除）
-			if (holdActive) {
-				holdAccumMs += elapsed;
+			// 長押し連射タイマーもワールド時間で進行（timeScaleに追従）
+			if (ts !== 0 && holdActive) {
+				holdAccumMs += elapsed * ts;
 				if (holdFirstShotPending) {
 					if (holdAccumMs >= holdFirstDelayMsCfg) {
 						holdAccumMs = 0;

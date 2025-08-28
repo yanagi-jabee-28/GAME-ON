@@ -56,14 +56,14 @@ const GAME_CONFIG = {
 		substeps: 4,
 		// 固定フレームレート（物理の基準FPS）。実時間とのズレを減らす
 		fixedFps: 60,
-		// 1フレームで消化する最大固定ステップ数（負荷が高いときの保護）
-		maxFixedStepsPerFrame: 4,
 		// 遅延が大きいフレームではサブステップを一時的に 1 に落として処理を軽量化
 		adaptiveSubsteps: false,
+		// 即時一時停止（UIやデバッグホットキーから切替可能）
+		paused: false,
 		// 時間スケール（全体の進み具合を倍率で調整）
 		timeScale: 1,
 		// 重力（Y軸）。体感が弱い/強い場合に調整
-		gravityY: 1.5
+		gravityY: 2
 	},
 
 	// UI/ページ全体に関する見た目設定
@@ -358,7 +358,7 @@ const MATERIAL_INTERACTIONS = {
 
 	// 玉（ボール）関連（tama:tama は高反発）
 	'tama:tama': { restitution: 0.9, friction: 0.05 },
-	'tama:top_plate': { restitution: 0, friction: 0 },
+	'tama:top_plate': { restitution: 0.1, friction: 0 },
 
 	// 天板同士（冗長だが明示）
 	'top_plate:top_plate': { restitution: 0, friction: 0 },
