@@ -174,6 +174,35 @@
 
 		panel.appendChild(buttonRow);
 
+		// 役物（パドル）一括ON/OFF 切替
+		const paddleRow = document.createElement('div');
+		paddleRow.style.marginTop = '8px';
+		const paddleLabel = document.createElement('label');
+		paddleLabel.style.display = 'inline-flex';
+		paddleLabel.style.alignItems = 'center';
+		const cb = document.createElement('input');
+		cb.type = 'checkbox';
+		cb.id = 'dev-toggle-paddles';
+		cb.style.marginRight = '6px';
+		paddleLabel.appendChild(cb);
+		paddleLabel.appendChild(document.createTextNode('パドルを動かす（2つ一括）'));
+		paddleRow.appendChild(paddleLabel);
+		panel.appendChild(paddleRow);
+		// 初期状態: 現在の rotators の paddle が全て enabled ならチェックON
+		try {
+			const list = (typeof window.getRotatorsSummary === 'function') ? window.getRotatorsSummary() : [];
+			const paddles = list.filter(r => r.kind === 'paddle');
+			const allOn = paddles.length ? paddles.every(r => r.enabled) : false;
+			cb.checked = allOn;
+		} catch (_) { cb.checked = false; }
+		cb.addEventListener('change', () => {
+			try {
+				if (typeof window.setRotatorsEnabledByKind === 'function') {
+					window.setRotatorsEnabledByKind('paddle', cb.checked);
+				}
+			} catch (_) { /* no-op */ }
+		});
+
 		// 初期反映（エンジンが既にあれば値を適用）
 		const eng0 = getEngine();
 		if (eng0 && eng0.timing) {

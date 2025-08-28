@@ -936,20 +936,27 @@ function createParticleBurst(world, x, y, color, count = 12, lifeMs = 700) {
 	const Body = Matter.Body;
 	const World = Matter.World;
 
-	// ヘルパ: 色文字列のアルファを指定して返す（簡易対応）
+	// ヘルパ: 色文字列のアルファを指定して返す（rgb/rgba/hsl/hsla/hex を簡易サポート）
 	function setAlpha(col, a) {
 		if (!col || typeof col !== 'string') return `rgba(255,255,255,${a})`;
 		const s = col.trim();
-		const mRgba = s.match(/^rgba?\(([^)]+)\)$/i);
-		if (mRgba) {
-			const parts = mRgba[1].split(',').map(p => p.trim());
-			const isHsl = s.toLowerCase().startsWith('hsl');
-			if (isHsl) {
-				// parts: h, s%, l% [, a]
-				return `hsla(${parts[0]}, ${parts[1]}, ${parts[2]}, ${a})`;
-			}
-			return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${a})`;
+		// 1) HSLA/HSL: hsla(h, s%, l%, a?) or hsl(h, s%, l%)
+		let m = s.match(/^hsla?\(\s*([+-]?\d*\.?\d+)\s*,\s*([+-]?\d*\.?\d+)\s*%\s*,\s*([+-]?\d*\.?\d+)\s*%\s*(?:,\s*([+-]?\d*\.?\d+)\s*)?\)$/i);
+		if (m) {
+			const h = m[1];
+			const S = m[2];
+			const L = m[3];
+			return `hsla(${h}, ${S}%, ${L}%, ${a})`;
 		}
+		// 2) RGBA/RGB: rgba(r,g,b,a?) or rgb(r,g,b)
+		m = s.match(/^rgba?\(\s*([+-]?\d*\.?\d+)\s*,\s*([+-]?\d*\.?\d+)\s*,\s*([+-]?\d*\.?\d+)\s*(?:,\s*([+-]?\d*\.?\d+)\s*)?\)$/i);
+		if (m) {
+			const r = m[1];
+			const g = m[2];
+			const b = m[3];
+			return `rgba(${r}, ${g}, ${b}, ${a})`;
+		}
+		// 3) HEX: #rgb / #rrggbb
 		const mHex = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
 		if (mHex) {
 			let hex = mHex[1];
@@ -959,6 +966,7 @@ function createParticleBurst(world, x, y, color, count = 12, lifeMs = 700) {
 			const b = parseInt(hex.substr(4, 2), 16);
 			return `rgba(${r}, ${g}, ${b}, ${a})`;
 		}
+		// Fallback: keep as-is if already contains color with alpha-like format, else white
 		return `rgba(255,255,255,${a})`;
 	}
 

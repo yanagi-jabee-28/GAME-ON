@@ -78,6 +78,21 @@ const GAME_CONFIG = {
 		totalSpawned: 0
 	},
 
+	// 各種エフェクト挙動の設定
+	effects: {
+		// 床に触れたときの玉の扱いと演出
+		floor: {
+			removeBall: true, // true: 床ヒットで玉を取り除く（既定動作）
+			particle: {
+				enabled: true,      // true で床ヒット時にパーティクルを発生
+				mode: 'ball',       // 'ball' | 'custom' | 'default'
+				color: null,        // mode: 'custom' のときに使用する色（'#rrggbb' など）
+				count: 12,          // 生成数
+				lifeMs: 700         // 寿命（フェードアウト時間の目安）
+			}
+		}
+	},
+
 	// ▼▼▼ オブジェクトの定義 ▼▼▼
 	objects: {
 		// --- ボールの定義 ---

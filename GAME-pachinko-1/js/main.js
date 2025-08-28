@@ -277,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		};
 		window.getRotatorsSummary = function () {
 			if (!Array.isArray(rotators)) return [];
-			return rotators.map((r, i) => r ? ({ index: i, id: r.id, enabled: r.enabled, mode: r.mode }) : null).filter(Boolean);
+			return rotators.map((r, i) => r ? ({ index: i, id: r.id, kind: r.kind, enabled: r.enabled, mode: r.mode }) : null).filter(Boolean);
 		};
 		window.toggleRotatorEnabled = function (idOrIndex) {
 			if (typeof idOrIndex === 'number') {
@@ -285,6 +285,12 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 			const r = Array.isArray(rotators) ? rotators.find(r => r && r.id === String(idOrIndex)) : null;
 			if (!r) return false; r.enabled = !r.enabled; return r.enabled;
+		};
+		window.setRotatorsEnabledByKind = function (kind, enabled) {
+			if (!Array.isArray(rotators)) return 0;
+			const k = String(kind || '').toLowerCase();
+			let n = 0; for (const r of rotators) { if (!r) continue; if (String(r.kind).toLowerCase() === k) { r.enabled = !!enabled; n++; } }
+			return n;
 		};
 	}
 
@@ -331,6 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			// 有効/無効（既定 true）とID（未指定は型+index）
 			const enabled = (item.enabled !== false);
 			const id = String(item.id || `${isPaddle ? 'paddle' : 'windmill'}_${idx}`);
+			const kind = isPaddle ? 'paddle' : 'windmill';
 			// 回転制御モードの設定を解釈（item.rotation または item.rotate）
 			const rotCfg = item.rotation || item.rotate;
 			// 1) シーケンス（角度->待機->角度…）優先
@@ -391,7 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						}
 					}
 				}
-				return { id, body, mode: 'program', program, pivot, zeroAngle, enabled };
+				return { id, kind, body, mode: 'program', program, pivot, zeroAngle, enabled };
 			}
 			// 2) 開始/終了角のレンジ指定（従来のプログラム回転）
 			if (rotCfg && (Number.isFinite(rotCfg.durationMs || rotCfg.duration))) {
@@ -408,13 +415,13 @@ document.addEventListener('DOMContentLoaded', () => {
 					const program = { type: 'range', startRad, endRad, durationMs, loop, yoyo, elapsedMs: offsetMs };
 					// 初期角へ設定
 					setBodyAngleAroundPivot(body, pivot, zeroAngle + startRad);
-					return { id, body, mode: 'program', program, pivot, zeroAngle, enabled };
+					return { id, kind, body, mode: 'program', program, pivot, zeroAngle, enabled };
 				}
 			}
 			// 既定: 従来の等速回転
 			const rps = Number(item.rps ?? windmillConfig.rotationsPerSecond);
 			const anglePerSecond = rps * 2 * Math.PI * (item.direction === -1 ? -1 : 1);
-			return { id, body, mode: 'constant', anglePerSecond, pivot, zeroAngle, enabled };
+			return { id, kind, body, mode: 'constant', anglePerSecond, pivot, zeroAngle, enabled };
 		}).filter(Boolean);
 	}
 
@@ -810,13 +817,37 @@ document.addEventListener('DOMContentLoaded', () => {
 				handleSensorCounterCollision(bodyA, bodyB, 'enter');
 			}
 
-			// 床とボールの衝突判定
+			// 床とボールの衝突判定（パーティクル発生のオプション対応）
 			const ballLabel = GAME_CONFIG.objects.ball.label;
 			const floorLabel = GAME_CONFIG.objects.floor.label;
+			const eff = (GAME_CONFIG.effects && GAME_CONFIG.effects.floor) || {};
+			const particleCfg = eff.particle || {};
+			function handleFloorHit(ballBody) {
+				if (!ballBody) return;
+				try {
+					if (particleCfg.enabled && typeof createParticleBurst === 'function') {
+						let pColor;
+						switch (particleCfg.mode) {
+							case 'custom': pColor = particleCfg.color || undefined; break;
+							case 'ball': pColor = (ballBody.render && ballBody.render.fillStyle) || undefined; break;
+							default: pColor = undefined; // default style in createParticleBurst
+						}
+						const cnt = Number.isFinite(particleCfg.count) ? particleCfg.count : 12;
+						const life = Number.isFinite(particleCfg.lifeMs) ? particleCfg.lifeMs : 700;
+						createParticleBurst(world, ballBody.position.x, ballBody.position.y, pColor, cnt, life);
+					}
+				} catch (_) { /* no-op */ }
+				if (eff.removeBall !== false) {
+					World.remove(world, ballBody);
+					if (typeof window !== 'undefined' && window.dispatchEvent) {
+						window.dispatchEvent(new CustomEvent('devtools:ball-removed', { detail: { ballId: ballBody.id, trigger: 'floor' } }));
+					}
+				}
+			}
 			if (bodyA.label === ballLabel && bodyB.label === floorLabel) {
-				World.remove(world, bodyA);
+				handleFloorHit(bodyA);
 			} else if (bodyB.label === ballLabel && bodyA.label === floorLabel) {
-				World.remove(world, bodyB);
+				handleFloorHit(bodyB);
 			}
 		}
 	});
