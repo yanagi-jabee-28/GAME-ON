@@ -61,6 +61,21 @@
 		// 停止前のタイムスケールを保存
 		let lastTimeScale = Number((getCfg()?.physics?.timeScale) ?? 1);
 
+		// 共通関数: timeScale更新
+		function updateTimeScale(value, unpause = true) {
+			const cfg = getCfg();
+			if (cfg && cfg.physics) {
+				cfg.physics.timeScale = value;
+				if (unpause && value > 0) cfg.physics.paused = false;
+			}
+		}
+
+		// 共通関数: スライダー同期
+		function syncSlider(value) {
+			input.value = value.toString();
+			val.textContent = ` ${value.toFixed(2)}`;
+		}
+
 		const row = document.createElement('div');
 		const label = document.createElement('label');
 		label.textContent = 'タイムスケール:';
@@ -81,12 +96,8 @@
 		val.style.marginLeft = '6px';
 		input.addEventListener('input', () => {
 			const v = Number(input.value);
-			const cfgNow = getCfg();
-			if (cfgNow && cfgNow.physics) {
-				if (v > 0) cfgNow.physics.paused = false;
-				cfgNow.physics.timeScale = v;
-			}
-			val.textContent = ` ${v.toFixed(2)}`;
+			updateTimeScale(v);
+			syncSlider(v);
 			// スライダー操作時はlastTimeScaleを更新（停止前の状態を維持）
 			lastTimeScale = v;
 		});
@@ -115,10 +126,10 @@
 		pauseBtn.addEventListener('click', () => {
 			// 現在のtimeScaleを保存
 			lastTimeScale = Number(input.value);
-			const cfgNow = getCfg();
-			if (cfgNow && cfgNow.physics) {
-				cfgNow.physics.paused = true;
-				cfgNow.physics.timeScale = 0;
+			const cfg = getCfg();
+			if (cfg && cfg.physics) {
+				cfg.physics.paused = true;
+				cfg.physics.timeScale = 0;
 			}
 			// スライダーは変更しない
 		});
@@ -135,14 +146,8 @@
 		playBtn.style.color = '#fff';
 		playBtn.style.cursor = 'pointer';
 		playBtn.addEventListener('click', () => {
-			const cfgNow = getCfg();
-			if (cfgNow && cfgNow.physics) {
-				cfgNow.physics.paused = false;
-				cfgNow.physics.timeScale = lastTimeScale;
-			}
-			// スライダーを保存した値に同期
-			input.value = lastTimeScale.toString();
-			val.textContent = ` ${lastTimeScale.toFixed(2)}`;
+			updateTimeScale(lastTimeScale);
+			syncSlider(lastTimeScale);
 		});
 		buttonRow.appendChild(playBtn);
 
@@ -159,13 +164,8 @@
 			btn.style.color = '#fff';
 			btn.style.cursor = 'pointer';
 			btn.addEventListener('click', () => {
-				const cfgNow = getCfg();
-				if (cfgNow && cfgNow.physics) {
-					cfgNow.physics.paused = false;
-					cfgNow.physics.timeScale = preset;
-				}
-				input.value = preset.toString();
-				val.textContent = ` ${preset.toFixed(2)}`;
+				updateTimeScale(preset);
+				syncSlider(preset);
 				// プリセット設定時はlastTimeScaleを更新
 				lastTimeScale = preset;
 			});
@@ -178,11 +178,7 @@
 		const eng0 = getEngine();
 		if (eng0 && eng0.timing) {
 			const v0 = Number(input.value);
-			const cfgNow = getCfg();
-			if (cfgNow && cfgNow.physics) {
-				if (v0 > 0) cfgNow.physics.paused = false;
-				cfgNow.physics.timeScale = v0;
-			}
+			updateTimeScale(v0);
 		}
 	}
 
