@@ -243,22 +243,30 @@
 				row.style.marginBottom = '2px';
 				// 表示と removeOnPass トグルを作成
 				row.innerHTML = `<span style="color:#ffeb3b">${id}:</span> 進入:${data.enterCount} 退出:${data.exitCount} 現在:${data.currentInside} 総通過:${data.totalPassed}`;
-				const toggle = document.createElement('input');
-				toggle.type = 'checkbox';
-				toggle.style.marginLeft = '8px';
-				toggle.checked = Boolean(data.removeOnPass);
-				toggle.title = 'このセンサーで通過したボールを削除する';
-				toggle.addEventListener('change', () => {
+				// 削除トリガー選択: none / enter / exit
+				const sel = document.createElement('select');
+				sel.style.marginLeft = '8px';
+				sel.title = 'ボール削除のトリガー: none/enter/exit';
+				const optNone = document.createElement('option'); optNone.value = ''; optNone.text = 'none';
+				const optEnter = document.createElement('option'); optEnter.value = 'enter'; optEnter.text = 'enter';
+				const optExit = document.createElement('option'); optExit.value = 'exit'; optExit.text = 'exit';
+				sel.appendChild(optNone); sel.appendChild(optEnter); sel.appendChild(optExit);
+				// 既存の data.removeOn (優先) または boolean removeOnPass にフォールバック
+				const cur = (data && data.removeOn) ? String(data.removeOn) : (data && data.removeOnPass ? 'exit' : '');
+				sel.value = cur;
+				sel.addEventListener('change', () => {
 					try {
 						if (!counters[id]) counters[id] = {};
-						counters[id].removeOnPass = Boolean(toggle.checked);
-						// 設定変更を通知して UI を更新
+						const v = sel.value || null;
+						counters[id].removeOn = v;
+						// 互換性のため removeOnPass も更新
+						counters[id].removeOnPass = (v === 'exit');
 						if (typeof window !== 'undefined' && window.dispatchEvent) {
 							window.dispatchEvent(new CustomEvent('devtools:sensor-updated', { detail: { id, type: 'config', counter: Object.assign({}, counters[id]) } }));
 						}
 					} catch (_) { /* no-op */ }
 				});
-				row.appendChild(toggle);
+				row.appendChild(sel);
 				container.appendChild(row);
 			});
 		}

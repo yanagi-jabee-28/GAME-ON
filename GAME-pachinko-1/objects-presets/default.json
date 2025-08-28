@@ -177,6 +177,42 @@
 			"pivotMode": "centroid",
 			"angleOffsetDeg": 0,
 			"isStatic": true
+		},
+		{
+			"label": "guide-triangle-frame",
+			"coordMode": "world",
+			"points": [
+				{
+					"x": 190,
+					"y": 645
+				},
+				{
+					"x": 200,
+					"y": 645
+				},
+				{
+					"x": 225,
+					"y": 670
+				},
+				{
+					"x": 250,
+					"y": 645
+				},
+				{
+					"x": 260,
+					"y": 645
+				},
+				{
+					"x": 225,
+					"y": 685
+				}
+			],
+			"layer": 2,
+			"material": "GUIDE",
+			"color": "hsl(190,80%,55%)",
+			"pivotMode": "centroid",
+			"angleOffsetDeg": 0,
+			"isStatic": true
 		}
 	],
 	"sensorCounters": [],

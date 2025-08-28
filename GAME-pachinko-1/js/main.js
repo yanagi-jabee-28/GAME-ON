@@ -831,6 +831,25 @@ document.addEventListener('DOMContentLoaded', () => {
 						window.dispatchEvent(new CustomEvent('devtools:sensor-updated', { detail: { id: counterId, type: 'enter', counter: Object.assign({}, counter) } }));
 					}
 				} catch (_) { /* no-op */ }
+
+				// removeOn が 'enter' に設定されている場合はここで削除を行う
+				try {
+					const cfgEntry = GAME_CONFIG.sensorCounters.counters[counterId] || {};
+					const removeOn = cfgEntry.removeOn || (cfgEntry.removeOnPass ? 'exit' : null);
+					if (removeOn === 'enter') {
+						if (world && ballBody && world.bodies && world.bodies.indexOf && world.bodies.indexOf(ballBody) !== -1) {
+							try {
+								if (typeof createParticleBurst === 'function') {
+									createParticleBurst(world, ballBody.position.x, ballBody.position.y, ballBody.render && ballBody.render.fillStyle ? ballBody.render.fillStyle : undefined, 12, 700);
+								}
+							} catch (_) { /* no-op */ }
+							World.remove(world, ballBody);
+							if (typeof window !== 'undefined' && window.dispatchEvent) {
+								window.dispatchEvent(new CustomEvent('devtools:ball-removed', { detail: { ballId: ballId, counterId: counterId, trigger: 'enter' } }));
+							}
+						}
+					}
+				} catch (_) { /* no-op */ }
 			}
 		} else if (eventType === 'exit') {
 			// 退出イベント
@@ -841,8 +860,9 @@ document.addEventListener('DOMContentLoaded', () => {
 				counter.totalPassed++;
 				// センサーごとのオプションで通過時にボールを削除する挙動
 				try {
-					const removeOnPass = Boolean((GAME_CONFIG.sensorCounters.counters[counterId] && GAME_CONFIG.sensorCounters.counters[counterId].removeOnPass) || false);
-					if (removeOnPass) {
+					const cfgEntry = GAME_CONFIG.sensorCounters.counters[counterId] || {};
+					const removeOn = cfgEntry.removeOn || (cfgEntry.removeOnPass ? 'exit' : null);
+					if (removeOn === 'exit') {
 						try {
 							// world にまだ含まれていれば削除
 							if (world && ballBody && world.bodies && world.bodies.indexOf && world.bodies.indexOf(ballBody) !== -1) {
@@ -855,7 +875,7 @@ document.addEventListener('DOMContentLoaded', () => {
 								World.remove(world, ballBody);
 								// 削除イベント通知
 								if (typeof window !== 'undefined' && window.dispatchEvent) {
-									window.dispatchEvent(new CustomEvent('devtools:ball-removed', { detail: { ballId: ballId, counterId: counterId } }));
+									window.dispatchEvent(new CustomEvent('devtools:ball-removed', { detail: { ballId: ballId, counterId: counterId, trigger: 'exit' } }));
 								}
 							}
 						} catch (_) { /* no-op */ }

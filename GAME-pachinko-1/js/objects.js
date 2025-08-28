@@ -722,10 +722,15 @@ function createSensorCounter(spec = {}) {
 		};
 	}
 
-	// センサー固有オプション の初期化（プリセットから removeOnPass 等を保存）
+	// センサー固有オプション の初期化（プリセットから removeOnPass / removeOn を保存）
 	try {
+		// 旧来の boolean 指定 (removeOnPass) にも対応しつつ、
+		// 新仕様では removeOn: 'enter' | 'exit' | null を許可する
 		const removeOnPass = Boolean(spec.removeOnPass || spec.removeOnPass === true);
-		GAME_CONFIG.sensorCounters.counters[counterId].removeOnPass = removeOnPass;
+		const specRemoveOn = (typeof spec.removeOn === 'string') ? String(spec.removeOn).toLowerCase() : null;
+		const removeOn = (specRemoveOn === 'enter' || specRemoveOn === 'exit') ? specRemoveOn : (removeOnPass ? 'exit' : null);
+		GAME_CONFIG.sensorCounters.counters[counterId].removeOnPass = (removeOn === 'exit');
+		GAME_CONFIG.sensorCounters.counters[counterId].removeOn = removeOn; // 'enter' | 'exit' | null
 	} catch (_) { /* no-op */ }
 
 	// センサー固有のデータをbodyに付与
@@ -892,10 +897,13 @@ function createSensorCounterPolygon(spec = {}) {
 		isEntered: new Set() // 現在領域内にいるボールのIDを追跡
 	};
 
-	// センサー固有オプション の初期化（プリセットから removeOnPass 等を保存）
+	// センサー固有オプション の初期化（プリセットから removeOnPass / removeOn を保存）
 	try {
 		const removeOnPass = Boolean(spec.removeOnPass || spec.removeOnPass === true);
-		GAME_CONFIG.sensorCounters.counters[counterId].removeOnPass = removeOnPass;
+		const specRemoveOn = (typeof spec.removeOn === 'string') ? String(spec.removeOn).toLowerCase() : null;
+		const removeOn = (specRemoveOn === 'enter' || specRemoveOn === 'exit') ? specRemoveOn : (removeOnPass ? 'exit' : null);
+		GAME_CONFIG.sensorCounters.counters[counterId].removeOnPass = (removeOn === 'exit');
+		GAME_CONFIG.sensorCounters.counters[counterId].removeOn = removeOn; // 'enter' | 'exit' | null
 	} catch (_) { /* no-op */ }
 
 	return body;
