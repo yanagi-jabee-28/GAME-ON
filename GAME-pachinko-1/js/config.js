@@ -33,17 +33,17 @@ const GAME_CONFIG = {
 	// 描画設定
 	render: {
 		wireframes: false,
-		background: '#F0F8FF',  // 明るい背景色
-		showDebug: false,
-		showBroadphase: false,
-		showPerformance: false,
-		showBounds: false,
-		showVelocity: false,
-		showCollisions: false,
-		showSeparations: false,
-		showAxes: false,
-		showPositions: false,
-		showAngleIndicator: false
+		background: '#F0F8FF',// 明るい背景色
+		showDebug: false,            // 全デバッグ描画をまとめて表示する総合フラグ（個別フラグの上書き）
+		showBroadphase: false,       // ブロードフェーズ（大まかな衝突検出領域）を可視化するフラグ
+		showPerformance: false,      // FPS や処理時間などのパフォーマンス統計を表示するフラグ
+		showBounds: false,           // 各ボディの AABB（境界ボックス）を描画するフラグ
+		showVelocity: false,         // 各ボディの速度ベクトルを描画するフラグ
+		showCollisions: false,       // 衝突点や接触情報（接触法線など）を表示するフラグ
+		showSeparations: false,      // 接触の分離ベクトル（反発方向）を描画するフラグ
+		showAxes: false,             // 各ボディのローカル座標軸（X/Y）を表示するフラグ
+		showPositions: false,        // 物体の中心位置（座標マーカー）を表示するフラグ
+		showAngleIndicator: false    // ボディの回転角を示すインジケータを表示するフラグ
 	},
 
 	// 物理エンジン設定（安定性調整用）
