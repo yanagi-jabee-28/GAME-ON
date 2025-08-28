@@ -101,7 +101,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	// ========================
 	Render.run(render);
 	const runner = Runner.create();
-	// サブステップRunner: Matter.Runner.run を使わず、requestAnimationFrameで分割更新
+	// カスタム固定タイムステップループ（requestAnimationFrameベース）
+	// - アキュムレータで実時間を蓄積し、固定長の物理ステップに分割して更新する
+	// - timeScale（世界時間倍率）は GAME_CONFIG.physics.timeScale で管理
 	(function runFixedTimestep() {
 		const substeps = Math.max(1, Number(GAME_CONFIG.physics?.substeps ?? 1));
 		const fixedFps = Math.max(30, Number(GAME_CONFIG.physics?.fixedFps ?? 60));
@@ -118,18 +120,19 @@ document.addEventListener('DOMContentLoaded', () => {
 			const paused = Boolean(GAME_CONFIG.physics?.paused);
 			const tsCfg = Number(GAME_CONFIG.physics?.timeScale ?? 1); // UIが管理するワールド倍率
 			const ts = paused ? 0 : tsCfg;
+			// タイムスケール適用: 停止時はアキュムリセット、それ以外は実時間を蓄積
 			if (ts === 0) {
-				// 時間停止: 物理アキュムレータを進めず、更新もしない
-				acc = 0;
+				acc = 0; // 停止時は物理を進めない
 			} else {
 				acc += elapsed;
 			}
 			let steps = 0;
+			// 固定ステップをサブステップに分割して順次Engine.updateを呼ぶ
 			while (acc >= fixedDtMs && steps < maxFixedStepsPerFrame) {
 				const effSubsteps = (adaptiveSubsteps && elapsed > fixedDtMs * 1.5) ? 1 : substeps;
 				const stepMs = fixedDtMs / effSubsteps;
 				for (let i = 0; i < effSubsteps; i++) {
-					// 物理もワールド時間倍率に追従させる
+					// 物理更新はワールド時間（stepMs * timeScale）で進める
 					Engine.update(engine, stepMs * ts);
 				}
 				acc -= fixedDtMs;
@@ -139,9 +142,10 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (acc >= fixedDtMs) {
 				acc = Math.min(acc, fixedDtMs);
 			}
-			// ワールド時間 = 実時間 * timeScale。回転・連射ともにこの時間で進行。
+			// ワールド時間（シミュレーション時間）を算出
 			const rotDeltaMs = elapsed * ts; // シミュ/ワールド時間ms
 			const rotDeltaSec = rotDeltaMs / 1000;
+			// 回転役物（rotators）の時間進行を行う（プログラム/定速双方対応）
 			if (ts !== 0 && Array.isArray(rotators) && rotators.length) {
 				for (const rot of rotators) {
 					if (rot.mode === 'program' && rot.program) {
@@ -202,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					}
 				}
 			}
-			// 長押し連射タイマーもワールド時間で進行（timeScaleに追従）
+			// 長押し連射タイマーの進行（ワールド時間基準）
 			if (ts !== 0 && holdActive) {
 				holdAccumMs += elapsed * ts;
 				if (holdFirstShotPending) {
@@ -252,6 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	let rotators = [];
 
 	// helper: set compound body to an absolute angle around a pivot
+	// ボディをピボット中心で指定角度に設定する（小さな誤差を無視）
 	function setBodyAngleAroundPivot(body, pivot, targetAngleRad) {
 		const cur = body.angle || 0;
 		let delta = targetAngleRad - cur;
@@ -260,7 +265,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		Body.rotate(body, delta, pivot);
 	}
 
-	// 回転役物（windmill）をプリセットから初期化
+	// プリセットから回転役物（風車等）を作成し、rotators 配列へ登録する
+	// rotators はループで駆動される
 	function initRotatorsFromPreset(preset) {
 		const items = Array.isArray(preset.rotators) ? preset.rotators : [];
 		return items.map(item => {
