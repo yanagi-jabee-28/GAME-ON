@@ -839,6 +839,22 @@ document.addEventListener('DOMContentLoaded', () => {
 				counter.exitCount++;
 				counter.currentInside = Math.max(0, counter.currentInside - 1);
 				counter.totalPassed++;
+				// センサーごとのオプションで通過時にボールを削除する挙動
+				try {
+					const removeOnPass = Boolean((GAME_CONFIG.sensorCounters.counters[counterId] && GAME_CONFIG.sensorCounters.counters[counterId].removeOnPass) || false);
+					if (removeOnPass) {
+						try {
+							// world にまだ含まれていれば削除
+							if (world && ballBody && world.bodies && world.bodies.indexOf && world.bodies.indexOf(ballBody) !== -1) {
+								World.remove(world, ballBody);
+								// 削除イベント通知
+								if (typeof window !== 'undefined' && window.dispatchEvent) {
+									window.dispatchEvent(new CustomEvent('devtools:ball-removed', { detail: { ballId: ballId, counterId: counterId } }));
+								}
+							}
+						} catch (_) { /* no-op */ }
+					}
+				} catch (_) { /* no-op */ }
 				// センサー更新通知（devtools 用）
 				try {
 					if (typeof window !== 'undefined' && window.dispatchEvent) {

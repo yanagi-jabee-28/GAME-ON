@@ -722,6 +722,12 @@ function createSensorCounter(spec = {}) {
 		};
 	}
 
+	// センサー固有オプション の初期化（プリセットから removeOnPass 等を保存）
+	try {
+		const removeOnPass = Boolean(spec.removeOnPass || spec.removeOnPass === true);
+		GAME_CONFIG.sensorCounters.counters[counterId].removeOnPass = removeOnPass;
+	} catch (_) { /* no-op */ }
+
 	// センサー固有のデータをbodyに付与
 	body.sensorData = {
 		counterId: counterId,
@@ -885,6 +891,12 @@ function createSensorCounterPolygon(spec = {}) {
 		counterId: counterId,
 		isEntered: new Set() // 現在領域内にいるボールのIDを追跡
 	};
+
+	// センサー固有オプション の初期化（プリセットから removeOnPass 等を保存）
+	try {
+		const removeOnPass = Boolean(spec.removeOnPass || spec.removeOnPass === true);
+		GAME_CONFIG.sensorCounters.counters[counterId].removeOnPass = removeOnPass;
+	} catch (_) { /* no-op */ }
 
 	return body;
 }

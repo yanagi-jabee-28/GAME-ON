@@ -241,7 +241,24 @@
 				const data = counters[id];
 				const row = document.createElement('div');
 				row.style.marginBottom = '2px';
+				// 表示と removeOnPass トグルを作成
 				row.innerHTML = `<span style="color:#ffeb3b">${id}:</span> 進入:${data.enterCount} 退出:${data.exitCount} 現在:${data.currentInside} 総通過:${data.totalPassed}`;
+				const toggle = document.createElement('input');
+				toggle.type = 'checkbox';
+				toggle.style.marginLeft = '8px';
+				toggle.checked = Boolean(data.removeOnPass);
+				toggle.title = 'このセンサーで通過したボールを削除する';
+				toggle.addEventListener('change', () => {
+					try {
+						if (!counters[id]) counters[id] = {};
+						counters[id].removeOnPass = Boolean(toggle.checked);
+						// 設定変更を通知して UI を更新
+						if (typeof window !== 'undefined' && window.dispatchEvent) {
+							window.dispatchEvent(new CustomEvent('devtools:sensor-updated', { detail: { id, type: 'config', counter: Object.assign({}, counters[id]) } }));
+						}
+					} catch (_) { /* no-op */ }
+				});
+				row.appendChild(toggle);
 				container.appendChild(row);
 			});
 		}
