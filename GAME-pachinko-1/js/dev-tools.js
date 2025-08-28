@@ -81,10 +81,6 @@
 		val.style.marginLeft = '6px';
 		input.addEventListener('input', () => {
 			const v = Number(input.value);
-			try {
-				const eng = getEngine();
-				if (eng && eng.timing) eng.timing.timeScale = v;
-			} catch (_) { /* no-op */ }
 			const cfgNow = getCfg();
 			if (cfgNow && cfgNow.physics) {
 				if (v > 0) cfgNow.physics.paused = false;
@@ -124,10 +120,6 @@
 				cfgNow.physics.paused = true;
 				cfgNow.physics.timeScale = 0;
 			}
-			try {
-				const eng = getEngine();
-				if (eng && eng.timing) eng.timing.timeScale = 0;
-			} catch (_) { /* no-op */ }
 			// スライダーは変更しない
 		});
 		buttonRow.appendChild(pauseBtn);
@@ -148,10 +140,6 @@
 				cfgNow.physics.paused = false;
 				cfgNow.physics.timeScale = lastTimeScale;
 			}
-			try {
-				const eng = getEngine();
-				if (eng && eng.timing) eng.timing.timeScale = lastTimeScale;
-			} catch (_) { /* no-op */ }
 			// スライダーを保存した値に同期
 			input.value = lastTimeScale.toString();
 			val.textContent = ` ${lastTimeScale.toFixed(2)}`;
@@ -176,10 +164,6 @@
 					cfgNow.physics.paused = false;
 					cfgNow.physics.timeScale = preset;
 				}
-				try {
-					const eng = getEngine();
-					if (eng && eng.timing) eng.timing.timeScale = preset;
-				} catch (_) { /* no-op */ }
 				input.value = preset.toString();
 				val.textContent = ` ${preset.toFixed(2)}`;
 				// プリセット設定時はlastTimeScaleを更新
@@ -194,7 +178,6 @@
 		const eng0 = getEngine();
 		if (eng0 && eng0.timing) {
 			const v0 = Number(input.value);
-			eng0.timing.timeScale = v0;
 			const cfgNow = getCfg();
 			if (cfgNow && cfgNow.physics) {
 				if (v0 > 0) cfgNow.physics.paused = false;
@@ -213,7 +196,6 @@
 		const input = document.getElementById('dev-timescale');
 		if (input && engine && engine.timing) {
 			const v = Number(input.value);
-			engine.timing.timeScale = v;
 			const cfgNow = getCfg();
 			if (cfgNow && cfgNow.physics) {
 				if (v > 0) cfgNow.physics.paused = false;

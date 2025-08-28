@@ -84,7 +84,7 @@
 				"numBlades": 1,
 				"bladeLength": 19,
 				"bladeWidth": 5,
-				"centerRadius": 4
+				"centerRadius": 5
 			}
 		},
 		{
@@ -111,7 +111,7 @@
 				"numBlades": 1,
 				"bladeLength": 19,
 				"bladeWidth": 5,
-				"centerRadius": 4
+				"centerRadius": 5
 			}
 		}
 	],

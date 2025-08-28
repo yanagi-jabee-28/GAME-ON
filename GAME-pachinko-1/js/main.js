@@ -36,7 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	engine.positionIterations = Number(GAME_CONFIG.physics?.positionIterations ?? 12);
 	engine.velocityIterations = Number(GAME_CONFIG.physics?.velocityIterations ?? 8);
 	engine.constraintIterations = Number(GAME_CONFIG.physics?.constraintIterations ?? 6);
-	engine.timing.timeScale = Number(GAME_CONFIG.physics?.timeScale ?? 1);
 	engine.world.gravity.y = Number(GAME_CONFIG.physics?.gravityY ?? engine.world.gravity.y);
 	const world = engine.world;
 
@@ -107,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		const substeps = Math.max(1, Number(GAME_CONFIG.physics?.substeps ?? 1));
 		const fixedFps = Math.max(30, Number(GAME_CONFIG.physics?.fixedFps ?? 60));
 		const maxFixedStepsPerFrame = Math.max(1, Number(GAME_CONFIG.physics?.maxFixedStepsPerFrame ?? 3));
-		const adaptiveSubsteps = Boolean(GAME_CONFIG.physics?.adaptiveSubsteps ?? true);
+		const adaptiveSubsteps = Boolean(GAME_CONFIG.physics?.adaptiveSubsteps ?? false);
 		const fixedDtMs = 1000 / fixedFps;
 		let last = performance.now();
 		let acc = 0;
