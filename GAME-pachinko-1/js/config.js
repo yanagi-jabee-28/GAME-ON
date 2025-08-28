@@ -233,7 +233,7 @@ GAME_CONFIG.launch = {
 	angleMax: 180,
 	defaultAngle: 120,
 	// 発射角度のランダムな「ぶれ」の大きさ（度数）。0で無効。
-	angleRandomness: 0.25,
+	angleRandomness: 0.5,
 	// 長押しで一定間隔発射するモード
 	holdToFireEnabled: true,      // false にすると従来方式のみ
 	holdIntervalMs: 500,          // 連射間隔（ミリ秒）
