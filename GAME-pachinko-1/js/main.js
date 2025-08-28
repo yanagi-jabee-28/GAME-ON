@@ -148,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			// 回転役物（rotators）の時間進行を行う（プログラム/定速双方対応）
 			if (ts !== 0 && Array.isArray(rotators) && rotators.length) {
 				for (const rot of rotators) {
+					if (rot && rot.enabled === false) continue; // disabled rotator: skip
 					if (rot.mode === 'program' && rot.program) {
 						const p = rot.program;
 						if (p.type === 'seq') {
@@ -252,8 +253,40 @@ document.addEventListener('DOMContentLoaded', () => {
 	const windmillConfig = GAME_CONFIG.objects.windmill;
 	const { xOffset: globalXOffset, yOffset: globalYOffset } = (typeof getOffsets === 'function') ? getOffsets() : { xOffset: 0, yOffset: 0 };
 
-	// rotators 配列に { body, mode, anglePerSecond?, pivot, program? } を保持し、afterUpdate で回す
+	// rotators 配列に { id, body, mode, anglePerSecond?, pivot, program?, enabled } を保持し、afterUpdate で回す
 	let rotators = [];
+
+	// ランタイムで有効/無効を切り替えるための簡易API（ブラウザコンソール用）
+	if (typeof window !== 'undefined') {
+		window.setRotatorEnabledById = function (id, enabled) {
+			const r = Array.isArray(rotators) ? rotators.find(r => r && r.id === id) : null;
+			if (r) r.enabled = !!enabled;
+			return !!(r && r.enabled);
+		};
+		window.setRotatorEnabledByIndex = function (index, enabled) {
+			if (!Array.isArray(rotators)) return false;
+			const i = Number(index) | 0;
+			if (!rotators[i]) return false;
+			rotators[i].enabled = !!enabled;
+			return !!rotators[i].enabled;
+		};
+		window.setAllRotatorsEnabled = function (enabled) {
+			if (!Array.isArray(rotators)) return 0;
+			let n = 0; for (const r of rotators) { if (!r) continue; r.enabled = !!enabled; n++; }
+			return n;
+		};
+		window.getRotatorsSummary = function () {
+			if (!Array.isArray(rotators)) return [];
+			return rotators.map((r, i) => r ? ({ index: i, id: r.id, enabled: r.enabled, mode: r.mode }) : null).filter(Boolean);
+		};
+		window.toggleRotatorEnabled = function (idOrIndex) {
+			if (typeof idOrIndex === 'number') {
+				const i = idOrIndex | 0; if (!rotators[i]) return false; rotators[i].enabled = !rotators[i].enabled; return rotators[i].enabled;
+			}
+			const r = Array.isArray(rotators) ? rotators.find(r => r && r.id === String(idOrIndex)) : null;
+			if (!r) return false; r.enabled = !r.enabled; return r.enabled;
+		};
+	}
 
 	// helper: set compound body to an absolute angle around a pivot
 	// ボディをピボット中心で指定角度に設定する（小さな誤差を無視）
@@ -269,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	// rotators はループで駆動される
 	function initRotatorsFromPreset(preset) {
 		const items = Array.isArray(preset.rotators) ? preset.rotators : [];
-		return items.map(item => {
+		return items.map((item, idx) => {
 			// 新タイプ 'paddle' は、風車ジオメトリを1枚ブレード前提で使う別名として扱う
 			const isWindmill = item.type === 'windmill';
 			const isPaddle = item.type === 'paddle';
@@ -295,6 +328,9 @@ document.addEventListener('DOMContentLoaded', () => {
 			// pivot は常に中心円の中心（設計図の x,y）
 			const pivot = { x: blueprint.x, y: blueprint.y };
 			const zeroAngle = body.angle || 0;
+			// 有効/無効（既定 true）とID（未指定は型+index）
+			const enabled = (item.enabled !== false);
+			const id = String(item.id || `${isPaddle ? 'paddle' : 'windmill'}_${idx}`);
 			// 回転制御モードの設定を解釈（item.rotation または item.rotate）
 			const rotCfg = item.rotation || item.rotate;
 			// 1) シーケンス（角度->待機->角度…）優先
@@ -355,7 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						}
 					}
 				}
-				return { body, mode: 'program', program, pivot, zeroAngle };
+				return { id, body, mode: 'program', program, pivot, zeroAngle, enabled };
 			}
 			// 2) 開始/終了角のレンジ指定（従来のプログラム回転）
 			if (rotCfg && (Number.isFinite(rotCfg.durationMs || rotCfg.duration))) {
@@ -372,13 +408,13 @@ document.addEventListener('DOMContentLoaded', () => {
 					const program = { type: 'range', startRad, endRad, durationMs, loop, yoyo, elapsedMs: offsetMs };
 					// 初期角へ設定
 					setBodyAngleAroundPivot(body, pivot, zeroAngle + startRad);
-					return { body, mode: 'program', program, pivot, zeroAngle };
+					return { id, body, mode: 'program', program, pivot, zeroAngle, enabled };
 				}
 			}
 			// 既定: 従来の等速回転
 			const rps = Number(item.rps ?? windmillConfig.rotationsPerSecond);
 			const anglePerSecond = rps * 2 * Math.PI * (item.direction === -1 ? -1 : 1);
-			return { body, mode: 'constant', anglePerSecond, pivot, zeroAngle };
+			return { id, body, mode: 'constant', anglePerSecond, pivot, zeroAngle, enabled };
 		}).filter(Boolean);
 	}
 

@@ -64,6 +64,7 @@
 			"type": "paddle",
 			"x": 205,
 			"y": 630,
+			"enabled": false,
 			"rotation": {
 				"sequence": [
 					{
@@ -90,6 +91,7 @@
 			"type": "paddle",
 			"x": 245,
 			"y": 630,
+			"enabled": false,
 			"rotation": {
 				"sequence": [
 					{
