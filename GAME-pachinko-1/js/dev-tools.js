@@ -239,19 +239,32 @@
 		} else {
 			counterIds.forEach(id => {
 				const data = counters[id];
-				const row = document.createElement('div');
-				row.style.marginBottom = '2px';
-				// 表示と removeOnPass トグルを作成
-				row.innerHTML = `<span style="color:#ffeb3b">${id}:</span> 進入:${data.enterCount} 退出:${data.exitCount} 現在:${data.currentInside} 総通過:${data.totalPassed}`;
+				// 上段: カウント表示（簡潔に）
+				const countsRow = document.createElement('div');
+				countsRow.style.marginBottom = '2px';
+				countsRow.style.fontSize = '12px';
+				countsRow.innerHTML = `<span style="color:#ffeb3b">${id}:</span> 進入:${data.enterCount} 退出:${data.exitCount} 現在:${data.currentInside} 総通過:${data.totalPassed}`;
+				container.appendChild(countsRow);
+
+				// 下段: コントロール群（横並びだが折り返す）
+				const controlsRow = document.createElement('div');
+				controlsRow.style.display = 'flex';
+				controlsRow.style.gap = '6px';
+				controlsRow.style.flexWrap = 'wrap';
+				controlsRow.style.marginBottom = '8px';
+				controlsRow.style.alignItems = 'center';
+				// small label to associate
+				const lbl = document.createElement('div'); lbl.textContent = id; lbl.style.width = '80px'; lbl.style.color = '#ddd'; lbl.style.fontSize = '11px';
+				controlsRow.appendChild(lbl);
+
 				// 削除トリガー選択: none / enter / exit
 				const sel = document.createElement('select');
-				sel.style.marginLeft = '8px';
+				sel.style.minWidth = '80px';
 				sel.title = 'ボール削除のトリガー: none/enter/exit';
 				const optNone = document.createElement('option'); optNone.value = ''; optNone.text = 'none';
 				const optEnter = document.createElement('option'); optEnter.value = 'enter'; optEnter.text = 'enter';
 				const optExit = document.createElement('option'); optExit.value = 'exit'; optExit.text = 'exit';
 				sel.appendChild(optNone); sel.appendChild(optEnter); sel.appendChild(optExit);
-				// 既存の data.removeOn (優先) または boolean removeOnPass にフォールバック
 				const cur = (data && data.removeOn) ? String(data.removeOn) : (data && data.removeOnPass ? 'exit' : '');
 				sel.value = cur;
 				sel.addEventListener('change', () => {
@@ -265,11 +278,11 @@
 						}
 					} catch (_) { /* no-op */ }
 				});
-				row.appendChild(sel);
+				controlsRow.appendChild(sel);
 
-				// パーティクル設定: mode select + color input
+				// パーティクルモード選択
 				const pmSel = document.createElement('select');
-				pmSel.style.marginLeft = '8px';
+				pmSel.style.minWidth = '140px';
 				const pmOptBall = document.createElement('option'); pmOptBall.value = 'ball'; pmOptBall.text = 'particle: ball';
 				const pmOptCustom = document.createElement('option'); pmOptCustom.value = 'custom'; pmOptCustom.text = 'particle: custom';
 				const pmOptDefault = document.createElement('option'); pmOptDefault.value = 'default'; pmOptDefault.text = 'particle: default';
@@ -285,12 +298,13 @@
 						}
 					} catch (_) { /* no-op */ }
 				});
-				row.appendChild(pmSel);
+				controlsRow.appendChild(pmSel);
 
+				// カラー入力（テキストだが幅を小さく）
 				const colorInput = document.createElement('input');
 				colorInput.type = 'text';
 				colorInput.placeholder = '#rrggbb or css color';
-				colorInput.style.marginLeft = '6px';
+				colorInput.style.minWidth = '120px';
 				colorInput.value = (data && data.particleColor) ? data.particleColor : '';
 				colorInput.addEventListener('change', () => {
 					try {
@@ -302,8 +316,9 @@
 						}
 					} catch (_) { /* no-op */ }
 				});
-				row.appendChild(colorInput);
-				container.appendChild(row);
+				controlsRow.appendChild(colorInput);
+
+				container.appendChild(controlsRow);
 			});
 		}
 
