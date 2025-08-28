@@ -60,6 +60,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	const render = Render.create({ element: container, engine, options: { width, height, pixelRatio: 'auto', ...renderOptions, showSleeping: false } });
 
+	// dev-tools へ Engine/Render を通知（UI 拡張で利用）
+	try {
+		// 開発者ツール向けに参照を公開し、イベントも通知
+		window.__engine_for_devtools__ = engine;
+		window.__render_for_devtools__ = render;
+		window.dispatchEvent(new CustomEvent('devtools:engine-ready', { detail: { engine, render } }));
+	} catch (_) { /* no-op */ }
+
 	// ページ側の背景色（ゲーム外）を設定
 	try {
 		if (GAME_CONFIG.ui && GAME_CONFIG.ui.outerBackground) {
@@ -109,8 +117,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			const elapsed = Math.min(elapsedRaw, 200);
 			last = now;
 			const paused = Boolean(GAME_CONFIG.physics?.paused);
-			const tsRaw = engine?.timing?.timeScale ?? 1; // 0 を有効値として扱う
-			const ts = paused ? 0 : tsRaw;
+			const tsCfg = Number(GAME_CONFIG.physics?.timeScale ?? 1); // UIが管理するワールド倍率
+			const ts = paused ? 0 : tsCfg;
 			if (ts === 0) {
 				// 時間停止: 物理アキュムレータを進めず、更新もしない
 				acc = 0;
@@ -122,7 +130,8 @@ document.addEventListener('DOMContentLoaded', () => {
 				const effSubsteps = (adaptiveSubsteps && elapsed > fixedDtMs * 1.5) ? 1 : substeps;
 				const stepMs = fixedDtMs / effSubsteps;
 				for (let i = 0; i < effSubsteps; i++) {
-					Engine.update(engine, stepMs);
+					// 物理もワールド時間倍率に追従させる
+					Engine.update(engine, stepMs * ts);
 				}
 				acc -= fixedDtMs;
 				steps++;
@@ -627,6 +636,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	// 初期ラベル表示・初期位置反映
 	updateArrow();
 	updateLaunchPadPosition();
+
+	// timeScale の開発者 UI は dev-tools.js 側で注入するよう変更
 
 	// ========================
 	// 7. 発射ロジック（単発/連射）

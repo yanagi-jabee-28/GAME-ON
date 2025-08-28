@@ -110,9 +110,9 @@ const GAME_CONFIG = {
 		// --- 風車の定義 ---
 		windmill: {
 			rotationsPerSecond: 1, // 毎秒の回転数
-			// human-facing color names (not renderer-specific)
-			bladeColor: 'hsl(210, 100%, 50%)', // 羽の色（人間が理解するキー）
-			centerColor: '#263238',   // 中心円の色（人間が理解するキー）
+
+			bladeColor: 'hsl(210, 100%, 50%)', // 羽の色
+			centerColor: 'hsl(200, 19%, 18%)',   // 中心円の色
 			// 形状のデフォルト値（ここを変えれば全体のデフォルト挙動が変わる）
 			defaults: {
 				centerRadius: 6,
@@ -333,7 +333,7 @@ const MATERIAL_INTERACTIONS = {
 	'guide:metal': { restitution: 0.2, friction: 0.2 },
 	'guide:metal2': { restitution: 0.2, friction: 0.2 },
 	'guide:plastic': { restitution: 0.15, friction: 0.4 },
-	'guide:tama': { restitution: 0.1, friction: 0.3 },
+	'guide:tama': { restitution: 0.4, friction: 0.3 },
 	'guide:top_plate': { restitution: 0, friction: 0 },     // 境界扱い（非反発・非摩擦）
 
 	// 金属系
@@ -347,7 +347,7 @@ const MATERIAL_INTERACTIONS = {
 	// metal2（準金属）関連
 	'metal2:metal2': { restitution: 0.6, friction: 0.08 },
 	'metal2:plastic': { restitution: 0.5, friction: 0.25 },
-	'metal2:tama': { restitution: 0.5, friction: 0.05 },
+	'metal2:tama': { restitution: 0.3, friction: 0.05 },
 	'metal2:top_plate': { restitution: 0, friction: 0 },
 
 	// プラスチック系
@@ -357,7 +357,7 @@ const MATERIAL_INTERACTIONS = {
 
 	// 玉（ボール）関連（tama:tama は高反発）
 	'tama:tama': { restitution: 0.9, friction: 0.05 },
-	'tama:top_plate': { restitution: 0.1, friction: 0 },
+	'tama:top_plate': { restitution: 0, friction: 0 },
 
 	// 天板同士（冗長だが明示）
 	'top_plate:top_plate': { restitution: 0, friction: 0 },
