@@ -48,7 +48,7 @@ const GAME_CONFIG = {
 		// 時間スケール（全体の進み具合を倍率で調整）
 		timeScale: 1,
 		// 重力（Y軸）。体感が弱い/強い場合に調整
-		gravityY: 1
+		gravityY: 1.5
 	},
 
 	// UI/ページ全体に関する見た目設定
@@ -211,8 +211,8 @@ GAME_CONFIG.launch = {
 	// 速度表示の小数点桁数（0〜3）。UIの"(xx px/s)"に適用
 	speedPrecision: 2,
 	// スライダーと一致させたい最小/最大（ここで maxSpeed を下げて上限を制御します）
-	minSpeed: 25,
-	maxSpeed: 34.5,
+	minSpeed: 29.2,
+	maxSpeed: 39.3,
 	// angle control: min/max degrees and default
 	angleMin: 0,
 	angleMax: 180,
@@ -222,7 +222,7 @@ GAME_CONFIG.launch = {
 	,
 	// 長押しで一定間隔発射するモード
 	holdToFireEnabled: true,      // false にすると従来方式のみ
-	holdIntervalMs: 1000,          // 連射間隔（ミリ秒）
+	holdIntervalMs: 500,          // 連射間隔（ミリ秒）
 	// 連射モード開始から最初の発射までの遅延（ミリ秒）
 	holdFirstShotDelayMs: 500
 };
@@ -232,7 +232,7 @@ GAME_CONFIG.launch = {
 // - y: 発射点の明示的な y 座標（ピクセル）を指定する場合はこちらを使います
 // - yOffsetFromBottom: 明示的な y を指定しない場合、ゲーム領域の下端からのオフセットで指定します
 GAME_CONFIG.launch.spawn = {
-	x: -60,
+	x: -70,
 	// デフォルトはコンテナ下端から 40px 上
 	yOffsetFromBottom: 350
 };

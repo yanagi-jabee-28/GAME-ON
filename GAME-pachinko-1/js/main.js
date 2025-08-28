@@ -107,6 +107,23 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 				acc -= fixedDtMs;
 			}
+			// UIの長押し連射タイマーは実時間で進める（timeScaleの影響を排除）
+			if (holdActive) {
+				holdAccumMs += elapsed;
+				if (holdFirstShotPending) {
+					if (holdAccumMs >= holdFirstDelayMsCfg) {
+						holdAccumMs = 0;
+						holdFirstShotPending = false;
+						try { spawnBallFromUI(); } catch (_) { /* no-op */ }
+					}
+				} else {
+					const interval = Math.max(50, holdIntervalMsCfg);
+					if (holdAccumMs >= interval) {
+						holdAccumMs = 0; // 1発/フレーム上限
+						try { spawnBallFromUI(); } catch (_) { /* no-op */ }
+					}
+				}
+			}
 			Render.world(render);
 			requestAnimationFrame(loop);
 		}
@@ -376,6 +393,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	let holdIntervalMsCfg = Number((GAME_CONFIG.launch && GAME_CONFIG.launch.holdIntervalMs) || 300);
 	let holdFirstDelayMsCfg = Number((GAME_CONFIG.launch && GAME_CONFIG.launch.holdFirstShotDelayMs) || 0);
 	let holdFirstShotPending = false;
+	// 初回ホールドのみ初回ディレイを適用するためのフラグ（ページロード後に1回だけtrueにする）
+	let firstHoldDelayApplied = false;
 
 	Events.on(engine, 'afterUpdate', () => {
 		// engine.timing.delta: 最後の tick の ms。時間スケールは別で考慮。
@@ -445,23 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				if (angle) Body.rotate(rot.body, angle, rot.pivot);
 			}
 		});
-		// 物理ループ同期の連射（初回ディレイ対応）
-		if (holdActive) {
-			holdAccumMs += deltaMs; // UI連射は実時間ベース
-			if (holdFirstShotPending) {
-				if (holdAccumMs >= holdFirstDelayMsCfg) {
-					holdAccumMs = 0;
-					holdFirstShotPending = false;
-					spawnBallFromUI();
-				}
-			} else {
-				const interval = Math.max(50, holdIntervalMsCfg);
-				if (holdAccumMs >= interval) {
-					holdAccumMs = 0; // 1発/フレーム上限（バースト防止）
-					spawnBallFromUI();
-				}
-			}
-		}
+		// 連射タイマーは rAF ループで処理（ここでは実施しない）
 	});
 
 	// ========================
@@ -653,7 +656,13 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (holdActive) return;
 			holdActive = true;
 			holdAccumMs = 0;
-			holdFirstShotPending = true; // 初回はディレイ適用（0なら即時相当）
+			// 初回ホールドのみ holdFirstShotDelayMs を適用。2回目以降は適用しない。
+			if (!firstHoldDelayApplied && holdFirstDelayMsCfg > 0) {
+				holdFirstShotPending = true;
+				firstHoldDelayApplied = true; // 以降のホールドでは初回ディレイを使わない
+			} else {
+				holdFirstShotPending = false; // 次は純粋に interval で発射
+			}
 			speedSlider.classList.add('active');
 		}
 		function stopHold() {
