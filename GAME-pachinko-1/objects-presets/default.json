@@ -3,7 +3,7 @@
 		{
 			"type": "windmill",
 			"x": 138,
-			"y": 314,
+			"y": 320,
 			"rps": 1,
 			"direction": -1,
 			"//bladeColor": "#FFFF00",
@@ -18,7 +18,7 @@
 		{
 			"type": "windmill",
 			"x": 313,
-			"y": 314,
+			"y": 320,
 			"rps": 1,
 			"direction": 1,
 			"//bladeColor": "#FF0000",

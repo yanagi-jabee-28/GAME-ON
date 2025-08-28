@@ -480,8 +480,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	let holdIntervalMsCfg = Number((GAME_CONFIG.launch && GAME_CONFIG.launch.holdIntervalMs) || 300);
 	let holdFirstDelayMsCfg = Number((GAME_CONFIG.launch && GAME_CONFIG.launch.holdFirstShotDelayMs) || 0);
 	let holdFirstShotPending = false;
-	// 初回ホールドのみ初回ディレイを適用するためのフラグ（ページロード後に1回だけtrueにする）
-	let firstHoldDelayApplied = false;
 
 	// 回転・連射は rAF ループ側で駆動（ここでは未使用）
 
@@ -674,13 +672,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (holdActive) return;
 			holdActive = true;
 			holdAccumMs = 0;
-			// 初回ホールドのみ holdFirstShotDelayMs を適用。2回目以降は適用しない。
-			if (!firstHoldDelayApplied && holdFirstDelayMsCfg > 0) {
-				holdFirstShotPending = true;
-				firstHoldDelayApplied = true; // 以降のホールドでは初回ディレイを使わない
-			} else {
-				holdFirstShotPending = false; // 次は純粋に interval で発射
-			}
+			// 毎回ホールド開始時に初回ディレイを適用（0なら即時相当でスキップ）
+			holdFirstShotPending = holdFirstDelayMsCfg > 0;
 			speedSlider.classList.add('active');
 		}
 		function stopHold() {

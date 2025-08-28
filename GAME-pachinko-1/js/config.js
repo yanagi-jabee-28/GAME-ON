@@ -63,7 +63,7 @@ const GAME_CONFIG = {
 		// 時間スケール（全体の進み具合を倍率で調整）
 		timeScale: 1,
 		// 重力（Y軸）。体感が弱い/強い場合に調整
-		gravityY: 2
+		gravityY: 1.5
 	},
 
 	// UI/ページ全体に関する見た目設定
@@ -233,8 +233,7 @@ GAME_CONFIG.launch = {
 	angleMax: 180,
 	defaultAngle: 120,
 	// 発射角度のランダムな「ぶれ」の大きさ（度数）。0で無効。
-	angleRandomness: 0
-	,
+	angleRandomness: 0.25,
 	// 長押しで一定間隔発射するモード
 	holdToFireEnabled: true,      // false にすると従来方式のみ
 	holdIntervalMs: 500,          // 連射間隔（ミリ秒）
@@ -255,7 +254,7 @@ GAME_CONFIG.launch.spawn = {
 // 発射台の見た目設定（UIではライブ変更あり）
 GAME_CONFIG.launch.pad = {
 	visible: true,
-	width: 20,          // px
+	width: 15,          // px
 	height: 50,         // px
 	borderRadius: 8,    // px
 	background: '#2F3B45', // single color fallback
@@ -263,7 +262,7 @@ GAME_CONFIG.launch.pad = {
 	// レイヤー（DOM要素は z-index に反映）。未指定は1。
 	layer: 2,
 	// pad の垂直オフセット量（px）をボールの座標に対して追加で下に移動
-	offsetY: 0
+	offsetY: 25
 };
 
 // 天板（上部の板）設定 - 円弧で作る場合のパラメータ
@@ -342,7 +341,7 @@ const MATERIAL_INTERACTIONS = {
 	'metal:metal2': { restitution: 0.7, friction: 0 },
 	'metal:metal2': { restitution: 0.7, friction: 0 },
 	'metal:plastic': { restitution: 0.5, friction: 0.3 },
-	'metal:tama': { restitution: 0.7, friction: 0.1 },
+	'metal:tama': { restitution: 0.5, friction: 0.1 },
 	'metal:top_plate': { restitution: 0, friction: 0 },
 
 	// metal2（準金属）関連
