@@ -33,7 +33,8 @@ const GAME_CONFIG = {
 	// 描画設定
 	render: {
 		wireframes: false,
-		background: '#F0F8FF',// 明るい背景色
+		// 暗めの背景（HSL）
+		background: 'hsl(220, 12%, 15%)',
 		showDebug: false,            // 全デバッグ描画をまとめて表示する総合フラグ（個別フラグの上書き）
 		showBroadphase: false,       // ブロードフェーズ（大まかな衝突検出領域）を可視化するフラグ
 		showPerformance: false,      // FPS や処理時間などのパフォーマンス統計を表示するフラグ
@@ -284,7 +285,7 @@ GAME_CONFIG.topPlate = {
 	centerOffsetX: 0,
 	centerOffsetY: -15,
 	// 天板の描画色（指定があれば topPlateBody.render より優先）
-	color: '#2A2F36',
+	color: 'hsl(190,80%,70%)',
 	// poly-decomp が使える環境では単一ポリゴンにできる（継ぎ目をなくす）
 	useSinglePolygon: false
 };
