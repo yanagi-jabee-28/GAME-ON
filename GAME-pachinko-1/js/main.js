@@ -846,6 +846,12 @@ document.addEventListener('DOMContentLoaded', () => {
 						try {
 							// world にまだ含まれていれば削除
 							if (world && ballBody && world.bodies && world.bodies.indexOf && world.bodies.indexOf(ballBody) !== -1) {
+								// 削除の前にパーティクルバーストを発生させる
+								try {
+									if (typeof createParticleBurst === 'function') {
+										createParticleBurst(world, ballBody.position.x, ballBody.position.y, ballBody.render && ballBody.render.fillStyle ? ballBody.render.fillStyle : undefined, 12, 700);
+									}
+								} catch (_) { /* no-op */ }
 								World.remove(world, ballBody);
 								// 削除イベント通知
 								if (typeof window !== 'undefined' && window.dispatchEvent) {

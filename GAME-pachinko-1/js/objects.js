@@ -900,3 +900,87 @@ function createSensorCounterPolygon(spec = {}) {
 
 	return body;
 }
+
+/**
+ * 指定位置に小さな破片パーティクルを生成してフェードアウトさせる
+ * - world: Matter.World オブジェクト
+ * - x,y: 中心位置
+ * - color: パーティクル色（省略可）
+ * - count: パーティクル数
+ * - lifeMs: 存続時間(ms)
+ */
+function createParticleBurst(world, x, y, color, count = 12, lifeMs = 700) {
+	if (!world || !window.Matter) return;
+	const Bodies = Matter.Bodies;
+	const Body = Matter.Body;
+	const World = Matter.World;
+
+	// ヘルパ: 色文字列のアルファを指定して返す（簡易対応）
+	function setAlpha(col, a) {
+		if (!col || typeof col !== 'string') return `rgba(255,255,255,${a})`;
+		const s = col.trim();
+		const mRgba = s.match(/^rgba?\(([^)]+)\)$/i);
+		if (mRgba) {
+			const parts = mRgba[1].split(',').map(p => p.trim());
+			const isHsl = s.toLowerCase().startsWith('hsl');
+			if (isHsl) {
+				// parts: h, s%, l% [, a]
+				return `hsla(${parts[0]}, ${parts[1]}, ${parts[2]}, ${a})`;
+			}
+			return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${a})`;
+		}
+		const mHex = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+		if (mHex) {
+			let hex = mHex[1];
+			if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+			const r = parseInt(hex.substr(0, 2), 16);
+			const g = parseInt(hex.substr(2, 2), 16);
+			const b = parseInt(hex.substr(4, 2), 16);
+			return `rgba(${r}, ${g}, ${b}, ${a})`;
+		}
+		return `rgba(255,255,255,${a})`;
+	}
+
+	const parts = [];
+	for (let i = 0; i < count; i++) {
+		const r = Math.max(0.8, Math.random() * 2.2);
+		const ox = (Math.random() - 0.5) * 6;
+		const oy = (Math.random() - 0.5) * 6;
+		const angle = Math.random() * Math.PI * 2;
+		const speed = 1 + Math.random() * 6;
+		const vx = Math.cos(angle) * speed;
+		const vy = Math.sin(angle) * speed - Math.random() * 2;
+		const p = Bodies.circle(x + ox, y + oy, r, {
+			isSensor: true,
+			isStatic: false,
+			friction: 0,
+			frictionAir: 0.08,
+			restitution: 0.2,
+			collisionFilter: { group: -1 },
+			render: { fillStyle: setAlpha(color || 'rgba(255,255,255,1)', 1), strokeStyle: undefined, layer: 3 }
+		});
+		Body.setVelocity(p, { x: vx, y: vy });
+		parts.push(p);
+	}
+
+	try {
+		World.add(world, parts);
+	} catch (_) { /* no-op */ }
+
+	// フェードアウトと除去
+	const steps = 8;
+	const stepMs = Math.max(20, Math.floor(lifeMs / steps));
+	let step = 0;
+	const fadeTimer = setInterval(() => {
+		step++;
+		const a = Math.max(0, 1 - step / steps);
+		for (const p of parts) {
+			try { p.render.fillStyle = setAlpha(color || p.render.fillStyle, a); } catch (_) { }
+		}
+		if (step >= steps) {
+			clearInterval(fadeTimer);
+			try { World.remove(world, parts); } catch (_) { }
+		}
+	}, stepMs);
+	return parts;
+}
