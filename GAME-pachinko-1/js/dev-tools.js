@@ -57,6 +57,10 @@
 		const panel = ensureDevPanel();
 		if (!panel) return;
 		if (panel.querySelector('#dev-timescale')) return; // 重複防止
+
+		// 停止前のタイムスケールを保存
+		let lastTimeScale = Number((getCfg()?.physics?.timeScale) ?? 1);
+
 		const row = document.createElement('div');
 		const label = document.createElement('label');
 		label.textContent = 'タイムスケール:';
@@ -87,11 +91,104 @@
 				cfgNow.physics.timeScale = v;
 			}
 			val.textContent = ` ${v.toFixed(2)}`;
+			// スライダー操作時はlastTimeScaleを更新（停止前の状態を維持）
+			lastTimeScale = v;
 		});
 		row.appendChild(label);
 		row.appendChild(input);
 		row.appendChild(val);
 		panel.appendChild(row);
+
+		// ボタン行を追加
+		const buttonRow = document.createElement('div');
+		buttonRow.style.marginTop = '6px';
+		buttonRow.style.display = 'flex';
+		buttonRow.style.gap = '4px';
+		buttonRow.style.flexWrap = 'wrap';
+
+		// 停止ボタン
+		const pauseBtn = document.createElement('button');
+		pauseBtn.textContent = '停止';
+		pauseBtn.style.padding = '4px 8px';
+		pauseBtn.style.fontSize = '11px';
+		pauseBtn.style.border = 'none';
+		pauseBtn.style.borderRadius = '4px';
+		pauseBtn.style.background = '#d32f2f';
+		pauseBtn.style.color = '#fff';
+		pauseBtn.style.cursor = 'pointer';
+		pauseBtn.addEventListener('click', () => {
+			// 現在のtimeScaleを保存
+			lastTimeScale = Number(input.value);
+			const cfgNow = getCfg();
+			if (cfgNow && cfgNow.physics) {
+				cfgNow.physics.paused = true;
+				cfgNow.physics.timeScale = 0;
+			}
+			try {
+				const eng = getEngine();
+				if (eng && eng.timing) eng.timing.timeScale = 0;
+			} catch (_) { /* no-op */ }
+			// スライダーは変更しない
+		});
+		buttonRow.appendChild(pauseBtn);
+
+		// 再生ボタン
+		const playBtn = document.createElement('button');
+		playBtn.textContent = '再生';
+		playBtn.style.padding = '4px 8px';
+		playBtn.style.fontSize = '11px';
+		playBtn.style.border = 'none';
+		playBtn.style.borderRadius = '4px';
+		playBtn.style.background = '#4caf50';
+		playBtn.style.color = '#fff';
+		playBtn.style.cursor = 'pointer';
+		playBtn.addEventListener('click', () => {
+			const cfgNow = getCfg();
+			if (cfgNow && cfgNow.physics) {
+				cfgNow.physics.paused = false;
+				cfgNow.physics.timeScale = lastTimeScale;
+			}
+			try {
+				const eng = getEngine();
+				if (eng && eng.timing) eng.timing.timeScale = lastTimeScale;
+			} catch (_) { /* no-op */ }
+			// スライダーを保存した値に同期
+			input.value = lastTimeScale.toString();
+			val.textContent = ` ${lastTimeScale.toFixed(2)}`;
+		});
+		buttonRow.appendChild(playBtn);
+
+		// プリセットボタン
+		const presets = [0.5, 1, 1.5, 2];
+		presets.forEach(preset => {
+			const btn = document.createElement('button');
+			btn.textContent = preset.toString();
+			btn.style.padding = '4px 8px';
+			btn.style.fontSize = '11px';
+			btn.style.border = 'none';
+			btn.style.borderRadius = '4px';
+			btn.style.background = '#1976d2';
+			btn.style.color = '#fff';
+			btn.style.cursor = 'pointer';
+			btn.addEventListener('click', () => {
+				const cfgNow = getCfg();
+				if (cfgNow && cfgNow.physics) {
+					cfgNow.physics.paused = false;
+					cfgNow.physics.timeScale = preset;
+				}
+				try {
+					const eng = getEngine();
+					if (eng && eng.timing) eng.timing.timeScale = preset;
+				} catch (_) { /* no-op */ }
+				input.value = preset.toString();
+				val.textContent = ` ${preset.toFixed(2)}`;
+				// プリセット設定時はlastTimeScaleを更新
+				lastTimeScale = preset;
+			});
+			buttonRow.appendChild(btn);
+		});
+
+		panel.appendChild(buttonRow);
 
 		// 初期反映（エンジンが既にあれば値を適用）
 		const eng0 = getEngine();
