@@ -25,14 +25,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	// 1. エンジンの初期化（低レベル設定）
 	// ========================
 	const engine = Engine.create();
-	// パフォーマンス向上のため、物理演算の反復回数をデフォルト値に設定
-	engine.positionIterations = 8;
-	engine.velocityIterations = 6;
-	engine.constraintIterations = 3;
+	// 物理エンジンの反復回数を設定から反映
+	engine.positionIterations = Number(GAME_CONFIG.physics?.positionIterations ?? 12);
+	engine.velocityIterations = Number(GAME_CONFIG.physics?.velocityIterations ?? 8);
+	engine.constraintIterations = Number(GAME_CONFIG.physics?.constraintIterations ?? 6);
 	// 動きの停止した物体をスリープさせ、計算負荷を軽減
 	engine.enableSleeping = true;
-	engine.timing.timeScale = 1;
-	engine.world.gravity.y = engine.world.gravity.y; // no-op for clarity
+	engine.timing.timeScale = Number(GAME_CONFIG.physics?.timeScale ?? 1);
+	engine.world.gravity.y = Number(GAME_CONFIG.physics?.gravityY ?? engine.world.gravity.y);
 	const world = engine.world;
 
 	// ========================
@@ -89,7 +89,29 @@ document.addEventListener('DOMContentLoaded', () => {
 	// ========================
 	Render.run(render);
 	const runner = Runner.create();
-	Runner.run(runner, engine);
+	// サブステップRunner: Matter.Runner.run を使わず、requestAnimationFrameで分割更新
+	(function runFixedTimestep() {
+		const substeps = Math.max(1, Number(GAME_CONFIG.physics?.substeps ?? 1));
+		const fixedFps = Math.max(30, Number(GAME_CONFIG.physics?.fixedFps ?? 60));
+		const fixedDtMs = 1000 / fixedFps;
+		let last = performance.now();
+		let acc = 0;
+		function loop(now) {
+			const elapsed = now - last;
+			last = now;
+			acc += elapsed;
+			while (acc >= fixedDtMs) {
+				const stepMs = fixedDtMs / substeps;
+				for (let i = 0; i < substeps; i++) {
+					Engine.update(engine, stepMs);
+				}
+				acc -= fixedDtMs;
+			}
+			Render.world(render);
+			requestAnimationFrame(loop);
+		}
+		requestAnimationFrame(loop);
+	})();
 
 	// ========================
 	// 4. ワールド生成（境界・釘・プリセット適用）
@@ -356,16 +378,18 @@ document.addEventListener('DOMContentLoaded', () => {
 	let holdFirstShotPending = false;
 
 	Events.on(engine, 'afterUpdate', () => {
-		// engine.timing.delta is ms elapsed for the last tick; fall back to ~16.67ms
+		// engine.timing.delta: 最後の tick の ms。時間スケールは別で考慮。
 		const deltaMsRaw = (engine && engine.timing && engine.timing.delta) ? engine.timing.delta : 16.6667;
-		const deltaMs = Math.min(deltaMsRaw, 32); // 休止復帰時のバースト抑制
-		const deltaSec = deltaMs / 1000;
+		const deltaMs = Math.min(deltaMsRaw, 32); // 休止復帰時のバースト抑制（実時間）
+		const ts = engine?.timing?.timeScale || 1;
+		const deltaSimMs = deltaMs * ts;      // シミュレーション時間での経過
+		const deltaSec = deltaSimMs / 1000;   // rotator 等の速度計算に使用
 		rotators.forEach(rot => {
 			if (rot.mode === 'program' && rot.program) {
 				const p = rot.program;
 				if (p.type === 'seq') {
 					if (p.completed && !p.loop) return;
-					let remaining = deltaMs;
+					let remaining = deltaSimMs;
 					while (remaining > 0) {
 						const st = p.steps[p.curIndex];
 						if (p.phase === 'hold') {
@@ -401,7 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + p.endRad);
 						return;
 					}
-					p.elapsedMs += deltaMs;
+					p.elapsedMs += deltaSimMs;
 					let t = p.elapsedMs / p.durationMs;
 					if (p.loop) t = t % 1;
 					else t = Math.min(1, t);
@@ -423,7 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		});
 		// 物理ループ同期の連射（初回ディレイ対応）
 		if (holdActive) {
-			holdAccumMs += deltaMs;
+			holdAccumMs += deltaMs; // UI連射は実時間ベース
 			if (holdFirstShotPending) {
 				if (holdAccumMs >= holdFirstDelayMsCfg) {
 					holdAccumMs = 0;

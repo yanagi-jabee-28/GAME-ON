@@ -36,6 +36,21 @@ const GAME_CONFIG = {
 		background: '#F0F8FF'  // 明るい背景色に変更
 	},
 
+	// 物理エンジン設定（安定性調整用）
+	physics: {
+		positionIterations: 12,
+		velocityIterations: 8,
+		constraintIterations: 6,
+		// サブステップ数（1フレームを何分割してEngine.updateするか）
+		substeps: 2,
+		// 固定フレームレート（物理の基準FPS）。実時間とのズレを減らす
+		fixedFps: 60,
+		// 時間スケール（全体の進み具合を倍率で調整）
+		timeScale: 1,
+		// 重力（Y軸）。体感が弱い/強い場合に調整
+		gravityY: 1
+	},
+
 	// UI/ページ全体に関する見た目設定
 	ui: {
 		// ゲーム外（ページの背景色）
@@ -207,7 +222,7 @@ GAME_CONFIG.launch = {
 	,
 	// 長押しで一定間隔発射するモード
 	holdToFireEnabled: true,      // false にすると従来方式のみ
-	holdIntervalMs: 500,          // 連射間隔（ミリ秒）
+	holdIntervalMs: 1000,          // 連射間隔（ミリ秒）
 	// 連射モード開始から最初の発射までの遅延（ミリ秒）
 	holdFirstShotDelayMs: 500
 };
@@ -246,11 +261,11 @@ GAME_CONFIG.topPlate = {
 	//       空にすると起動時に幅に基づく推奨値が設定されます。
 	radius: 355,
 	// 分割数（多いほど滑らか）。パフォーマンスを考慮して 24 程度が良い。
-	segments: 48,
+	segments: 60,
 	// 板の厚み。見た目をわかりやすくするために増やす。
 	thickness: 25,
 	// 接触解決の許容オーバーラップ（小さいほどめり込みが起きにくい）
-	slop: 0.001,
+	slop: 0.007,
 	// 天板の中心オフセット（画面中央からの差分、px）。ここで初期値を変更できます。
 	centerOffsetX: 0,
 	centerOffsetY: -15,
