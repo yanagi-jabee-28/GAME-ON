@@ -202,25 +202,159 @@
 		}
 	});
 
+	// センサー通過カウント表示を開発者パネルに追加
+	function injectSensorCounters() {
+		const cfg = getCfg();
+		if (!cfg || !cfg.sensorCounters || !cfg.sensorCounters.enabled) return;
+
+		const panel = ensureDevPanel();
+		if (!panel) return;
+
+		// 既存のセンサー表示をクリア
+		const existing = document.getElementById('dev-sensor-counters');
+		if (existing) existing.remove();
+
+		const container = document.createElement('div');
+		container.id = 'dev-sensor-counters';
+		container.style.marginTop = '8px';
+		container.style.padding = '6px';
+		container.style.borderRadius = '4px';
+		container.style.background = 'rgba(255,255,255,0.1)';
+		container.style.fontSize = '11px';
+
+		const title = document.createElement('div');
+		title.textContent = 'センサー通過カウント';
+		title.style.fontWeight = '600';
+		title.style.marginBottom = '4px';
+		container.appendChild(title);
+
+		const counters = cfg.sensorCounters.counters || {};
+		const counterIds = Object.keys(counters);
+
+		if (counterIds.length === 0) {
+			const noData = document.createElement('div');
+			noData.textContent = 'データなし';
+			noData.style.color = '#ccc';
+			container.appendChild(noData);
+		} else {
+			counterIds.forEach(id => {
+				const data = counters[id];
+				const row = document.createElement('div');
+				row.style.marginBottom = '2px';
+				row.innerHTML = `<span style="color:#ffeb3b">${id}:</span> 進入:${data.enterCount} 退出:${data.exitCount} 現在:${data.currentInside} 総通過:${data.totalPassed}`;
+				container.appendChild(row);
+			});
+		}
+
+		// 更新ボタン
+		const updateBtn = document.createElement('button');
+		updateBtn.textContent = '更新';
+		updateBtn.style.marginTop = '4px';
+		updateBtn.style.padding = '2px 6px';
+		updateBtn.style.fontSize = '10px';
+		updateBtn.style.border = 'none';
+		updateBtn.style.borderRadius = '3px';
+		updateBtn.style.background = '#2196f3';
+		updateBtn.style.color = '#fff';
+		updateBtn.style.cursor = 'pointer';
+		updateBtn.addEventListener('click', () => {
+			injectSensorCounters(); // 再描画
+		});
+		container.appendChild(updateBtn);
+
+		panel.appendChild(container);
+	}
+
+	// 総発射数 (totalSpawned) を開発者パネルに追加
+	function injectTotalSpawned() {
+		const cfg = getCfg();
+		if (!cfg || !cfg.metrics) return;
+
+		const panel = ensureDevPanel();
+		if (!panel) return;
+
+		const existing = document.getElementById('dev-total-spawned');
+		if (existing) existing.remove();
+
+		const container = document.createElement('div');
+		container.id = 'dev-total-spawned';
+		container.style.marginTop = '6px';
+		container.style.padding = '4px 6px';
+		container.style.borderRadius = '4px';
+		container.style.background = 'rgba(255,255,255,0.03)';
+		container.style.fontSize = '11px';
+
+		const title = document.createElement('div');
+		title.textContent = '総発射数';
+		title.style.fontWeight = '600';
+		title.style.marginBottom = '4px';
+		container.appendChild(title);
+
+		const value = document.createElement('div');
+		value.id = 'dev-total-spawned-val';
+		value.textContent = String((cfg.metrics.totalSpawned) ?? 0);
+		value.style.color = '#ffeb3b';
+		container.appendChild(value);
+
+		panel.appendChild(container);
+		// 値の自動更新を容易にするため、ここで短いヘルパーを提供
+		function refresh() {
+			const cfgNow = getCfg();
+			const el = document.getElementById('dev-total-spawned-val');
+			if (el && cfgNow && cfgNow.metrics) el.textContent = String(cfgNow.metrics.totalSpawned ?? 0);
+		}
+		// 最初の表示反映
+		refresh();
+		// 1秒更新サイクルとは別に、小さなタイムアウトで初回反映を確実にする
+		setTimeout(refresh, 100);
+	}
+
+	// センサー通過カウント表示とその他メトリクスを更新するヘルパー関数
+	function updateSensorCounters() {
+		const cfg = getCfg();
+		// センサー情報の更新
+		if (cfg && cfg.sensorCounters && cfg.sensorCounters.enabled) injectSensorCounters();
+		// 総発射数の更新
+		if (cfg && cfg.metrics) injectTotalSpawned();
+	}
+
 	// 既に main.js が初期化済み（イベント前にこのスクリプトが読むケース）へのフォールバック
 	// まずは UI を出しておく（エンジン未準備でも可視化）
 	if (window.__engine_for_devtools__) CURRENT_ENGINE = window.__engine_for_devtools__;
-	if (ensureDevPanel()) injectTimeScaleSlider();
-	else waitControlsAndInject();
+	if (ensureDevPanel()) {
+		injectTimeScaleSlider();
+		injectTotalSpawned();
+		injectSensorCounters();
+	} else {
+		waitControlsAndInject();
+	}
 
 	// DOM がまだ揃っていないタイミング対策（安全側の再試行）
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', () => {
 			if (!document.getElementById('dev-timescale')) {
-				if (ensureDevPanel()) injectTimeScaleSlider();
-				else waitControlsAndInject();
+				if (ensureDevPanel()) {
+					injectTimeScaleSlider();
+					injectTotalSpawned();
+					injectSensorCounters();
+				} else {
+					waitControlsAndInject();
+				}
 			}
 		});
 	} else {
 		// すでに読み込み済みなら軽く再チェック
 		if (!document.getElementById('dev-timescale')) {
-			if (ensureDevPanel()) injectTimeScaleSlider();
-			else waitControlsAndInject();
+			if (ensureDevPanel()) {
+				injectTimeScaleSlider();
+				injectTotalSpawned();
+				injectSensorCounters();
+			} else {
+				waitControlsAndInject();
+			}
 		}
 	}
+
+	// 定期的にセンサーカウントを更新（1秒ごと）
+	setInterval(updateSensorCounters, 1000);
 })();

@@ -178,5 +178,31 @@
 			"angleOffsetDeg": 0,
 			"isStatic": true
 		}
+	],
+	"sensorCounters": [
+
+	],
+	"sensorCounterPolygons": [
+		{
+			"id": "demo_polygon_counter_2",
+			"x": 225,
+			"y": 655,
+			"points": [
+				{
+					"x": 20,
+					"y": 0
+				},
+				{
+					"x": 0,
+					"y": 25
+				},
+				{
+					"x": -20,
+					"y": 0
+				}
+			],
+			"color": "hsla(300, 100%, 50%, 0.3)",
+			"layer": 2
+		}
 	]
 }

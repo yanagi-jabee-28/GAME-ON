@@ -640,3 +640,251 @@ function createRotatingYakumono(blueprint) {
 	const compound = Matter.Body.create({ parts, isStatic: true });
 	return compound;
 }
+
+/**
+ * センサー通過カウント用のボディを作成する
+ * - 物理干渉せず、通過イベントをカウントする領域を定義
+ * - カウントデータは GAME_CONFIG.sensorCounters.counters に保存
+ */
+function createSensorCounter(spec = {}) {
+	const counterId = spec.id || 'default_counter';
+	const x = Number(spec.x) || 0;
+	const y = Number(spec.y) || 0;
+	const width = Math.max(1, Number(spec.width) || 100);
+	const height = Math.max(1, Number(spec.height) || 50);
+	const strokeColor = spec.strokeStyle || spec.borderColor || spec.strokeColor || null;
+
+	// ヘルパ: 既存のカラー文字列のアルファだけを調整する（hex/rgb/rgba/hsl/hsla を簡易サポート）
+	function setColorAlpha(col, a) {
+		if (!col || typeof col !== 'string') return col;
+		const s = col.trim();
+		// rgba() / hsla()
+		const mRgba = s.match(/^rgba?\(([^)]+)\)$/i);
+		if (mRgba) {
+			const parts = mRgba[1].split(',').map(p => p.trim());
+			const isHsl = s.toLowerCase().startsWith('hsl');
+			if (isHsl) {
+				return `hsla(${parts[0]}, ${parts[1]}, ${parts[2]}, ${a})`;
+			}
+			return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${a})`;
+		}
+		// hex #rrggbb or #rgb
+		const mHex = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+		if (mHex) {
+			let hex = mHex[1];
+			if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+			const r = parseInt(hex.substr(0, 2), 16);
+			const g = parseInt(hex.substr(2, 2), 16);
+			const b = parseInt(hex.substr(4, 2), 16);
+			return `rgba(${r}, ${g}, ${b}, ${a})`;
+		}
+		// fallback: return original
+		return col;
+	}
+
+	const hasStrokeColor = Boolean(strokeColor);
+	const layer = (spec.layer != null ? Number(spec.layer) : 2);
+
+	// 塗り色の決定: 指定があればそれを使う。指定ありかつ枠色が未指定ならアルファを1.0にする（不透明保持）。
+	let color = spec.color || spec.fillStyle || null;
+	if (color) {
+		if (!hasStrokeColor) {
+			color = setColorAlpha(color, 1.0);
+		}
+	} else {
+		// 指定が無ければ目立たない中立色を使う（黄色を避ける）
+		color = hasStrokeColor ? 'rgba(200,200,200,0.3)' : 'rgba(200,200,200,1.0)';
+	}
+
+	// センサーオプション（物理干渉なし）
+	const sensorOptions = {
+		isSensor: true,
+		isStatic: true,
+		label: `sensor_counter_${counterId}`,
+		material: GAME_MATERIALS.DECOR,
+		render: {
+			fillStyle: color,
+			lineWidth: 2,
+			strokeStyle: strokeColor || undefined,
+			layer: layer
+		}
+	};
+
+	const body = Matter.Bodies.rectangle(x, y, width, height, sensorOptions);
+
+	// カウントデータを初期化
+	if (!GAME_CONFIG.sensorCounters.counters[counterId]) {
+		GAME_CONFIG.sensorCounters.counters[counterId] = {
+			enterCount: 0,
+			exitCount: 0,
+			currentInside: 0,
+			totalPassed: 0
+		};
+	}
+
+	// センサー固有のデータをbodyに付与
+	body.sensorData = {
+		counterId: counterId,
+		isEntered: new Set() // 現在領域内にいるボールのIDを追跡
+	};
+
+	return body;
+}
+
+/**
+ * センサー通過カウント用のポリゴンボディを作成する
+ * - 物理干渉せず、通過イベントをカウントする任意形状の領域を定義
+ * - カウントデータは GAME_CONFIG.sensorCounters.counters に保存
+ */
+function createSensorCounterPolygon(spec = {}) {
+	const counterId = spec.id || 'default_polygon_counter';
+	const pts = Array.isArray(spec.points) ? spec.points : [];
+	if (pts.length < 3) return null; // 要三点以上
+	const strokeColor = spec.strokeStyle || spec.borderColor || spec.strokeColor || null;
+
+	// ヘルパは上で定義済みだが、このファイルのスコープは同じなので再利用可能
+	function setColorAlpha(col, a) {
+		if (!col || typeof col !== 'string') return col;
+		const s = col.trim();
+		const mRgba = s.match(/^rgba?\(([^)]+)\)$/i);
+		if (mRgba) {
+			const parts = mRgba[1].split(',').map(p => p.trim());
+			const isHsl = s.toLowerCase().startsWith('hsl');
+			if (isHsl) {
+				return `hsla(${parts[0]}, ${parts[1]}, ${parts[2]}, ${a})`;
+			}
+			return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${a})`;
+		}
+		const mHex = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+		if (mHex) {
+			let hex = mHex[1];
+			if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+			const r = parseInt(hex.substr(0, 2), 16);
+			const g = parseInt(hex.substr(2, 2), 16);
+			const b = parseInt(hex.substr(4, 2), 16);
+			return `rgba(${r}, ${g}, ${b}, ${a})`;
+		}
+		return col;
+	}
+
+	const hasStrokeColor = Boolean(strokeColor);
+
+	let color = spec.color || spec.fillStyle || null;
+	if (color) {
+		if (!hasStrokeColor) color = setColorAlpha(color, 1.0);
+	} else {
+		color = hasStrokeColor ? 'rgba(200,200,200,0.3)' : 'rgba(200,200,200,1.0)';
+	}
+	const layer = (spec.layer != null ? Number(spec.layer) : 2);
+	const angleDeg = Number(spec.angleDeg || spec.angle || 0);
+	const angleRad = angleDeg * Math.PI / 180;
+
+	// センサーオプション（物理干渉なし）
+	const sensorOptions = {
+		isSensor: true,
+		isStatic: true,
+		label: `sensor_counter_${counterId}`,
+		material: GAME_MATERIALS.DECOR,
+		render: {
+			fillStyle: color,
+			lineWidth: 2,
+			strokeStyle: strokeColor,
+			layer: layer
+		}
+	};
+
+	// 既存の createPolygon ロジックを流用
+	const modeRaw = spec.coordMode || spec.pointsMode || (spec.useWorldPoints ? 'world' : 'local');
+	const mode = (String(modeRaw || 'local').toLowerCase() === 'world') ? 'world' : 'local';
+	const offX = Number(spec.offsetX ?? (spec.offset && spec.offset.x)) || 0;
+	const offY = Number(spec.offsetY ?? (spec.offset && spec.offset.y)) || 0;
+	const rotOffDeg = Number(spec.angleOffsetDeg ?? spec.angleOffset) || 0;
+	const rotOffRad = rotOffDeg * Math.PI / 180;
+	const pivotModeRaw = spec.pivotMode || (spec.pivot && spec.pivot.mode) || 'centroid';
+	const pivotMode = String(pivotModeRaw).toLowerCase() === 'point' ? 'point' : 'centroid';
+	const pivotX = Number(spec.pivot && spec.pivot.x);
+	const pivotY = Number(spec.pivot && spec.pivot.y);
+
+	let body;
+	if (mode === 'world') {
+		// ワールド座標で与えられた頂点群を、その重心位置にボディを配置してローカル化
+		let worldVerts = pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
+		// 可能なら Matter の重心計算を使用
+		let c;
+		try {
+			c = Matter.Vertices && typeof Matter.Vertices.centre === 'function'
+				? Matter.Vertices.centre(worldVerts)
+				: null;
+		} catch (_) { c = null; }
+		if (!c) {
+			const sx = worldVerts.reduce((s, v) => s + v.x, 0);
+			const sy = worldVerts.reduce((s, v) => s + v.y, 0);
+			c = { x: sx / worldVerts.length, y: sy / worldVerts.length };
+		}
+		// 回転オフセット（基準: 指定点 or 重心）を適用
+		if (rotOffRad) {
+			const pivot = (pivotMode === 'point' && isFinite(pivotX) && isFinite(pivotY)) ? { x: pivotX, y: pivotY } : c;
+			worldVerts = worldVerts.map(v => {
+				const dx = v.x - pivot.x, dy = v.y - pivot.y;
+				const rx = dx * Math.cos(rotOffRad) - dy * Math.sin(rotOffRad);
+				const ry = dx * Math.sin(rotOffRad) + dy * Math.cos(rotOffRad);
+				return { x: pivot.x + rx, y: pivot.y + ry };
+			});
+		}
+		// 位置オフセット（ワールド）
+		if (offX || offY) {
+			worldVerts = worldVerts.map(v => ({ x: v.x + offX, y: v.y + offY }));
+		}
+		// 変換後の重心で再配置
+		try {
+			c = Matter.Vertices && typeof Matter.Vertices.centre === 'function'
+				? Matter.Vertices.centre(worldVerts)
+				: c;
+		} catch (_) { /* keep c */ }
+		const localVerts = worldVerts.map(v => ({ x: v.x - c.x, y: v.y - c.y }));
+		body = Matter.Bodies.fromVertices(c.x, c.y, [localVerts], sensorOptions, true, 0.0001);
+	} else {
+		// ローカル座標: x,y を中心として配置
+		let x = Number(spec.x) || 0;
+		let y = Number(spec.y) || 0;
+		// オフセットは中心を移動
+		x += offX; y += offY;
+		let localVerts = pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
+		// 回転オフセット適用（基準: 指定点=ローカル座標 or 重心）
+		if (rotOffRad) {
+			// 重心（ローカル）を計算
+			let lc = { x: 0, y: 0 };
+			try {
+				lc = (Matter.Vertices && typeof Matter.Vertices.centre === 'function') ? Matter.Vertices.centre(localVerts) : lc;
+			} catch (_) { /* no-op */ }
+			const pivotLocal = (pivotMode === 'point' && isFinite(pivotX) && isFinite(pivotY)) ? { x: pivotX, y: pivotY } : lc;
+			localVerts = localVerts.map(v => {
+				const dx = v.x - pivotLocal.x, dy = v.y - pivotLocal.y;
+				const rx = dx * Math.cos(rotOffRad) - dy * Math.sin(rotOffRad);
+				const ry = dx * Math.sin(rotOffRad) + dy * Math.cos(rotOffRad);
+				return { x: pivotLocal.x + rx, y: pivotLocal.y + ry };
+			});
+		}
+		body = Matter.Bodies.fromVertices(x, y, [localVerts], sensorOptions, true, 0.0001);
+	}
+
+	if (angleRad) Matter.Body.setAngle(body, angleRad);
+
+	// カウントデータを初期化
+	if (!GAME_CONFIG.sensorCounters.counters[counterId]) {
+		GAME_CONFIG.sensorCounters.counters[counterId] = {
+			enterCount: 0,
+			exitCount: 0,
+			currentInside: 0,
+			totalPassed: 0
+		};
+	}
+
+	// センサー固有のデータをbodyに付与
+	body.sensorData = {
+		counterId: counterId,
+		isEntered: new Set() // 現在領域内にいるボールのIDを追跡
+	};
+
+	return body;
+}

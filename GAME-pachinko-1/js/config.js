@@ -72,6 +72,12 @@ const GAME_CONFIG = {
 		outerBackground: '#EDE8DB'
 	},
 
+	// ランタイム計測値（メトリクス）を格納する領域
+	metrics: {
+		// 総射出数（spawnBallFromUI が増加させる）
+		totalSpawned: 0
+	},
+
 	// ▼▼▼ オブジェクトの定義 ▼▼▼
 	objects: {
 		// --- ボールの定義 ---
@@ -312,6 +318,12 @@ GAME_CONFIG.dev = {
 GAME_CONFIG.presets = {
 	pegs: 'pegs-presets/pegs4.json',           // 釘の配置
 	objects: 'objects-presets/default.json'    // 風車やポリゴン等のオブジェクト
+};
+
+// センサー通過カウント機能の設定
+GAME_CONFIG.sensorCounters = {
+	enabled: true,        // カウント機能を有効化
+	counters: {}          // 実行時にカウントデータを格納するオブジェクト
 };
 
 /**

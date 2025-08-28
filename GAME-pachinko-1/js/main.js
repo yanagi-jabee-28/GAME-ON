@@ -445,6 +445,39 @@ document.addEventListener('DOMContentLoaded', () => {
 		}).filter(Boolean);
 		if (bodies.length) World.add(world, bodies);
 	}
+
+	// センサー通過カウント用ボディをプリセットから初期化
+	function initSensorCountersFromPreset(preset) {
+		const items = Array.isArray(preset.sensorCounters) ? preset.sensorCounters : [];
+		if (!items.length) return;
+		const bodies = items.map(s => createSensorCounter(Object.assign({}, s, {
+			x: (s.x || 0) + globalXOffset,
+			y: (s.y || 0) + globalYOffset
+		}))).filter(Boolean);
+		if (bodies.length) World.add(world, bodies);
+	}
+
+	// センサー通過カウント用ポリゴンボディをプリセットから初期化
+	function initSensorCounterPolygonsFromPreset(preset) {
+		const items = Array.isArray(preset.sensorCounterPolygons) ? preset.sensorCounterPolygons : [];
+		if (!items.length) return;
+		const bodies = items.map(s => {
+			const coordMode = (s.coordMode || s.pointsMode || (s.useWorldPoints ? 'world' : undefined) || 'local');
+			if (String(coordMode).toLowerCase() === 'world') {
+				// world座標指定: points にオフセットを適用
+				const pts = Array.isArray(s.points) ? s.points.map(pt => ({ x: (pt.x || 0) + globalXOffset, y: (pt.y || 0) + globalYOffset })) : s.points;
+				return createSensorCounterPolygon(Object.assign({}, s, { points: pts }));
+			}
+			// local座標指定: x,y にオフセット
+			return createSensorCounterPolygon(Object.assign({}, s, {
+				x: (s.x || 0) + globalXOffset,
+				y: (s.y || 0) + globalYOffset,
+				coordMode: coordMode
+			}));
+		}).filter(Boolean);
+		if (bodies.length) World.add(world, bodies);
+	}
+
 	// プリセット適用ハンドラ（拡張しやすい登録方式）
 	function applyPresetWindmills(preset) {
 		rotators = initRotatorsFromPreset(preset);
@@ -461,6 +494,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		applyPresetDecorRectangles,
 		initPolygonsFromPreset,
 		initDecorPolygonsFromPreset,
+		initSensorCountersFromPreset,
+		initSensorCounterPolygonsFromPreset,
 	];
 	function applyPresetObjects(preset) {
 		for (const fn of presetApplicators) {
@@ -665,6 +700,11 @@ document.addEventListener('DOMContentLoaded', () => {
 		const ball = createBall(start.x, start.y);
 		World.add(world, ball);
 		Body.setVelocity(ball, velocity);
+
+		// 総射出数をインクリメント
+		try {
+			if (GAME_CONFIG && GAME_CONFIG.metrics) GAME_CONFIG.metrics.totalSpawned = (Number(GAME_CONFIG.metrics.totalSpawned) || 0) + 1;
+		} catch (_) { /* no-op */ }
 	}
 
 	// dev tools hook: spawn ball
@@ -723,6 +763,11 @@ document.addEventListener('DOMContentLoaded', () => {
 				pair.friction = interaction.friction;
 			}
 
+			// センサー通過カウント処理（進入イベント）
+			if (GAME_CONFIG.sensorCounters.enabled) {
+				handleSensorCounterCollision(bodyA, bodyB, 'enter');
+			}
+
 			// 床とボールの衝突判定
 			const ballLabel = GAME_CONFIG.objects.ball.label;
 			const floorLabel = GAME_CONFIG.objects.floor.label;
@@ -733,6 +778,58 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 		}
 	});
+
+	// センサー退出イベントの処理
+	Events.on(engine, 'collisionEnd', (event) => {
+		if (!GAME_CONFIG.sensorCounters.enabled) return;
+
+		const pairs = event.pairs;
+		for (const pair of pairs) {
+			const { bodyA, bodyB } = pair;
+			handleSensorCounterCollision(bodyA, bodyB, 'exit');
+		}
+	});
+
+	// センサー通過カウント処理関数
+	function handleSensorCounterCollision(bodyA, bodyB, eventType) {
+		const ballLabel = GAME_CONFIG.objects.ball.label;
+		let sensorBody = null;
+		let ballBody = null;
+
+		// センサーとボールのペアを特定
+		if (bodyA.label === ballLabel && bodyB.label && bodyB.label.startsWith('sensor_counter_')) {
+			ballBody = bodyA;
+			sensorBody = bodyB;
+		} else if (bodyB.label === ballLabel && bodyA.label && bodyA.label.startsWith('sensor_counter_')) {
+			ballBody = bodyB;
+			sensorBody = bodyA;
+		}
+
+		if (!sensorBody || !ballBody) return;
+
+		const counterId = sensorBody.sensorData.counterId;
+		const ballId = ballBody.id;
+		const counter = GAME_CONFIG.sensorCounters.counters[counterId];
+
+		if (!counter) return;
+
+		if (eventType === 'enter') {
+			// 進入イベント
+			if (!sensorBody.sensorData.isEntered.has(ballId)) {
+				sensorBody.sensorData.isEntered.add(ballId);
+				counter.enterCount++;
+				counter.currentInside++;
+			}
+		} else if (eventType === 'exit') {
+			// 退出イベント
+			if (sensorBody.sensorData.isEntered.has(ballId)) {
+				sensorBody.sensorData.isEntered.delete(ballId);
+				counter.exitCount++;
+				counter.currentInside = Math.max(0, counter.currentInside - 1);
+				counter.totalPassed++;
+			}
+		}
+	}
 
 
 });
