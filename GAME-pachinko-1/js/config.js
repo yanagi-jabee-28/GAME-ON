@@ -33,7 +33,17 @@ const GAME_CONFIG = {
 	// 描画設定
 	render: {
 		wireframes: false,
-		background: '#F0F8FF'  // 明るい背景色に変更
+		background: '#F0F8FF',  // 明るい背景色
+		showDebug: false,
+		showBroadphase: false,
+		showPerformance: false,
+		showBounds: false,
+		showVelocity: false,
+		showCollisions: false,
+		showSeparations: false,
+		showAxes: false,
+		showPositions: false,
+		showAngleIndicator: false
 	},
 
 	// 物理エンジン設定（安定性調整用）
@@ -45,6 +55,10 @@ const GAME_CONFIG = {
 		substeps: 2,
 		// 固定フレームレート（物理の基準FPS）。実時間とのズレを減らす
 		fixedFps: 60,
+		// 1フレームで消化する最大固定ステップ数（負荷が高いときの保護）
+		maxFixedStepsPerFrame: 3,
+		// 遅延が大きいフレームではサブステップを一時的に 1 に落として処理を軽量化
+		adaptiveSubsteps: true,
 		// 時間スケール（全体の進み具合を倍率で調整）
 		timeScale: 1,
 		// 重力（Y軸）。体感が弱い/強い場合に調整

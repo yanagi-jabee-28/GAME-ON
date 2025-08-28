@@ -31,6 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	engine.constraintIterations = Number(GAME_CONFIG.physics?.constraintIterations ?? 6);
 	// 動きの停止した物体をスリープさせ、計算負荷を軽減
 	engine.enableSleeping = true;
+	// スリープ閾値を少し下げて微小振動を抑止し、負荷を軽減
+	engine.timing.isFixed = true; // Matterの内部補間を固定化
+	engine.positionIterations = Number(GAME_CONFIG.physics?.positionIterations ?? 12);
+	engine.velocityIterations = Number(GAME_CONFIG.physics?.velocityIterations ?? 8);
+	engine.constraintIterations = Number(GAME_CONFIG.physics?.constraintIterations ?? 6);
 	engine.timing.timeScale = Number(GAME_CONFIG.physics?.timeScale ?? 1);
 	engine.world.gravity.y = Number(GAME_CONFIG.physics?.gravityY ?? engine.world.gravity.y);
 	const world = engine.world;
@@ -53,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	// DOMレイヤリングのため relative を付与
 	if (!container.style.position) container.style.position = 'relative';
 
-	const render = Render.create({ element: container, engine, options: { width, height, pixelRatio: 1, ...renderOptions, showSleeping: false } });
+	const render = Render.create({ element: container, engine, options: { width, height, pixelRatio: 'auto', ...renderOptions, showSleeping: false } });
 
 	// ページ側の背景色（ゲーム外）を設定
 	try {
@@ -93,19 +98,30 @@ document.addEventListener('DOMContentLoaded', () => {
 	(function runFixedTimestep() {
 		const substeps = Math.max(1, Number(GAME_CONFIG.physics?.substeps ?? 1));
 		const fixedFps = Math.max(30, Number(GAME_CONFIG.physics?.fixedFps ?? 60));
+		const maxFixedStepsPerFrame = Math.max(1, Number(GAME_CONFIG.physics?.maxFixedStepsPerFrame ?? 3));
+		const adaptiveSubsteps = Boolean(GAME_CONFIG.physics?.adaptiveSubsteps ?? true);
 		const fixedDtMs = 1000 / fixedFps;
 		let last = performance.now();
 		let acc = 0;
 		function loop(now) {
-			const elapsed = now - last;
+			// タブ復帰などで巨大なelapsedが来た場合の暴走抑制
+			const elapsedRaw = now - last;
+			const elapsed = Math.min(elapsedRaw, 200);
 			last = now;
 			acc += elapsed;
-			while (acc >= fixedDtMs) {
-				const stepMs = fixedDtMs / substeps;
-				for (let i = 0; i < substeps; i++) {
+			let steps = 0;
+			while (acc >= fixedDtMs && steps < maxFixedStepsPerFrame) {
+				const effSubsteps = (adaptiveSubsteps && elapsed > fixedDtMs * 1.5) ? 1 : substeps;
+				const stepMs = fixedDtMs / effSubsteps;
+				for (let i = 0; i < effSubsteps; i++) {
 					Engine.update(engine, stepMs);
 				}
 				acc -= fixedDtMs;
+				steps++;
+			}
+			// 予算オーバー時は過剰な遅延を切り捨て、スパイラルを防ぐ
+			if (acc >= fixedDtMs) {
+				acc = Math.min(acc, fixedDtMs);
 			}
 			// UIの長押し連射タイマーは実時間で進める（timeScaleの影響を排除）
 			if (holdActive) {
