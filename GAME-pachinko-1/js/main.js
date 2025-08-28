@@ -805,6 +805,29 @@ document.addEventListener('DOMContentLoaded', () => {
 		for (const pair of pairs) {
 			const { bodyA, bodyB } = pair;
 
+			// 一方向壁（oneWay）: ボールの速度方向に応じて衝突を無効化
+			try {
+				const ballLabel = GAME_CONFIG.objects.ball.label;
+				function shouldDisableByOneWay(ball, other) {
+					if (!ball || !other || !other.oneWay || other.oneWay.enabled !== true) return false;
+					const v = ball.velocity || { x: 0, y: 0 };
+					const dir = other.oneWay.blockDir;
+					// blockDir が 'up' の場合: 上向き（vy < 0）はブロック、下向き（vy > 0）は通過
+					if (dir === 'up') return v.y > 0;     // 下向きは衝突を無効化
+					if (dir === 'down') return v.y < 0;  // 上向きは無効化
+					if (dir === 'left') return v.x > 0;  // 右向きは無効化
+					if (dir === 'right') return v.x < 0; // 左向きは無効化
+					return false;
+				}
+				let disable = false;
+				if (bodyA.label === ballLabel) disable = shouldDisableByOneWay(bodyA, bodyB);
+				else if (bodyB.label === ballLabel) disable = shouldDisableByOneWay(bodyB, bodyA);
+				if (disable) {
+					pair.isActive = false; // この衝突ペアを無効化
+					continue; // 他処理はスキップ
+				}
+			} catch (_) { /* no-op */ }
+
 			// 材質に基づいた物理係数の動的適用
 			if (bodyA.material && bodyB.material) {
 				const interaction = getMaterialInteraction(bodyA.material, bodyB.material);

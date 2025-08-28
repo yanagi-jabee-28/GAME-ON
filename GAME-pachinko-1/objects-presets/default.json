@@ -64,7 +64,7 @@
 			"type": "paddle",
 			"x": 205,
 			"y": 630,
-			"enabled": false,
+			"enabled": true,
 			"rotation": {
 				"sequence": [
 					{
@@ -91,7 +91,7 @@
 			"type": "paddle",
 			"x": 245,
 			"y": 630,
-			"enabled": false,
+			"enabled": true,
 			"rotation": {
 				"sequence": [
 					{
@@ -215,6 +215,23 @@
 			"pivotMode": "centroid",
 			"angleOffsetDeg": 0,
 			"isStatic": true
+		}
+	],
+	"rectangles": [
+		{
+			"x": -40,
+			"y": 80,
+			"width": 25,
+			"height": 6,
+			"angleDeg": 45,
+			"color": "hsl(190,80%,70%,0.4)",
+			"layer": 2,
+			"material": "GUIDE",
+			"isStatic": true,
+			"oneWay": {
+				"enabled": true,
+				"blockDir": "down"
+			}
 		}
 	],
 	"sensorCounters": [],

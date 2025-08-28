@@ -334,6 +334,14 @@ function createRectangle(spec = {}) {
 
 	const body = Matter.Bodies.rectangle(x, y, w, h, opts);
 	if (angleRad) Matter.Body.setAngle(body, angleRad);
+	// 一方向衝突（one-way）メタデータの付与（spec.oneWay: {enabled:boolean, blockDir:'up'|'down'|'left'|'right'}）
+	if (spec.oneWay && typeof spec.oneWay === 'object') {
+		const dir = String(spec.oneWay.blockDir || spec.oneWay.dir || '').toLowerCase();
+		const enabled = spec.oneWay.enabled !== false; // 省略時は有効
+		if (enabled && (dir === 'up' || dir === 'down' || dir === 'left' || dir === 'right')) {
+			body.oneWay = { enabled: true, blockDir: dir };
+		}
+	}
 	return body;
 }
 
@@ -446,6 +454,15 @@ function createPolygon(spec = {}) {
 		body = Matter.Bodies.fromVertices(x, y, [localVerts], opts, true, 0.0001);
 	}
 	if (angleRad) Matter.Body.setAngle(body, angleRad);
+
+	// 一方向衝突（one-way）メタデータの付与
+	if (spec.oneWay && typeof spec.oneWay === 'object') {
+		const dir = String(spec.oneWay.blockDir || spec.oneWay.dir || '').toLowerCase();
+		const enabled = spec.oneWay.enabled !== false;
+		if (enabled && (dir === 'up' || dir === 'down' || dir === 'left' || dir === 'right')) {
+			body.oneWay = { enabled: true, blockDir: dir };
+		}
+	}
 	return body;
 }
 
