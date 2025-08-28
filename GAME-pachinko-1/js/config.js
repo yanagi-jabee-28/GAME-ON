@@ -53,13 +53,13 @@ const GAME_CONFIG = {
 		velocityIterations: 8,
 		constraintIterations: 6,
 		// サブステップ数（1フレームを何分割してEngine.updateするか）
-		substeps: 2,
+		substeps: 4,
 		// 固定フレームレート（物理の基準FPS）。実時間とのズレを減らす
 		fixedFps: 60,
 		// 1フレームで消化する最大固定ステップ数（負荷が高いときの保護）
-		maxFixedStepsPerFrame: 3,
+		maxFixedStepsPerFrame: 4,
 		// 遅延が大きいフレームではサブステップを一時的に 1 に落として処理を軽量化
-		adaptiveSubsteps: true,
+		adaptiveSubsteps: false,
 		// 時間スケール（全体の進み具合を倍率で調整）
 		timeScale: 1,
 		// 重力（Y軸）。体感が弱い/強い場合に調整

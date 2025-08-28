@@ -123,6 +123,69 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (acc >= fixedDtMs) {
 				acc = Math.min(acc, fixedDtMs);
 			}
+			// 回転ギミックは実時間で進行（フレーム/サブステップ非依存）
+			const rotDeltaMs = elapsed; // 実時間ms
+			const rotDeltaSec = rotDeltaMs / 1000;
+			if (Array.isArray(rotators) && rotators.length) {
+				for (const rot of rotators) {
+					if (rot.mode === 'program' && rot.program) {
+						const p = rot.program;
+						if (p.type === 'seq') {
+							if (p.completed && !p.loop) continue;
+							let remaining = rotDeltaMs;
+							while (remaining > 0) {
+								const st = p.steps[p.curIndex];
+								if (p.phase === 'hold') {
+									const need = st.holdMs - p.phaseElapsed;
+									const use = Math.min(remaining, Math.max(0, need));
+									p.phaseElapsed += use;
+									remaining -= use;
+									if (p.phaseElapsed >= st.holdMs) { p.phase = 'move'; p.phaseElapsed = 0; }
+									else break;
+								} else {
+									const need = st.moveMs - p.phaseElapsed;
+									const use = Math.min(remaining, Math.max(0, need));
+									p.phaseElapsed += use;
+									remaining -= use;
+									const nextIndex = (p.curIndex + 1) % p.steps.length;
+									const a0 = p.steps[p.curIndex].angleRad;
+									const a1 = p.steps[nextIndex].angleRad;
+									const t = st.moveMs ? (p.phaseElapsed / st.moveMs) : 1;
+									const ang = a0 + (a1 - a0) * Math.min(1, t);
+									setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + ang);
+									if (p.phaseElapsed >= st.moveMs) {
+										p.curIndex = nextIndex;
+										p.phase = 'hold';
+										p.phaseElapsed = 0;
+										if (!p.loop && p.curIndex === 0) { p.completed = true; break; }
+									}
+									else break;
+								}
+							}
+						} else {
+							if (!p.loop && p.elapsedMs >= p.durationMs) {
+								setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + p.endRad);
+								continue;
+							}
+							p.elapsedMs += rotDeltaMs;
+							let t = p.elapsedMs / p.durationMs;
+							if (p.loop) t = t % 1; else t = Math.min(1, t);
+							if (p.yoyo) {
+								const cycle = t * 2;
+								const dir = cycle <= 1 ? cycle : (2 - cycle);
+								const angle = p.startRad + (p.endRad - p.startRad) * dir;
+								setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + angle);
+							} else {
+								const angle = p.startRad + (p.endRad - p.startRad) * t;
+								setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + angle);
+							}
+						}
+					} else {
+						const angle = (rot.anglePerSecond || 0) * rotDeltaSec;
+						if (angle) Body.rotate(rot.body, angle, rot.pivot);
+					}
+				}
+			}
 			// UIの長押し連射タイマーは実時間で進める（timeScaleの影響を排除）
 			if (holdActive) {
 				holdAccumMs += elapsed;
@@ -412,76 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	// 初回ホールドのみ初回ディレイを適用するためのフラグ（ページロード後に1回だけtrueにする）
 	let firstHoldDelayApplied = false;
 
-	Events.on(engine, 'afterUpdate', () => {
-		// engine.timing.delta: 最後の tick の ms。時間スケールは別で考慮。
-		const deltaMsRaw = (engine && engine.timing && engine.timing.delta) ? engine.timing.delta : 16.6667;
-		const deltaMs = Math.min(deltaMsRaw, 32); // 休止復帰時のバースト抑制（実時間）
-		const ts = engine?.timing?.timeScale || 1;
-		const deltaSimMs = deltaMs * ts;      // シミュレーション時間での経過
-		const deltaSec = deltaSimMs / 1000;   // rotator 等の速度計算に使用
-		rotators.forEach(rot => {
-			if (rot.mode === 'program' && rot.program) {
-				const p = rot.program;
-				if (p.type === 'seq') {
-					if (p.completed && !p.loop) return;
-					let remaining = deltaSimMs;
-					while (remaining > 0) {
-						const st = p.steps[p.curIndex];
-						if (p.phase === 'hold') {
-							const need = st.holdMs - p.phaseElapsed;
-							const use = Math.min(remaining, Math.max(0, need));
-							p.phaseElapsed += use;
-							remaining -= use;
-							if (p.phaseElapsed >= st.holdMs) { p.phase = 'move'; p.phaseElapsed = 0; }
-							else break;
-						} else {
-							const need = st.moveMs - p.phaseElapsed;
-							const use = Math.min(remaining, Math.max(0, need));
-							p.phaseElapsed += use;
-							remaining -= use;
-							const nextIndex = (p.curIndex + 1) % p.steps.length;
-							const a0 = p.steps[p.curIndex].angleRad;
-							const a1 = p.steps[nextIndex].angleRad;
-							const t = st.moveMs ? (p.phaseElapsed / st.moveMs) : 1;
-							const ang = a0 + (a1 - a0) * Math.min(1, t);
-							setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + ang);
-							if (p.phaseElapsed >= st.moveMs) {
-								p.curIndex = nextIndex;
-								p.phase = 'hold';
-								p.phaseElapsed = 0;
-								if (!p.loop && p.curIndex === 0) { p.completed = true; break; }
-							}
-							else break;
-						}
-					}
-				} else {
-					if (!p.loop && p.elapsedMs >= p.durationMs) {
-						// 非ループ: 終端で固定
-						setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + p.endRad);
-						return;
-					}
-					p.elapsedMs += deltaSimMs;
-					let t = p.elapsedMs / p.durationMs;
-					if (p.loop) t = t % 1;
-					else t = Math.min(1, t);
-					if (p.yoyo) {
-						// 0->1->0 の往復
-						const cycle = t * 2;
-						const dir = cycle <= 1 ? cycle : (2 - cycle);
-						const angle = p.startRad + (p.endRad - p.startRad) * dir;
-						setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + angle);
-					} else {
-						const angle = p.startRad + (p.endRad - p.startRad) * t;
-						setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + angle);
-					}
-				}
-			} else {
-				const angle = (rot.anglePerSecond || 0) * deltaSec;
-				if (angle) Body.rotate(rot.body, angle, rot.pivot);
-			}
-		});
-		// 連射タイマーは rAF ループで処理（ここでは実施しない）
-	});
+	// 回転・連射は rAF ループ側で駆動（ここでは未使用）
 
 	// ========================
 	// 6. 発射台（LaunchPad）と UI の初期化
