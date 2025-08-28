@@ -731,6 +731,13 @@ function createSensorCounter(spec = {}) {
 		const removeOn = (specRemoveOn === 'enter' || specRemoveOn === 'exit') ? specRemoveOn : (removeOnPass ? 'exit' : null);
 		GAME_CONFIG.sensorCounters.counters[counterId].removeOnPass = (removeOn === 'exit');
 		GAME_CONFIG.sensorCounters.counters[counterId].removeOn = removeOn; // 'enter' | 'exit' | null
+
+		// パーティクルの色設定を保存: particleMode: 'ball'|'custom'|'default', particleColor: css string
+		const pmRaw = (typeof spec.particleMode === 'string') ? String(spec.particleMode).toLowerCase() : null;
+		const particleMode = (pmRaw === 'ball' || pmRaw === 'custom' || pmRaw === 'default') ? pmRaw : (spec.particleColor ? 'custom' : 'ball');
+		const particleColor = (typeof spec.particleColor === 'string') ? spec.particleColor : null;
+		GAME_CONFIG.sensorCounters.counters[counterId].particleMode = particleMode;
+		GAME_CONFIG.sensorCounters.counters[counterId].particleColor = particleColor;
 	} catch (_) { /* no-op */ }
 
 	// センサー固有のデータをbodyに付与
@@ -904,6 +911,12 @@ function createSensorCounterPolygon(spec = {}) {
 		const removeOn = (specRemoveOn === 'enter' || specRemoveOn === 'exit') ? specRemoveOn : (removeOnPass ? 'exit' : null);
 		GAME_CONFIG.sensorCounters.counters[counterId].removeOnPass = (removeOn === 'exit');
 		GAME_CONFIG.sensorCounters.counters[counterId].removeOn = removeOn; // 'enter' | 'exit' | null
+
+		const pmRaw = (typeof spec.particleMode === 'string') ? String(spec.particleMode).toLowerCase() : null;
+		const particleMode = (pmRaw === 'ball' || pmRaw === 'custom' || pmRaw === 'default') ? pmRaw : (spec.particleColor ? 'custom' : 'ball');
+		const particleColor = (typeof spec.particleColor === 'string') ? spec.particleColor : null;
+		GAME_CONFIG.sensorCounters.counters[counterId].particleMode = particleMode;
+		GAME_CONFIG.sensorCounters.counters[counterId].particleColor = particleColor;
 	} catch (_) { /* no-op */ }
 
 	return body;

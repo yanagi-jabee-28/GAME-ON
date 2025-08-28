@@ -259,7 +259,6 @@
 						if (!counters[id]) counters[id] = {};
 						const v = sel.value || null;
 						counters[id].removeOn = v;
-						// 互換性のため removeOnPass も更新
 						counters[id].removeOnPass = (v === 'exit');
 						if (typeof window !== 'undefined' && window.dispatchEvent) {
 							window.dispatchEvent(new CustomEvent('devtools:sensor-updated', { detail: { id, type: 'config', counter: Object.assign({}, counters[id]) } }));
@@ -267,6 +266,43 @@
 					} catch (_) { /* no-op */ }
 				});
 				row.appendChild(sel);
+
+				// パーティクル設定: mode select + color input
+				const pmSel = document.createElement('select');
+				pmSel.style.marginLeft = '8px';
+				const pmOptBall = document.createElement('option'); pmOptBall.value = 'ball'; pmOptBall.text = 'particle: ball';
+				const pmOptCustom = document.createElement('option'); pmOptCustom.value = 'custom'; pmOptCustom.text = 'particle: custom';
+				const pmOptDefault = document.createElement('option'); pmOptDefault.value = 'default'; pmOptDefault.text = 'particle: default';
+				pmSel.appendChild(pmOptBall); pmSel.appendChild(pmOptCustom); pmSel.appendChild(pmOptDefault);
+				const curPm = (data && data.particleMode) ? String(data.particleMode) : (data && data.particleColor ? 'custom' : 'ball');
+				pmSel.value = curPm;
+				pmSel.addEventListener('change', () => {
+					try {
+						if (!counters[id]) counters[id] = {};
+						counters[id].particleMode = pmSel.value || null;
+						if (typeof window !== 'undefined' && window.dispatchEvent) {
+							window.dispatchEvent(new CustomEvent('devtools:sensor-updated', { detail: { id, type: 'config', counter: Object.assign({}, counters[id]) } }));
+						}
+					} catch (_) { /* no-op */ }
+				});
+				row.appendChild(pmSel);
+
+				const colorInput = document.createElement('input');
+				colorInput.type = 'text';
+				colorInput.placeholder = '#rrggbb or css color';
+				colorInput.style.marginLeft = '6px';
+				colorInput.value = (data && data.particleColor) ? data.particleColor : '';
+				colorInput.addEventListener('change', () => {
+					try {
+						if (!counters[id]) counters[id] = {};
+						const v = colorInput.value ? String(colorInput.value) : null;
+						counters[id].particleColor = v;
+						if (typeof window !== 'undefined' && window.dispatchEvent) {
+							window.dispatchEvent(new CustomEvent('devtools:sensor-updated', { detail: { id, type: 'config', counter: Object.assign({}, counters[id]) } }));
+						}
+					} catch (_) { /* no-op */ }
+				});
+				row.appendChild(colorInput);
 				container.appendChild(row);
 			});
 		}

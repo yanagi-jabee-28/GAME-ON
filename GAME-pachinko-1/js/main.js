@@ -840,7 +840,14 @@ document.addEventListener('DOMContentLoaded', () => {
 						if (world && ballBody && world.bodies && world.bodies.indexOf && world.bodies.indexOf(ballBody) !== -1) {
 							try {
 								if (typeof createParticleBurst === 'function') {
-									createParticleBurst(world, ballBody.position.x, ballBody.position.y, ballBody.render && ballBody.render.fillStyle ? ballBody.render.fillStyle : undefined, 12, 700);
+									try {
+										const cfgEntry = GAME_CONFIG.sensorCounters.counters[counterId] || {};
+										let pColor;
+										if (cfgEntry.particleMode === 'custom' && cfgEntry.particleColor) pColor = cfgEntry.particleColor;
+										else if (cfgEntry.particleMode === 'ball') pColor = (ballBody.render && ballBody.render.fillStyle) ? ballBody.render.fillStyle : undefined;
+										else pColor = undefined; // default styling handled by createParticleBurst
+										createParticleBurst(world, ballBody.position.x, ballBody.position.y, pColor, 12, 700);
+									} catch (_) { /* no-op */ }
 								}
 							} catch (_) { /* no-op */ }
 							World.remove(world, ballBody);
@@ -869,7 +876,14 @@ document.addEventListener('DOMContentLoaded', () => {
 								// 削除の前にパーティクルバーストを発生させる
 								try {
 									if (typeof createParticleBurst === 'function') {
-										createParticleBurst(world, ballBody.position.x, ballBody.position.y, ballBody.render && ballBody.render.fillStyle ? ballBody.render.fillStyle : undefined, 12, 700);
+										try {
+											const cfgEntry = GAME_CONFIG.sensorCounters.counters[counterId] || {};
+											let pColor;
+											if (cfgEntry.particleMode === 'custom' && cfgEntry.particleColor) pColor = cfgEntry.particleColor;
+											else if (cfgEntry.particleMode === 'ball') pColor = (ballBody.render && ballBody.render.fillStyle) ? ballBody.render.fillStyle : undefined;
+											else pColor = undefined;
+											createParticleBurst(world, ballBody.position.x, ballBody.position.y, pColor, 12, 700);
+										} catch (_) { /* no-op */ }
 									}
 								} catch (_) { /* no-op */ }
 								World.remove(world, ballBody);
