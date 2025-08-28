@@ -15,11 +15,13 @@
  */
 
 // --- 共通ユーティリティ: 材料・ラベル・描画の適用を一元化 ---
+// GAME_CONFIG 内の objects からキーに対応する定義を返す（未定義なら空オブジェクト）
 function getObjectDef(key) {
 	return (GAME_CONFIG && GAME_CONFIG.objects && GAME_CONFIG.objects[key]) || {};
 }
 
 // Matter.Body 生成用オプションを、GAME_CONFIG のデフォルト + 呼び出し元の上書きで合成する
+// Matter.Body 作成時のオプションを GAME_CONFIG の定義と呼び出し側の上書きで合成して返す
 function makeBodyOptions(key, overrides = {}) {
 	const def = getObjectDef(key);
 	const baseOpts = Object.assign({}, def.options || {});
@@ -32,6 +34,7 @@ function makeBodyOptions(key, overrides = {}) {
 }
 
 // 生成後の Body に label/material を再付与（複合ボディや parts にも波及）
+// 生成した body に対して label/material を再付与（parts があればそれらにも適用）
 function tagBodyWithDef(body, defOrKey) {
 	const def = typeof defOrKey === 'string' ? getObjectDef(defOrKey) : (defOrKey || {});
 	if (!body) return body;
@@ -49,6 +52,7 @@ function tagBodyWithDef(body, defOrKey) {
 
 // JSON由来の材質文字列を正規化（'METAL2' or 'metal2' → GAME_MATERIALSの値、見つからなければそのまま）
 // JSON 由来の材質名を GAME_MATERIALS に照合して正規化（未定義は素通し）
+// JSON 由来の材質文字列を正規化して GAME_MATERIALS の値にマップする（見つからなければ素通し）
 function normalizeMaterialId(m) {
 	if (typeof m !== 'string') return undefined;
 	const s = m.trim();
@@ -67,6 +71,8 @@ function normalizeMaterialId(m) {
  * 新しいボールを作成
  * - 既定ではランダム色（config.objects.ball.randomColor が false なら指定色）
  */
+
+// 新しいボール（動的円形ボディ）を作成して返す
 function createBall(x, y, options = {}) {
 	const ballConfig = getObjectDef('ball');
 	const optionFill = options && options.render && options.render.fillStyle;
@@ -80,6 +86,8 @@ function createBall(x, y, options = {}) {
 }
 
 // レイアウト基準（baseWidth/baseHeight）との差分から、左右上下のセンターオフセットを算出
+
+// レイアウト基準（baseWidth/baseHeight）との差分から左右上下のオフセットを計算して返す
 function getOffsets() {
 	const width = GAME_CONFIG.dimensions?.width || 0;
 	const height = GAME_CONFIG.dimensions?.height || 0;
@@ -96,6 +104,8 @@ function getOffsets() {
  * - topPlate.enabled が true の場合に、アーチ/ドームの天板を生成
  * - poly-decomp 依存を避けるため、既定はクアッド分割（安定・堅牢）
  */
+// ゲームエリア境界（天板/壁/床）を生成して配列で返す
+// topPlate 設定に応じて多様な形状（矩形/アーチ/ドーム/多角分割）を生成する
 function createBounds() {
 	const width = GAME_CONFIG.dimensions?.width || 650;
 	const height = GAME_CONFIG.dimensions?.height || 900;
@@ -119,6 +129,10 @@ function createBounds() {
 
 	const bounds = [];
 
+	// --- 上側（天板）生成 ---
+	// topPlate.enabled が有効ならアーチやドームなど複雑形状を生成、無効時は矩形にフォールバック
+	// 各分岐は poly-decomp の有無や設定により複数の実装パスを持つ
+	// 上のロジックは精度と互換性のトレードオフを扱っています
 	// 上壁の生成
 	if (GAME_CONFIG.topPlate && GAME_CONFIG.topPlate.enabled) {
 		const tp = GAME_CONFIG.topPlate;
@@ -268,7 +282,7 @@ function createBounds() {
 			}
 		}
 	} else {
-		// 従来の単一矩形
+		// 従来の単一矩形（topPlate 無効時の簡易実装）
 		bounds.push(Matter.Bodies.rectangle(width / 2, -10, width, 20, wallOptions));
 	}
 
@@ -281,6 +295,7 @@ function createBounds() {
 }
 
 // ワールドに境界群を一括追加（呼び出し箇所を簡潔に）
+// 生成した境界群をワールドに一括追加するユーティリティ
 function addBoundsToWorld(bounds, world) {
 	if (Array.isArray(bounds) && bounds.length) {
 		Matter.World.add(world, bounds);
@@ -291,6 +306,7 @@ function addBoundsToWorld(bounds, world) {
  * 任意の長方形（静的/動的）
  * spec: { x, y, width, height, angleDeg?, isStatic?, material?, color?, label?, layer?, anchor? }
  */
+// 任意長方形ボディを作成するヘルパー（anchor により座標基準を処理）
 function createRectangle(spec = {}) {
 	let x = Number(spec.x) || 0;
 	let y = Number(spec.y) || 0;
@@ -324,6 +340,7 @@ function createRectangle(spec = {}) {
 /**
  * 描画専用（非干渉）長方形
  */
+// 描画専用（物理干渉しない）長方形を作成する
 function createDecorRectangle(spec = {}) {
 	const base = Object.assign({ material: getObjectDef('decor').material, layer: (spec.layer != null ? Number(spec.layer) : (getObjectDef('decor').render?.layer ?? 1)) }, spec);
 	// isSensor/static はオプション合成により付与される
@@ -343,6 +360,7 @@ function createDecorRectangle(spec = {}) {
  * - coordMode: 'world' or 'local'（既定は 'local'）
  * - 角度/位置オフセット、任意ピボットを用いた回転にも対応
  */
+// 任意多角形ボディを生成する。world/local 座標モードと回転オフセットをサポート
 function createPolygon(spec = {}) {
 	const pts = Array.isArray(spec.points) ? spec.points : [];
 	if (pts.length < 3) return null; // 要三点以上
@@ -434,6 +452,7 @@ function createPolygon(spec = {}) {
 /**
  * 描画専用多角形（非干渉）
  */
+// 描画専用の多角形（センサー/静的）を作るラッパー
 function createDecorPolygon(spec = {}) {
 	const base = Object.assign({ material: getObjectDef('decorPolygon').material, isStatic: true }, spec);
 	const body = createPolygon(base);
@@ -448,6 +467,7 @@ function createDecorPolygon(spec = {}) {
 /**
  * 発射台（キャンバス描画用、非干渉）
  */
+// 発射台用の非干渉ボディ（描画のみ）を生成する
 function createLaunchPadBody(spec = {}) {
 	const padW = Math.max(1, Number(spec.width || 64));
 	const padH = Math.max(1, Number(spec.height || 14));
@@ -473,6 +493,8 @@ function createLaunchPadBody(spec = {}) {
  * - 新形式: { defaults, groups:[ { offset|dx/dy, radius|color|material|layer, points|pegs:[{x,y,...}] } ] }
  * - フォールバック: ルートの points / pegs
  */
+// ペグ（釘）配置プリセットを読み込み、ワールドに追加する
+// 旧形式の配列と新形式の groups/points 両対応
 function loadPegs(presetUrl, world) {
 	const pegConfig = getObjectDef('peg');
 
@@ -486,7 +508,7 @@ function loadPegs(presetUrl, world) {
 			const data = await response.json();
 			const { xOffset, yOffset } = getOffsets();
 
-			// 旧形式（配列） [{x,y}, ...]
+			// 旧形式（配列） [{x,y}, ...] の互換処理
 			if (Array.isArray(data)) {
 				const pegObjects = data.map(peg => {
 					const color = getColor(peg);
@@ -504,7 +526,7 @@ function loadPegs(presetUrl, world) {
 				return;
 			}
 
-			// 新形式
+			// 新形式（defaults + groups）を処理
 			const global = data?.defaults || {};
 			const groups = Array.isArray(data?.groups) ? data.groups : [];
 
@@ -572,6 +594,7 @@ function loadPegs(presetUrl, world) {
 /**
  * 回転役物（風車）の複合ボディ生成
  */
+// 風車などの回転役物を複合ボディとして生成する（複数パーツを組み合わせ）
 function createRotatingYakumono(blueprint) {
 	const windDef = getObjectDef('windmill') || {};
 	const defaults = windDef.defaults || {};
