@@ -744,6 +744,29 @@ document.addEventListener('DOMContentLoaded', () => {
 	updateArrow();
 	updateLaunchPadPosition();
 
+	// --- 発射可能弾数（残弾）表示と管理 ---
+	let launchAmmo = Number(GAME_CONFIG.launch?.ammo) || 1000;
+	GAME_CONFIG.launch.currentAmmo = launchAmmo;
+	function updateAmmoUI() {
+		try {
+			let ammoEl = document.getElementById('ammo-count');
+			if (!ammoEl && sliderInfo) {
+				ammoEl = document.createElement('div');
+				ammoEl.id = 'ammo-count';
+				ammoEl.className = 'ammo-box';
+				sliderInfo.appendChild(ammoEl);
+			}
+			if (ammoEl) {
+				ammoEl.textContent = `残弾: ${launchAmmo} 発`;
+				// 低弾閾値: 10 発以下で警告スタイル
+				if (launchAmmo <= 10) ammoEl.classList.add('low'); else ammoEl.classList.remove('low');
+			}
+		} catch (_) { /* no-op */ }
+	}
+
+	// 初期表示
+	updateAmmoUI();
+
 	// timeScale の開発者 UI は dev-tools.js 側で注入するよう変更
 
 	// ========================
@@ -751,6 +774,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	// ========================
 	// 現在の UI 値から 1 発スポーン（連射はこの関数を繰り返し呼ぶ）
 	function spawnBallFromUI() {
+		// 弾数がなければ発射しない
+		if (typeof launchAmmo === 'number' && launchAmmo <= 0) return;
 		const start = computeSpawnCoords();
 		let angleDeg = Number((angleSlider && angleSlider.value) || GAME_CONFIG.launch?.defaultAngle || 90);
 		const angleRandomness = GAME_CONFIG.launch?.angleRandomness || 0;
@@ -767,6 +792,15 @@ document.addEventListener('DOMContentLoaded', () => {
 		const ball = createBall(start.x, start.y);
 		World.add(world, ball);
 		Body.setVelocity(ball, velocity);
+
+		// 発射成功として残弾を減らす
+		try {
+			if (typeof launchAmmo === 'number') {
+				launchAmmo = Math.max(0, Number(launchAmmo) - 1);
+				GAME_CONFIG.launch.currentAmmo = launchAmmo;
+				updateAmmoUI();
+			}
+		} catch (_) { /* no-op */ }
 
 		// 総射出数をインクリメント
 		try {
@@ -943,6 +977,16 @@ document.addEventListener('DOMContentLoaded', () => {
 				try {
 					if (typeof window !== 'undefined' && window.dispatchEvent) {
 						window.dispatchEvent(new CustomEvent('devtools:sensor-updated', { detail: { id: counterId, type: 'enter', counter: Object.assign({}, counter) } }));
+					}
+				} catch (_) { /* no-op */ }
+
+				// センサー反応で弾数を増やす
+				try {
+					const gain = Number(GAME_CONFIG.launch?.ammoGainOnSensor) || 0;
+					if (gain > 0 && typeof launchAmmo === 'number') {
+						launchAmmo = Number(launchAmmo) + gain;
+						GAME_CONFIG.launch.currentAmmo = launchAmmo;
+						updateAmmoUI();
 					}
 				} catch (_) { /* no-op */ }
 
