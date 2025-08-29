@@ -284,6 +284,20 @@ document.addEventListener('DOMContentLoaded', () => {
 					}
 				}
 			}
+			// Ensure the canvas is fully cleared each frame to avoid visual trails / ghosting.
+			try {
+				const c = render && render.canvas;
+				if (c && c.getContext) {
+					const ctx = c.getContext('2d');
+					if (ctx) {
+						// use clearRect to fully clear the canvas; ensure default composite mode
+						const prev = ctx.globalCompositeOperation;
+						ctx.globalCompositeOperation = 'source-over';
+						ctx.clearRect(0, 0, c.width, c.height);
+						ctx.globalCompositeOperation = prev;
+					}
+				}
+			} catch (_) { /* no-op */ }
 			Render.world(render);
 			requestAnimationFrame(loop);
 		}
