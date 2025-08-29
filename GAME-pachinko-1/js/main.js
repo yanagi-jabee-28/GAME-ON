@@ -109,23 +109,74 @@ document.addEventListener('DOMContentLoaded', () => {
 	// ========================
 	Render.run(render);
 	const runner = Runner.create();
+
+	// --- Adaptive physics/performance manager ---
+	(function setupAdaptivePhysics() {
+		// device memory hint (Chrome/Edge support)
+		const deviceMem = (typeof navigator !== 'undefined' && navigator.deviceMemory) ? Number(navigator.deviceMemory) : null;
+		const lowMemDevice = (deviceMem != null) ? (deviceMem <= 4) : false;
+		if (lowMemDevice) {
+			// apply conservative defaults for low-memory devices
+			try {
+				GAME_CONFIG.physics.substeps = Math.max(1, Number(GAME_CONFIG.physics.substeps || 1));
+				GAME_CONFIG.physics.fixedFps = Math.max(30, Number(GAME_CONFIG.physics.fixedFps || 60));
+				GAME_CONFIG.physics.positionIterations = Math.max(6, Number(GAME_CONFIG.physics.positionIterations || 6));
+				GAME_CONFIG.physics.velocityIterations = Math.max(4, Number(GAME_CONFIG.physics.velocityIterations || 4));
+				GAME_CONFIG.physics.constraintIterations = Math.max(2, Number(GAME_CONFIG.physics.constraintIterations || 2));
+				// prefer low pixel ratio for renderer
+				if (render && render.options) render.options.pixelRatio = 1;
+			} catch (_) { /* no-op */ }
+		}
+
+		// runtime frame-time monitor that gently degrades physics settings under sustained high frame cost
+		const samples = [];
+		const maxSamples = 60; // サンプル窓: 60フレーム分（およそ1秒）を保持して短期平均を取る
+		function pushSample(ms) { samples.push(ms); if (samples.length > maxSamples) samples.shift(); }
+		function avgMs() { if (!samples.length) return 0; return samples.reduce((a, b) => a + b, 0) / samples.length; }
+
+		// Expose a lightweight recorder called from the rAF loop
+		window.__recordPhysicsPerf__ = function (frameMs) {
+			try {
+				pushSample(frameMs);
+				const avg = avgMs();
+				// thresholds are conservative: if avg > 30ms (≈33fps) degrade; if avg < 12ms (≈83fps) consider increasing
+				if (avg > 30) { // avg > 30ms: 平均フレーム時間が30msを超える（約33fps未満） -> 負荷高めと判断
+					// degrade gradually (avoid sudden jumps)
+					GAME_CONFIG.physics.substeps = Math.max(1, (Number(GAME_CONFIG.physics.substeps) || 1) - 1);
+					GAME_CONFIG.physics.fixedFps = Math.max(30, (Number(GAME_CONFIG.physics.fixedFps) || 60) - 5);
+					GAME_CONFIG.physics.positionIterations = Math.max(4, (Number(GAME_CONFIG.physics.positionIterations) || 6) - 1);
+					GAME_CONFIG.physics.velocityIterations = Math.max(3, (Number(GAME_CONFIG.physics.velocityIterations) || 4) - 1);
+					// force simple renderer
+					if (render && render.options) render.options.pixelRatio = 1;
+				} else if (avg < 12) { // avg < 12ms: 平均フレーム時間が12ms未満（約83fps以上） -> 余裕があるため品質回復可
+					// restore slowly toward defaults
+					GAME_CONFIG.physics.substeps = Math.min(4, (Number(GAME_CONFIG.physics.substeps) || 1) + 1);
+					GAME_CONFIG.physics.fixedFps = Math.min(60, (Number(GAME_CONFIG.physics.fixedFps) || 30) + 5);
+					GAME_CONFIG.physics.positionIterations = Math.min(12, (Number(GAME_CONFIG.physics.positionIterations) || 6) + 1);
+					GAME_CONFIG.physics.velocityIterations = Math.min(8, (Number(GAME_CONFIG.physics.velocityIterations) || 4) + 1);
+				}
+			} catch (_) { /* no-op */ }
+		};
+	})();
 	// カスタム固定タイムステップループ（requestAnimationFrameベース）
 	// - アキュムレータで実時間を蓄積し、固定長の物理ステップに分割して更新する
 	// - timeScale（世界時間倍率）は GAME_CONFIG.physics.timeScale で管理
 	(function runFixedTimestep() {
-		const substeps = Math.max(1, Number(GAME_CONFIG.physics?.substeps ?? 1));
-		const fixedFps = Math.max(30, Number(GAME_CONFIG.physics?.fixedFps ?? 60));
-		const maxFixedStepsPerFrame = Math.max(1, Number(GAME_CONFIG.physics?.maxFixedStepsPerFrame ?? 3));
-		const adaptiveSubsteps = Boolean(GAME_CONFIG.physics?.adaptiveSubsteps ?? false);
-		const fixedDtMs = 1000 / fixedFps;
+		const substeps = Math.max(1, Number(GAME_CONFIG.physics?.substeps ?? 1)); // サブステップ数の下限1
+		const fixedFps = Math.max(30, Number(GAME_CONFIG.physics?.fixedFps ?? 60)); // 物理更新の目標FPS（下限30fps）
+		const maxFixedStepsPerFrame = Math.max(1, Number(GAME_CONFIG.physics?.maxFixedStepsPerFrame ?? 3)); // 1フレーム内で許可する物理ステップの最大数
+		const adaptiveSubsteps = Boolean(GAME_CONFIG.physics?.adaptiveSubsteps ?? false); // サブステップ適応モードフラグ
+		const fixedDtMs = 1000 / fixedFps; // 固定ステップ長 (ms)
 		let last = performance.now();
 		let acc = 0;
 		function loop(now) {
 			// タブ復帰などで巨大なelapsedが来た場合の暴走抑制
 			const elapsedRaw = now - last;
-			const elapsed = Math.min(elapsedRaw, 200);
+			const elapsed = Math.min(elapsedRaw, 200); // 大きなジャンプは200msで打ち切る（タブ復帰等の暴走抑制）
 			last = now;
 			const paused = Boolean(GAME_CONFIG.physics?.paused);
+			// record elapsed to adaptive physics manager (if present)
+			try { if (typeof window.__recordPhysicsPerf__ === 'function') window.__recordPhysicsPerf__(elapsed); } catch (_) { /* no-op */ }
 			const tsCfg = Number(GAME_CONFIG.physics?.timeScale ?? 1); // UIが管理するワールド倍率
 			const ts = paused ? 0 : tsCfg;
 			// タイムスケール適用: 停止時はアキュムリセット、それ以外は実時間を蓄積
@@ -137,6 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			let steps = 0;
 			// 固定ステップをサブステップに分割して順次Engine.updateを呼ぶ
 			while (acc >= fixedDtMs && steps < maxFixedStepsPerFrame) {
+				// 大きなフレーム遅延時はサブステップ数を抑えて1にする（オーバーヘッドを減らす）
 				const effSubsteps = (adaptiveSubsteps && elapsed > fixedDtMs * 1.5) ? 1 : substeps;
 				const stepMs = fixedDtMs / effSubsteps;
 				for (let i = 0; i < effSubsteps; i++) {
