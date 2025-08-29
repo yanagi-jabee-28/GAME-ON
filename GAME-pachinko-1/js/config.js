@@ -69,7 +69,10 @@ const GAME_CONFIG = {
 	// UI/ページ全体に関する見た目設定
 	ui: {
 		// ゲーム外（ページの背景色）
-		outerBackground: '#EDE8DB'
+		outerBackground: '#EDE8DB',
+		// ラベルや数値表示などのテキスト色を上書きできます。
+		// 例: '#333333' や 'hsl(0,0%,100%)'
+		labelColor: '#333'
 	},
 
 	// ランタイム計測値（メトリクス）を格納する領域
@@ -260,6 +263,11 @@ GAME_CONFIG.launch = {
 	holdIntervalMs: 250,          // 連射間隔（ミリ秒）
 	// 連射モード開始から最初の発射までの遅延（ミリ秒）
 	holdFirstShotDelayMs: 250
+	// --- 発射回数（弾数）管理 ---
+	// 初期持ち玉数
+	,initialAmmo: 1000
+	// センサーに反応したときに増える弾数（デフォルト 250）
+	,replenishOnSensor: 250
 };
 
 // 発射の初期位置設定（config で制御可能にする）

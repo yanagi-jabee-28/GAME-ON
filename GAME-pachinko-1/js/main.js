@@ -675,6 +675,22 @@ document.addEventListener('DOMContentLoaded', () => {
 	// スピードスライダー初期値は 0 に固定
 	speedSlider.value = 0;
 
+	// Apply label color from config if provided
+	try {
+		const labelColor = GAME_CONFIG.ui && GAME_CONFIG.ui.labelColor;
+		if (labelColor) {
+			if (angleVal) angleVal.style.color = labelColor;
+			if (speedVal) speedVal.style.color = labelColor;
+			if (speedActual) speedActual.style.color = labelColor;
+			// also apply to the label text nodes inside .slider-info
+			const sliderInfo = document.querySelector('.slider-info');
+			if (sliderInfo) {
+				const labels = sliderInfo.querySelectorAll('label');
+				labels.forEach(l => { l.style.color = labelColor; });
+			}
+		}
+	} catch (_) { /* no-op */ }
+
 	// 連射モード用の視認性・操作性向上スタイルを注入
 	function injectHoldUiStyles() {
 		if (document.getElementById('hold-fire-style')) return;
