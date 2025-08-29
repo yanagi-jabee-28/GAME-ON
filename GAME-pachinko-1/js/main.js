@@ -834,6 +834,67 @@ document.addEventListener('DOMContentLoaded', () => {
 	// 初期表示
 	updateAmmoUI();
 
+	// スロット勝利時に配当額を持ち玉(ammo)へ換算して加算
+	try {
+		window.addEventListener('slot:win', (ev) => {
+			try {
+				const amount = Number(ev?.detail?.amount) || 0;
+				const mult = Number(GAME_CONFIG?.rewards?.slotWinAmmoMultiplier);
+				if (!(amount > 0 && Number.isFinite(mult) && mult > 0)) return;
+				const gain = Math.floor(amount * mult);
+				// ammo 付与
+				if (gain > 0) {
+					launchAmmo = Number(launchAmmo || 0) + gain;
+					GAME_CONFIG.launch.currentAmmo = launchAmmo;
+					updateAmmoUI();
+					// devtools 通知
+					try { window.dispatchEvent(new CustomEvent('devtools:ammo-gained', { detail: { source: 'slot:win', amount, mult, gain, total: launchAmmo } })); } catch (_) { }
+				}
+
+				// メッセージ（テンプレート）表示: {amount}, {mult}, {adjusted}
+				try {
+					const templ = (GAME_CONFIG?.rewards?.slotWinMessageTemplate) || '';
+					if (templ) {
+						const adjusted = gain;
+						const msg = String(templ)
+							.replaceAll('{amount}', String(amount))
+							.replaceAll('{mult}', String(mult))
+							.replaceAll('{adjusted}', String(adjusted));
+						showToastMessage(msg, Number(GAME_CONFIG?.rewards?.slotWinMessageMs) || 2200);
+					}
+				} catch (_) { /* no-op */ }
+			} catch (_) { /* no-op */ }
+		});
+	} catch (_) { /* no-op */ }
+
+	// 軽量トースト表示（main内ローカル）
+	function showToastMessage(msg, durationMs) {
+		try {
+			let el = document.getElementById('pachi-slot-toast');
+			if (!el) {
+				el = document.createElement('div');
+				el.id = 'pachi-slot-toast';
+				el.style.position = 'absolute';
+				el.style.left = '50%';
+				el.style.top = '16px';
+				el.style.transform = 'translateX(-50%)';
+				el.style.padding = '8px 12px';
+				el.style.background = 'rgba(0,0,0,0.75)';
+				el.style.color = '#fff';
+				el.style.borderRadius = '8px';
+				el.style.fontSize = '14px';
+				el.style.zIndex = 10000;
+				el.style.pointerEvents = 'none';
+				const container = document.getElementById('game-container') || document.body;
+				container.appendChild(el);
+			}
+			el.textContent = msg;
+			el.style.display = '';
+			clearTimeout(showToastMessage._timer);
+			showToastMessage._timer = setTimeout(() => { el.style.display = 'none'; }, Math.max(300, durationMs || 2000));
+		} catch (_) { /* no-op */ }
+	}
+
 	// timeScale の開発者 UI は dev-tools.js 側で注入するよう変更
 
 	// ========================

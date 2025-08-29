@@ -81,6 +81,18 @@ const GAME_CONFIG = {
 		totalSpawned: 0
 	},
 
+	// スロット関連の報酬換算（パチンコ側で制御）
+	rewards: {
+		// スロットの配当金額 -> 持ち玉(ammo)への換算倍率
+		// 例: 0.5 なら「配当 100」で ammo を +50（小数点以下は切り捨て）
+		slotWinAmmoMultiplier: 10,
+		// 内蔵スロット当たり時の表示メッセージ（テンプレート）
+		// プレースホルダー: {amount}=スロット配当, {mult}=倍率, {adjusted}=配当×倍率（小数切捨）
+		slotWinMessageTemplate: 'スロット当たり！{adjusted}玉',
+		// メッセージ表示時間(ms)
+		slotWinMessageMs: 1000
+	},
+
 	// 各種エフェクト挙動の設定
 	effects: {
 		// 床に触れたときの玉の扱いと演出

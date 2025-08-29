@@ -378,6 +378,30 @@
 		});
 	} catch (_) { }
 
+	// Override slot's own win overlay with config-based message and adjusted amount
+	try {
+		window.addEventListener('slot:win', (ev) => {
+			try {
+				const amount = Number(ev?.detail?.amount) || 0;
+				const mult = Number((window.GAME_CONFIG && GAME_CONFIG.rewards && GAME_CONFIG.rewards.slotWinAmmoMultiplier) || 0);
+				const adjusted = (amount > 0 && mult > 0 && Number.isFinite(mult)) ? Math.floor(amount * mult) : amount;
+				const templ = (window.GAME_CONFIG && GAME_CONFIG.rewards && GAME_CONFIG.rewards.slotWinMessageTemplate) || '';
+				const msg = templ ? String(templ)
+					.replaceAll('{amount}', String(amount))
+					.replaceAll('{mult}', String(mult))
+					.replaceAll('{adjusted}', String(adjusted))
+					: '';
+				const wm = document.getElementById('winMessage');
+				if (wm) {
+					const amtEl = wm.querySelector('.amount');
+					if (amtEl) amtEl.textContent = `¥${(adjusted || 0).toLocaleString()}`;
+					const subEl = wm.querySelector('.sub');
+					if (subEl && msg) subEl.textContent = msg;
+				}
+			} catch (_) { /* no-op */ }
+		});
+	} catch (_) { /* no-op */ }
+
 	// Auto-init when pachinko page loads so the embedded slot is visible for testing
 	if (typeof window !== 'undefined' && window.addEventListener) {
 		window.addEventListener('DOMContentLoaded', () => {
