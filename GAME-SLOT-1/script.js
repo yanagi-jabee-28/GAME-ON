@@ -1882,8 +1882,15 @@ class SlotGame {
 					console.log(`Win! payout=¥${payout}, new balance=¥${this.balance}`);
 					// 勝利メッセージを表示
 					try { this.showWinMessage(payout); } catch (e) { }
+					// ゲーム外から視覚フィードバックを付けられるよう、カスタムイベントを発火
+					try {
+						window.dispatchEvent(new CustomEvent('slot:win', { detail: { amount: payout } }));
+					} catch (_) { /* no-op */ }
 				}
 			}
+
+			// 外部制御向け: スロットの回転が完全に停止したことを通知
+			try { window.dispatchEvent(new CustomEvent('slot:stopped')); } catch (_) { /* no-op */ }
 		}
 	}
 

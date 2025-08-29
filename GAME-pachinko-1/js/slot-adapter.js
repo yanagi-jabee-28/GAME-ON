@@ -14,6 +14,21 @@
 	const EMBED_CONTAINER_ID = 'embedded-slot-container';
 	const EMBED_AREA_ID = 'embedded-slot-area';
 
+	// Spin queue: when pachinko hits while slot is spinning, queue and spin after stop
+	let __pendingQueuedSpins = 0;
+	let __outstandingHits = 0; // ランプ点灯で表す「未消化のヒット数」（進行中スピン含む）
+	function __isSlotSpinning() { try { return !!(API && API._instance && API._instance.isSpinning); } catch (_) { return false; } }
+	function __tryStartOrQueueSpin(reason) {
+		try {
+			if (__isSlotSpinning()) {
+				__pendingQueuedSpins++;
+				return 'queued';
+			}
+			API.startSpin();
+			return 'started';
+		} catch (_) { return 'error'; }
+	}
+
 	// Helper to copy the slot HTML from GAME-SLOT-1 index.html into the embed container.
 	function injectSlotHtml() {
 		// Build minimal slot markup expected by script.js from GAME-SLOT-1
@@ -225,6 +240,129 @@
 		} catch (e) { console.warn('EmbeddedSlot.diagnose error', e); }
 	};
 
+	// Simple Win Lamps UI (visual counter of wins)
+	function ensureLampStyles() {
+		if (document.getElementById('slot-win-lamp-style')) return;
+		const style = document.createElement('style');
+		style.id = 'slot-win-lamp-style';
+		style.textContent = `
+			#winLampPanel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 6px}
+			#winLampPanel .label{font-weight:600;color:#333}
+			#winLampPanel .count{font-variant-numeric:tabular-nums;color:#555}
+			#winLampPanel .lamps{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+			#winLampPanel .lamp{width:14px;height:14px;border-radius:50%;border:1px solid #222;background:#111;box-shadow:none}
+			#winLampPanel .lamp.on{background:#e53935;border-color:#8b0000;box-shadow:0 0 8px rgba(244,67,54,.9)}
+			@media (prefers-color-scheme: dark){
+				#winLampPanel .label{color:#eee}
+				#winLampPanel .count{color:#ddd}
+			}
+		`;
+		document.head.appendChild(style);
+	}
+
+	function ensureLampPanel() {
+		ensureLampStyles();
+		let area = document.getElementById('embedded-slot-area');
+		let sliderInfo = document.querySelector('.slider-info');
+		let mount = area || document.body;
+		let panel = document.getElementById('winLampPanel');
+		if (!panel) {
+			panel = document.createElement('div');
+			panel.id = 'winLampPanel';
+			const label = document.createElement('span');
+			label.className = 'label';
+			label.textContent = '当たり:';
+			const count = document.createElement('span');
+			count.id = 'winLampCount';
+			count.className = 'count';
+			count.textContent = '0/6';
+			const lamps = document.createElement('div');
+			lamps.id = 'winLampList';
+			lamps.className = 'lamps';
+			panel.appendChild(label);
+			panel.appendChild(count);
+			panel.appendChild(lamps);
+			// Prefer placing just above the slider block
+			if (sliderInfo && sliderInfo.parentNode) {
+				sliderInfo.parentNode.insertBefore(panel, sliderInfo);
+			} else if (area && area.firstChild) {
+				// fallback: top of embedded area
+				mount.insertBefore(panel, area.firstChild);
+			} else {
+				// final fallback: body end
+				mount.appendChild(panel);
+			}
+			// initialize 6 black lamps if empty
+			for (let i = 0; i < 6; i++) { const s = document.createElement('span'); s.className = 'lamp'; lamps.appendChild(s); }
+		}
+		// If panel exists but is not positioned above the slider, move it
+		else if (sliderInfo && sliderInfo.parentNode) {
+			try {
+				if (panel.nextElementSibling !== sliderInfo || panel.parentNode !== sliderInfo.parentNode) {
+					sliderInfo.parentNode.insertBefore(panel, sliderInfo);
+				}
+			} catch (_) { }
+		}
+		return panel;
+	}
+
+	function lightNextLamp() {
+		const panel = ensureLampPanel();
+		const list = document.getElementById('winLampList');
+		if (!list) return;
+		const lamps = Array.from(list.querySelectorAll('.lamp'));
+		if (!lamps.length) return;
+		const next = lamps.find(l => !l.classList.contains('on'));
+		if (next) {
+			next.classList.add('on');
+			const lit = lamps.filter(l => l.classList.contains('on')).length;
+			const cntEl = document.getElementById('winLampCount');
+			if (cntEl) cntEl.textContent = `${lit}/6`;
+		}
+	}
+
+	function turnOffOldestLamp() {
+		const list = document.getElementById('winLampList');
+		if (!list) return;
+		const lamps = Array.from(list.querySelectorAll('.lamp'));
+		const oldestOn = lamps.find(l => l.classList.contains('on'));
+		if (oldestOn) {
+			oldestOn.classList.remove('on');
+			const lit = lamps.filter(l => l.classList.contains('on')).length;
+			const cntEl = document.getElementById('winLampCount');
+			if (cntEl) cntEl.textContent = `${lit}/6`;
+		}
+	}
+
+	// listen pachinko hit events (sensor passes) -> light lamp and spin (queue if needed)
+	try {
+		window.addEventListener('pachi:hit', () => {
+			try {
+				__outstandingHits++;
+				lightNextLamp();
+			} catch (_) { }
+			__tryStartOrQueueSpin('pachi:hit');
+		});
+	} catch (_) { }
+
+	// when slot fully stops, consume one queued spin if any
+	try {
+		window.addEventListener('slot:stopped', () => {
+			try {
+				// 完了したスピン分、最古のランプを1つ消灯（未消化ヒット数を減算）
+				if (__outstandingHits > 0) {
+					__outstandingHits--;
+					turnOffOldestLamp();
+				}
+				// まだ保留があれば次を開始
+				if (__pendingQueuedSpins > 0) {
+					__pendingQueuedSpins--;
+					API.startSpin();
+				}
+			} catch (_) { }
+		});
+	} catch (_) { }
+
 	// Auto-init when pachinko page loads so the embedded slot is visible for testing
 	if (typeof window !== 'undefined' && window.addEventListener) {
 		window.addEventListener('DOMContentLoaded', () => {
@@ -236,6 +374,8 @@
 				// make injected action button visible for quick manual testing
 				const ab = document.getElementById('actionBtn');
 				if (ab) ab.style.display = '';
+				// prepare lamps
+				ensureLampPanel();
 			} catch (_) { /* no-op */ }
 		});
 	}
@@ -250,6 +390,7 @@
 			API.init({ show: true });
 			const ab2 = document.getElementById('actionBtn');
 			if (ab2) ab2.style.display = '';
+			ensureLampPanel();
 		}
 	} catch (e) { /* no-op */ }
 })();

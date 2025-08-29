@@ -1092,6 +1092,8 @@ document.addEventListener('DOMContentLoaded', () => {
 				counter.exitCount++;
 				counter.currentInside = Math.max(0, counter.currentInside - 1);
 				counter.totalPassed++;
+				// パチンコの「当たり」（センサー通過）イベントを通知
+				try { if (typeof window !== 'undefined' && window.dispatchEvent) { window.dispatchEvent(new CustomEvent('pachi:hit', { detail: { counterId, totalPassed: counter.totalPassed } })); } } catch (_) { /* no-op */ }
 				// センサーごとのオプションで通過時にボールを削除する挙動
 				try {
 					const cfgEntry = GAME_CONFIG.sensorCounters.counters[counterId] || {};
