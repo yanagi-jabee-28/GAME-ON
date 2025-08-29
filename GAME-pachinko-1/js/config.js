@@ -72,10 +72,32 @@ const GAME_CONFIG = {
 		outerBackground: '#EDE8DB'
 	},
 
+	// テキスト色などのUI系色指定（CSS変数 --ui-text-color に注入されます）
+	// 例: '#222' や 'hsl(0,0%,10%)'
+	uiText: {
+		textColor: '#222'
+	},
+
 	// ランタイム計測値（メトリクス）を格納する領域
 	metrics: {
 		// 総射出数（spawnBallFromUI が増加させる）
 		totalSpawned: 0
+	},
+
+	// 共有ウォレット設定（パチンコ/スロット共通の残高と借入）
+	wallet: {
+		enabled: true,
+		// 初期残高（持ち玉/所持金）
+		initialBalance: 1000,
+		// 1発あたりの玉コスト
+		ballCost: 1,
+		currency: 'JPY',
+		// 借入設定（必要に応じて無効化）
+		credit: {
+			enabled: true,
+			creditLimit: 50000,
+			interestRate: 0.1
+		}
 	},
 
 	// 各種エフェクト挙動の設定

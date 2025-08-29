@@ -51,6 +51,8 @@ button {
 
 .controls label {
     font-size: 14px;
+    /* ラベル文字色を config 経由で変更可能にする */
+    color: var(--ui-text-color, #222);
 }
 
 .controls {
@@ -91,6 +93,8 @@ button {
     font-feature-settings: "tnum";
     /* 一部のブラウザ用のフォールバック */
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    /* テキスト色は CSS 変数から制御（config.js で注入されます） */
+    color: var(--ui-text-color, #222);
 }
 
 /* 角度表示用の幅を確保 */
