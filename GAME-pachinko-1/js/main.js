@@ -18,11 +18,6 @@
  *  7) イベントループ（afterUpdateでの駆動）と衝突処理
  */
 document.addEventListener('DOMContentLoaded', () => {
-	// UI テキスト色を GAME_CONFIG から注入（CSS 変数）
-	try {
-		const txt = (GAME_CONFIG && GAME_CONFIG.uiText && GAME_CONFIG.uiText.textColor) || null;
-		if (txt) document.documentElement.style.setProperty('--ui-text-color', txt);
-	} catch (_) { }
 	// Matter.jsの主要モジュールを取得
 	const { Engine, Render, Runner, World, Events, Body } = Matter;
 
@@ -740,24 +735,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	// ========================
 	// 現在の UI 値から 1 発スポーン（連射はこの関数を繰り返し呼ぶ）
 	function spawnBallFromUI() {
-		// ウォレット課金: 玉コストを差し引けない場合は発射しない
-		try {
-			const cost = Number(GAME_CONFIG?.wallet?.ballCost ?? 0);
-			if (window.SharedWallet && cost > 0) {
-				if (!window.SharedWallet.canSpend(cost)) {
-					// 軽い通知
-					try {
-						const t = document.getElementById('toast') || (() => { const d = document.createElement('div'); d.id = 'toast'; d.className = 'toast'; document.body.appendChild(d); return d; })();
-						t.textContent = '残高不足で発射できません';
-						t.style.display = 'block';
-						setTimeout(() => { t.style.display = 'none'; }, 1200);
-					} catch (_) { /* no-op */ }
-					return; // 発射中止
-				}
-				window.SharedWallet.spend(cost);
-			}
-		} catch (_) { /* no-op */ }
-
 		const start = computeSpawnCoords();
 		let angleDeg = Number((angleSlider && angleSlider.value) || GAME_CONFIG.launch?.defaultAngle || 90);
 		const angleRandomness = GAME_CONFIG.launch?.angleRandomness || 0;

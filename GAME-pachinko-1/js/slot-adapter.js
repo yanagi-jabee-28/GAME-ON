@@ -146,61 +146,6 @@
 					} catch (e) { /* no-op */ }
 				}
 			} catch (_) { /* no-op */ }
-			// SharedWallet 連携: インスタンス確立後にフック
-			try {
-				setTimeout(() => {
-					const inst = API._instance || window.SLOT_GAME_INSTANCE;
-					if (!inst) return;
-					if (window.SharedWallet) {
-						// 初期同期（スロット残高→ウォレット or ウォレット→スロット）。ウォレットを正とし、スロットに反映
-						try {
-							if (typeof inst.updateBalanceUI === 'function') {
-								// スロットの balance/debt をウォレット値に合わせる
-								inst.balance = Number(window.SharedWallet.balance) || 0;
-								inst.debt = Number(window.SharedWallet.debt) || 0;
-								inst.updateBalanceUI();
-							}
-						} catch (_) { }
-						// ベット前後・配当後で同期するため、メソッドをラップ
-						if (!inst.__walletPatched) {
-							inst.__walletPatched = true;
-							// startGame: ベット確定時に SharedWallet から支払い
-							const _start = inst.startGame?.bind(inst);
-							inst.startGame = function () {
-								// 実行前の残高を記録し、start 後の差分を SharedWallet に反映
-								const prevBal = this.balance;
-								const res = _start ? _start() : undefined;
-								try {
-									const paid = Math.max(0, prevBal - this.balance);
-									if (paid && window.SharedWallet) {
-										window.SharedWallet.spend(paid);
-									}
-								} catch (_) { }
-								return res;
-							};
-							// checkAllStopped -> payout 加算時に SharedWallet へ反映
-							const _check = inst.checkAllStopped?.bind(inst);
-							inst.checkAllStopped = function () {
-								const balBefore = this.balance;
-								const r = _check ? _check() : undefined;
-								try {
-									const delta = Math.max(0, this.balance - balBefore);
-									if (delta && window.SharedWallet) window.SharedWallet.add(delta);
-								} catch (_) { }
-								return r;
-							};
-						}
-						// 双方向同期: ウォレット更新イベントでスロットUIも更新
-						window.addEventListener('wallet:changed', (ev) => {
-							try {
-								inst.balance = Number(ev.detail?.balance) || 0;
-								inst.debt = Number(ev.detail?.debt) || 0;
-								inst.updateBalanceUI && inst.updateBalanceUI();
-							} catch (_) { }
-						});
-					}
-				}, 0);
-			} catch (_) { }
 			return true;
 		},
 		startSpin: function () {
