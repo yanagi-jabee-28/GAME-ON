@@ -150,7 +150,7 @@ const gameConfig = {
 	// file: 相対パスを指定すると外部ファイルを読み込みます。未指定時は簡易合成音を使用します。
 	sounds: {
 		enabled: true,
-		volume: 0.4, // 全体音量 0.0 - 1.0
+		volume: 0.2, // 全体音量 0.0 - 1.0
 		files: {
 			spinStart: '', // 例: 'assets/sfx/spin-start.mp3'
 			reelStop: '',   // 例: 'assets/sfx/stop.wav'

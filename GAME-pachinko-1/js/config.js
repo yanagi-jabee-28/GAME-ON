@@ -87,10 +87,12 @@ const GAME_CONFIG = {
 		// 例: 0.5 なら「配当 100」で ammo を +50（小数点以下は切り捨て）
 		slotWinAmmoMultiplier: 10,
 		// 内蔵スロット当たり時の表示メッセージ（テンプレート）
-		// プレースホルダー: {amount}=スロット配当, {mult}=倍率, {adjusted}=配当×倍率（小数切捨）
-		slotWinMessageTemplate: 'スロット当たり！{adjusted}玉',
+		// {amount}=配当(円), {mult}=倍率, {adjusted}=配当×倍率（玉）
+		slotWinMessageTemplate: 'スロット当たり！ {adjusted}玉',
 		// メッセージ表示時間(ms)
-		slotWinMessageMs: 1000
+		slotWinMessageMs: 2200,
+		// センサー進入（入賞）時のメッセージ（{gain}=増加玉数）
+		sensorEnterMessageTemplate: '入賞！{gain}玉'
 	},
 
 	// 各種エフェクト挙動の設定

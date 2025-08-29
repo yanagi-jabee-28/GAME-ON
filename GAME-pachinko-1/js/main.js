@@ -867,7 +867,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		});
 	} catch (_) { /* no-op */ }
 
-	// 軽量トースト表示（main内ローカル）
+	// 軽量トースト表示（main内ローカル, フェードイン/アウト対応）
 	function showToastMessage(msg, durationMs) {
 		try {
 			let el = document.getElementById('pachi-slot-toast');
@@ -877,7 +877,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				el.style.position = 'absolute';
 				el.style.left = '50%';
 				el.style.top = '16px';
-				el.style.transform = 'translateX(-50%)';
+				el.style.transform = 'translate(-50%, -6px)';
 				el.style.padding = '8px 12px';
 				el.style.background = 'rgba(0,0,0,0.75)';
 				el.style.color = '#fff';
@@ -885,13 +885,32 @@ document.addEventListener('DOMContentLoaded', () => {
 				el.style.fontSize = '14px';
 				el.style.zIndex = 10000;
 				el.style.pointerEvents = 'none';
+				el.style.opacity = '0';
+				el.style.transition = 'opacity 220ms ease, transform 220ms ease';
 				const container = document.getElementById('game-container') || document.body;
 				container.appendChild(el);
 			}
+			// 更新と表示
 			el.textContent = msg;
 			el.style.display = '';
-			clearTimeout(showToastMessage._timer);
-			showToastMessage._timer = setTimeout(() => { el.style.display = 'none'; }, Math.max(300, durationMs || 2000));
+			// 既存タイマーをクリア
+			clearTimeout(showToastMessage._hideTimer);
+			clearTimeout(showToastMessage._fadeTimer);
+			// フェードイン（次フレームで）
+			requestAnimationFrame(() => {
+				el.style.opacity = '1';
+				el.style.transform = 'translate(-50%, 0)';
+			});
+			// フェードアウト＆非表示
+			const total = Math.max(400, Number(durationMs || 2000));
+			const fadeMs = 220;
+			const fadeOutDelay = Math.max(0, total - fadeMs);
+			showToastMessage._fadeTimer = setTimeout(() => {
+				try { el.style.opacity = '0'; el.style.transform = 'translate(-50%, -6px)'; } catch (_) { }
+			}, fadeOutDelay);
+			showToastMessage._hideTimer = setTimeout(() => {
+				try { el.style.display = 'none'; } catch (_) { }
+			}, total + 10);
 		} catch (_) { /* no-op */ }
 	}
 
@@ -1108,13 +1127,21 @@ document.addEventListener('DOMContentLoaded', () => {
 					}
 				} catch (_) { /* no-op */ }
 
-				// センサー反応で弾数を増やす
+				// センサー反応で弾数を増やし、入賞メッセージを表示
 				try {
 					const gain = (GAME_CONFIG && GAME_CONFIG.launch && Number.isFinite(Number(GAME_CONFIG.launch.ammoGainOnSensor))) ? Number(GAME_CONFIG.launch.ammoGainOnSensor) : 0;
 					if (gain > 0 && typeof launchAmmo === 'number') {
 						launchAmmo = Number(launchAmmo) + gain;
 						GAME_CONFIG.launch.currentAmmo = launchAmmo;
 						updateAmmoUI();
+						// 入賞メッセージ
+						try {
+							const templ = (GAME_CONFIG && GAME_CONFIG.rewards && GAME_CONFIG.rewards.sensorEnterMessageTemplate) || '';
+							if (templ) {
+								const msg = String(templ).replaceAll('{gain}', String(gain));
+								showToastMessage(msg, Number(GAME_CONFIG?.rewards?.slotWinMessageMs) || 1200);
+							}
+						} catch (_) { /* no-op */ }
 					}
 				} catch (_) { /* no-op */ }
 
