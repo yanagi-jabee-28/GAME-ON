@@ -6,6 +6,8 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>パチンコゲーム</title>
 	<link rel="stylesheet" href="style.css">
+	<!-- Embed slot styles so injected slot markup is styled correctly -->
+	<link rel="stylesheet" href="../GAME-SLOT-1/style.css">
 </head>
 
 <body>
@@ -27,11 +29,17 @@
 		</div>
 	</div>
 
+	<!-- Embedded slot area (試験表示: 強さスライダーの下に表示) -->
+	<div id="embedded-slot-area" style="margin-top:12px;z-index:50;display:block;">
+		<!-- Slot HTML will be injected here when adapter initializes -->
+		<div id="embedded-slot-container"></div>
+	</div>
+
 	<!-- 物理エンジンライブラリ -->
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
 	<!-- 凹多角形の分解ライブラリ（Matter.jsのBodies.fromVerticesで必要） -->
 	<script src="https://cdn.jsdelivr.net/npm/poly-decomp@0.3.0/build/decomp.min.js"></script>
-	
+
 	<!-- poly-decompをMatter.jsに登録 -->
 	<script>
 		(function () {
@@ -49,10 +57,14 @@
 	</script>
 
 	<!-- ゲームスクリプト（読み込み順序が重要） -->
-	<script src="js/config.js"></script>      <!-- 設定ファイル -->
-	<script src="js/objects.js"></script>     <!-- ゲームオブジェクト定義 -->
-	<script src="js/dev-tools.js"></script>   <!-- 開発用ツール -->
-	<script src="js/main.js"></script>        <!-- メインロジック -->
+	<script src="js/config.js"></script> <!-- 設定ファイル -->
+	<script src="js/objects.js"></script> <!-- ゲームオブジェクト定義 -->
+	<script src="js/dev-tools.js"></script> <!-- 開発用ツール -->
+	<script src="js/main.js"></script> <!-- メインロジック -->
+	<!-- Slot adapter (optional embedding of GAME-SLOT-1) -->
+	<script src="../GAME-SLOT-1/config.js"></script>
+	<script src="../GAME-SLOT-1/script.js"></script>
+	<script src="js/slot-adapter.js"></script>
 </body>
 
 </html>

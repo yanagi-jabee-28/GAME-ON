@@ -256,7 +256,8 @@
 			],
 			"color": "hsla(270, 100%, 60%, 0.5)",
 			"layer": 2,
-			"removeOn": "enter"
+			"removeOn": "enter",
+			"slotTrigger": true
 		}
 	]
 }

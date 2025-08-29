@@ -21,6 +21,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	// Matter.jsの主要モジュールを取得
 	const { Engine, Render, Runner, World, Events, Body } = Matter;
 
+
+	// If this sensor is configured to trigger the embedded slot, start it
+	try {
+		const cfgEntry2 = GAME_CONFIG.sensorCounters.counters[counterId] || {};
+		if (cfgEntry2.slotTrigger && window.EmbeddedSlot && typeof window.EmbeddedSlot.startSpin === 'function') {
+			try { window.EmbeddedSlot.startSpin(); } catch (_) { /* no-op */ }
+		}
+	} catch (_) { /* no-op */ }
 	// ========================
 	// 1. エンジンの初期化（低レベル設定）
 	// ========================
@@ -922,6 +930,8 @@ document.addEventListener('DOMContentLoaded', () => {
 					}
 				} catch (_) { /* no-op */ }
 
+				// (disabled) auto-start slot from sensor
+
 				// removeOn が 'enter' に設定されている場合はここで削除を行う
 				try {
 					const cfgEntry = GAME_CONFIG.sensorCounters.counters[counterId] || {};
@@ -991,6 +1001,8 @@ document.addEventListener('DOMContentLoaded', () => {
 						window.dispatchEvent(new CustomEvent('devtools:sensor-updated', { detail: { id: counterId, type: 'exit', counter: Object.assign({}, counter) } }));
 					}
 				} catch (_) { /* no-op */ }
+
+				// (disabled) auto-start slot from sensor
 			}
 		}
 	}

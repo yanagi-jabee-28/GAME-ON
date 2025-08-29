@@ -88,9 +88,11 @@ class UIManager {
 	 * 必要なDOM要素を取得し、内部プロパティに格納します。
 	 */
 	getElements() {
-		this.elements.slotContainer = document.querySelector(this.config.selectors.slotMachine);
-		this.elements.actionBtn = document.querySelector(this.config.selectors.actionBtn);
-		this.elements.modeBtn = document.querySelector(this.config.selectors.modeBtn);
+		// Be defensive: allow config.selectors to be missing when embedded. Fall back to common IDs.
+		const sel = (this.config && this.config.selectors) ? this.config.selectors : {};
+		this.elements.slotContainer = document.querySelector(sel.slotMachine || '#slot-machine') || document.getElementById('slot-machine');
+		this.elements.actionBtn = document.querySelector(sel.actionBtn || '#actionBtn') || document.getElementById('actionBtn');
+		this.elements.modeBtn = document.querySelector(sel.modeBtn || '#modeBtn') || document.getElementById('modeBtn');
 		// 目押し個別停止ボタン（存在しない場合は null のまま）
 		this.elements.stopBtns = [
 			document.getElementById('stopBtn0'),
@@ -1085,9 +1087,18 @@ class SlotGame {
 	 */
 	bindEvents() {
 		// スタート/ストップボタンがクリックされたらhandleActionメソッドを実行
-		this.ui.elements.actionBtn.addEventListener('click', () => this.handleAction());
+		if (this.ui && this.ui.elements && this.ui.elements.actionBtn) {
+			this.ui.elements.actionBtn.addEventListener('click', () => this.handleAction());
+		} else {
+			console.warn('SlotGame.bindEvents: actionBtn not found, skipping listener bind');
+		}
 		// モード切り替えボタンがクリックされたらtoggleModeメソッドを実行
-		this.ui.elements.modeBtn.addEventListener('click', () => this.toggleMode());
+		if (this.ui && this.ui.elements && this.ui.elements.modeBtn) {
+			this.ui.elements.modeBtn.addEventListener('click', () => this.toggleMode());
+		} else {
+			// not fatal; embedded adapters may omit mode button
+			console.debug && console.debug('SlotGame.bindEvents: modeBtn not found, mode toggle disabled');
+		}
 
 		// 個別停止ボタン: 目押しモード時のみ動作、回転中のみ有効
 		const stopBtns = this.ui.elements.stopBtns || [];
@@ -2201,8 +2212,38 @@ document.addEventListener('DOMContentLoaded', () => {
 	// 注意: index.html は defer で config.js → script.js の順に読み込みます。順序を変えると gameConfig 未定義になります。
 	const slotMachineElement = document.querySelector(gameConfig.selectors.slotMachine);
 	if (slotMachineElement) {
-		new SlotGame(slotMachineElement, gameConfig);
+		// expose the created instance so external code can drive the slot programmatically
+		window.SLOT_GAME_INSTANCE = new SlotGame(slotMachineElement, gameConfig);
 	} else {
-		console.error('スロットマシンの要素が見つかりません。セレクターを確認してください:', gameConfig.selectors.slotMachine);
+		// Non-fatal: when embedded into another app the slot HTML may be injected later by an adapter.
+		// Keep SlotGame constructor available so embedder can instantiate programmatically.
+		if (console && console.debug) console.debug('SlotGame: no matching element for', gameConfig.selectors.slotMachine, '- embedder may create it later.');
 	}
 });
+
+// Helper for embedders: create a SlotGame inside a container element or selector.
+// Usage: window.createSlotIn(containerElementOrSelector, cfg)
+window.createSlotIn = function (container, cfg) {
+	try {
+		let el = container;
+		if (typeof container === 'string') el = document.querySelector(container);
+		if (!el) return null;
+		// Prefer the internal `gameConfig` defined in this script if cfg is missing or lacks selectors.
+		let conf = null;
+		if (typeof cfg === 'object' && cfg && typeof cfg.selectors === 'object') {
+			conf = cfg;
+		} else if (typeof gameConfig === 'object' && gameConfig && typeof gameConfig.selectors === 'object') {
+			conf = gameConfig;
+		} else if (typeof window.gameConfig === 'object' && window.gameConfig && typeof window.gameConfig.selectors === 'object') {
+			conf = window.gameConfig;
+		} else {
+			conf = cfg || {};
+		}
+		const inst = new SlotGame(el, conf);
+		window.SLOT_GAME_INSTANCE = inst;
+		return inst;
+	} catch (e) {
+		console.error('createSlotIn failed:', e);
+		return null;
+	}
+};
