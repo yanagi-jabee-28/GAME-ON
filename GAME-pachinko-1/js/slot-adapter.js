@@ -334,12 +334,27 @@
 		}
 	}
 
+	// Always left-justify: first N lamps are red, the rest black
+	function updateLampDisplay(desiredCount) {
+		ensureLampPanel();
+		const list = document.getElementById('winLampList');
+		if (!list) return;
+		const lamps = Array.from(list.querySelectorAll('.lamp'));
+		const n = Math.max(0, Math.min(desiredCount | 0, lamps.length));
+		lamps.forEach((lamp, idx) => {
+			if (idx < n) lamp.classList.add('on');
+			else lamp.classList.remove('on');
+		});
+		const cntEl = document.getElementById('winLampCount');
+		if (cntEl) cntEl.textContent = `${n}/${lamps.length}`;
+	}
+
 	// listen pachinko hit events (sensor passes) -> light lamp and spin (queue if needed)
 	try {
 		window.addEventListener('pachi:hit', () => {
 			try {
 				__outstandingHits++;
-				lightNextLamp();
+				updateLampDisplay(__outstandingHits);
 			} catch (_) { }
 			__tryStartOrQueueSpin('pachi:hit');
 		});
@@ -352,7 +367,7 @@
 				// 完了したスピン分、最古のランプを1つ消灯（未消化ヒット数を減算）
 				if (__outstandingHits > 0) {
 					__outstandingHits--;
-					turnOffOldestLamp();
+					updateLampDisplay(__outstandingHits);
 				}
 				// まだ保留があれば次を開始
 				if (__pendingQueuedSpins > 0) {

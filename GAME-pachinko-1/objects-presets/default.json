@@ -73,7 +73,7 @@
 					},
 					{
 						"angleDeg": -65,
-						"holdMs": 300
+						"holdMs": 1000
 					}
 				],
 				"moveMs": 100,
@@ -100,7 +100,7 @@
 					},
 					{
 						"angleDeg": 245,
-						"holdMs": 300
+						"holdMs": 1000
 					}
 				],
 				"moveMs": 100,
