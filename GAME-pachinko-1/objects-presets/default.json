@@ -79,7 +79,7 @@
 				"moveMs": 100,
 				"loop": true
 			},
-			"bladeColor": "hsl(270,100%,60%)",
+			"bladeColor": "hsl(270,100%,70%)",
 			"shape": {
 				"numBlades": 1,
 				"bladeLength": 19,
@@ -106,7 +106,7 @@
 				"moveMs": 100,
 				"loop": true
 			},
-			"bladeColor": "hsl(270,100%,60%)",
+			"bladeColor": "hsl(270,100%,70%)",
 			"shape": {
 				"numBlades": 1,
 				"bladeLength": 19,
