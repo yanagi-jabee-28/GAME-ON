@@ -745,7 +745,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	updateLaunchPadPosition();
 
 	// --- 発射可能弾数（残弾）表示と管理 ---
-	let launchAmmo = Number(GAME_CONFIG.launch?.ammo) || 1000;
+	const cfgAmmo = (GAME_CONFIG && GAME_CONFIG.launch && Number.isFinite(Number(GAME_CONFIG.launch.ammo))) ? Number(GAME_CONFIG.launch.ammo) : 1000;
+	let launchAmmo = cfgAmmo;
 	GAME_CONFIG.launch.currentAmmo = launchAmmo;
 	function updateAmmoUI() {
 		try {
@@ -982,7 +983,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 				// センサー反応で弾数を増やす
 				try {
-					const gain = Number(GAME_CONFIG.launch?.ammoGainOnSensor) || 0;
+					const gain = (GAME_CONFIG && GAME_CONFIG.launch && Number.isFinite(Number(GAME_CONFIG.launch.ammoGainOnSensor))) ? Number(GAME_CONFIG.launch.ammoGainOnSensor) : 0;
 					if (gain > 0 && typeof launchAmmo === 'number') {
 						launchAmmo = Number(launchAmmo) + gain;
 						GAME_CONFIG.launch.currentAmmo = launchAmmo;

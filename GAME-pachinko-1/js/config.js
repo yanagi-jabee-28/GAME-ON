@@ -263,13 +263,15 @@ GAME_CONFIG.launch = {
 	holdIntervalMs: 250,          // 連射間隔（ミリ秒）
 	// 連射モード開始から最初の発射までの遅延（ミリ秒）
 	holdFirstShotDelayMs: 250
+	,
+	// 持ち玉（残弾）に関するデフォルト値: 単純な数値としてここに置く
+	// 実行時の検証や型変換は main 側で行います
+	ammo: 100,
+	// センサー反応で増える弾数
+	ammoGainOnSensor: 100
 };
 
-// 発射可能な弾数 (持ち玉) の初期設定
-// デフォルト: 1000 発を持っている状態にする
-GAME_CONFIG.launch.ammo = Number(GAME_CONFIG.launch && GAME_CONFIG.launch.ammo) || 1000;
-// センサーに反応したときに増える弾数（例: センサー1回で +250）
-GAME_CONFIG.launch.ammoGainOnSensor = Number(GAME_CONFIG.launch && GAME_CONFIG.launch.ammoGainOnSensor) || 250;
+// (ammo と ammoGainOnSensor は上の GAME_CONFIG.launch 内で単純な数値として定義しています)
 
 // 発射の初期位置設定（config で制御可能にする）
 // - x: 発射点の x 座標（ピクセル、ゲームコンテナ左端を 0 とする）
