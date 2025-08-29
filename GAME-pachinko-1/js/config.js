@@ -247,7 +247,7 @@ GAME_CONFIG.launch = {
 	// 速度表示の小数点桁数（0〜3）。UIの"(xx px/s)"に適用
 	speedPrecision: 2,
 	// スライダーと一致させたい最小/最大（ここで maxSpeed を下げて上限を制御します）
-	minSpeed: 29.2,
+	minSpeed: 29,
 	maxSpeed: 39.3,
 	// angle control: min/max degrees and default
 	angleMin: 0,
