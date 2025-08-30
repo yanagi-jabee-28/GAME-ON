@@ -51,10 +51,45 @@
 		#embedded-slot-area #winMessage {
 			display: none !important;
 		}
+
+		/* ポータルへ戻るボタン（ページ上部で目立ちすぎないボタン） */
+		.topbar {
+			position: sticky;
+			top: 8px;
+			z-index: 100;
+			display: flex;
+			justify-content: flex-start;
+			margin: 8px 0;
+		}
+
+		.back-to-portal {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			padding: 6px 10px;
+			border-radius: 6px;
+			text-decoration: none;
+			background: #f5f5f5;
+			color: #333;
+			border: 1px solid #ddd;
+			box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+		}
+
+		@media (prefers-color-scheme: dark) {
+			.back-to-portal {
+				background: #2b2b2b;
+				color: #eee;
+				border-color: #444;
+			}
+		}
 	</style>
 </head>
 
 <body>
+	<!-- Portal Back Button -->
+	<div class="topbar">
+		<a class="back-to-portal" href="../index.html" aria-label="ポータルに戻る">← ポータルに戻る</a>
+	</div>
 	<!-- ゲームタイトル -->
 	<h1></h1>
 
