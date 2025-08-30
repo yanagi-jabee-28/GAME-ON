@@ -242,12 +242,13 @@ class SoundManager {
 		}
 	}
 
-	_playBuffer(buf) {
+	_playBuffer(buf, volOverride = null) {
 		if (!this.enabled || !this.ctx) return;
 		const src = this.ctx.createBufferSource();
 		src.buffer = buf;
 		const gain = this.ctx.createGain();
-		gain.gain.value = this.volume;
+		const vol = (typeof volOverride === 'number') ? volOverride : this.volume;
+		gain.gain.value = vol;
 		src.connect(gain).connect(this.ctx.destination);
 		src.start();
 	}
@@ -266,9 +267,9 @@ class SoundManager {
 
 	playReelStop() {
 		if (!this.enabled) return;
-		if (this.buffers.reelStop) return this._playBuffer(this.buffers.reelStop);
+		if (this.buffers.reelStop) return this._playBuffer(this.buffers.reelStop, this.volume * 0.5);
 		// 停止音は目立たせるため、ループ音より大きめに再生する
-		const vol = Math.min(1.0, this.volume * 1.6);
+		const vol = Math.min(1.0, this.volume * 0.8); // 以前の約半分（1.6x -> 0.8x）
 		this._synthBeep(800, 0.08, 'square', vol);
 	}
 
