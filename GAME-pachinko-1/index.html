@@ -8,6 +8,50 @@
 	<link rel="stylesheet" href="style.css">
 	<!-- Embed slot styles so injected slot markup is styled correctly -->
 	<link rel="stylesheet" href="../GAME-SLOT-1/style.css">
+	<!-- Pachinko scope override: hide slot's manual stop buttons (目押しボタン) when embedded -->
+	<style>
+		/* パチンコ画面ではスロットの目押しボタンは使用しないため非表示 */
+		#embedded-slot-area .manual-controls {
+			display: none !important;
+		}
+
+		/* 埋め込みスロットの配置を「スロット本体の下にスタートボタン」、かつ左右中央に固定 */
+		#embedded-slot-area {
+			display: block;
+		}
+
+		#embedded-slot-area #embedded-slot-container {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			/* 左右中央揃え */
+			justify-content: flex-start;
+			gap: 10px;
+			/* スロットとボタンの間隔 */
+		}
+
+		/* スロット本体を中央寄せ */
+		#embedded-slot-area #slot-machine {
+			margin: 0 auto;
+		}
+
+		/* スタートボタンは必ずスロットの下・中央に表示 */
+		#embedded-slot-area #actionBtn {
+			align-self: center !important;
+			position: static !important;
+			float: none !important;
+			margin: 0;
+			/* gapで調整するため */
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+		}
+
+		/* パチンコ画面ではスロットの勝利オーバーレイを表示しない */
+		#embedded-slot-area #winMessage {
+			display: none !important;
+		}
+	</style>
 </head>
 
 <body>
