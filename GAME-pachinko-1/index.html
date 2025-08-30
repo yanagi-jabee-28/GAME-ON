@@ -8,81 +8,7 @@
 	<link rel="stylesheet" href="style.css">
 	<!-- Embed slot styles so injected slot markup is styled correctly -->
 	<link rel="stylesheet" href="../GAME-SLOT-1/style.css">
-	<!-- Pachinko scope override: hide slot's manual stop buttons (目押しボタン) when embedded -->
-	<style>
-		/* パチンコ画面ではスロットの目押しボタンは使用しないため非表示 */
-		#embedded-slot-area .manual-controls {
-			display: none !important;
-		}
 
-		/* 埋め込みスロットの配置を「スロット本体の下にスタートボタン」、かつ左右中央に固定 */
-		#embedded-slot-area {
-			display: block;
-		}
-
-		#embedded-slot-area #embedded-slot-container {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			/* 左右中央揃え */
-			justify-content: flex-start;
-			gap: 10px;
-			/* スロットとボタンの間隔 */
-		}
-
-		/* スロット本体を中央寄せ */
-		#embedded-slot-area #slot-machine {
-			margin: 0 auto;
-		}
-
-		/* スタートボタンは必ずスロットの下・中央に表示 */
-		#embedded-slot-area #actionBtn {
-			align-self: center !important;
-			position: static !important;
-			float: none !important;
-			margin: 0;
-			/* gapで調整するため */
-			display: inline-flex;
-			align-items: center;
-			gap: 6px;
-		}
-
-		/* パチンコ画面ではスロットの勝利オーバーレイを表示しない */
-		#embedded-slot-area #winMessage {
-			display: none !important;
-		}
-
-		/* ポータルへ戻るボタン（ページ上部で目立ちすぎないボタン） */
-		.topbar {
-			position: sticky;
-			top: 8px;
-			z-index: 100;
-			display: flex;
-			justify-content: flex-start;
-			margin: 8px 0;
-		}
-
-		.back-to-portal {
-			display: inline-flex;
-			align-items: center;
-			gap: 6px;
-			padding: 6px 10px;
-			border-radius: 6px;
-			text-decoration: none;
-			background: #f5f5f5;
-			color: #333;
-			border: 1px solid #ddd;
-			box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
-		}
-
-		@media (prefers-color-scheme: dark) {
-			.back-to-portal {
-				background: #2b2b2b;
-				color: #eee;
-				border-color: #444;
-			}
-		}
-	</style>
 </head>
 
 <body>
@@ -108,7 +34,7 @@
 		</div>
 
 		<!-- Embedded slot area: 開発者パネルより上に配置するため、.controls 内に置く -->
-		<div id="embedded-slot-area" style="margin-top:12px;z-index:50;display:block;">
+		<div id="embedded-slot-area">
 			<!-- Slot HTML will be injected here when adapter initializes -->
 			<div id="embedded-slot-container"></div>
 		</div>
