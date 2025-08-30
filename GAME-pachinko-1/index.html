@@ -71,12 +71,12 @@
 		<div class="slider-info">
 			<label>強さ (0〜100): <span id="speed-val">50</span></label>
 		</div>
-	</div>
 
-	<!-- Embedded slot area (試験表示: 強さスライダーの下に表示) -->
-	<div id="embedded-slot-area" style="margin-top:12px;z-index:50;display:block;">
-		<!-- Slot HTML will be injected here when adapter initializes -->
-		<div id="embedded-slot-container"></div>
+		<!-- Embedded slot area: 開発者パネルより上に配置するため、.controls 内に置く -->
+		<div id="embedded-slot-area" style="margin-top:12px;z-index:50;display:block;">
+			<!-- Slot HTML will be injected here when adapter initializes -->
+			<div id="embedded-slot-container"></div>
+		</div>
 	</div>
 
 	<!-- 物理エンジンライブラリ -->
