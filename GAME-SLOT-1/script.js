@@ -207,140 +207,7 @@ class UIManager {
  * - 設定でファイルが指定されていれば fetch で読み込み再生
  * - 未指定時は簡易的な beep 合成で代替
  */
-class SoundManager {
-	constructor(config) {
-		this.config = config || {};
-		this.enabled = Boolean(this.config.sounds?.enabled);
-		this.volume = Number(this.config.sounds?.volume ?? 0.8);
-		this.files = this.config.sounds?.files || {};
-		this.ctx = null;
-		this.buffers = {};
-		if (this.enabled) this._init();
-	}
-
-	async _init() {
-		try {
-			this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-			// 可能ならファイルをプリロード
-			for (const key of ['spinStart', 'reelStop', 'win']) {
-				const path = this.files[key];
-				if (path) {
-					try {
-						const res = await fetch(path);
-						const ab = await res.arrayBuffer();
-						const buf = await this.ctx.decodeAudioData(ab.slice(0));
-						this.buffers[key] = buf;
-					} catch (e) {
-						// 失敗しても合成でフォールバック
-						console.warn('Sound preload failed for', key, e);
-					}
-				}
-			}
-		} catch (e) {
-			console.warn('WebAudio init failed, sound disabled', e);
-			this.enabled = false;
-		}
-	}
-
-	_playBuffer(buf, volOverride = null) {
-		if (!this.enabled || !this.ctx) return;
-		const src = this.ctx.createBufferSource();
-		src.buffer = buf;
-		const gain = this.ctx.createGain();
-		const vol = (typeof volOverride === 'number') ? volOverride : this.volume;
-		gain.gain.value = vol;
-		src.connect(gain).connect(this.ctx.destination);
-		src.start();
-	}
-
-	playSpinStart() {
-		if (!this.enabled) return;
-		if (this.buffers.spinStart) return this._playBuffer(this.buffers.spinStart);
-		// スロットらしい音に調整（高すぎない、温かみのある上昇トーン + 低域のモータ感）
-		// - 上昇トーンは低めの周波数で短く連続させる
-		// - 直後に低域の短いルンブルを入れて回り始めの“重さ”を表現
-		// 少し高めに調整（元のスロット感は維持）
-		this._synthSequence([210, 290, 370], 0.07);
-		// 低域ルンブルを少し遅らせて追加（周波数を上げてやや明るめに）
-		setTimeout(() => this._synthBeep(140, 0.08, 'sine', this.volume * 0.5), 140);
-	}
-
-	playReelStop() {
-		if (!this.enabled) return;
-		if (this.buffers.reelStop) return this._playBuffer(this.buffers.reelStop, this.volume * 0.5);
-		// 停止音は目立たせるため、ループ音より大きめに再生する
-		const vol = Math.min(1.0, this.volume * 0.8); // 以前の約半分（1.6x -> 0.8x）
-		this._synthBeep(800, 0.08, 'square', vol);
-	}
-
-	playWin() {
-		if (!this.enabled) return;
-		if (this.buffers.win) return this._playBuffer(this.buffers.win);
-		// 合成: 上昇トーンのメロディ風
-		this._synthSequence([600, 900, 1200], 0.12);
-	}
-
-	_synthBeep(freq = 440, dur = 0.1, type = 'sine', volOverride = null) {
-		if (!this.ctx) return;
-		const o = this.ctx.createOscillator();
-		const g = this.ctx.createGain();
-		o.type = type;
-		o.frequency.value = freq;
-		const vol = (typeof volOverride === 'number') ? volOverride : this.volume;
-		g.gain.value = vol;
-		o.connect(g).connect(this.ctx.destination);
-		const now = this.ctx.currentTime;
-		g.gain.setValueAtTime(0.0001, now);
-		// より素直なアタックで短いビープ向けに線形フェードを使用
-		g.gain.linearRampToValueAtTime(vol, now + Math.min(0.01, dur / 4));
-		o.start(now);
-		g.gain.linearRampToValueAtTime(0.0001, now + dur);
-		o.stop(now + dur + 0.02);
-	}
-
-	_synthSequence(freqs = [440, 660], dur = 0.12) {
-		if (!this.ctx) return;
-		let t = this.ctx.currentTime;
-		for (const f of freqs) {
-			const o = this.ctx.createOscillator();
-			const g = this.ctx.createGain();
-			o.type = 'sine';
-			o.frequency.value = f;
-			g.gain.value = this.volume;
-			o.connect(g).connect(this.ctx.destination);
-			g.gain.setValueAtTime(0.0001, t);
-			g.gain.exponentialRampToValueAtTime(this.volume, t + 0.01);
-			o.start(t);
-			g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-			o.stop(t + dur + 0.02);
-			t += dur;
-		}
-	}
-
-	// 回転中のループ音（ピコピコ音）を開始（短いビープを間欠的に鳴らす方式）
-	loopStart() {
-		if (!this.enabled || !this.ctx) return;
-		if (this._loopTimer) return; // 既にループ中
-		// 周期的に短いビープを鳴らす。フェーズパターンを用いて段階的な音にする。
-		const pattern = [880, 740, 660, 740];
-		let idx = 0;
-		const intervalMs = 100; // 少し間隔を広げる
-		this._loopTimer = setInterval(() => {
-			const f = pattern[idx % pattern.length];
-			idx++;
-			// さらに音量を下げて目立ちにくくする（全体の体感を抑える）
-			this._synthBeep(f, 0.06, 'square', this.volume * 0.18);
-		}, intervalMs);
-	}
-
-	// 回転中のループ音を停止
-	loopStop() {
-		if (this._loopTimer) {
-			clearInterval(this._loopTimer);
-			this._loopTimer = null;
-		}
-	}
-}
+// 旧 SoundManager 実装は audio.js に分離しました。
 
 
 /**
@@ -369,7 +236,7 @@ class SlotGame {
 		// グローバル参照を設定して UIManager から委譲できるようにする
 		try { window.activeSlotGame = this; } catch (e) { /* ignore */ }
 		// サウンドマネージャを初期化（設定に基づく）
-		this.soundManager = new SoundManager(this.config);
+		this.soundManager = new (window.SlotSoundManager || function () { })(this.config);
 
 		// UIスケールを反映: CSSの --ui-scale を設定し、内部の symbolHeight をスケール
 		const uiScale = Number(this.config.uiScale) || 1;
