@@ -2,27 +2,27 @@
 window.AppConfig = window.AppConfig || {
 	physics: {
 		gravity: { x: 0, y: -30, z: 0 }, // 重力加速度（m/s^2）
-		solverIterations: 60, // 物理ソルバの反復回数（安定性優先で増やす）
+		solverIterations: 80, // 物理ソルバの反復回数（安定性優先で増やす）
+		solverTolerance: 1e-7, // ソルバ許容誤差（小さいほど安定だがコスト増）
 		maxSubSteps: 6, // 1フレーム内の最大サブステップ（不規則なdt対策）
 		// 後方互換（contacts.* 未設定時に参照）
 		contact: { friction: 0.08, restitution: 0.08 },
 		// ペア別の接触設定
 		contacts: {
 			default: { friction: 0.08, restitution: 0.06 }, // ペア設定がない場合の基準（全体的に摩擦を低めに）
-			diceVsBowl: { friction: 0.005, restitution: 0.01 }, // サイコロ×お椀（壁で止まるのを減らす）
-			diceVsDice: { friction: 0.004, restitution: 0.04 } // サイコロ×サイコロ（接触時のすべりを増やす）
+			diceVsBowl: { friction: 0.08, restitution: 0.03 }, // サイコロ×お椀（自然に滑って底へ落ちる）
+			diceVsDice: { friction: 0.06, restitution: 0.02 } // サイコロ×サイコロ（接触時の自然な摩擦）
 		},
 		// 安定化パラメータ（必要に応じて調整）
-		contactEquationStiffness: 1e7, // 接触剛性（大きいほど硬い）
-		contactEquationStiffness: 2e7, // 接触剛性（硬めにして安定させる）
-		contactEquationRelaxation: 2, // 接触緩和
-		frictionEquationStiffness: 2e7, // 摩擦剛性
-		frictionEquationRelaxation: 2, // 摩擦緩和
+		contactEquationStiffness: 5e7, // 接触剛性（硬めにして沈み込みを抑える）
+		contactEquationRelaxation: 1, // 接触緩和（小さくして解を締める）
+		frictionEquationStiffness: 5e7, // 摩擦剛性
+		frictionEquationRelaxation: 1, // 摩擦緩和
 		// 賢い安定化: 角立ち抑制のための追加パラメータ
 		adaptiveDamping: {
 			enabled: true, // 適応ダンピング有効化
-			angularThreshold: 0.5, // 角速度しきい値（これ以上でダンピング強化）
-			boostFactor: 2.0 // 強化倍率
+			angularThreshold: 0.3, // 角速度しきい値（高回転でのみ強化する）
+			boostFactor: 1.5 // 強化倍率（過剰抑制を避ける）
 		}
 	},
 	bowl: {
