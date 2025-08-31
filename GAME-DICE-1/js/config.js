@@ -2,27 +2,26 @@
 window.AppConfig = window.AppConfig || {
 	physics: {
 		gravity: { x: 0, y: -30, z: 0 }, // 重力加速度（m/s^2）
-		solverIterations: 80, // 物理ソルバの反復回数（安定性優先で増やす）
-		solverTolerance: 1e-7, // ソルバ許容誤差（小さいほど安定だがコスト増）
+		solverIterations: 60, // 物理ソルバの反復回数（安定性優先で増やす）
 		maxSubSteps: 6, // 1フレーム内の最大サブステップ（不規則なdt対策）
 		// 後方互換（contacts.* 未設定時に参照）
 		contact: { friction: 0.08, restitution: 0.08 },
 		// ペア別の接触設定
 		contacts: {
-			default: { friction: 0.08, restitution: 0.06 }, // ペア設定がない場合の基準（全体的に摩擦を低めに）
-			diceVsBowl: { friction: 0.08, restitution: 0.03 }, // サイコロ×お椀（自然に滑って底へ落ちる）
-			diceVsDice: { friction: 0.06, restitution: 0.02 } // サイコロ×サイコロ（接触時の自然な摩擦）
+			default: { friction: 0.08, restitution: 0.03 }, // 弾みを少し抑える
+			diceVsBowl: { friction: 0.04, restitution: 0.02 }, // 壁面での角立ち抑制（摩擦わずかに戻す）
+			diceVsDice: { friction: 0.05, restitution: 0.02 } // サイコロ×サイコロの弾みを抑える
 		},
 		// 安定化パラメータ（必要に応じて調整）
-		contactEquationStiffness: 5e7, // 接触剛性（硬めにして沈み込みを抑える）
-		contactEquationRelaxation: 1, // 接触緩和（小さくして解を締める）
-		frictionEquationStiffness: 5e7, // 摩擦剛性
-		frictionEquationRelaxation: 1, // 摩擦緩和
+		contactEquationStiffness: 2e7, // 接触剛性（硬めにして安定させる）
+		contactEquationRelaxation: 2, // 接触緩和
+		frictionEquationStiffness: 2e7, // 摩擦剛性
+		frictionEquationRelaxation: 2, // 摩擦緩和
 		// 賢い安定化: 角立ち抑制のための追加パラメータ
 		adaptiveDamping: {
 			enabled: true, // 適応ダンピング有効化
-			angularThreshold: 0.3, // 角速度しきい値（高回転でのみ強化する）
-			boostFactor: 1.5 // 強化倍率（過剰抑制を避ける）
+			angularThreshold: 0.5, // 角速度しきい値（これ以上でダンピング強化）
+			boostFactor: 2.0 // 強化倍率
 		}
 	},
 	bowl: {
@@ -73,15 +72,12 @@ window.AppConfig = window.AppConfig || {
 		maxLinearVelocity: 12.0, // フレーム中の速度上限
 		maxAngularVelocity: 40.0, // フレーム中の角速度上限
 		angularVelocityScale: 15, // 初期角速度スケール
-		linearDamping: 0.01, // 線形減衰
 		linearDamping: 0.02, // 線形減衰（転がりの自然な減衰）
 		angularDamping: 0.02, // 角減衰
 		rollingFrictionTorque: 0.03, // 疑似転がり摩擦トルク（自然な回転減衰）
-		sleepSpeedLimit: 0.06, // スリープ判定: 速度（小さくして早期sleepを防ぐ）
-		sleepTimeLimit: 1.5, // スリープ判定: 継続時間[s]
-		sleepSpeedLimit: 0.06, // スリープ判定: 速度（小さくして早期sleepを防ぐ）
-		sleepTimeLimit: 1.5, // スリープ判定: 継続時間[s]
-		cornerRadius: 0.26, // 物理ボディの角丸半径（やや大きめにして角立ちを抑制）
+		sleepSpeedLimit: 0.1, // スリープ判定: 速度（やや厳しめ）
+		sleepTimeLimit: 1.6, // スリープ判定: 継続時間[s]
+		cornerRadius: 0.2, // 物理ボディの角丸半径（0.18〜0.22 推奨）
 		edgeSegments: 8, // 角丸エッジの円柱分割数（滑らかさ）
 		// 任意: 内部バラストで重心を下げる（外観・当たり判定は変えず安定化）
 		ballast: {
@@ -89,14 +85,6 @@ window.AppConfig = window.AppConfig || {
 			offsetY: 0.15, // バラストの下方向オフセット量
 			radius: 0.2, // バラスト球の半径（サイコロサイズ基準）
 			layers: 3 // 体積を稼ぐための重ね個数（内側に重ねる）
-		},
-		// 角で止まりそうなときに軽く揺り動かして倒す補助（物理ステップ内で実行）
-		tipNudge: {
-			enabled: true,
-			linearThreshold: 0.06, // これ以下の線速度で揺り動かし候補
-			angularThreshold: 0.06, // これ以下の角速度で揺り動かし候補
-			faceAlignThreshold: 0.92, // 最も近い面と上方向のdotがこれ以下なら不安定
-			nudgeStrength: 0.02 // 揺り動かしトルクの強さ（小さめ）
 		},
 		// 任意: 疑似転がり摩擦（微小トルクで回転を減衰）
 		rollingFrictionTorque: 0.0 // 0で無効。0.02〜0.08程度で調整

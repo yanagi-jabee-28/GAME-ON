@@ -92,40 +92,6 @@
 						b.torque.y += k * av.y;
 						b.torque.z += k * av.z;
 					}
-					// tip-nudge: ほとんど静止して角・辺で止まりそうなサイコロを軽く揺らす
-					try {
-						const cfg = (window.AppConfig && window.AppConfig.dice) || {};
-						const tn = cfg.tipNudge || {};
-						if (tn.enabled && b.sleepState !== CANNON.Body.SLEEPING) {
-							const vmag = (b.velocity && b.velocity.length()) || 0;
-							const amag = (b.angularVelocity && b.angularVelocity.length()) || 0;
-							if (vmag <= (tn.linearThreshold || 0.06) && amag <= (tn.angularThreshold || 0.06)) {
-								// find most-upward face normal by testing body orientation against axis normals
-								// use body.quaternion to compute world-space face normals for cube axes
-								const q = b.quaternion;
-								// candidate normals (cube local axes)
-								const locals = [new CANNON.Vec3(1, 0, 0), new CANNON.Vec3(-1, 0, 0), new CANNON.Vec3(0, 1, 0), new CANNON.Vec3(0, -1, 0), new CANNON.Vec3(0, 0, 1), new CANNON.Vec3(0, 0, -1)];
-								let maxDot = -2; let maxIdx = -1; const up = new CANNON.Vec3(0, 1, 0);
-								for (let li = 0; li < locals.length; li++) {
-									const w = locals[li].clone();
-									q.vmult(w, w); // rotate to world
-									const d = w.dot(up);
-									if (d > maxDot) { maxDot = d; maxIdx = li; }
-								}
-								// if top face is nearly vertical (edge/corner), apply small random torque
-								if (maxDot < (tn.faceAlignThreshold || 0.92)) {
-									const s = tn.nudgeStrength || 0.02;
-									// small random torque perpendicular to up
-									const rx = (Math.random() - 0.5) * s;
-									const ry = (Math.random() - 0.5) * s;
-									const rz = (Math.random() - 0.5) * s;
-									b.torque.x += rx;
-									b.torque.y += ry;
-									b.torque.z += rz;
-								}
-							}
-						}
-					} catch (e) { /* ignore tip-nudge failures */ }
 				}
 			});
 		} catch (e) { /* ignore if world events unsupported */ }
