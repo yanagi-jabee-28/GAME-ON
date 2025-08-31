@@ -48,6 +48,11 @@ window.AppConfig = window.AppConfig || {
 	render: {
 		cameraPosition: { x: 0, y: 10, z: 12 }
 	},
+	debug: {
+		enabled: true,
+		rotateSpeed: 0.005,
+		zoomSpeed: 1.0
+	},
 	ui: {
 		autoThrowDelay: 50,
 		resultCheckDelay: 2000,

@@ -70,6 +70,10 @@
 			this.rollButton.addEventListener('click', this.throwDice);
 			window.addEventListener('resize', this.onWindowResize);
 			this.animate();
+
+			// debug camera controls
+			const debugCfg = (window.AppConfig && window.AppConfig.debug) || {};
+			this._debugControls = window.DebugTools && window.DebugTools.setupCameraControls(this.scene, this.camera, this.renderer, debugCfg);
 		}
 
 		createBowlMesh() {
