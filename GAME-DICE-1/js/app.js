@@ -23,20 +23,43 @@
 			this.scene = new THREE.Scene();
 			this.scene.background = new THREE.Color(0xf0f2f5);
 			this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-			this.camera.position.set(0, 10, 12);
+			const camPos = (this.cfg && this.cfg.render && this.cfg.render.cameraPosition) || { x: 0, y: 10, z: 12 };
+			this.camera.position.set(camPos.x, camPos.y, camPos.z);
 			this.camera.lookAt(0, 0, 0);
 
 			this.renderer = new THREE.WebGLRenderer({ antialias: true });
 			this.renderer.setSize(window.innerWidth, window.innerHeight);
 			this.renderer.shadowMap.enabled = true;
+			// use softer shadow algorithm when available
+			if (THREE.PCFSoftShadowMap) this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 			this.container.appendChild(this.renderer.domElement);
 
-			const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+			const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
 			this.scene.add(ambientLight);
-			const dir = new THREE.DirectionalLight(0xffffff, 0.7);
+			const dir = new THREE.DirectionalLight(0xffffff, 0.6);
 			dir.position.set(5, 10, 7.5);
 			dir.castShadow = true;
+			// tune shadow map size and bias for smoother, less aliased shadows
+			dir.shadow.mapSize.width = 2048;
+			dir.shadow.mapSize.height = 2048;
+			dir.shadow.bias = -0.0005;
+			if (dir.shadow.radius !== undefined) dir.shadow.radius = 3;
+			// enlarge shadow camera to cover bowl area
+			const d = 12;
+			if (dir.shadow.camera) {
+				dir.shadow.camera.near = 1;
+				dir.shadow.camera.far = 50;
+				if (dir.shadow.camera.left !== undefined) {
+					dir.shadow.camera.left = -d;
+					dir.shadow.camera.right = d;
+					dir.shadow.camera.top = d;
+					dir.shadow.camera.bottom = -d;
+				}
+			}
 			this.scene.add(dir);
+			// add a subtle hemisphere fill light to reduce harsh contrast
+			const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.35);
+			this.scene.add(hemi);
 
 			// physics
 			const ph = PhysicsHelper.createWorld();
@@ -81,29 +104,74 @@
 			const bowlCfg = cfg.bowl || {};
 			let profile;
 			if (bowlCfg.sphere && bowlCfg.sphere.enabled) {
-				// build a clean spherical slice using SphereGeometry to avoid lathe seams
-				const r = bowlCfg.sphere.radius || 6.0;
-				const openingY = (bowlCfg.sphere.openingY != null) ? bowlCfg.sphere.openingY : 2.0;
-				// compute thetaStart so that y = r * cos(theta) <= openingY -> theta >= acos(openingY / r)
-				const thetaStart = Math.acos(Math.min(1, Math.max(-1, openingY / r)));
-				const thetaLength = Math.PI - thetaStart; // from thetaStart down to PI (bottom)
+				// create inner + outer hemisphere geometries to represent a shell with thickness
+				const r = bowlCfg.sphere.radius || 6.0; // outer radius
+				const thickness = (bowlCfg.sphere.thickness != null) ? bowlCfg.sphere.thickness : 0.3;
+				const innerR = Math.max(0.001, r - thickness);
+				// hemisphere: equator -> thetaStart = PI/2
+				const thetaStart = Math.PI / 2;
+				const thetaLength = Math.PI / 2;
 				const widthSeg = bowlCfg.angularSegments || 128;
 				const heightSeg = Math.max(8, Math.floor((bowlCfg.sphere.sampleCount || 72) / 2));
-				var g = new THREE.SphereGeometry(r, widthSeg, heightSeg, 0, Math.PI * 2, thetaStart, thetaLength);
-				// set a minimal profile entry so later code that checks profile[0] is safe
-				profile = [new THREE.Vector2(0, -r)];
-				g.computeVertexNormals();
+				const outerG = new THREE.SphereGeometry(r, widthSeg, heightSeg, 0, Math.PI * 2, thetaStart, thetaLength);
+				const innerG = new THREE.SphereGeometry(innerR, widthSeg, heightSeg, 0, Math.PI * 2, thetaStart, thetaLength);
+				outerG.computeVertexNormals(); innerG.computeVertexNormals();
+				if (typeof outerG.computeBoundingSphere === 'function') outerG.computeBoundingSphere();
+				if (typeof innerG.computeBoundingSphere === 'function') innerG.computeBoundingSphere();
+				// build meshes: inner uses BackSide, outer uses FrontSide so shell looks solid
+				const outerMat = new THREE.MeshStandardMaterial({ color: bowlCfg.centerCover && bowlCfg.centerCover.visual && bowlCfg.centerCover.visual.color ? bowlCfg.centerCover.visual.color : 0xA1887F, roughness: 0.72, metalness: 0.08, side: THREE.FrontSide });
+				const innerMat = new THREE.MeshStandardMaterial({ color: bowlCfg.centerCover && bowlCfg.centerCover.visual && bowlCfg.centerCover.visual.color ? bowlCfg.centerCover.visual.color : 0xA1887F, roughness: 0.6, metalness: 0.05, side: THREE.BackSide });
+				const outerMesh = new THREE.Mesh(outerG, outerMat);
+				const innerMesh = new THREE.Mesh(innerG, innerMat);
+				outerMesh.castShadow = true; outerMesh.receiveShadow = true;
+				innerMesh.castShadow = false; innerMesh.receiveShadow = true;
+				const group = new THREE.Group();
+				group.add(outerMesh);
+				group.add(innerMesh);
+				// add a thin ring at the opening to hide the seam between inner and outer shells
+				try {
+					const openingY = (bowlCfg.sphere && bowlCfg.sphere.openingY != null) ? bowlCfg.sphere.openingY : 0.0;
+					const rOuterAtOpening = Math.sqrt(Math.max(0, r * r - openingY * openingY));
+					const rInnerAtOpening = Math.sqrt(Math.max(0, innerR * innerR - openingY * openingY));
+					if (rOuterAtOpening > rInnerAtOpening + 0.001) {
+						const ringGeom = new THREE.RingGeometry(rInnerAtOpening, rOuterAtOpening, widthSeg);
+						if (typeof ringGeom.computeBoundingSphere === 'function') ringGeom.computeBoundingSphere();
+						const ringMat = new THREE.MeshStandardMaterial({ color: bowlCfg.centerCover && bowlCfg.centerCover.visual && bowlCfg.centerCover.visual.color ? bowlCfg.centerCover.visual.color : 0xA1887F, side: THREE.DoubleSide, roughness: 0.7, metalness: 0.1 });
+						const ring = new THREE.Mesh(ringGeom, ringMat);
+						ring.rotation.x = -Math.PI / 2;
+						ring.position.y = openingY + 0.001; // slight offset to avoid z-fighting
+						ring.receiveShadow = true;
+						group.add(ring);
+					}
+				} catch (e) { /* non-critical: continue without ring */ }
+				// set profile so later code remains safe (use inner radius for profile sampling)
+				profile = [new THREE.Vector2(0, -innerR)];
+				var g = group;
 			} else {
 				profile = (bowlCfg.profilePoints || [{ r: 0.1, y: -2.2 }, { r: 3.0, y: -1.5 }, { r: 6.0, y: 2.0 }]).map(p => new THREE.Vector2(p.r, p.y));
 				const segments = bowlCfg.angularSegments || 128;
 				var g = new THREE.LatheGeometry(profile, segments);
 				g.computeVertexNormals();
+				if (typeof g.computeBoundingSphere === 'function') g.computeBoundingSphere();
 			}
 			// prefer BackSide for sphere interior so the inner surface is visible
 			const useBack = bowlCfg.sphere && bowlCfg.sphere.enabled;
-			const m = new THREE.MeshStandardMaterial({ color: bowlCfg.centerCover && bowlCfg.centerCover.visual && bowlCfg.centerCover.visual.color ? bowlCfg.centerCover.visual.color : 0xA1887F, roughness: 0.7, metalness: 0.1, side: useBack ? THREE.BackSide : THREE.DoubleSide });
-			const mesh = new THREE.Mesh(g, m);
-			mesh.receiveShadow = true;
+			let mesh;
+			if (g.type === 'Group') {
+				// already created inner/outer meshes; ensure they receive/cast shadows and have bounding data
+				g.traverse(child => {
+					if (child.isMesh) {
+						child.receiveShadow = true; child.castShadow = true;
+						if (child.geometry && typeof child.geometry.computeBoundingSphere === 'function') child.geometry.computeBoundingSphere();
+					}
+				});
+				mesh = g;
+			} else {
+				const m = new THREE.MeshStandardMaterial({ color: bowlCfg.centerCover && bowlCfg.centerCover.visual && bowlCfg.centerCover.visual.color ? bowlCfg.centerCover.visual.color : 0xA1887F, roughness: 0.7, metalness: 0.1, side: useBack ? THREE.BackSide : THREE.DoubleSide });
+				if (g && g.computeBoundingSphere && typeof g.computeBoundingSphere === 'function') g.computeBoundingSphere();
+				mesh = new THREE.Mesh(g, m);
+				mesh.receiveShadow = true;
+			}
 			// add optional visual center cover to hide hole
 			const profileStartsAtZero = profile.length && profile[0].x === 0;
 			if (!profileStartsAtZero && bowlCfg.centerCover && bowlCfg.centerCover.enabled && bowlCfg.centerCover.visual && bowlCfg.centerCover.visual.enabled) {
@@ -116,12 +184,13 @@
 				const radius = Math.max(configured, autoRadius);
 				const color = bowlCfg.centerCover.visual.color || 0xA1887F;
 				const capGeom = new THREE.CircleGeometry(radius, 32);
+				if (typeof capGeom.computeBoundingSphere === 'function') capGeom.computeBoundingSphere();
 				const capMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.7, metalness: 0.1 });
 				const cap = new THREE.Mesh(capGeom, capMat);
 				cap.rotation.x = -Math.PI / 2;
 				cap.position.y = profile[0].y + 0.01; // slightly above to avoid z-fighting
 				cap.receiveShadow = true;
-				mesh.add(cap);
+				if (mesh.type === 'Group') mesh.add(cap); else mesh.add(cap);
 			}
 			return mesh;
 		}
@@ -130,6 +199,8 @@
 			const size = 1;
 			const half = size / 2;
 			const g = new THREE.BoxGeometry(size, size, size);
+			if (g && typeof g.computeBoundingSphere === 'function') g.computeBoundingSphere();
+			if (g && typeof g.computeBoundingBox === 'function') g.computeBoundingBox();
 			// Create per-face materials with correct pip layouts (1..6)
 			function createFaceMaterial(n, rotationDeg = 0) {
 				const canvas = document.createElement('canvas');
@@ -228,7 +299,39 @@
 					this.isCheckingResult = false;
 				}
 			}
-			this.renderer.render(this.scene, this.camera);
+			try {
+				// Pre-render sanitization: ensure geometries and texture maps have the fields three.js expects
+				this.scene.traverse(obj => {
+					if (obj.isMesh) {
+						if (obj.geometry) {
+							if (!obj.geometry.boundingSphere && typeof obj.geometry.computeBoundingSphere === 'function') obj.geometry.computeBoundingSphere();
+							if (!obj.geometry.boundingBox && typeof obj.geometry.computeBoundingBox === 'function') obj.geometry.computeBoundingBox();
+						}
+						const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+						mats.forEach(m => {
+							if (!m) return;
+							if (m.map) {
+								if (m.map.center === undefined || m.map.center === null) m.map.center = new THREE.Vector2(0.5, 0.5);
+							}
+						});
+					}
+				});
+				this.renderer.render(this.scene, this.camera);
+			} catch (err) {
+				console.error('Render error caught:', err);
+				// Inspect scene to find potential culprit meshes/geometry
+				this.scene.traverse(obj => {
+					if (obj.isMesh) {
+						if (obj.geometry && !obj.geometry.boundingSphere) console.warn('Mesh missing boundingSphere', obj);
+						const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+						mats.forEach(m => {
+							if (!m) return;
+							if (m.map && (m.map.center === undefined || m.map.center === null)) console.warn('Material map missing center', obj, m.map);
+						});
+					}
+				});
+				throw err;
+			}
 		}
 
 		onWindowResize() { this.camera.aspect = window.innerWidth / window.innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(window.innerWidth, window.innerHeight); }

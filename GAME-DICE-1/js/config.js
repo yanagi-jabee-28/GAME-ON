@@ -16,8 +16,10 @@ window.AppConfig = window.AppConfig || {
 		sphere: {
 			enabled: true,
 			radius: 6.0,
-			openingY: 2.0,
-			sampleCount: 72
+			// openingY == 0 produces a true hemisphere (cut at the equator)
+			openingY: 0.0,
+			sampleCount: 72,
+			thickness: 0.3
 		},
 		// centerCover: visual and/or physics cover for the central hole
 		centerCover: {
@@ -46,7 +48,8 @@ window.AppConfig = window.AppConfig || {
 		angularDamping: 0.01
 	},
 	render: {
-		cameraPosition: { x: 0, y: 10, z: 12 }
+		// default camera placed diagonally above looking down at the bowl
+		cameraPosition: { x: 8, y: 9, z: 8 }
 	},
 	debug: {
 		enabled: true,
