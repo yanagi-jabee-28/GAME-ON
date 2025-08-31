@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>3D Dice Roller</title>
+	<style>
+		/* CSS for layout and styling */
+		body {
+			margin: 0;
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+			background-color: #f0f2f5;
+			color: #333;
+			overflow: hidden;
+			/* Hide scrollbars */
+		}
+
+		#info {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			padding: 20px;
+			box-sizing: border-box;
+			text-align: center;
+			z-index: 10;
+			pointer-events: none;
+			/* Allow clicks to pass through */
+		}
+
+		h1 {
+			margin: 0 0 10px 0;
+			font-size: 2rem;
+			color: #1a237e;
+		}
+
+		#result {
+			font-size: 1.5rem;
+			font-weight: bold;
+			color: #d32f2f;
+			background-color: rgba(255, 255, 255, 0.8);
+			padding: 5px 15px;
+			border-radius: 8px;
+			display: inline-block;
+			min-height: 1.5rem;
+		}
+
+		#rollButton {
+			position: absolute;
+			bottom: 30px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 15px 30px;
+			font-size: 1.2rem;
+			font-weight: bold;
+			color: white;
+			background: linear-gradient(145deg, #3d5afe, #1e88e5);
+			border: none;
+			border-radius: 50px;
+			cursor: pointer;
+			box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+			transition: all 0.2s ease-in-out;
+			z-index: 20;
+		}
+
+		#rollButton:hover {
+			transform: translateX(-50%) scale(1.05);
+			box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+		}
+
+		#rollButton:active {
+			transform: translateX(-50%) scale(0.98);
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+		}
+
+		#container {
+			width: 100vw;
+			height: 100vh;
+			display: block;
+		}
+	</style>
+</head>
+
+<body>
+
+	<div id="info">
+		<h1>3D Dice Roller</h1>
+		<p>出目: <span id="result"></span></p>
+	</div>
+
+	<div id="container"></div>
+	<button id="rollButton">サイコロを振る</button>
+
+	<!-- Import 3D and physics libraries -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+
+	<script>
+		// --- J.A.R.V.I.S. Engineering Log ---
+		// Project: 3D Dice Roller
+		// Principle: Minimize the scope of influence.
+		// Strategy: Decouple rendering (Three.js) from physics (Cannon.js).
+		//           Encapsulate dice creation and state management.
+		//           Avoid global state pollution.
+		// Review: Code self-reviewed for clarity, adherence to DRY, and "Why" comments.
+
+		class DiceRollerApp {
+			constructor() {
+				this.container = document.getElementById('container');
+				this.resultElement = document.getElementById('result');
+				this.rollButton = document.getElementById('rollButton');
+
+				this.scene = null;
+				this.camera = null;
+				this.renderer = null;
+				this.world = null;
+				this.dice = []; // To hold dice objects { mesh, body }
+				this.isCheckingResult = false; // Flag to prevent multiple checks
+				this.checkResultTimeout = null;
+
+				// Bind methods to ensure 'this' context is correct
+				this.init = this.init.bind(this);
+				this.animate = this.animate.bind(this);
+				this.throwDice = this.throwDice.bind(this);
+				this.onWindowResize = this.onWindowResize.bind(this);
+			}
+
+			/**
+			 * Initializes the entire 3D scene, physics world, and event listeners.
+			 */
+			init() {
+				// --- Scene and Camera Setup ---
+				this.scene = new THREE.Scene();
+				// --- Create Dice ---
+				this.scene.background = new THREE.Color(0xf0f2f5);
+				this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+				this.camera.position.set(0, 10, 12); // Adjusted camera for better view of the bowl
+				this.camera.lookAt(0, 0, 0);
+
+				// --- Renderer Setup ---
+				this.renderer = new THREE.WebGLRenderer({ antialias: true });
+				this.renderer.setSize(window.innerWidth, window.innerHeight);
+				this.renderer.shadowMap.enabled = true; // Enable shadows for realism
+				this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+				this.container.appendChild(this.renderer.domElement);
+
+				// --- Lighting ---
+				// Ambient light to softly illuminate the whole scene.
+				const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+				this.scene.add(ambientLight);
+
+				// Directional light to cast shadows.
+				const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+				directionalLight.position.set(5, 10, 7.5);
+				directionalLight.castShadow = true;
+				directionalLight.shadow.mapSize.width = 1024;
+				directionalLight.shadow.mapSize.height = 1024;
+				this.scene.add(directionalLight);
+
+				// --- Physics World Setup (Cannon.js) ---
+				this.world = new CANNON.World();
+				this.world.gravity.set(0, -9.82, 0); // Realistic gravity
+				// Use SAP broadphase where available for better static/concave collision handling
+				if (CANNON.SAPBroadphase) {
+					this.world.broadphase = new CANNON.SAPBroadphase(this.world);
+				} else {
+					this.world.broadphase = new CANNON.NaiveBroadphase();
+				}
+				// Increase solver iterations to reduce tunneling for fast/tight collisions
+				this.world.solver.iterations = 40;
+
+				// --- Physics materials ---
+				// Create materials to control friction and restitution between objects
+				this.defaultMaterial = new CANNON.Material('defaultMaterial');
+				this.diceMaterial = new CANNON.Material('diceMaterial');
+				// Contact material between dice and bowl/world
+				const diceDefaultContact = new CANNON.ContactMaterial(this.diceMaterial, this.defaultMaterial, {
+					friction: 0.4,
+					restitution: 0.1,
+				});
+				this.world.addContactMaterial(diceDefaultContact);
+
+				// --- Create Bowl ---
+				this.createBowl();
+
+				// --- Create Bowl ---
+				// --- Create Dice ---
+				const diceObject = this.createDice(new THREE.Vector3(0, 5, 0));
+				this.dice.push(diceObject);
+				this.scene.add(diceObject.mesh);
+				this.world.addBody(diceObject.body);
+
+
+				// --- Event Listeners ---
+				this.rollButton.addEventListener('click', this.throwDice);
+				window.addEventListener('resize', this.onWindowResize);
+
+				// Start the animation loop
+				this.animate();
+			}
+
+			/**
+			 * Creates the bowl for the dice to roll in.
+			 * Why LatheGeometry and Trimesh? This combination allows us to create a complex,
+			 * curved shape (the bowl) and have its physics representation match the visual
+			 * model exactly, leading to realistic collisions.
+			 */
+			createBowl() {
+				// --- Three.js visual bowl ---
+				// Define the 2D profile (cross-section) of the bowl.
+				// Why these points? We define a simpler, smoother curve to ensure the
+				// generated physics mesh (Trimesh) is clean and matches the visual model,
+				// preventing the dice from falling through or floating.
+				const points = [
+					new THREE.Vector2(0.1, -2.2), // Bottom-most center point
+					new THREE.Vector2(3.0, -1.5), // Mid-point to define the curve
+					new THREE.Vector2(6.0, 2.0)   // Rim
+				];
+				// Create a 3D shape by rotating the 2D profile around the Y-axis.
+				const bowlGeometry = new THREE.LatheGeometry(points, 32, 0, Math.PI * 2);
+				const bowlMaterial = new THREE.MeshStandardMaterial({
+					color: 0xA1887F, // A ceramic/wooden bowl color
+					roughness: 0.7,
+					metalness: 0.1,
+					side: THREE.DoubleSide // Render both inside and outside faces
+				});
+				const bowlMesh = new THREE.Mesh(bowlGeometry, bowlMaterial);
+				bowlMesh.receiveShadow = true;
+				this.scene.add(bowlMesh);
+
+				// --- Cannon.js physics body for the bowl ---
+				// We'll approximate the concave bowl using many small static boxes (tiles)
+				// placed on the bowl surface. This is robust and simple to compute.
+				bowlMesh.updateMatrixWorld(true);
+
+				const profilePoints = [
+					{ r: 0.1, y: -2.2 },
+					{ r: 3.0, y: -1.5 },
+					{ r: 6.0, y: 2.0 }
+				];
+
+				const maxR = 6.0;
+				function sampleProfile(r) {
+					if (r <= profilePoints[0].r) return profilePoints[0].y;
+					for (let i = 0; i < profilePoints.length - 1; i++) {
+						const a = profilePoints[i];
+						const b = profilePoints[i + 1];
+						if (r >= a.r && r <= b.r) {
+							const t = (r - a.r) / (b.r - a.r);
+							return a.y * (1 - t) + b.y * t;
+						}
+					}
+					return profilePoints[profilePoints.length - 1].y;
+				}
+
+				const radialSlices = 12;
+				const angularSegments = 36;
+				const radialThickness = maxR / radialSlices;
+				const bowlBody = new CANNON.Body({ mass: 0, material: this.defaultMaterial });
+				let tileCount = 0;
+
+				for (let r = 0; r < radialSlices; r++) {
+					const rInner = (r / radialSlices) * maxR;
+					const rOuter = ((r + 1) / radialSlices) * maxR;
+					const rMid = (rInner + rOuter) / 2;
+					const arcApprox = (2 * Math.PI * Math.max(rMid, 0.001)) / angularSegments;
+					const tileHalfX = Math.max(arcApprox / 2, 0.05);
+					const tileHalfZ = Math.max(radialThickness / 2, 0.05);
+					const tileHalfY = 0.25; // thickness / 2
+
+					for (let a = 0; a < angularSegments; a++) {
+						const theta = (a / angularSegments) * Math.PI * 2;
+						const x = rMid * Math.cos(theta);
+						const z = rMid * Math.sin(theta);
+						const y = sampleProfile(rMid);
+
+						const box = new CANNON.Box(new CANNON.Vec3(tileHalfX, tileHalfY, tileHalfZ));
+						const localOffset = new CANNON.Vec3(x, y - tileHalfY, z);
+						bowlBody.addShape(box, localOffset);
+						tileCount++;
+					}
+				}
+
+				bowlBody.updateMassProperties();
+				this.world.addBody(bowlBody);
+				console.log('Added', tileCount, 'box tiles to bowl body');
+
+			}
+
+			/**
+			 * Creates a single die object containing both mesh and physics body.
+			 * @param {THREE.Vector3} position - The initial position of the die.
+			 * @returns {{mesh: THREE.Mesh, body: CANNON.Body}}
+			 */
+			createDice(position) {
+				// Three.js dice mesh
+				const size = 1;
+				const halfSize = size / 2;
+				const diceGeometry = new THREE.BoxGeometry(size, size, size);
+
+				// Create materials for each face using CanvasTexture
+				// This approach dynamically creates the textures, avoiding external image files.
+				const materials = [
+					this.createDiceFaceMaterial(1), // right
+					this.createDiceFaceMaterial(6), // left
+					this.createDiceFaceMaterial(2), // top
+					this.createDiceFaceMaterial(5), // bottom
+					this.createDiceFaceMaterial(3), // front
+					this.createDiceFaceMaterial(4), // back
+				];
+
+				const diceMesh = new THREE.Mesh(diceGeometry, materials);
+				diceMesh.castShadow = true;
+				diceMesh.position.copy(position);
+
+				// Cannon.js dice body
+				const diceShape = new CANNON.Box(new CANNON.Vec3(halfSize, halfSize, halfSize));
+				const diceBody = new CANNON.Body({
+					mass: 1,
+					position: new CANNON.Vec3(position.x, position.y, position.z),
+					shape: diceShape,
+					material: this.diceMaterial,
+				});
+
+				// Improve collision response for dice
+				diceBody.linearDamping = 0.01;
+				diceBody.angularDamping = 0.01;
+
+				return { mesh: diceMesh, body: diceBody };
+			}
+
+			/**
+			 * Generates a texture for a single face of the die.
+			 * @param {number} number - The number to draw on the face (1-6).
+			 * @returns {THREE.MeshStandardMaterial}
+			 */
+			createDiceFaceMaterial(number) {
+				const canvas = document.createElement('canvas');
+				const context = canvas.getContext('2d');
+				canvas.width = 128;
+				canvas.height = 128;
+
+				// Background
+				context.fillStyle = 'white';
+				context.fillRect(0, 0, 128, 128);
+
+				// Rounded rectangle
+				context.fillStyle = 'white';
+				context.strokeStyle = '#cccccc';
+				context.lineWidth = 4;
+				context.beginPath();
+				context.moveTo(10, 0);
+				context.arcTo(128, 0, 128, 128, 10);
+				context.arcTo(128, 128, 0, 128, 10);
+				context.arcTo(0, 128, 0, 0, 10);
+				context.arcTo(0, 0, 128, 0, 10);
+				context.closePath();
+				context.fill();
+				context.stroke();
+
+
+				// Dots
+				context.fillStyle = 'black';
+				const dotPositions = {
+					1: [[64, 64]],
+					2: [[32, 32], [96, 96]],
+					3: [[32, 32], [64, 64], [96, 96]],
+					4: [[32, 32], [96, 32], [32, 96], [96, 96]],
+					5: [[32, 32], [96, 32], [64, 64], [32, 96], [96, 96]],
+					6: [[32, 32], [96, 32], [32, 64], [96, 64], [32, 96], [96, 96]],
+				};
+
+				const positions = dotPositions[number];
+				if (positions) {
+					positions.forEach(pos => {
+						context.beginPath();
+						context.arc(pos[0], pos[1], 10, 0, Math.PI * 2);
+						context.fill();
+					});
+				}
+
+				const texture = new THREE.CanvasTexture(canvas);
+				return new THREE.MeshStandardMaterial({ map: texture, roughness: 0.3, metalness: 0.1 });
+			}
+
+			/**
+			 * Throws the dice by resetting its position and applying torque.
+			 */
+			throwDice() {
+				this.resultElement.textContent = '...';
+				this.isCheckingResult = false; // Reset check flag on new throw
+				clearTimeout(this.checkResultTimeout);
+
+				this.dice.forEach(d => {
+					const body = d.body;
+
+					// Reset position to a high point and velocity to zero.
+					body.position.set(
+						(Math.random() - 0.5) * 1, // Slight random x/z offset
+						5,                           // Drop from a height of 5
+						(Math.random() - 0.5) * 1  // Slight random x/z offset
+					);
+					body.velocity.set(0, 0, 0);
+
+					// Apply random torque to make it spin and tumble naturally.
+					body.angularVelocity.set(
+						(Math.random() - 0.5) * 15,
+						(Math.random() - 0.5) * 15,
+						(Math.random() - 0.5) * 15
+					);
+				});
+
+				// Set a timeout to check the result after the dice has had time to settle.
+				this.checkResultTimeout = setTimeout(() => this.scheduleResultCheck(), 2000);
+			}
+
+			/**
+			 * Schedules a check to determine the dice result after it has settled.
+			 */
+			scheduleResultCheck() {
+				this.isCheckingResult = true;
+			}
+
+			/**
+			 * Determines which face of the die is pointing upwards.
+			 * @param {THREE.Mesh} diceMesh - The mesh of the die to check.
+			 * @returns {number} The number on the top face (1-6).
+			 */
+			getDiceFace(diceMesh) {
+				let maxDot = -1;
+				let topFace = -1;
+
+				const faceNormals = [
+					new THREE.Vector3(1, 0, 0),  // Face 1 (right)
+					new THREE.Vector3(-1, 0, 0), // Face 6 (left)
+					new THREE.Vector3(0, 1, 0),  // Face 2 (top)
+					new THREE.Vector3(0, -1, 0), // Face 5 (bottom)
+					new THREE.Vector3(0, 0, 1),  // Face 3 (front)
+					new THREE.Vector3(0, 0, -1)  // Face 4 (back)
+				];
+
+				const faceValues = [1, 6, 2, 5, 3, 4];
+				const upVector = new THREE.Vector3(0, 1, 0);
+
+				for (let i = 0; i < faceNormals.length; i++) {
+					const normal = faceNormals[i].clone();
+					// Apply the die's rotation to the face normal
+					normal.applyQuaternion(diceMesh.quaternion);
+					// Calculate the dot product with the 'up' vector
+					const dot = normal.dot(upVector);
+
+					if (dot > maxDot) {
+						maxDot = dot;
+						topFace = faceValues[i];
+					}
+				}
+				return topFace;
+			}
+
+			/**
+			 * The main animation loop.
+			 */
+			animate() {
+				requestAnimationFrame(this.animate);
+
+				// Step the physics world with a few substeps to reduce tunneling for fast-moving objects
+				const timeStep = 1 / 60;
+				const maxSubSteps = 5; // increase substeps to reduce tunneling
+				this.world.step(timeStep, undefined, maxSubSteps);
+
+				// Sync Three.js meshes with Cannon.js bodies
+				this.dice.forEach(d => {
+					d.mesh.position.copy(d.body.position);
+					d.mesh.quaternion.copy(d.body.quaternion);
+				});
+
+				// Check for result if scheduled
+				if (this.isCheckingResult) {
+					const die = this.dice[0];
+					const angularVelocity = die.body.angularVelocity.length();
+					const velocity = die.body.velocity.length();
+
+					// Why this condition? We check if the die has almost stopped moving.
+					// Both linear and angular velocities must be very low.
+					if (angularVelocity < 0.1 && velocity < 0.1) {
+						const result = this.getDiceFace(die.mesh);
+						this.resultElement.textContent = result;
+						this.isCheckingResult = false; // Stop checking
+					}
+				}
+
+				this.renderer.render(this.scene, this.camera);
+			}
+
+			/**
+			 * Handles window resize events to keep the viewport correct.
+			 */
+			onWindowResize() {
+				this.camera.aspect = window.innerWidth / window.innerHeight;
+				this.camera.updateProjectionMatrix();
+				this.renderer.setSize(window.innerWidth, window.innerHeight);
+			}
+		}
+
+		// --- Application Entry Point ---
+		window.onload = () => {
+			// Expose app on window for debugging via DevTools console (e.g. window.app.world)
+			window.app = new DiceRollerApp();
+			window.app.init();
+			// Log current physics bodies for verification
+			console.log('world bodies after init:', window.app.world.bodies.map((b, i) => ({ index: i, mass: b.mass, shapes: b.shapes ? b.shapes.length : 0 })));
+		};
+
+	</script>
+</body>
+
+</html>
