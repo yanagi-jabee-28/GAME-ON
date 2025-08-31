@@ -47,6 +47,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	engine.world.gravity.y = Number(GAME_CONFIG.physics?.gravityY ?? engine.world.gravity.y);
 	const world = engine.world;
 
+	// パーティクルプールを初期化（objects.jsで定義）
+	if (typeof initParticlePool === 'function') {
+		initParticlePool(world);
+	}
+
 	// ========================
 	// 2. レンダラーの作成（DOM要素・基本オプション）
 	// ========================
@@ -298,6 +303,12 @@ document.addEventListener('DOMContentLoaded', () => {
 					}
 				}
 			} catch (_) { /* no-op */ }
+
+			// パーティクルの状態を更新 (objects.jsで定義)
+			if (typeof updateParticles === 'function') {
+				updateParticles(rotDeltaMs);
+			}
+
 			Render.world(render);
 			requestAnimationFrame(loop);
 		}
