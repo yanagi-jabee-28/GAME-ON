@@ -2,21 +2,22 @@
 window.AppConfig = window.AppConfig || {
 	physics: {
 		gravity: { x: 0, y: -15, z: 0 }, // 重力加速度（m/s^2）
-		solverIterations: 40, // 物理ソルバの反復回数（↑で安定/重い）
-		maxSubSteps: 5, // 1フレーム内の最大サブステップ
+		solverIterations: 60, // 物理ソルバの反復回数（安定性優先で増やす）
+		maxSubSteps: 6, // 1フレーム内の最大サブステップ（不規則なdt対策）
 		// 後方互換（contacts.* 未設定時に参照）
 		contact: { friction: 0.3, restitution: 0.08 },
 		// ペア別の接触設定
 		contacts: {
 			default: { friction: 0.25, restitution: 0.06 }, // ペア設定がない場合の基準
-			diceVsBowl: { friction: 0.0004, restitution: 0.005 }, // サイコロ×お椀
-			diceVsDice: { friction: 0.0005, restitution: 0.0004 } // サイコロ×サイコロ
+			diceVsBowl: { friction: 0.2, restitution: 0.03 }, // サイコロ×お椀（自然な滑りと停止を両立）
+			diceVsDice: { friction: 0.1, restitution: 0.02 } // サイコロ×サイコロ
 		},
 		// 安定化パラメータ（必要に応じて調整）
 		contactEquationStiffness: 1e7, // 接触剛性（大きいほど硬い）
-		contactEquationRelaxation: 3, // 接触緩和（大きいほど発散しにくい）
-		frictionEquationStiffness: 1e7, // 摩擦剛性
-		frictionEquationRelaxation: 3, // 摩擦緩和
+		contactEquationStiffness: 2e7, // 接触剛性（硬めにして安定させる）
+		contactEquationRelaxation: 2, // 接触緩和
+		frictionEquationStiffness: 2e7, // 摩擦剛性
+		frictionEquationRelaxation: 2, // 摩擦緩和
 		// 賢い安定化: 角立ち抑制のための追加パラメータ
 		adaptiveDamping: {
 			enabled: true, // 適応ダンピング有効化
@@ -68,9 +69,13 @@ window.AppConfig = window.AppConfig || {
 		initialVelocityScale: 4, // 初期速度スケール
 		angularVelocityScale: 15, // 初期角速度スケール
 		linearDamping: 0.01, // 線形減衰
-		angularDamping: 0.01, // 角減衰
-		sleepSpeedLimit: 0.12, // スリープ判定: 速度
-		sleepTimeLimit: 0.8, // スリープ判定: 継続時間[s]
+		linearDamping: 0.02, // 線形減衰（転がりの自然な減衰）
+		angularDamping: 0.02, // 角減衰
+		rollingFrictionTorque: 0.03, // 疑似転がり摩擦トルク（自然な回転減衰）
+			sleepSpeedLimit: 0.12, // スリープ判定: 速度
+			sleepTimeLimit: 1.5, // スリープ判定: 継続時間[s]
+			sleepSpeedLimit: 0.12, // スリープ判定: 速度
+			sleepTimeLimit: 1.5, // スリープ判定: 継続時間[s]
 		cornerRadius: 0.2, // 物理ボディの角丸半径（試験: 0.16〜0.20 を推奨）
 		edgeSegments: 8, // 角丸エッジの円柱分割数（滑らかさ）
 		// 任意: 内部バラストで重心を下げる（外観・当たり判定は変えず安定化）
