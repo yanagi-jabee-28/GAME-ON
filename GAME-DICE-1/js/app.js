@@ -343,53 +343,10 @@
 			requestAnimationFrame(this.animate);
 			// 不規則なフレーム間隔でも安定するようサブステップを許容
 			this.world.step(1 / 60, undefined, (this.cfg && this.cfg.physics && this.cfg.physics.maxSubSteps) || 5);
-			// 疑似転がり摩擦（微小トルク）＋適応ダンピング
-			const rft = (this.diceCfg && this.diceCfg.rollingFrictionTorque) || 0;
-			const adCfg = (this.cfg && this.cfg.physics && this.cfg.physics.adaptiveDamping) || {};
+			// 物理側で回転摩擦・クランプ等を postStep に移したため、ここではメッシュ同期のみ行う
 			this.dice.forEach(d => {
 				const b = d.body;
-				// per-frame velocity clamping to avoid runaway bodies
-				try {
-					const maxLin = (this.diceCfg && this.diceCfg.maxLinearVelocity) || 12.0;
-					const maxAng = (this.diceCfg && this.diceCfg.maxAngularVelocity) || 40.0;
-					if (b.velocity) {
-						const v = b.velocity;
-						const mag = v.length();
-						if (mag > maxLin) {
-							v.scale(maxLin / mag, v);
-						}
-					}
-					if (b.angularVelocity) {
-						const av = b.angularVelocity;
-						const am = av.length();
-						if (am > maxAng) {
-							av.scale(maxAng / am, av);
-						}
-					}
-				} catch (e) { /* ignore bodies without velocity fields */ }
-				if (b.angularVelocity) {
-					const av = b.angularVelocity;
-					const len = av.length();
-					let dampingFactor = 1.0;
-					// 賢い適応ダンピング: 角速度が高いときに強化
-					if (adCfg.enabled && len > (adCfg.angularThreshold || 0.5)) {
-						dampingFactor = adCfg.boostFactor || 2.0;
-					}
-					// 転がり摩擦トルク
-					if (rft > 0 && len > 1e-3) {
-						const k = -rft * dampingFactor; // 減衰方向
-						b.torque.x += k * av.x;
-						b.torque.y += k * av.y;
-						b.torque.z += k * av.z;
-					}
-					// 適応角ダンピング
-					if (adCfg.enabled && len > 1e-3) {
-						const ad = (this.diceCfg && this.diceCfg.angularDamping) || 0.01;
-						const extraDamp = ad * (dampingFactor - 1.0);
-						b.angularDamping = ad + extraDamp;
-					}
-				}
-				// 見た目更新
+				if (!b) return;
 				d.mesh.position.copy(b.position);
 				d.mesh.quaternion.copy(b.quaternion);
 			});

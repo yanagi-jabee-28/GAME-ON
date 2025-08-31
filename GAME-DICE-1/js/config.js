@@ -77,11 +77,11 @@ window.AppConfig = window.AppConfig || {
 		linearDamping: 0.02, // 線形減衰（転がりの自然な減衰）
 		angularDamping: 0.02, // 角減衰
 		rollingFrictionTorque: 0.03, // 疑似転がり摩擦トルク（自然な回転減衰）
-		sleepSpeedLimit: 0.12, // スリープ判定: 速度
+		sleepSpeedLimit: 0.06, // スリープ判定: 速度（小さくして早期sleepを防ぐ）
 		sleepTimeLimit: 1.5, // スリープ判定: 継続時間[s]
-		sleepSpeedLimit: 0.12, // スリープ判定: 速度
+		sleepSpeedLimit: 0.06, // スリープ判定: 速度（小さくして早期sleepを防ぐ）
 		sleepTimeLimit: 1.5, // スリープ判定: 継続時間[s]
-		cornerRadius: 0.2, // 物理ボディの角丸半径（試験: 0.16〜0.20 を推奨）
+		cornerRadius: 0.26, // 物理ボディの角丸半径（やや大きめにして角立ちを抑制）
 		edgeSegments: 8, // 角丸エッジの円柱分割数（滑らかさ）
 		// 任意: 内部バラストで重心を下げる（外観・当たり判定は変えず安定化）
 		ballast: {
@@ -89,6 +89,14 @@ window.AppConfig = window.AppConfig || {
 			offsetY: 0.15, // バラストの下方向オフセット量
 			radius: 0.2, // バラスト球の半径（サイコロサイズ基準）
 			layers: 3 // 体積を稼ぐための重ね個数（内側に重ねる）
+		},
+		// 角で止まりそうなときに軽く揺り動かして倒す補助（物理ステップ内で実行）
+		tipNudge: {
+			enabled: true,
+			linearThreshold: 0.06, // これ以下の線速度で揺り動かし候補
+			angularThreshold: 0.06, // これ以下の角速度で揺り動かし候補
+			faceAlignThreshold: 0.92, // 最も近い面と上方向のdotがこれ以下なら不安定
+			nudgeStrength: 0.02 // 揺り動かしトルクの強さ（小さめ）
 		},
 		// 任意: 疑似転がり摩擦（微小トルクで回転を減衰）
 		rollingFrictionTorque: 0.0 // 0で無効。0.02〜0.08程度で調整
