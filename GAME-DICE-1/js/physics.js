@@ -25,8 +25,11 @@
 		const bowlCfg = cfg.bowl || {};
 		const profilePoints = opts.profilePoints || bowlCfg.profilePoints || [{ r: 0.1, y: -2.2 }, { r: 3.0, y: -1.5 }, { r: 6.0, y: 2.0 }];
 		const maxR = opts.maxR || bowlCfg.maxR || 6.0;
-		const radialSlices = opts.radialSlices || bowlCfg.radialSlices || 16;
-		const angularSegments = opts.angularSegments || bowlCfg.angularSegments || 48;
+		const radialSlices = opts.radialSlices || bowlCfg.radialSlices || 32;
+		const angularSegments = opts.angularSegments || bowlCfg.angularSegments || 128;
+		const useSphere = bowlCfg.sphere && bowlCfg.sphere.enabled;
+		const sphereR = (bowlCfg.sphere && bowlCfg.sphere.radius) || maxR;
+		const sphereOpeningY = (bowlCfg.sphere && bowlCfg.sphere.openingY != null) ? bowlCfg.sphere.openingY : 2.0;
 
 		function sampleProfile(r) {
 			if (r <= profilePoints[0].r) return profilePoints[0].y;
@@ -57,7 +60,24 @@
 				const theta = (a / angularSegments) * Math.PI * 2;
 				const x = rMid * Math.cos(theta);
 				const z = rMid * Math.sin(theta);
-				const y = sampleProfile(rMid);
+				let y;
+				if (useSphere) {
+					// compute y on inner sphere surface for radius rMid
+					// sphere eq: x^2 + y^2 + z^2 = sphereR^2 -> for given rMid (distance in xz plane), y = -sqrt(R^2 - rMid^2)
+					if (rMid > sphereR) continue; // outside sphere
+					y = -Math.sqrt(Math.max(0, sphereR * sphereR - rMid * rMid));
+					// if that y is above opening, skip (we only want inner surface up to openingY)
+					if (y > sphereOpeningY) continue;
+					// ensure inner-most ring (r==0) covers center by forcing rMid small
+					if (r === 0 && rInner === 0) {
+						// add an extra small central box to guarantee coverage
+						const coverBox = new CANNON.Box(new CANNON.Vec3(0.05, tileHalfY, 0.05));
+						bowlBody.addShape(coverBox, new CANNON.Vec3(0, sampleProfile(0) + tileHalfY, 0));
+						tileCount++;
+					}
+				} else {
+					y = sampleProfile(rMid);
+				}
 
 				const box = new CANNON.Box(new CANNON.Vec3(tileHalfX, tileHalfY, tileHalfZ));
 				const localOffset = new CANNON.Vec3(x, y - tileHalfY, z);
@@ -65,6 +85,36 @@
 				tileCount++;
 			}
 		}
+
+		// optionally add a small central physics cover to avoid a hole at the center
+		try {
+			const globalCfg = window.AppConfig || {};
+			const centerCfg = (globalCfg.bowl && globalCfg.bowl.centerCover && globalCfg.bowl.centerCover.physics) || {};
+			if (centerCfg.enabled) {
+				// skip if profile already starts at r=0 (no hole)
+				const minR = (profilePoints && profilePoints.length) ? profilePoints[0].r : 0.0;
+				if (minR <= 0) {
+					console.log('Profile covers center; skipping physics center cover');
+				} else {
+					// compute radius to cover first ring
+					const bowlCfg = globalCfg.bowl || {};
+					const cfgRadial = bowlCfg.radialSlices || radialSlices || 16;
+					const cfgMaxR = bowlCfg.maxR || maxR || 6.0;
+					const firstRingOuter = (1 / cfgRadial) * cfgMaxR;
+					const coverRadius = Math.max(centerCfg.size || 0.3, firstRingOuter + 0.01);
+					// use a thin cylinder approximation by stacking many thin boxes since cannon.js may lack cylinder shape
+					const layers = 2;
+					const layerHeight = (centerCfg.size || 0.3) / layers;
+					for (let li = 0; li < layers; li++) {
+						const halfY = layerHeight / 2;
+						const box = new CANNON.Box(new CANNON.Vec3(coverRadius, halfY, coverRadius));
+						const y = sampleProfile(0) + halfY + li * (layerHeight);
+						bowlBody.addShape(box, new CANNON.Vec3(0, y, 0));
+						tileCount++;
+					}
+				}
+			}
+		} catch (e) { console.warn('Could not add center physics cover', e); }
 
 		bowlBody.updateMassProperties();
 		world.addBody(bowlBody);

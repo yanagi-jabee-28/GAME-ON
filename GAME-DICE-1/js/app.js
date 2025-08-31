@@ -47,6 +47,7 @@
 			this.diceCfg = this.cfg.dice || {};
 			this.uiCfg = this.cfg.ui || {};
 
+			// add hemisphere bowl (visual + physics)
 			const bowlMesh = this.createBowlMesh();
 			this.scene.add(bowlMesh);
 			const bowl = PhysicsHelper.createBowlCollider(this.world, this.defaultMaterial);
@@ -72,11 +73,52 @@
 		}
 
 		createBowlMesh() {
-			const points = [new THREE.Vector2(0.1, -2.2), new THREE.Vector2(3.0, -1.5), new THREE.Vector2(6.0, 2.0)];
-			const g = new THREE.LatheGeometry(points, 64);
-			const m = new THREE.MeshStandardMaterial({ color: 0xA1887F, roughness: 0.7, metalness: 0.1, side: THREE.DoubleSide });
+			const cfg = window.AppConfig || {};
+			const bowlCfg = cfg.bowl || {};
+			let profile;
+			if (bowlCfg.sphere && bowlCfg.sphere.enabled) {
+				// build a clean spherical slice using SphereGeometry to avoid lathe seams
+				const r = bowlCfg.sphere.radius || 6.0;
+				const openingY = (bowlCfg.sphere.openingY != null) ? bowlCfg.sphere.openingY : 2.0;
+				// compute thetaStart so that y = r * cos(theta) <= openingY -> theta >= acos(openingY / r)
+				const thetaStart = Math.acos(Math.min(1, Math.max(-1, openingY / r)));
+				const thetaLength = Math.PI - thetaStart; // from thetaStart down to PI (bottom)
+				const widthSeg = bowlCfg.angularSegments || 128;
+				const heightSeg = Math.max(8, Math.floor((bowlCfg.sphere.sampleCount || 72) / 2));
+				var g = new THREE.SphereGeometry(r, widthSeg, heightSeg, 0, Math.PI * 2, thetaStart, thetaLength);
+				// set a minimal profile entry so later code that checks profile[0] is safe
+				profile = [new THREE.Vector2(0, -r)];
+				g.computeVertexNormals();
+			} else {
+				profile = (bowlCfg.profilePoints || [{ r: 0.1, y: -2.2 }, { r: 3.0, y: -1.5 }, { r: 6.0, y: 2.0 }]).map(p => new THREE.Vector2(p.r, p.y));
+				const segments = bowlCfg.angularSegments || 128;
+				var g = new THREE.LatheGeometry(profile, segments);
+				g.computeVertexNormals();
+			}
+			// prefer BackSide for sphere interior so the inner surface is visible
+			const useBack = bowlCfg.sphere && bowlCfg.sphere.enabled;
+			const m = new THREE.MeshStandardMaterial({ color: bowlCfg.centerCover && bowlCfg.centerCover.visual && bowlCfg.centerCover.visual.color ? bowlCfg.centerCover.visual.color : 0xA1887F, roughness: 0.7, metalness: 0.1, side: useBack ? THREE.BackSide : THREE.DoubleSide });
 			const mesh = new THREE.Mesh(g, m);
 			mesh.receiveShadow = true;
+			// add optional visual center cover to hide hole
+			const profileStartsAtZero = profile.length && profile[0].x === 0;
+			if (!profileStartsAtZero && bowlCfg.centerCover && bowlCfg.centerCover.enabled && bowlCfg.centerCover.visual && bowlCfg.centerCover.visual.enabled) {
+				// ensure cap is at least large enough to cover the first ring tile gap
+				const radialSlices = bowlCfg.radialSlices || 16;
+				const maxR = bowlCfg.maxR || 6.0;
+				const firstRingOuter = (1 / radialSlices) * maxR; // outer radius of first radial slice
+				const autoRadius = firstRingOuter + 0.02;
+				const configured = (bowlCfg.centerCover.visual.radius != null) ? bowlCfg.centerCover.visual.radius : 0.5;
+				const radius = Math.max(configured, autoRadius);
+				const color = bowlCfg.centerCover.visual.color || 0xA1887F;
+				const capGeom = new THREE.CircleGeometry(radius, 32);
+				const capMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.7, metalness: 0.1 });
+				const cap = new THREE.Mesh(capGeom, capMat);
+				cap.rotation.x = -Math.PI / 2;
+				cap.position.y = profile[0].y + 0.01; // slightly above to avoid z-fighting
+				cap.receiveShadow = true;
+				mesh.add(cap);
+			}
 			return mesh;
 		}
 
