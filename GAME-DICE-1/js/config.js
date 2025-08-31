@@ -1,7 +1,7 @@
 // アプリ設定（挙動調整用）
 window.AppConfig = window.AppConfig || {
 	physics: {
-		gravity: { x: 0, y: -9.82, z: 0 }, // 重力加速度（m/s^2）
+		gravity: { x: 0, y: -19.82, z: 0 }, // 重力加速度（m/s^2）
 		solverIterations: 40, // 物理ソルバの反復回数（↑で安定/重い）
 		maxSubSteps: 5, // 1フレーム内の最大サブステップ
 		// 後方互換（contacts.* 未設定時に参照）
@@ -9,8 +9,8 @@ window.AppConfig = window.AppConfig || {
 		// ペア別の接触設定
 		contacts: {
 			default: { friction: 0.25, restitution: 0.06 }, // ペア設定がない場合の基準
-			diceVsBowl: { friction: 0.18, restitution: 0.05 }, // サイコロ×お椀
-			diceVsDice: { friction: 0.12, restitution: 0.04 } // サイコロ×サイコロ
+			diceVsBowl: { friction: 0.0004, restitution: 0.005 }, // サイコロ×お椀
+			diceVsDice: { friction: 0.0005, restitution: 0.0004 } // サイコロ×サイコロ
 		}
 	},
 	bowl: {
@@ -19,6 +19,12 @@ window.AppConfig = window.AppConfig || {
 		radialSlices: 16, // 物理コライダの放射方向分割
 		angularSegments: 48, // 角度方向分割
 		tileHalfY: 0.25, // 物理タイルの半厚み
+		// 底面の一部を平面にする設定
+		flatBottom: {
+			enabled: true, // 平面を有効化
+			radius: 4, // 平面の半径
+			thickness: 0.1 // 物理コライダの厚み
+		},
 		// 球殻でお椀を表現する場合の設定
 		sphere: {
 			enabled: true, // 有効化

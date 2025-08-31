@@ -35,6 +35,7 @@
 		opts = opts || {};
 		const cfg = window.AppConfig || {};
 		const bowlCfg = cfg.bowl || {};
+		const flatCfg = (bowlCfg && bowlCfg.flatBottom) || {};
 		const profilePoints = opts.profilePoints || bowlCfg.profilePoints || [{ r: 0.1, y: -2.2 }, { r: 3.0, y: -1.5 }, { r: 6.0, y: 2.0 }];
 		let maxR = opts.maxR || bowlCfg.maxR || 6.0;
 		const radialSlices = opts.radialSlices || bowlCfg.radialSlices || 32;
@@ -85,8 +86,11 @@
 					const yOuter = -Math.sqrt(Math.max(0, sphereR * sphereR - rMid * rMid));
 					// inner surface y (if within inner radius), else clamp to outer
 					const yInner = (rMid <= sphereInnerR) ? -Math.sqrt(Math.max(0, sphereInnerR * sphereInnerR - rMid * rMid)) : yOuter;
-					// skip if above opening
+					// skip if above opening（openingY のみで判断）
 					if (yOuter > sphereOpeningY) continue;
+					// フラット底の半径内は後で別プレートを置くので中⼼側リングをスキップ（高さ条件は変えない）
+					const flatRadius = (flatCfg && flatCfg.enabled && flatCfg.radius) ? flatCfg.radius : 0;
+					if (flatRadius > 0 && rOuter <= flatRadius) continue;
 					// compute box half-height as half the shell thickness at this ring
 					// prefer configured sphereThickness/2 so config controls overall thickness
 					let impliedHalf = Math.abs((yOuter - yInner) / 2);
@@ -112,6 +116,21 @@
 				}
 			}
 		}
+
+		// フラットな底面の物理プレート（すり抜け防止）
+		try {
+			const flatRadius = (flatCfg && flatCfg.enabled && flatCfg.radius) ? flatCfg.radius : 0;
+			const flatThick = Math.max(0.02, (flatCfg && flatCfg.thickness) ? flatCfg.thickness : 0.1);
+			if (useSphere && flatRadius > 0) {
+				// 球の底面高さ
+				const yFlat = -Math.sqrt(Math.max(0, sphereR * sphereR - flatRadius * flatRadius));
+				// 底面と重ならないよう上方向へ半厚み分オフセット
+				const halfY = flatThick / 2;
+				const plate = new CANNON.Box(new CANNON.Vec3(flatRadius, halfY, flatRadius));
+				bowlBody.addShape(plate, new CANNON.Vec3(0, yFlat + halfY, 0));
+				tileCount++;
+			}
+		} catch (e) { console.warn('Could not add flat bottom plate', e); }
 
 		// optionally add a small central physics cover to avoid a hole at the center
 		try {

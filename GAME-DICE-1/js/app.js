@@ -102,15 +102,18 @@
 		createBowlMesh() {
 			const cfg = window.AppConfig || {};
 			const bowlCfg = cfg.bowl || {};
+			const flatCfg = (bowlCfg && bowlCfg.flatBottom) || {};
 			let profile;
 			if (bowlCfg.sphere && bowlCfg.sphere.enabled) {
 				// create inner + outer hemisphere geometries to represent a shell with thickness
 				const r = bowlCfg.sphere.radius || 6.0; // outer radius
 				const thickness = (bowlCfg.sphere.thickness != null) ? bowlCfg.sphere.thickness : 0.3;
 				const innerR = Math.max(0.001, r - thickness);
-				// hemisphere: equator -> thetaStart = PI/2
-				const thetaStart = Math.PI / 2;
-				const thetaLength = Math.PI / 2;
+				// 球殻の開始角は openingY のみで決定（flatBottom に影響させない）
+				const flatRadius = (flatCfg.enabled && flatCfg.radius) ? flatCfg.radius : 0;
+				const openingY = (bowlCfg.sphere && bowlCfg.sphere.openingY != null) ? bowlCfg.sphere.openingY : 0.0;
+				const thetaStart = Math.acos(Math.max(-1, Math.min(1, openingY / r))); // openingY=0 => PI/2
+				const thetaLength = Math.max(0.0001, Math.PI - thetaStart); // 開口から底まで
 				const widthSeg = bowlCfg.angularSegments || 128;
 				const heightSeg = Math.max(8, Math.floor((bowlCfg.sphere.sampleCount || 72) / 2));
 				const outerG = new THREE.SphereGeometry(r, widthSeg, heightSeg, 0, Math.PI * 2, thetaStart, thetaLength);
@@ -130,7 +133,6 @@
 				group.add(innerMesh);
 				// add a thin ring at the opening to hide the seam between inner and outer shells
 				try {
-					const openingY = (bowlCfg.sphere && bowlCfg.sphere.openingY != null) ? bowlCfg.sphere.openingY : 0.0;
 					const rOuterAtOpening = Math.sqrt(Math.max(0, r * r - openingY * openingY));
 					const rInnerAtOpening = Math.sqrt(Math.max(0, innerR * innerR - openingY * openingY));
 					if (rOuterAtOpening > rInnerAtOpening + 0.001) {
@@ -144,6 +146,17 @@
 						group.add(ring);
 					}
 				} catch (e) { /* non-critical: continue without ring */ }
+
+				// フラットな底面（見た目）
+				if (flatRadius > 0 && flatCfg.enabled) {
+					const flatGeom = new THREE.CircleGeometry(flatRadius, widthSeg);
+					const flatMat = new THREE.MeshStandardMaterial({ color: bowlCfg.centerCover && bowlCfg.centerCover.visual && bowlCfg.centerCover.visual.color ? bowlCfg.centerCover.visual.color : 0xA1887F, roughness: 0.7, metalness: 0.1 });
+					const flatMesh = new THREE.Mesh(flatGeom, flatMat);
+					flatMesh.rotation.x = -Math.PI / 2;
+					flatMesh.position.y = -Math.sqrt(Math.max(0, r * r - flatRadius * flatRadius)) + 0.001;
+					flatMesh.receiveShadow = true;
+					group.add(flatMesh);
+				}
 				// set profile so later code remains safe (use inner radius for profile sampling)
 				profile = [new THREE.Vector2(0, -innerR)];
 				var g = group;
