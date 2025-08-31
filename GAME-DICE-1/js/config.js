@@ -1,16 +1,16 @@
 // アプリ設定（挙動調整用）
 window.AppConfig = window.AppConfig || {
 	physics: {
-		gravity: { x: 0, y: -15, z: 0 }, // 重力加速度（m/s^2）
+		gravity: { x: 0, y: -30, z: 0 }, // 重力加速度（m/s^2）
 		solverIterations: 60, // 物理ソルバの反復回数（安定性優先で増やす）
 		maxSubSteps: 6, // 1フレーム内の最大サブステップ（不規則なdt対策）
 		// 後方互換（contacts.* 未設定時に参照）
-		contact: { friction: 0.3, restitution: 0.08 },
+		contact: { friction: 0.08, restitution: 0.08 },
 		// ペア別の接触設定
 		contacts: {
-			default: { friction: 0.25, restitution: 0.06 }, // ペア設定がない場合の基準
-			diceVsBowl: { friction: 0.2, restitution: 0.03 }, // サイコロ×お椀（自然な滑りと停止を両立）
-			diceVsDice: { friction: 0.1, restitution: 0.02 } // サイコロ×サイコロ
+			default: { friction: 0.08, restitution: 0.06 }, // ペア設定がない場合の基準（全体的に摩擦を低めに）
+			diceVsBowl: { friction: 0.005, restitution: 0.01 }, // サイコロ×お椀（壁で止まるのを減らす）
+			diceVsDice: { friction: 0.004, restitution: 0.04 } // サイコロ×サイコロ（接触時のすべりを増やす）
 		},
 		// 安定化パラメータ（必要に応じて調整）
 		contactEquationStiffness: 1e7, // 接触剛性（大きいほど硬い）
@@ -34,14 +34,14 @@ window.AppConfig = window.AppConfig || {
 		// 底面の一部を平面にする設定
 		flatBottom: {
 			enabled: true, // 平面を有効化
-			radius: 4, // 平面の半径
+			radius: 3, // 平面の半径
 			thickness: 0.1 // 物理コライダの厚み
 		},
 		// 球殻でお椀を表現する場合の設定
 		sphere: {
 			enabled: true, // 有効化
-			radius: 6.0, // 外半径
-			openingY: 0.0, // 開口高さ（0=赤道）
+			radius: 4, // 外半径
+			openingY: 0, // 開口高さ（0=赤道）
 			sampleCount: 72, // 縦方向の分割密度の目安
 			thickness: 0.3 // 殻の厚み
 		},
@@ -67,15 +67,20 @@ window.AppConfig = window.AppConfig || {
 		jitterX: 0.2, // X方向のランダム位置
 		jitterZ: 0.6, // Z方向のランダム位置
 		initialVelocityScale: 4, // 初期速度スケール
+		// 初速・最大速度の保護設定（吹き飛び防止）
+		maxInitialLinearVelocity: 6.0, // 投擲時の初速上限
+		maxInitialAngularVelocity: 20.0, // 投擲時の角速度上限
+		maxLinearVelocity: 12.0, // フレーム中の速度上限
+		maxAngularVelocity: 40.0, // フレーム中の角速度上限
 		angularVelocityScale: 15, // 初期角速度スケール
 		linearDamping: 0.01, // 線形減衰
 		linearDamping: 0.02, // 線形減衰（転がりの自然な減衰）
 		angularDamping: 0.02, // 角減衰
 		rollingFrictionTorque: 0.03, // 疑似転がり摩擦トルク（自然な回転減衰）
-			sleepSpeedLimit: 0.12, // スリープ判定: 速度
-			sleepTimeLimit: 1.5, // スリープ判定: 継続時間[s]
-			sleepSpeedLimit: 0.12, // スリープ判定: 速度
-			sleepTimeLimit: 1.5, // スリープ判定: 継続時間[s]
+		sleepSpeedLimit: 0.12, // スリープ判定: 速度
+		sleepTimeLimit: 1.5, // スリープ判定: 継続時間[s]
+		sleepSpeedLimit: 0.12, // スリープ判定: 速度
+		sleepTimeLimit: 1.5, // スリープ判定: 継続時間[s]
 		cornerRadius: 0.2, // 物理ボディの角丸半径（試験: 0.16〜0.20 を推奨）
 		edgeSegments: 8, // 角丸エッジの円柱分割数（滑らかさ）
 		// 任意: 内部バラストで重心を下げる（外観・当たり判定は変えず安定化）

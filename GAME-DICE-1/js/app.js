@@ -305,8 +305,24 @@
 				// 前回の力・トルクをクリア
 				if (b.force) b.force.set(0, 0, 0);
 				if (b.torque) b.torque.set(0, 0, 0);
-				b.velocity.set((Math.random() - 0.5) * velScale, 0, (Math.random() - 0.5) * velScale);
-				b.angularVelocity.set((Math.random() - 0.5) * angScale, (Math.random() - 0.5) * angScale, (Math.random() - 0.5) * angScale);
+				// apply randomized initial velocities but clamp to configured maxima
+				const maxInitLin = this.diceCfg.maxInitialLinearVelocity || 6.0;
+				const maxInitAng = this.diceCfg.maxInitialAngularVelocity || 20.0;
+				const lx = (Math.random() - 0.5) * velScale;
+				const lz = (Math.random() - 0.5) * velScale;
+				const ly = 0; // keep initial vertical low to avoid excessive launch
+				const linMag = Math.sqrt(lx * lx + ly * ly + lz * lz);
+				let sx = 1.0;
+				if (linMag > maxInitLin) sx = maxInitLin / linMag;
+				b.velocity.set(lx * sx, ly * sx, lz * sx);
+				// angular
+				const ax = (Math.random() - 0.5) * angScale;
+				const ay = (Math.random() - 0.5) * angScale;
+				const az = (Math.random() - 0.5) * angScale;
+				const angMag = Math.sqrt(ax * ax + ay * ay + az * az);
+				let sas = 1.0;
+				if (angMag > maxInitAng) sas = maxInitAng / angMag;
+				b.angularVelocity.set(ax * sas, ay * sas, az * sas);
 				// スリープ中だと動かないため必ず起こす
 				if (typeof b.wakeUp === 'function') b.wakeUp();
 			});
@@ -332,6 +348,25 @@
 			const adCfg = (this.cfg && this.cfg.physics && this.cfg.physics.adaptiveDamping) || {};
 			this.dice.forEach(d => {
 				const b = d.body;
+				// per-frame velocity clamping to avoid runaway bodies
+				try {
+					const maxLin = (this.diceCfg && this.diceCfg.maxLinearVelocity) || 12.0;
+					const maxAng = (this.diceCfg && this.diceCfg.maxAngularVelocity) || 40.0;
+					if (b.velocity) {
+						const v = b.velocity;
+						const mag = v.length();
+						if (mag > maxLin) {
+							v.scale(maxLin / mag, v);
+						}
+					}
+					if (b.angularVelocity) {
+						const av = b.angularVelocity;
+						const am = av.length();
+						if (am > maxAng) {
+							av.scale(maxAng / am, av);
+						}
+					}
+				} catch (e) { /* ignore bodies without velocity fields */ }
 				if (b.angularVelocity) {
 					const av = b.angularVelocity;
 					const len = av.length();

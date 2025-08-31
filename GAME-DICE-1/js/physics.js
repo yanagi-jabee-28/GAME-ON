@@ -12,6 +12,10 @@
 		// スリープを有効化（低速で静止へ移行しやすくする）
 		world.allowSleep = true;
 
+		// 数値安定性: 四元数正規化を強制
+		if (typeof world.quatNormalizeFast !== 'undefined') world.quatNormalizeFast = true;
+		if (typeof world.quatNormalizeSkip !== 'undefined') world.quatNormalizeSkip = 0;
+
 		const defaultMaterial = new CANNON.Material('defaultMaterial');
 		const diceMaterial = new CANNON.Material('diceMaterial');
 		// Back-compat single contact or pair-specific contacts
@@ -38,10 +42,59 @@
 			return o;
 		}
 		// Apply default world contact baseline when available
-		if (world.defaultContactMaterial) {
-			if (defaultCfg.friction != null) world.defaultContactMaterial.friction = defaultCfg.friction;
-			if (defaultCfg.restitution != null) world.defaultContactMaterial.restitution = defaultCfg.restitution;
+		// 明示的にデフォルトの ContactMaterial を作り、世界に登録する。
+		// これによりライブラリ標準の接触処理（摩擦・反発・剛性）が適切に使われる。
+		try {
+			const defaultContactMat = new CANNON.ContactMaterial(defaultMaterial, defaultMaterial, buildContactOptions(defaultCfg));
+			world.defaultContactMaterial = defaultContactMat;
+			world.addContactMaterial(defaultContactMat);
+		} catch (e) {
+			// 古い cannon ビルド等で問題が出た場合はフォールバックして既存の値に書き込む
+			if (world.defaultContactMaterial) {
+				if (defaultCfg.friction != null) world.defaultContactMaterial.friction = defaultCfg.friction;
+				if (defaultCfg.restitution != null) world.defaultContactMaterial.restitution = defaultCfg.restitution;
+			}
 		}
+
+		// ソルバの許容誤差を設定（小さくすると安定するがコストが上がる）
+		world.solver.tolerance = (pCfg.solverTolerance != null) ? pCfg.solverTolerance : 1e-6;
+
+		// World のステップ後フックで全体的な微調整（回転摩擦・速度クランプ等）を行う
+		// 物理ステップ内で行うため、ライブラリの更新サイクルに沿った自然な挙動となる。
+		try {
+			const diceCfgGlobal = (window.AppConfig && window.AppConfig.dice) || {};
+			const rollingFrictionGlobal = diceCfgGlobal.rollingFrictionTorque || 0;
+			const maxLinearGlobal = diceCfgGlobal.maxLinearVelocity || 12.0;
+			const maxAngularGlobal = diceCfgGlobal.maxAngularVelocity || 40.0;
+			world.addEventListener('postStep', function () {
+				for (let i = 0; i < world.bodies.length; i++) {
+					const b = world.bodies[i];
+					if (!b || b.mass <= 0) continue; // static body は無視
+					// 線形速度のクランプ
+					if (b.velocity) {
+						const vm = b.velocity.length();
+						if (vm > maxLinearGlobal) {
+							b.velocity.scale(maxLinearGlobal / vm, b.velocity);
+						}
+					}
+					// 角速度のクランプ
+					if (b.angularVelocity) {
+						const am = b.angularVelocity.length();
+						if (am > maxAngularGlobal) {
+							b.angularVelocity.scale(maxAngularGlobal / am, b.angularVelocity);
+						}
+					}
+					// 疑似転がり摩擦トルク（微小トルクで回転を減衰）
+					if (rollingFrictionGlobal > 0 && b.angularVelocity && b.angularVelocity.length() > 1e-4) {
+						const av = b.angularVelocity;
+						const k = -rollingFrictionGlobal;
+						b.torque.x += k * av.x;
+						b.torque.y += k * av.y;
+						b.torque.z += k * av.z;
+					}
+				}
+			});
+		} catch (e) { /* ignore if world events unsupported */ }
 		// Dice vs Bowl (bowl uses defaultMaterial)
 		world.addContactMaterial(new CANNON.ContactMaterial(diceMaterial, defaultMaterial, buildContactOptions(diceVsBowlCfg)));
 		// Dice vs Dice
@@ -80,6 +133,17 @@
 
 		const bowlBody = new CANNON.Body({ mass: 0, material: defaultMaterial });
 		let tileCount = 0;
+		// performance: cache created box shapes to avoid allocating many identical shapes
+		const shapeCache = new Map();
+		// precompute angular trig table to avoid Math.cos/sin in inner loops
+		const angleCount = angularSegments || 32;
+		const cosTable = new Array(angleCount);
+		const sinTable = new Array(angleCount);
+		for (let ai = 0; ai < angleCount; ai++) {
+			const theta = (ai / angleCount) * Math.PI * 2;
+			cosTable[ai] = Math.cos(theta);
+			sinTable[ai] = Math.sin(theta);
+		}
 
 		// when using sphere mode, align radial sampling to the sphere radius
 		if (useSphere) maxR = sphereR;
@@ -94,9 +158,8 @@
 			const tileHalfY = opts.tileHalfY || bowlCfg.tileHalfY || 0.25;
 
 			for (let a = 0; a < angularSegments; a++) {
-				const theta = (a / angularSegments) * Math.PI * 2;
-				const x = rMid * Math.cos(theta);
-				const z = rMid * Math.sin(theta);
+				const x = rMid * cosTable[a % angleCount];
+				const z = rMid * sinTable[a % angleCount];
 				let y;
 				if (useSphere) {
 					// create a single shell tile spanning inner->outer surface so thickness config matters
@@ -116,21 +179,36 @@
 					const configHalf = Math.max(0.01, sphereThickness / 2);
 					let halfHeight = Math.max(impliedHalf, configHalf);
 					const centerY = (yOuter + yInner) / 2;
-					const shellBox = new CANNON.Box(new CANNON.Vec3(tileHalfX, halfHeight, tileHalfZ));
+					// reuse boxes of same dimensions
+					const key = Math.round(tileHalfX * 1000) + '_' + Math.round(halfHeight * 1000) + '_' + Math.round(tileHalfZ * 1000);
+					let shellBox = shapeCache.get(key);
+					if (!shellBox) {
+						shellBox = new CANNON.Box(new CANNON.Vec3(tileHalfX, halfHeight, tileHalfZ));
+						shapeCache.set(key, shellBox);
+					}
 					bowlBody.addShape(shellBox, new CANNON.Vec3(x, centerY, z));
 					tileCount++;
 					// ensure center coverage for r==0 when profile indicates a hole
 					if (r === 0 && rInner === 0) {
-						const coverBox = new CANNON.Box(new CANNON.Vec3(0.05, halfHeight, 0.05));
+						const coverKey = 'c_' + Math.round(0.05 * 1000) + '_' + Math.round(halfHeight * 1000) + '_' + Math.round(0.05 * 1000);
+						let coverBox = shapeCache.get(coverKey);
+						if (!coverBox) {
+							coverBox = new CANNON.Box(new CANNON.Vec3(0.05, halfHeight, 0.05));
+							shapeCache.set(coverKey, coverBox);
+						}
 						bowlBody.addShape(coverBox, new CANNON.Vec3(0, (yInner + yOuter) / 2, 0));
 						tileCount++;
 					}
 				} else {
 					y = sampleProfile(rMid);
-					// add simple flat tile for lathe/profile mode
-					const box = new CANNON.Box(new CANNON.Vec3(tileHalfX, tileHalfY, tileHalfZ));
-					const localOffset = new CANNON.Vec3(x, y - tileHalfY, z);
-					bowlBody.addShape(box, localOffset);
+					// add simple flat tile for lathe/profile mode - reuse boxes by size
+					const key = Math.round(tileHalfX * 1000) + '_' + Math.round(tileHalfY * 1000) + '_' + Math.round(tileHalfZ * 1000);
+					let box = shapeCache.get(key);
+					if (!box) {
+						box = new CANNON.Box(new CANNON.Vec3(tileHalfX, tileHalfY, tileHalfZ));
+						shapeCache.set(key, box);
+					}
+					bowlBody.addShape(box, new CANNON.Vec3(x, y - tileHalfY, z));
 					tileCount++;
 				}
 			}
