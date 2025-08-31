@@ -1,15 +1,19 @@
 (function () {
 	// Minimal physics helper for Dice app
 	function createWorld() {
+		const cfg = window.AppConfig || {};
+		const pCfg = cfg.physics || {};
 		const world = new CANNON.World();
-		world.gravity.set(0, -9.82, 0);
+		const g = pCfg.gravity || { x: 0, y: -9.82, z: 0 };
+		world.gravity.set(g.x, g.y, g.z);
 		if (CANNON.SAPBroadphase) world.broadphase = new CANNON.SAPBroadphase(world);
 		else world.broadphase = new CANNON.NaiveBroadphase();
-		world.solver.iterations = 40;
+		world.solver.iterations = pCfg.solverIterations || 40;
 
 		const defaultMaterial = new CANNON.Material('defaultMaterial');
 		const diceMaterial = new CANNON.Material('diceMaterial');
-		const contact = new CANNON.ContactMaterial(diceMaterial, defaultMaterial, { friction: 0.4, restitution: 0.1 });
+		const contactCfg = pCfg.contact || { friction: 0.4, restitution: 0.1 };
+		const contact = new CANNON.ContactMaterial(diceMaterial, defaultMaterial, contactCfg);
 		world.addContactMaterial(contact);
 
 		return { world, defaultMaterial, diceMaterial };
@@ -17,10 +21,12 @@
 
 	function createBowlCollider(world, defaultMaterial, opts) {
 		opts = opts || {};
-		const profilePoints = opts.profilePoints || [{ r: 0.1, y: -2.2 }, { r: 3.0, y: -1.5 }, { r: 6.0, y: 2.0 }];
-		const maxR = opts.maxR || 6.0;
-		const radialSlices = opts.radialSlices || 16;
-		const angularSegments = opts.angularSegments || 48;
+		const cfg = window.AppConfig || {};
+		const bowlCfg = cfg.bowl || {};
+		const profilePoints = opts.profilePoints || bowlCfg.profilePoints || [{ r: 0.1, y: -2.2 }, { r: 3.0, y: -1.5 }, { r: 6.0, y: 2.0 }];
+		const maxR = opts.maxR || bowlCfg.maxR || 6.0;
+		const radialSlices = opts.radialSlices || bowlCfg.radialSlices || 16;
+		const angularSegments = opts.angularSegments || bowlCfg.angularSegments || 48;
 
 		function sampleProfile(r) {
 			if (r <= profilePoints[0].r) return profilePoints[0].y;
@@ -45,7 +51,7 @@
 			const arcApprox = (2 * Math.PI * Math.max(rMid, 0.001)) / angularSegments;
 			const tileHalfX = Math.max(arcApprox / 2, 0.05);
 			const tileHalfZ = Math.max((rOuter - rInner) / 2, 0.05);
-			const tileHalfY = opts.tileHalfY || 0.25;
+			const tileHalfY = opts.tileHalfY || bowlCfg.tileHalfY || 0.25;
 
 			for (let a = 0; a < angularSegments; a++) {
 				const theta = (a / angularSegments) * Math.PI * 2;

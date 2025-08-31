@@ -43,19 +43,28 @@
 			this.world = ph.world;
 			this.defaultMaterial = ph.defaultMaterial;
 			this.diceMaterial = ph.diceMaterial;
+			this.cfg = window.AppConfig || {};
+			this.diceCfg = this.cfg.dice || {};
+			this.uiCfg = this.cfg.ui || {};
 
 			const bowlMesh = this.createBowlMesh();
 			this.scene.add(bowlMesh);
 			const bowl = PhysicsHelper.createBowlCollider(this.world, this.defaultMaterial);
 			console.log('Physics bowl tiles:', bowl.tileCount);
 
-			const diceObj = this.createDice(new THREE.Vector3(0, 5, 0));
-			this.dice.push(diceObj);
-			this.scene.add(diceObj.mesh);
-
-			this.world.addBody(diceObj.body);
+			// create three dice placed so they don't overlap
+			const diceCount = this.diceCfg.count || 3;
+			const spacing = this.diceCfg.spacing || 1.6;
+			for (let i = 0; i < diceCount; i++) {
+				const x = (i - (diceCount - 1) / 2) * spacing;
+				const pos = new THREE.Vector3(x, this.diceCfg.initialHeight || 5, 0);
+				const diceObjN = this.createDice(pos);
+				this.dice.push(diceObjN);
+				this.scene.add(diceObjN.mesh);
+				this.world.addBody(diceObjN.body);
+			}
 			// Throw the dice once on startup so they're not static at spawn.
-			setTimeout(() => this.throwDice(), 50);
+			setTimeout(() => this.throwDice(), this.uiCfg.autoThrowDelay || 50);
 
 			this.rollButton.addEventListener('click', this.throwDice);
 			window.addEventListener('resize', this.onWindowResize);
@@ -126,11 +135,22 @@
 			this.isCheckingResult = false;
 			clearTimeout(this.checkResultTimeout);
 
-			this.dice.forEach(d => {
+			// place dice so they don't overlap, add a little random jitter
+			const separationThrow = this.diceCfg.spacing || 1.6;
+			const jitterXMax = this.diceCfg.jitterX || 0.2;
+			const jitterZMax = this.diceCfg.jitterZ || 0.6;
+			const velScale = this.diceCfg.initialVelocityScale || 4;
+			const angScale = this.diceCfg.angularVelocityScale || 15;
+			this.dice.forEach((d, i) => {
 				const b = d.body;
-				b.position.set((Math.random() - 0.5) * 1, 5, (Math.random() - 0.5) * 1);
-				b.velocity.set(0, 0, 0);
-				b.angularVelocity.set((Math.random() - 0.5) * 15, (Math.random() - 0.5) * 15, (Math.random() - 0.5) * 15);
+				const jitterX = (Math.random() - 0.5) * jitterXMax;
+				const jitterZ = (Math.random() - 0.5) * jitterZMax;
+				const x = (i - (this.dice.length - 1) / 2) * separationThrow + jitterX;
+				const z = jitterZ;
+				b.position.set(x, this.diceCfg.initialHeight || 5, z);
+				if (b.quaternion) b.quaternion.set(0, 0, 0, 1);
+				b.velocity.set((Math.random() - 0.5) * velScale, 0, (Math.random() - 0.5) * velScale);
+				b.angularVelocity.set((Math.random() - 0.5) * angScale, (Math.random() - 0.5) * angScale, (Math.random() - 0.5) * angScale);
 			});
 			this.checkResultTimeout = setTimeout(() => this.scheduleResultCheck(), 2000);
 		}
@@ -149,7 +169,19 @@
 			requestAnimationFrame(this.animate);
 			this.world.step(1 / 60, undefined, 5);
 			this.dice.forEach(d => { d.mesh.position.copy(d.body.position); d.mesh.quaternion.copy(d.body.quaternion); });
-			if (this.isCheckingResult) { const die = this.dice[0]; const av = die.body.angularVelocity.length(); const v = die.body.velocity.length(); if (av < 0.1 && v < 0.1) { this.resultElement.textContent = this.getDiceFace(die.mesh); this.isCheckingResult = false; } }
+			if (this.isCheckingResult) {
+				// wait until all dice have settled, then show each top face
+				let allStill = true;
+				for (let i = 0; i < this.dice.length; i++) {
+					const db = this.dice[i].body;
+					if (db.angularVelocity.length() > (this.uiCfg.resultAngularThreshold || 0.1) || db.velocity.length() > (this.uiCfg.resultVelocityThreshold || 0.1)) { allStill = false; break; }
+				}
+				if (allStill) {
+					const faces = this.dice.map(d => this.getDiceFace(d.mesh));
+					this.resultElement.textContent = faces.join(', ');
+					this.isCheckingResult = false;
+				}
+			}
 			this.renderer.render(this.scene, this.camera);
 		}
 
