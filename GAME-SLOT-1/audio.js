@@ -137,6 +137,30 @@
 				this._loopTimer = null;
 			}
 		}
+
+		// --- 外部から音量を動的に変更するためのAPI ---
+		/**
+		 * マスター音量を設定します。
+		 * @param {number} volume - 新しいマスター音量 (0.0 - 1.0)
+		 */
+		setMasterVolume(volume) {
+			if (typeof volume === 'number') {
+				this.masterVolume = this._clampVol(volume);
+				console.log(`[SlotSoundManager] Master volume set to: ${this.masterVolume}`);
+			}
+		}
+
+		/**
+		 * 特定のサウンドの個別音量を設定します。
+		 * @param {string} kind - サウンドの種類 ('spinStart', 'reelStop', 'win')
+		 * @param {number} volume - 新しい個別音量 (0.0 - 1.0)
+		 */
+		setPerVolume(kind, volume) {
+			if (this.perVolume.hasOwnProperty(kind) && typeof volume === 'number') {
+				this.perVolume[kind] = this._clampVol(volume);
+				console.log(`[SlotSoundManager] Volume for '${kind}' set to: ${this.perVolume[kind]}`);
+			}
+		}
 	}
 
 	window.SlotSoundManager = SlotSoundManager;

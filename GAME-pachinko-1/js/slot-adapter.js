@@ -432,4 +432,45 @@
 			ensureLampPanel();
 		}
 	} catch (e) { /* no-op */ }
+
+
+	// --- NEW: Pachinko Volume Control Integration ---
+	/**
+	 * Reads volume settings from GAME_CONFIG and applies them to the slot's sound manager.
+	 */
+	function applyPachinkoVolumeSettings() {
+		const pachiCfg = window.GAME_CONFIG;
+		const slotAudioCfg = pachiCfg && pachiCfg.slotAudio;
+		const slotInstance = window.SLOT_GAME_INSTANCE;
+		const soundManager = slotInstance && slotInstance.soundManager;
+
+		if (!slotAudioCfg || !soundManager) {
+			console.debug('[SlotAdapter] Volume settings or sound manager not ready, skipping.');
+			return;
+		}
+
+		console.log('[SlotAdapter] Applying volume settings from Pachinko config...');
+
+		// Apply master volume
+		if (typeof slotAudioCfg.masterVolume === 'number' && typeof soundManager.setMasterVolume === 'function') {
+			soundManager.setMasterVolume(slotAudioCfg.masterVolume);
+		}
+
+		// Apply individual volumes
+		if (slotAudioCfg.volumes) {
+			for (const kind in slotAudioCfg.volumes) {
+				const volume = slotAudioCfg.volumes[kind];
+				if (typeof volume === 'number' && typeof soundManager.setPerVolume === 'function') {
+					soundManager.setPerVolume(kind, volume);
+				}
+			}
+		}
+	}
+
+	// Apply settings after the slot game has had a chance to initialize.
+	window.addEventListener('DOMContentLoaded', () => {
+		// A short delay ensures the slot instance and its sound manager are ready.
+		setTimeout(applyPachinkoVolumeSettings, 500);
+	});
+
 })();

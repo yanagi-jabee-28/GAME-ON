@@ -57,7 +57,7 @@ const GAME_CONFIG = {
 		// 固定フレームレート（物理の基準FPS）。実時間とのズレを減らす
 		fixedFps: 60,
 		// 遅延が大きいフレームではサブステップを一時的に 1 に落として処理を軽量化
-		adaptiveSubsteps: false,
+		adaptiveSubsteps: true,
 		// 即時一時停止（UIやデバッグホットキーから切替可能）
 		paused: false,
 		// 時間スケール（全体の進み具合を倍率で調整）
@@ -252,6 +252,18 @@ const GAME_CONFIG = {
 				fillStyle: '#9e9e9e',
 				layer: 1
 			}
+		}
+	},
+
+	// 埋め込みスロットの音量設定
+	slotAudio: {
+		// スロット全体のマスター音量 (0.0 - 1.0)
+		masterVolume: 0.2,
+		// 個別のサウンドに対する音量 (マスター音量に対する倍率)
+		volumes: {
+			spinStart: 1.0,
+			reelStop: 0.6,
+			win: 1.0
 		}
 	}
 };
