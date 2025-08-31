@@ -12,9 +12,21 @@
 
 		const defaultMaterial = new CANNON.Material('defaultMaterial');
 		const diceMaterial = new CANNON.Material('diceMaterial');
-		const contactCfg = pCfg.contact || { friction: 0.4, restitution: 0.1 };
-		const contact = new CANNON.ContactMaterial(diceMaterial, defaultMaterial, contactCfg);
-		world.addContactMaterial(contact);
+		// Back-compat single contact or pair-specific contacts
+		const contacts = pCfg.contacts || {};
+		const legacy = pCfg.contact || { friction: 0.4, restitution: 0.1 };
+		const diceVsBowlCfg = contacts.diceVsBowl || legacy;
+		const diceVsDiceCfg = contacts.diceVsDice || legacy;
+		const defaultCfg = contacts.default || legacy;
+		// Apply default world contact baseline when available
+		if (world.defaultContactMaterial) {
+			if (defaultCfg.friction != null) world.defaultContactMaterial.friction = defaultCfg.friction;
+			if (defaultCfg.restitution != null) world.defaultContactMaterial.restitution = defaultCfg.restitution;
+		}
+		// Dice vs Bowl (bowl uses defaultMaterial)
+		world.addContactMaterial(new CANNON.ContactMaterial(diceMaterial, defaultMaterial, diceVsBowlCfg));
+		// Dice vs Dice
+		world.addContactMaterial(new CANNON.ContactMaterial(diceMaterial, diceMaterial, diceVsDiceCfg));
 
 		return { world, defaultMaterial, diceMaterial };
 	}
@@ -151,12 +163,61 @@
 
 	function createDiceBody(world, diceMaterial, position, size) {
 		size = size || 1;
+		const cfg = (window.AppConfig && window.AppConfig.dice) || {};
 		const half = size / 2;
-		const shape = new CANNON.Box(new CANNON.Vec3(half, half, half));
+		const r = Math.max(0, Math.min(cfg.cornerRadius != null ? cfg.cornerRadius : 0.12, half - 0.01)); // keep a small core
 		const body = new CANNON.Body({ mass: 1, position: new CANNON.Vec3(position.x, position.y, position.z), material: diceMaterial });
-		body.addShape(shape);
-		body.linearDamping = 0.01;
-		body.angularDamping = 0.01;
+
+		if (r > 0) {
+			// Rounded cube as compound: core box + edge cylinders + corner spheres
+			const core = new CANNON.Box(new CANNON.Vec3(half - r, half - r, half - r));
+			body.addShape(core, new CANNON.Vec3(0, 0, 0));
+
+			// Corner spheres (8)
+			const cornerSphere = new CANNON.Sphere(r);
+			const offs = [-1, 1];
+			for (let ix of offs) for (let iy of offs) for (let iz of offs) {
+				body.addShape(
+					cornerSphere,
+					new CANNON.Vec3(ix * (half - r), iy * (half - r), iz * (half - r))
+				);
+			}
+
+			// Edge cylinders (12) if available
+			try {
+				if (CANNON.Cylinder) {
+					const segs = Math.max(6, cfg.edgeSegments || 8);
+					const edgeLen = size - 2 * r; // cylinder height
+					const cylY = new CANNON.Cylinder(r, r, edgeLen, segs); // axis along Y by default
+					const qX = new CANNON.Quaternion(); // rotate Y->X
+					qX.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), Math.PI / 2);
+					const qZ = new CANNON.Quaternion(); // rotate Y->Z
+					qZ.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
+
+					// Along X edges: centers at (0, ±(half-r), ±(half-r))
+					for (let iy of offs) for (let iz of offs) {
+						body.addShape(cylY, new CANNON.Vec3(0, iy * (half - r), iz * (half - r)), qX);
+					}
+					// Along Y edges: centers at (±(half-r), 0, ±(half-r)) — no rotation
+					for (let ix of offs) for (let iz of offs) {
+						body.addShape(cylY, new CANNON.Vec3(ix * (half - r), 0, iz * (half - r)));
+					}
+					// Along Z edges: centers at (±(half-r), ±(half-r), 0)
+					for (let ix of offs) for (let iy of offs) {
+						body.addShape(cylY, new CANNON.Vec3(ix * (half - r), iy * (half - r), 0), qZ);
+					}
+				}
+			} catch (e) {
+				console.warn('CANNON.Cylinder not available; using spheres-only rounding');
+			}
+		} else {
+			// Fallback: plain box
+			const shape = new CANNON.Box(new CANNON.Vec3(half, half, half));
+			body.addShape(shape);
+		}
+
+		body.linearDamping = (cfg.linearDamping != null) ? cfg.linearDamping : 0.01;
+		body.angularDamping = (cfg.angularDamping != null) ? cfg.angularDamping : 0.01;
 		world.addBody(body);
 		return body;
 	}

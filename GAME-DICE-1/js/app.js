@@ -196,7 +196,7 @@
 		}
 
 		createDice(position) {
-			const size = 1;
+			const size = (this.diceCfg && this.diceCfg.size) || 1;
 			const half = size / 2;
 			const g = new THREE.BoxGeometry(size, size, size);
 			if (g && typeof g.computeBoundingSphere === 'function') g.computeBoundingSphere();
