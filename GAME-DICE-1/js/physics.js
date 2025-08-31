@@ -9,6 +9,8 @@
 		if (CANNON.SAPBroadphase) world.broadphase = new CANNON.SAPBroadphase(world);
 		else world.broadphase = new CANNON.NaiveBroadphase();
 		world.solver.iterations = pCfg.solverIterations || 40;
+		// スリープを有効化（低速で静止へ移行しやすくする）
+		world.allowSleep = true;
 
 		const defaultMaterial = new CANNON.Material('defaultMaterial');
 		const diceMaterial = new CANNON.Material('diceMaterial');
@@ -18,15 +20,32 @@
 		const diceVsBowlCfg = contacts.diceVsBowl || legacy;
 		const diceVsDiceCfg = contacts.diceVsDice || legacy;
 		const defaultCfg = contacts.default || legacy;
+		function buildContactOptions(src) {
+			const o = {};
+			const base = {
+				contactEquationStiffness: pCfg.contactEquationStiffness,
+				contactEquationRelaxation: pCfg.contactEquationRelaxation,
+				frictionEquationStiffness: pCfg.frictionEquationStiffness,
+				frictionEquationRelaxation: pCfg.frictionEquationRelaxation
+			};
+			const srcAll = Object.assign({}, base, src || {});
+			if (srcAll.friction != null) o.friction = srcAll.friction;
+			if (srcAll.restitution != null) o.restitution = srcAll.restitution;
+			if (srcAll.contactEquationStiffness != null) o.contactEquationStiffness = srcAll.contactEquationStiffness;
+			if (srcAll.contactEquationRelaxation != null) o.contactEquationRelaxation = srcAll.contactEquationRelaxation;
+			if (srcAll.frictionEquationStiffness != null) o.frictionEquationStiffness = srcAll.frictionEquationStiffness;
+			if (srcAll.frictionEquationRelaxation != null) o.frictionEquationRelaxation = srcAll.frictionEquationRelaxation;
+			return o;
+		}
 		// Apply default world contact baseline when available
 		if (world.defaultContactMaterial) {
 			if (defaultCfg.friction != null) world.defaultContactMaterial.friction = defaultCfg.friction;
 			if (defaultCfg.restitution != null) world.defaultContactMaterial.restitution = defaultCfg.restitution;
 		}
 		// Dice vs Bowl (bowl uses defaultMaterial)
-		world.addContactMaterial(new CANNON.ContactMaterial(diceMaterial, defaultMaterial, diceVsBowlCfg));
+		world.addContactMaterial(new CANNON.ContactMaterial(diceMaterial, defaultMaterial, buildContactOptions(diceVsBowlCfg)));
 		// Dice vs Dice
-		world.addContactMaterial(new CANNON.ContactMaterial(diceMaterial, diceMaterial, diceVsDiceCfg));
+		world.addContactMaterial(new CANNON.ContactMaterial(diceMaterial, diceMaterial, buildContactOptions(diceVsDiceCfg)));
 
 		return { world, defaultMaterial, diceMaterial };
 	}
@@ -237,6 +256,33 @@
 
 		body.linearDamping = (cfg.linearDamping != null) ? cfg.linearDamping : 0.01;
 		body.angularDamping = (cfg.angularDamping != null) ? cfg.angularDamping : 0.01;
+		// スリープしきい値（転がり続けを防止）
+		body.allowSleep = true;
+		body.sleepSpeedLimit = (cfg.sleepSpeedLimit != null) ? cfg.sleepSpeedLimit : 0.1; // これ以下の速度で
+		body.sleepTimeLimit = (cfg.sleepTimeLimit != null) ? cfg.sleepTimeLimit : 1.0; // 指定時間継続でsleep
+		// 任意: 内部バラスト（重心をわずかに下げ、角・辺立ちをさらに抑制）
+		try {
+			const ballast = cfg.ballast || {};
+			if (ballast.enabled) {
+				const br = Math.min(Math.max(0.01, ballast.radius || 0.2), half - 0.02);
+				const by = -Math.abs(ballast.offsetY || 0.15);
+				const layers = Math.max(1, Math.floor(ballast.layers || 1));
+				const sphere = new CANNON.Sphere(br);
+				// 賢い質量分布: 下側に集中させて重心を下げ、安定性を高める
+				const totalMass = body.mass;
+				const ballastMass = totalMass * 0.3; // 全体の30%をバラストに
+				const perLayerMass = ballastMass / layers;
+				for (let i = 0; i < layers; i++) {
+					const frac = (layers <= 1) ? 0 : (i / (layers - 1));
+					const oy = by * (0.6 + 0.4 * frac); // 少しずつ下に重ねる
+					const shapeId = body.addShape(sphere, new CANNON.Vec3(0, oy, 0));
+					// 各層の質量を設定（下側ほど重く）
+					const layerMass = perLayerMass * (1 + frac * 0.5);
+					body.shapeMaterialMasses[shapeId] = layerMass;
+				}
+				body.updateMassProperties();
+			}
+		} catch (e) { /* optional ballast failed: ignore */ }
 		world.addBody(body);
 		return body;
 	}

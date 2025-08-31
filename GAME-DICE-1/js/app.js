@@ -64,6 +64,8 @@
 			// physics
 			const ph = PhysicsHelper.createWorld();
 			this.world = ph.world;
+			// Rapier PoC is optional; expose detection
+			if (window.PhysicsHelperRapier) console.log('Rapier PoC available via PhysicsHelperRapier');
 			this.defaultMaterial = ph.defaultMaterial;
 			this.diceMaterial = ph.diceMaterial;
 			this.cfg = window.AppConfig || {};
@@ -97,6 +99,27 @@
 			// debug camera controls
 			const debugCfg = (window.AppConfig && window.AppConfig.debug) || {};
 			this._debugControls = window.DebugTools && window.DebugTools.setupCameraControls(this.scene, this.camera, this.renderer, debugCfg);
+			// expose switch helper: call window.app.useRapierPoC() from console to swap to Rapier PoC world
+			this.useRapierPoC = async () => {
+				if (!window.PhysicsHelperRapier) { console.warn('Rapier PoC not loaded'); return; }
+				const rap = PhysicsHelperRapier;
+				const rph = await rap.createWorld();
+				if (!rph) { console.warn('Rapier init failed'); return; }
+				// remove current physics bodies
+				this.dice.forEach(d => { try { this.world._world && this.world._world.removeBody && this.world._world.removeBody(d.body); } catch (e) { } });
+				// create rapier bowl and dice (note: PoC returns rapier rigid bodies)
+				const bowl = rap.createBowlCollider(rph.world, null);
+				this.dice = [];
+				const diceCount = this.diceCfg.count || 3;
+				for (let i = 0; i < diceCount; i++) {
+					const x = (i - (diceCount - 1) / 2) * (this.diceCfg.spacing || 1.6);
+					const pos = new THREE.Vector3(x, this.diceCfg.initialHeight || 5, 0);
+					const rb = rap.createDiceBody(rph.world, null, pos, this.diceCfg.size || 1);
+					this.dice.push({ mesh: null, body: rb });
+				}
+				this.world = rph.world;
+				console.log('Switched to Rapier PoC world');
+			};
 		}
 
 		createBowlMesh() {
@@ -279,8 +302,13 @@
 				const z = jitterZ;
 				b.position.set(x, this.diceCfg.initialHeight || 5, z);
 				if (b.quaternion) b.quaternion.set(0, 0, 0, 1);
+				// 前回の力・トルクをクリア
+				if (b.force) b.force.set(0, 0, 0);
+				if (b.torque) b.torque.set(0, 0, 0);
 				b.velocity.set((Math.random() - 0.5) * velScale, 0, (Math.random() - 0.5) * velScale);
 				b.angularVelocity.set((Math.random() - 0.5) * angScale, (Math.random() - 0.5) * angScale, (Math.random() - 0.5) * angScale);
+				// スリープ中だと動かないため必ず起こす
+				if (typeof b.wakeUp === 'function') b.wakeUp();
 			});
 			this.checkResultTimeout = setTimeout(() => this.scheduleResultCheck(), 2000);
 		}
@@ -297,8 +325,39 @@
 
 		animate() {
 			requestAnimationFrame(this.animate);
-			this.world.step(1 / 60, undefined, 5);
-			this.dice.forEach(d => { d.mesh.position.copy(d.body.position); d.mesh.quaternion.copy(d.body.quaternion); });
+			// 不規則なフレーム間隔でも安定するようサブステップを許容
+			this.world.step(1 / 60, undefined, (this.cfg && this.cfg.physics && this.cfg.physics.maxSubSteps) || 5);
+			// 疑似転がり摩擦（微小トルク）＋適応ダンピング
+			const rft = (this.diceCfg && this.diceCfg.rollingFrictionTorque) || 0;
+			const adCfg = (this.cfg && this.cfg.physics && this.cfg.physics.adaptiveDamping) || {};
+			this.dice.forEach(d => {
+				const b = d.body;
+				if (b.angularVelocity) {
+					const av = b.angularVelocity;
+					const len = av.length();
+					let dampingFactor = 1.0;
+					// 賢い適応ダンピング: 角速度が高いときに強化
+					if (adCfg.enabled && len > (adCfg.angularThreshold || 0.5)) {
+						dampingFactor = adCfg.boostFactor || 2.0;
+					}
+					// 転がり摩擦トルク
+					if (rft > 0 && len > 1e-3) {
+						const k = -rft * dampingFactor; // 減衰方向
+						b.torque.x += k * av.x;
+						b.torque.y += k * av.y;
+						b.torque.z += k * av.z;
+					}
+					// 適応角ダンピング
+					if (adCfg.enabled && len > 1e-3) {
+						const ad = (this.diceCfg && this.diceCfg.angularDamping) || 0.01;
+						const extraDamp = ad * (dampingFactor - 1.0);
+						b.angularDamping = ad + extraDamp;
+					}
+				}
+				// 見た目更新
+				d.mesh.position.copy(b.position);
+				d.mesh.quaternion.copy(b.quaternion);
+			});
 			if (this.isCheckingResult) {
 				// wait until all dice have settled, then show each top face
 				let allStill = true;
