@@ -54,6 +54,8 @@
 			this.scene.add(diceObj.mesh);
 
 			this.world.addBody(diceObj.body);
+			// Throw the dice once on startup so they're not static at spawn.
+			setTimeout(() => this.throwDice(), 50);
 
 			this.rollButton.addEventListener('click', this.throwDice);
 			window.addEventListener('resize', this.onWindowResize);
