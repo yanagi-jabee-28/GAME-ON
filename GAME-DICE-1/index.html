@@ -1,39 +1,648 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<link rel="stylesheet" href="css/style.css">
-	</style>
-</head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3Dチンチロ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Shippori Mincho', serif;
+            background-color: #333;
+            color: #fff;
+        }
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        #ui-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            pointer-events: none;
+        }
+        .action-button {
+            pointer-events: auto;
+            font-size: 1.2rem;
+            font-weight: 700;
+            padding: 12px 28px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: white;
+            border: none;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: all 0.1s ease-in-out;
+        }
+        .action-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0,0,0,0.3);
+        }
+        .action-button:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .action-button:disabled {
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        #rollButton {
+            background: linear-gradient(145deg, #e74c3c, #c0392b);
+            border-bottom: 4px solid #962d22;
+        }
+        #rollButton:hover { background: linear-gradient(145deg, #ff6b5a, #d35400); }
+        #rollButton:active { border-bottom-width: 2px; }
+        #rollButton:disabled { background: #7f8c8d; border-bottom: 4px solid #647071; }
+        
+        .top-button {
+            display: none;
+            position: absolute;
+            top: 20px;
+            z-index: 10;
+            font-size: 1rem;
+            padding: 8px 16px;
+        }
+        #nudgeButton {
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(145deg, #3498db, #2980b9);
+            border-bottom: 4px solid #216a9a;
+        }
+        #nudgeButton:hover { background: linear-gradient(145deg, #5dade2, #3498db); }
+        #nudgeButton:active { border-bottom-width: 2px; }
 
+        #rearrangeButton {
+            left: 20px;
+            background: linear-gradient(145deg, #2ecc71, #27ae60);
+            border-bottom: 4px solid #1e8449;
+        }
+        #rearrangeButton:hover { background: linear-gradient(145deg, #58d68d, #2ecc71); }
+        #rearrangeButton:active { border-bottom-width: 2px; }
+
+        #diceTypeSelector {
+            pointer-events: auto;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+            font-family: 'Shippori Mincho', serif;
+            font-size: 1rem;
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: white;
+            border: 2px solid #7f8c8d;
+            background-color: #34495e;
+            cursor: pointer;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+        }
+        #diceTypeSelector:disabled {
+            background-color: #7f8c8d;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        #result-display {
+            height: 80px;
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        #result-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #f1c40f;
+            text-shadow: 0 0 5px rgba(241, 196, 15, 0.5), 0 0 15px rgba(0,0,0,0.7);
+            margin: 0;
+            transition: all 0.3s ease;
+        }
+        #result-description {
+            font-size: 1.1rem;
+            color: #ecf0f1;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.7);
+            margin: 5px 0 0 0;
+            min-height: 1.5em;
+        }
+        #power-meter-container {
+            width: 80%;
+            max-width: 400px;
+            height: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 2px solid #aaa;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            display: none;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+        }
+        #power-meter-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(to right, #f1c40f, #e74c3c);
+            border-radius: 8px;
+            transition: width 0.05s linear;
+        }
+    </style>
+</head>
 <body>
 
-	<div id="info">
-		<h1>3D Dice Roller</h1>
-		<p>出目: <span id="result"></span></p>
-	</div>
+    <div id="canvas-container"></div>
+    <select id="diceTypeSelector">
+        <option value="normal">通常賽</option>
+        <option value="shigoro">四五六賽</option>
+        <option value="pinzoro">ピンゾロ賽</option>
+    </select>
+    <button id="nudgeButton" class="action-button top-button">揺らす</button>
+    <button id="rearrangeButton" class="action-button top-button">再配置</button>
 
-	<div id="container"></div>
-	<button id="rollButton">サイコロを振る</button>
 
-	<!-- Import 3D and physics libraries -->
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
-	<!-- Rapier (PoC) - 互換 UMD バンドル（window.RAPIER を提供） -->
-	<script src="https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.10.0/rapier3d-compat.umd.js"></script>
-	<script src="js/config.js"></script>
-	<script src="js/physics.js"></script>
-	<script src="js/debug.js"></script>
-	<script src="js/app.js"></script>
-	<script>
-		window.onload = () => {
-			window.app = new DiceRollerApp('container', 'result', 'rollButton');
-			window.app.init();
-			console.log('world bodies after init:', window.app.world.bodies.map((b, i) => ({ index: i, mass: b.mass, shapes: b.shapes ? b.shapes.length : 0 })));
-		};
-	</script>
+    <div id="ui-container">
+        <div id="result-display">
+            <h1 id="result-title">チンチロ</h1>
+            <p id="result-description">下のボタンで投擲準備</p>
+        </div>
+        <div id="power-meter-container">
+            <div id="power-meter-bar"></div>
+        </div>
+        <button id="rollButton" class="action-button">サイコロを振る</button>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+            "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import * as CANNON from 'cannon-es';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        const canvasContainer = document.getElementById('canvas-container');
+        const rollButton = document.getElementById('rollButton');
+        const nudgeButton = document.getElementById('nudgeButton');
+        const rearrangeButton = document.getElementById('rearrangeButton');
+        const diceTypeSelector = document.getElementById('diceTypeSelector');
+        const resultTitle = document.getElementById('result-title');
+        const resultDescription = document.getElementById('result-description');
+        const powerMeterContainer = document.getElementById('power-meter-container');
+        const powerMeterBar = document.getElementById('power-meter-bar');
+
+        let scene, camera, renderer, controls, clock;
+        let world;
+        const dice = [];
+        const diceBodies = [];
+        const diceSize = 0.5;
+        const bowlRadius = 4;
+        const bowlHeight = 2;
+        
+        let gameState = 'initializing';
+        let diceType = 'normal';
+        let rollStartTime = 0;
+        const STUCK_THRESHOLD_MS = 5000;
+        const SHONBEN_GRACE_PERIOD_MS = 100;
+        let shonbenTimers = [0, 0, 0];
+        
+        let power = 0;
+        let powerDirection = 1;
+        let powerAnimationId = null;
+
+        class ParticleEmitter {
+            constructor(scene, count = 100) { this.scene = scene; this.particles = []; const geometry = new THREE.BufferGeometry(); const material = new THREE.PointsMaterial({ color: 0xf0ead6, size: 0.1, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, vertexColors: true }); this.positions = new Float32Array(count * 3); this.colors = new Float32Array(count * 3); geometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3)); geometry.setAttribute('color', new THREE.BufferAttribute(this.colors, 3)); this.points = new THREE.Points(geometry, material); this.points.visible = false; this.scene.add(this.points); for (let i = 0; i < count; i++) { this.particles.push({ position: new THREE.Vector3(), velocity: new THREE.Vector3(), life: 0 }); } }
+            trigger(origin) { const particleColor = new THREE.Color(0xf0ead6); this.points.visible = true; this.particles.forEach((p, i) => { p.position.copy(origin); const speed = 5 + Math.random() * 5; p.velocity.set((Math.random() - 0.5) * speed, (Math.random() * 0.5) * speed, (Math.random() - 0.5) * speed); p.life = 1.0; this.positions[i*3]=p.position.x; this.positions[i*3+1]=p.position.y; this.positions[i*3+2]=p.position.z; this.colors[i*3]=particleColor.r; this.colors[i*3+1]=particleColor.g; this.colors[i*3+2]=particleColor.b; }); this.points.geometry.attributes.position.needsUpdate = true; this.points.geometry.attributes.color.needsUpdate = true; }
+            update(deltaTime) { if (!this.points.visible) return; let aliveParticles = 0; this.particles.forEach((p, i) => { if (p.life > 0) { p.life -= deltaTime; p.velocity.y -= 9.8 * deltaTime; p.position.add(p.velocity.clone().multiplyScalar(deltaTime)); this.positions[i*3]=p.position.x; this.positions[i*3+1]=p.position.y; this.positions[i*3+2]=p.position.z; aliveParticles++; } }); this.points.material.opacity = Math.max(0, this.particles[0].life); this.points.geometry.attributes.position.needsUpdate = true; if (aliveParticles === 0) this.points.visible = false; }
+        }
+        let particleEmitter;
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x2c3e50);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 8, 6);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            canvasContainer.appendChild(renderer.domElement);
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            clock = new THREE.Clock();
+            
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            directionalLight.position.set(5, 10, 7.5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            
+            world = new CANNON.World({ gravity: new CANNON.Vec3(0, -55, 0) });
+            world.allowSleep = true;
+            world.sleepSpeedLimit = 0.05;
+            world.sleepTimeLimit = 0.5;
+            world.solver.iterations = 20;
+
+            const dicePhysicsMaterial = new CANNON.Material('dice');
+            const bowlFloorMaterial = new CANNON.Material('bowlFloor');
+            const bowlWallMaterial = new CANNON.Material('bowlWall');
+
+            createBowl(bowlFloorMaterial, bowlWallMaterial);
+            createDice(dicePhysicsMaterial);
+            setupContactMaterials(dicePhysicsMaterial, bowlFloorMaterial, bowlWallMaterial);
+            
+            particleEmitter = new ParticleEmitter(scene);
+            
+            rollButton.disabled = true;
+            rollButton.addEventListener('click', startCharging);
+            nudgeButton.addEventListener('click', nudgeDice);
+            rearrangeButton.addEventListener('click', resetDiceToStartPosition);
+            diceTypeSelector.addEventListener('change', (e) => {
+                diceType = e.target.value;
+                updateDiceMaterials();
+            });
+            canvasContainer.addEventListener('click', decidePower);
+            window.addEventListener('resize', onWindowResize);
+
+            animate();
+            
+            setTimeout(() => { rollDice(0, true); }, 100);
+        }
+
+        function createBowl(bowlFloorMaterial, bowlWallMaterial) {
+            const bowlWallThickness = 0.2;
+            const bowlMaterial = new THREE.MeshStandardMaterial({ color: 0x6B4F3A, side: THREE.DoubleSide, metalness: 0.2, roughness: 0.7 });
+            const bowlGroup = new THREE.Group();
+            const bottomGeometry = new THREE.CylinderGeometry(bowlRadius, bowlRadius, 0.2, 64);
+            const bottomMesh = new THREE.Mesh(bottomGeometry, bowlMaterial);
+            bottomMesh.receiveShadow = true;
+            bowlGroup.add(bottomMesh);
+            const wallGeometry = new THREE.CylinderGeometry(bowlRadius, bowlRadius, bowlHeight, 64, 1, true);
+            const wallMesh = new THREE.Mesh(wallGeometry, bowlMaterial);
+            wallMesh.position.y = bowlHeight / 2;
+            wallMesh.receiveShadow = true;
+            bowlGroup.add(wallMesh);
+            scene.add(bowlGroup);
+
+            const bowlFloorBody = new CANNON.Body({ mass: 0, material: bowlFloorMaterial });
+            const bottomShape = new CANNON.Cylinder(bowlRadius, bowlRadius, 0.1, 32);
+            bowlFloorBody.addShape(bottomShape, new CANNON.Vec3(0, 0.05, 0));
+            world.addBody(bowlFloorBody);
+            
+            const bowlWallBody = new CANNON.Body({ mass: 0, material: bowlWallMaterial });
+            const wallSegments = 64;
+            const segmentAngle = (Math.PI * 2) / wallSegments;
+            const segmentWidth = 2 * bowlRadius * Math.tan(segmentAngle / 2);
+            const wallShape = new CANNON.Box(new CANNON.Vec3(segmentWidth / 2 * 1.05, bowlHeight / 2, bowlWallThickness / 2));
+            for (let i = 0; i < wallSegments; i++) {
+                const angle = i * segmentAngle;
+                const position = new CANNON.Vec3(bowlRadius * Math.cos(angle), bowlHeight / 2, bowlRadius * Math.sin(angle));
+                const quaternion = new CANNON.Quaternion();
+                quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angle);
+                bowlWallBody.addShape(wallShape, position, quaternion);
+            }
+            world.addBody(bowlWallBody);
+        }
+
+        function createDice(dicePhysicsMaterial) {
+            const diceGeometry = new THREE.BoxGeometry(diceSize, diceSize, diceSize);
+            for (let i = 0; i < 3; i++) {
+                const die = new THREE.Mesh(diceGeometry, []);
+                die.castShadow = true;
+                scene.add(die);
+                dice.push(die);
+
+                const body = new CANNON.Body({ mass: 1, shape: new CANNON.Box(new CANNON.Vec3(diceSize/2, diceSize/2, diceSize/2)), material: dicePhysicsMaterial, angularDamping: 0.25, linearDamping: 0.3 });
+                body.collisionResponse = true;
+                body.ccdSpeedThreshold = 0.1;
+                body.ccdMotionThreshold = diceSize / 4;
+                world.addBody(body);
+                diceBodies.push(body);
+            }
+            updateDiceMaterials();
+        }
+        
+        function setupContactMaterials(diceMat, floorMat, wallMat) {
+            const diceBowlFloorContact = new CANNON.ContactMaterial(floorMat, diceMat, { friction: 0.25, restitution: 0.5 });
+            world.addContactMaterial(diceBowlFloorContact);
+            const diceBowlWallContact = new CANNON.ContactMaterial(wallMat, diceMat, { friction: 0.1, restitution: 0.6 });
+            world.addContactMaterial(diceBowlWallContact);
+            const diceDiceContactMaterial = new CANNON.ContactMaterial(diceMat, diceMat, { friction: 0.15, restitution: 0.4 });
+            world.addContactMaterial(diceDiceContactMaterial);
+        }
+        
+        function updateDiceMaterials() {
+            let faceSet;
+            switch(diceType) {
+                case 'shigoro': faceSet = [4, 4, 5, 5, 6, 6]; break;
+                case 'pinzoro': faceSet = [1, 1, 1, 1, 1, 1]; break;
+                default: faceSet = [1, 6, 2, 5, 3, 4]; break;
+            }
+            dice.forEach(die => {
+                die.material.forEach(m => m.dispose());
+                die.material = faceSet.map(val => new THREE.MeshStandardMaterial({ map: createDiceTexture(val) }));
+            });
+        }
+
+        function createDiceTexture(value) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const context = canvas.getContext('2d');
+            context.fillStyle = '#f0ead6';
+            context.fillRect(0, 0, 128, 128);
+            const dotRadius = 12;
+            const positions = { 1: [[0.5, 0.5]], 2: [[0.25, 0.25], [0.75, 0.75]], 3: [[0.25, 0.25], [0.5, 0.5], [0.75, 0.75]], 4: [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]], 5: [[0.25, 0.25], [0.75, 0.25], [0.5, 0.5], [0.25, 0.75], [0.75, 0.75]], 6: [[0.25, 0.25], [0.75, 0.25], [0.25, 0.5], [0.75, 0.5], [0.25, 0.75], [0.75, 0.75]],};
+            context.fillStyle = (value === 1) ? '#c0392b' : '#2c3e50';
+            if (positions[value]) { positions[value].forEach(pos => { context.beginPath(); context.arc(pos[0] * 128, pos[1] * 128, dotRadius, 0, Math.PI * 2); context.fill(); });}
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function resetDiceToStartPosition() {
+            const startPositions = [ new CANNON.Vec3(0, 4.5, 0.3), new CANNON.Vec3(-0.3, 4.7, -0.2), new CANNON.Vec3(0.3, 4.9, -0.2) ];
+            diceBodies.forEach((body, i) => {
+                body.velocity.set(0, 0, 0); body.angularVelocity.set(0, 0, 0);
+                body.position.copy(startPositions[i]);
+                const randomAxis = new CANNON.Vec3(Math.random(), Math.random(), Math.random()).unit();
+                const randomAngle = Math.random() * Math.PI * 2;
+                body.quaternion.setFromAxisAngle(randomAxis, randomAngle);
+                dice[i].position.copy(body.position);
+                dice[i].quaternion.copy(body.quaternion);
+                dice[i].visible = true;
+            });
+        }
+
+        function startCharging() {
+            if (gameState !== 'ready') return;
+            resetDiceToStartPosition();
+            rearrangeButton.style.display = 'block';
+            diceTypeSelector.disabled = true;
+            gameState = 'charging';
+            resultTitle.textContent = '…';
+            resultDescription.textContent = '画面をクリックしてパワーを決定';
+            rollButton.style.display = 'none';
+            powerMeterContainer.style.display = 'block';
+            power = 0; powerDirection = 1;
+            powerAnimationId = requestAnimationFrame(updatePowerMeter);
+        }
+
+        function updatePowerMeter() {
+            power += powerDirection * 2.0;
+            if (power >= 100) { power = 100; powerDirection = -1; } 
+            else if (power <= 0) { power = 0; powerDirection = 1; }
+            powerMeterBar.style.width = `${power}%`;
+            if (gameState === 'charging') powerAnimationId = requestAnimationFrame(updatePowerMeter);
+        }
+        
+        function decidePower() {
+            if (gameState !== 'charging') return;
+            cancelAnimationFrame(powerAnimationId);
+            rearrangeButton.style.display = 'none';
+            rollDice(power);
+        }
+
+        function rollDice(throwPower, isInitialSetup = false) {
+            gameState = isInitialSetup ? 'initializing' : 'rolling';
+            if (!isInitialSetup) {
+                rollStartTime = performance.now();
+            }
+            nudgeButton.style.display = 'none';
+            shonbenTimers.fill(0);
+            
+            const minPower = 12;
+            const maxPower = 36;
+            const powerRatio = Math.pow(throwPower / 100, 1.5);
+            const force = minPower + (maxPower - minPower) * powerRatio;
+
+            if(isInitialSetup) {
+                 const startPositions = [ new CANNON.Vec3(0, 4, 0.6), new CANNON.Vec3(-0.6, 4.5, -0.3), new CANNON.Vec3(0.6, 5, -0.3) ];
+                 diceBodies.forEach((body, i) => {
+                    dice[i].visible = true;
+                    body.wakeUp(); body.position.copy(startPositions[i]);
+                    const randomAxis = new CANNON.Vec3(Math.random(), Math.random(), Math.random()).unit();
+                    body.quaternion.setFromAxisAngle(randomAxis, Math.random() * Math.PI * 2);
+                    body.velocity.set(0,0,0); body.angularVelocity.set((Math.random()-0.5)*3, (Math.random()-0.5)*3, (Math.random()-0.5)*3);
+                 });
+            } else {
+                 diceBodies.forEach((body, i) => {
+                    dice[i].visible = true;
+                    body.wakeUp();
+                    body.position.copy(dice[i].position);
+                    body.quaternion.copy(dice[i].quaternion);
+
+                    body.velocity.set( (Math.random() - 0.5) * force, (0.1 + Math.random() * 0.4) * force, (Math.random() - 0.5) * force );
+                    body.angularVelocity.set( (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20 );
+                });
+            }
+        }
+        
+        function nudgeDice() {
+            if (gameState !== 'rolling') return;
+            const nudgeForce = 5;
+            diceBodies.forEach(body => {
+                body.wakeUp();
+                const force = new CANNON.Vec3((Math.random()-0.5)*nudgeForce, Math.random()*nudgeForce, (Math.random()-0.5)*nudgeForce);
+                const point = new CANNON.Vec3((Math.random()-0.5)*diceSize*0.5, (Math.random()-0.5)*diceSize*0.5, (Math.random()-0.5)*diceSize*0.5);
+                body.applyImpulse(force, point);
+            });
+            nudgeButton.style.display = 'none';
+        }
+
+        function getDiceFace(body) {
+            const up = new CANNON.Vec3(0, 1, 0); let maxDot = -1, topFace = -1;
+            const faceVectors = [ new CANNON.Vec3(1,0,0), new CANNON.Vec3(-1,0,0), new CANNON.Vec3(0,1,0), new CANNON.Vec3(0,-1,0), new CANNON.Vec3(0,0,1), new CANNON.Vec3(0,0,-1) ];
+            let faceValues;
+            switch(diceType) {
+                case 'shigoro': faceValues = [4, 4, 5, 5, 6, 6]; break;
+                case 'pinzoro': faceValues = [1, 1, 1, 1, 1, 1]; break;
+                default: faceValues = [1, 6, 2, 5, 3, 4]; break;
+            }
+            for (let i = 0; i < faceVectors.length; i++) {
+                const worldVector = body.quaternion.vmult(faceVectors[i]);
+                const dot = worldVector.dot(up);
+                if (dot > maxDot) { maxDot = dot; topFace = faceValues[i]; }
+            }
+            return topFace;
+        }
+        
+        function finishRoll(result, desc) {
+            resultTitle.textContent = result;
+            resultDescription.textContent = desc;
+            nudgeButton.style.display = 'none';
+            rearrangeButton.style.display = 'none';
+            diceTypeSelector.disabled = false;
+            gameState = 'ready'; 
+            rollButton.style.display = 'block';
+            rollButton.disabled = false;
+        }
+
+        function areAllDiceStable() {
+            const STABILITY_THRESHOLD = 0.99;
+            for(const body of diceBodies) {
+                if(!dice[diceBodies.indexOf(body)].visible) continue;
+                let isStable = false;
+                const localAxes = [ new CANNON.Vec3(1,0,0), new CANNON.Vec3(0,1,0), new CANNON.Vec3(0,0,1) ];
+                for(const axis of localAxes) {
+                    const worldAxis = body.quaternion.vmult(axis);
+                    const dotProduct = Math.abs(worldAxis.dot(new CANNON.Vec3(0, 1, 0)));
+                    if (dotProduct > STABILITY_THRESHOLD) { isStable = true; break; }
+                }
+                if (!isStable) return false;
+            }
+            return true;
+        }
+
+        function checkAndDisplayResult() {
+            rollButton.disabled = true;
+            const visibleDiceBodies = diceBodies.filter((body, i) => dice[i].visible);
+            
+            if (visibleDiceBodies.length < 3) {
+                finishRoll("ションベン！", "サイコロが丼から出てしまいました。");
+                return;
+            }
+
+            const values = visibleDiceBodies.map(getDiceFace).sort((a,b) => a-b);
+            let title = '', description = `出目: ${values.join(', ')}`;
+            const counts = {}; values.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+
+            if (Object.values(counts).includes(3)) {
+                title = (values[0] === 1) ? "ピンゾロ" : "アラシ";
+            } else if (Object.values(counts).includes(2)) {
+                const singleValue = Object.keys(counts).find(k => counts[k] === 1);
+                title = `${['','一','二','三','四','五','六'][singleValue]}の目`;
+            } else {
+                 switch(diceType) {
+                    case 'shigoro':
+                        if (values.join('') === '456') title = "シゴロ";
+                        else title = "目なし";
+                        break;
+                    default: 
+                        if (values.join('') === '456') title = "シゴロ";
+                        else if (values.join('') === '123') title = "ヒフミ";
+                        else title = "目なし";
+                        break;
+                }
+            }
+            finishRoll(title, description);
+        }
+
+        let lastCheckTime = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            const deltaTime = clock.getDelta();
+            
+            if (gameState === 'rolling' || gameState === 'initializing') {
+                world.step(1 / 60, deltaTime, 10);
+                for (let i = 0; i < dice.length; i++) {
+                     dice[i].position.copy(diceBodies[i].position);
+                     dice[i].quaternion.copy(diceBodies[i].quaternion);
+                }
+            }
+            
+            particleEmitter.update(deltaTime);
+            controls.update();
+            renderer.render(scene, camera);
+
+            if (gameState === 'charging') {
+                const elapsedTime = clock.getElapsedTime();
+                const orbitRadius = 0.4;
+                const orbitSpeed = 60.0; // was 15.0
+                const rotationSpeed = 40.0; // was 10.0
+                dice.forEach((die, i) => {
+                    const angle = elapsedTime * orbitSpeed + (i * 2 * Math.PI / 3);
+                    const bodyPos = diceBodies[i].position; 
+                    die.position.x = bodyPos.x + Math.cos(angle) * orbitRadius;
+                    die.position.z = bodyPos.z + Math.sin(angle) * orbitRadius;
+                    die.position.y = bodyPos.y + Math.sin(elapsedTime * (orbitSpeed*1.5) + i) * 0.1;
+                    
+                    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,1,1).normalize(), (rotationSpeed + i*0.5) * deltaTime);
+                    die.quaternion.premultiply(q);
+                });
+            }
+
+
+            if (gameState === 'rolling' || gameState === 'initializing') {
+                const now = performance.now();
+
+                for (let i = 0; i < diceBodies.length; i++) {
+                    const body = diceBodies[i];
+                    if (!dice[i].visible) continue;
+                    const horizontalDistSq = body.position.x * body.position.x + body.position.z * body.position.z;
+                    const isOutside = horizontalDistSq > bowlRadius * bowlRadius;
+                    const isBelow = body.position.y < 0;
+                    if (isOutside || isBelow) {
+                        if (shonbenTimers[i] === 0) shonbenTimers[i] = now;
+                        else if (now - shonbenTimers[i] > SHONBEN_GRACE_PERIOD_MS) {
+                            dice[i].visible = false;
+                            body.sleep();
+                            body.position.set(0, -100 - i, 0);
+                            particleEmitter.trigger(dice[i].position);
+                        }
+                    } else { shonbenTimers[i] = 0; }
+                }
+                
+                const isStill = diceBodies.every(body => body.sleepState === CANNON.Body.SLEEPING || !dice[diceBodies.indexOf(body)].visible);
+                
+                if (isStill) {
+                    if (areAllDiceStable()) {
+                        if (gameState === 'initializing') {
+                            gameState = 'ready'; rollButton.disabled = false;
+                        } else if (gameState === 'rolling') {
+                            if (lastCheckTime === 0) lastCheckTime = now;
+                            else if (now - lastCheckTime > 200) {
+                                lastCheckTime = 0; gameState = 'checking'; 
+                                checkAndDisplayResult();
+                            }
+                        }
+                    } else { lastCheckTime = 0; }
+                } else { lastCheckTime = 0; }
+                
+                if (gameState === 'rolling') {
+                    const elapsedTime = now - rollStartTime;
+                    const anyDiceMoving = diceBodies.some(body => body.sleepState !== CANNON.Body.SLEEPING && dice[diceBodies.indexOf(body)].visible);
+                    if (elapsedTime > STUCK_THRESHOLD_MS && anyDiceMoving) {
+                        nudgeButton.style.display = 'block';
+                    } else {
+                        nudgeButton.style.display = 'none';
+                    }
+                }
+            }
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        init();
+    </script>
 </body>
-
 </html>
+
