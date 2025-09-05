@@ -268,7 +268,7 @@
             world.allowSleep = true;
             world.sleepSpeedLimit = 0.05;
             world.sleepTimeLimit = 0.5;
-            world.solver.iterations = 20;
+            world.solver.iterations = 50; // 反復回数を増やして物理演算の精度を向上させ、突き抜けを抑制します。
 
             const dicePhysicsMaterial = new CANNON.Material('dice');
             const bowlFloorMaterial = new CANNON.Material('bowlFloor');
@@ -297,36 +297,53 @@
         }
 
         function createBowl(bowlFloorMaterial, bowlWallMaterial) {
-            const bowlWallThickness = 0.2;
+            const bowlWallThickness = 0.2; // 物理的な壁の厚み
             const bowlMaterial = new THREE.MeshStandardMaterial({ color: 0x6B4F3A, side: THREE.DoubleSide, metalness: 0.2, roughness: 0.7 });
             const bowlGroup = new THREE.Group();
+
+            // --- 見た目の部分(Three.js) ---
+            // 底
             const bottomGeometry = new THREE.CylinderGeometry(bowlRadius, bowlRadius, 0.2, 64);
             const bottomMesh = new THREE.Mesh(bottomGeometry, bowlMaterial);
             bottomMesh.receiveShadow = true;
             bowlGroup.add(bottomMesh);
-            const wallGeometry = new THREE.CylinderGeometry(bowlRadius, bowlRadius, bowlHeight, 64, 1, true);
+
+            // 壁（厚みのある形状に修正）
+            const wallShape = new THREE.Shape();
+            wallShape.absarc(0, 0, bowlRadius, 0, Math.PI * 2, false);
+            const holePath = new THREE.Path();
+            holePath.absarc(0, 0, bowlRadius - bowlWallThickness, 0, Math.PI * 2, true);
+            wallShape.holes.push(holePath);
+            const extrudeSettings = { depth: bowlHeight, bevelEnabled: false };
+            const wallGeometry = new THREE.ExtrudeGeometry(wallShape, extrudeSettings);
             const wallMesh = new THREE.Mesh(wallGeometry, bowlMaterial);
-            wallMesh.position.y = bowlHeight / 2;
+            wallMesh.rotation.x = -Math.PI / 2; // 形状を立てる
             wallMesh.receiveShadow = true;
             bowlGroup.add(wallMesh);
+
             scene.add(bowlGroup);
 
+            // --- 物理演算の部分(cannon-es) ---
+            // 床
             const bowlFloorBody = new CANNON.Body({ mass: 0, material: bowlFloorMaterial });
-            const bottomShape = new CANNON.Cylinder(bowlRadius, bowlRadius, 0.1, 32);
-            bowlFloorBody.addShape(bottomShape, new CANNON.Vec3(0, 0.05, 0));
+            const bottomShape = new CANNON.Cylinder(bowlRadius, bowlRadius, 0.5, 32);
+            bowlFloorBody.addShape(bottomShape, new CANNON.Vec3(0, -0.2, 0));
             world.addBody(bowlFloorBody);
             
+            // 壁
             const bowlWallBody = new CANNON.Body({ mass: 0, material: bowlWallMaterial });
             const wallSegments = 64;
             const segmentAngle = (Math.PI * 2) / wallSegments;
             const segmentWidth = 2 * bowlRadius * Math.tan(segmentAngle / 2);
-            const wallShape = new CANNON.Box(new CANNON.Vec3(segmentWidth / 2 * 1.05, bowlHeight / 2, bowlWallThickness / 2));
+            const wallShapeCannon = new CANNON.Box(new CANNON.Vec3(segmentWidth / 2, bowlHeight / 2, bowlWallThickness / 2));
+            const wallPlacementRadius = bowlRadius - (bowlWallThickness / 2);
+
             for (let i = 0; i < wallSegments; i++) {
                 const angle = i * segmentAngle;
-                const position = new CANNON.Vec3(bowlRadius * Math.cos(angle), bowlHeight / 2, bowlRadius * Math.sin(angle));
+                const position = new CANNON.Vec3(wallPlacementRadius * Math.cos(angle), bowlHeight / 2, wallPlacementRadius * Math.sin(angle));
                 const quaternion = new CANNON.Quaternion();
                 quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angle);
-                bowlWallBody.addShape(wallShape, position, quaternion);
+                bowlWallBody.addShape(wallShapeCannon, position, quaternion);
             }
             world.addBody(bowlWallBody);
         }
@@ -341,7 +358,7 @@
 
                 const body = new CANNON.Body({ mass: 1, shape: new CANNON.Box(new CANNON.Vec3(diceSize/2, diceSize/2, diceSize/2)), material: dicePhysicsMaterial, angularDamping: 0.25, linearDamping: 0.3 });
                 body.collisionResponse = true;
-                body.ccdSpeedThreshold = 0.1;
+                body.ccdSpeedThreshold = 0.01;
                 body.ccdMotionThreshold = diceSize / 4;
                 world.addBody(body);
                 diceBodies.push(body);
@@ -456,7 +473,38 @@
                     body.position.copy(dice[i].position);
                     body.quaternion.copy(dice[i].quaternion);
 
-                    body.velocity.set( (Math.random() - 0.5) * force, (0.1 + Math.random() * 0.4) * force, (Math.random() - 0.5) * force );
+                    // パワーに応じて投擲角度を調整します。
+                    let velDir; // 速度の方向ベクトル
+                    if (powerRatio < 0.01) {
+                        // 【最低パワー時】確実に真下に投げる
+                        velDir = new CANNON.Vec3(0, -1, 0);
+                    } else {
+                        // 【通常〜最高パワー時】
+                        // Y成分を計算。常にマイナス(下)かゼロ(水平)になり、上向きには投げません。
+                        // パワーが低いほど真下(-1)に、高いほど水平(0)に近づきます。
+                        const yMax = -(1 - powerRatio); // パワー0で-1、パワー1で0
+                        const yMin = -1.0;
+                        const yComponent = yMin + (Math.random() * (yMax - yMin));
+
+                        // XZ成分の大きさ。パワーが高いほど大きくなる
+                        const xzMagnitude = powerRatio * 1.5;
+                        
+                        velDir = new CANNON.Vec3(
+                            (Math.random() - 0.5) * 2 * xzMagnitude,
+                            yComponent,
+                            (Math.random() - 0.5) * 2 * xzMagnitude
+                        );
+                    }
+
+                    // ゼロベクトル（無方向）になった場合の安全策
+                    if (velDir.lengthSquared() < 1e-6) {
+                        velDir.set(0, -1, 0);
+                    }
+                    
+                    // 方向ベクトルを正規化し、最終的な速度を計算
+                    const velocityDirection = velDir.unit();
+                    body.velocity.copy(velocityDirection.scale(force));
+
                     body.angularVelocity.set( (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20 );
                 });
             }
@@ -572,8 +620,8 @@
             if (gameState === 'charging') {
                 const elapsedTime = clock.getElapsedTime();
                 const orbitRadius = 0.4;
-                const orbitSpeed = 60.0; // was 15.0
-                const rotationSpeed = 40.0; // was 10.0
+                const orbitSpeed = 60.0; 
+                const rotationSpeed = 40.0;
                 dice.forEach((die, i) => {
                     const angle = elapsedTime * orbitSpeed + (i * 2 * Math.PI / 3);
                     const bodyPos = diceBodies[i].position; 
@@ -595,8 +643,8 @@
                     if (!dice[i].visible) continue;
                     const horizontalDistSq = body.position.x * body.position.x + body.position.z * body.position.z;
                     const isOutside = horizontalDistSq > bowlRadius * bowlRadius;
-                    const isBelow = body.position.y < 0;
-                    if (isOutside || isBelow) {
+                    const isBelow = body.position.y < -0.5;
+                    if (isOutside && isBelow) {
                         if (shonbenTimers[i] === 0) shonbenTimers[i] = now;
                         else if (now - shonbenTimers[i] > SHONBEN_GRACE_PERIOD_MS) {
                             dice[i].visible = false;
@@ -623,14 +671,15 @@
                     } else { lastCheckTime = 0; }
                 } else { lastCheckTime = 0; }
                 
+                // Why: カイト様のご指摘に基づき、「揺らす」ボタンの表示条件を、より本質的で確実なものに修正しました。
+                // (Why: Based on Kaito-sama's feedback, the display condition for the "Nudge" button has been corrected to be more fundamental and reliable.)
                 if (gameState === 'rolling') {
                     const elapsedTime = now - rollStartTime;
-                    const anyDiceMoving = diceBodies.some(body => body.sleepState !== CANNON.Body.SLEEPING && dice[diceBodies.indexOf(body)].visible);
-                    if (elapsedTime > STUCK_THRESHOLD_MS && anyDiceMoving) {
+                    if (elapsedTime > STUCK_THRESHOLD_MS) {
                         nudgeButton.style.display = 'block';
-                    } else {
-                        nudgeButton.style.display = 'none';
                     }
+                } else {
+                    nudgeButton.style.display = 'none';
                 }
             }
         }
