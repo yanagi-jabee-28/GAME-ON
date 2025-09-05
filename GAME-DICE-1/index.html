@@ -1,199 +1,236 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3Dチンチロ</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            font-family: 'Shippori Mincho', serif;
-            background-color: #333;
-            color: #fff;
-        }
-        #canvas-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            cursor: pointer;
-        }
-        #ui-container {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            padding: 20px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
-            pointer-events: none;
-        }
-        .action-button {
-            pointer-events: auto;
-            font-size: 1.2rem;
-            font-weight: 700;
-            padding: 12px 28px;
-            border-radius: 8px;
-            cursor: pointer;
-            color: white;
-            border: none;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            transition: all 0.1s ease-in-out;
-        }
-        .action-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 8px rgba(0,0,0,0.3);
-        }
-        .action-button:active {
-            transform: translateY(1px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-        .action-button:disabled {
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        #rollButton {
-            background: linear-gradient(145deg, #e74c3c, #c0392b);
-            border-bottom: 4px solid #962d22;
-        }
-        #rollButton:hover { background: linear-gradient(145deg, #ff6b5a, #d35400); }
-        #rollButton:active { border-bottom-width: 2px; }
-        #rollButton:disabled { background: #7f8c8d; border-bottom: 4px solid #647071; }
-        
-        .top-button {
-            display: none;
-            position: absolute;
-            top: 20px;
-            z-index: 10;
-            font-size: 1rem;
-            padding: 8px 16px;
-        }
-        #nudgeButton {
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(145deg, #3498db, #2980b9);
-            border-bottom: 4px solid #216a9a;
-        }
-        #nudgeButton:hover { background: linear-gradient(145deg, #5dade2, #3498db); }
-        #nudgeButton:active { border-bottom-width: 2px; }
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>3Dチンチロ</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&display=swap" rel="stylesheet">
+	<style>
+		body {
+			margin: 0;
+			overflow: hidden;
+			font-family: 'Shippori Mincho', serif;
+			background-color: #333;
+			color: #fff;
+		}
 
-        #rearrangeButton {
-            left: 20px;
-            background: linear-gradient(145deg, #2ecc71, #27ae60);
-            border-bottom: 4px solid #1e8449;
-        }
-        #rearrangeButton:hover { background: linear-gradient(145deg, #58d68d, #2ecc71); }
-        #rearrangeButton:active { border-bottom-width: 2px; }
+		#canvas-container {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			cursor: pointer;
+		}
 
-        #diceTypeSelector {
-            pointer-events: auto;
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 10;
-            font-family: 'Shippori Mincho', serif;
-            font-size: 1rem;
-            padding: 8px 12px;
-            border-radius: 8px;
-            color: white;
-            border: 2px solid #7f8c8d;
-            background-color: #34495e;
-            cursor: pointer;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-            background-position: right 0.5rem center;
-            background-repeat: no-repeat;
-            background-size: 1.5em 1.5em;
-            padding-right: 2.5rem;
-        }
-        #diceTypeSelector:disabled {
-            background-color: #7f8c8d;
-            cursor: not-allowed;
-            opacity: 0.7;
-        }
+		#ui-container {
+			position: absolute;
+			bottom: 0;
+			left: 0;
+			width: 100%;
+			padding: 20px;
+			box-sizing: border-box;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			text-align: center;
+			background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+			pointer-events: none;
+		}
 
-        #result-display {
-            height: 80px;
-            margin-bottom: 15px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-        #result-title {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #f1c40f;
-            text-shadow: 0 0 5px rgba(241, 196, 15, 0.5), 0 0 15px rgba(0,0,0,0.7);
-            margin: 0;
-            transition: all 0.3s ease;
-        }
-        #result-description {
-            font-size: 1.1rem;
-            color: #ecf0f1;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.7);
-            margin: 5px 0 0 0;
-            min-height: 1.5em;
-        }
-        #power-meter-container {
-            width: 80%;
-            max-width: 400px;
-            height: 20px;
-            background-color: rgba(0, 0, 0, 0.5);
-            border: 2px solid #aaa;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            overflow: hidden;
-            display: none;
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
-        }
-        #power-meter-bar {
-            width: 0%;
-            height: 100%;
-            background: linear-gradient(to right, #f1c40f, #e74c3c);
-            border-radius: 8px;
-            transition: width 0.05s linear;
-        }
-    </style>
+		.action-button {
+			pointer-events: auto;
+			font-size: 1.2rem;
+			font-weight: 700;
+			padding: 12px 28px;
+			border-radius: 8px;
+			cursor: pointer;
+			color: white;
+			border: none;
+			text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+			box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+			transition: all 0.1s ease-in-out;
+		}
+
+		.action-button:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 6px 8px rgba(0, 0, 0, 0.3);
+		}
+
+		.action-button:active {
+			transform: translateY(1px);
+			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+		}
+
+		.action-button:disabled {
+			cursor: not-allowed;
+			transform: none;
+			box-shadow: none;
+		}
+
+		#rollButton {
+			background: linear-gradient(145deg, #e74c3c, #c0392b);
+			border-bottom: 4px solid #962d22;
+		}
+
+		#rollButton:hover {
+			background: linear-gradient(145deg, #ff6b5a, #d35400);
+		}
+
+		#rollButton:active {
+			border-bottom-width: 2px;
+		}
+
+		#rollButton:disabled {
+			background: #7f8c8d;
+			border-bottom: 4px solid #647071;
+		}
+
+		.top-button {
+			display: none;
+			position: absolute;
+			top: 20px;
+			z-index: 10;
+			font-size: 1rem;
+			padding: 8px 16px;
+		}
+
+		#nudgeButton {
+			left: 50%;
+			transform: translateX(-50%);
+			background: linear-gradient(145deg, #3498db, #2980b9);
+			border-bottom: 4px solid #216a9a;
+		}
+
+		#nudgeButton:hover {
+			background: linear-gradient(145deg, #5dade2, #3498db);
+		}
+
+		#nudgeButton:active {
+			border-bottom-width: 2px;
+		}
+
+		#rearrangeButton {
+			left: 20px;
+			background: linear-gradient(145deg, #2ecc71, #27ae60);
+			border-bottom: 4px solid #1e8449;
+		}
+
+		#rearrangeButton:hover {
+			background: linear-gradient(145deg, #58d68d, #2ecc71);
+		}
+
+		#rearrangeButton:active {
+			border-bottom-width: 2px;
+		}
+
+		#diceTypeSelector {
+			pointer-events: auto;
+			position: absolute;
+			top: 20px;
+			right: 20px;
+			z-index: 10;
+			font-family: 'Shippori Mincho', serif;
+			font-size: 1rem;
+			padding: 8px 12px;
+			border-radius: 8px;
+			color: white;
+			border: 2px solid #7f8c8d;
+			background-color: #34495e;
+			cursor: pointer;
+			-webkit-appearance: none;
+			-moz-appearance: none;
+			appearance: none;
+			background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+			background-position: right 0.5rem center;
+			background-repeat: no-repeat;
+			background-size: 1.5em 1.5em;
+			padding-right: 2.5rem;
+		}
+
+		#diceTypeSelector:disabled {
+			background-color: #7f8c8d;
+			cursor: not-allowed;
+			opacity: 0.7;
+		}
+
+		#result-display {
+			height: 80px;
+			margin-bottom: 15px;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+		}
+
+		#result-title {
+			font-size: 2.5rem;
+			font-weight: 700;
+			color: #f1c40f;
+			text-shadow: 0 0 5px rgba(241, 196, 15, 0.5), 0 0 15px rgba(0, 0, 0, 0.7);
+			margin: 0;
+			transition: all 0.3s ease;
+		}
+
+		#result-description {
+			font-size: 1.1rem;
+			color: #ecf0f1;
+			text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7);
+			margin: 5px 0 0 0;
+			min-height: 1.5em;
+		}
+
+		#power-meter-container {
+			width: 80%;
+			max-width: 400px;
+			height: 20px;
+			background-color: rgba(0, 0, 0, 0.5);
+			border: 2px solid #aaa;
+			border-radius: 10px;
+			margin-bottom: 20px;
+			overflow: hidden;
+			display: none;
+			box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+		}
+
+		#power-meter-bar {
+			width: 0%;
+			height: 100%;
+			background: linear-gradient(to right, #f1c40f, #e74c3c);
+			border-radius: 8px;
+			transition: width 0.05s linear;
+		}
+	</style>
 </head>
+
 <body>
 
-    <div id="canvas-container"></div>
-    <select id="diceTypeSelector">
-        <option value="normal">通常賽</option>
-        <option value="shigoro">四五六賽</option>
-        <option value="pinzoro">ピンゾロ賽</option>
-    </select>
-    <button id="nudgeButton" class="action-button top-button">揺らす</button>
-    <button id="rearrangeButton" class="action-button top-button">再配置</button>
+	<div id="canvas-container"></div>
+	<select id="diceTypeSelector">
+		<option value="normal">通常賽</option>
+		<option value="shigoro">四五六賽</option>
+		<option value="pinzoro">ピンゾロ賽</option>
+	</select>
+	<button id="nudgeButton" class="action-button top-button">揺らす</button>
+	<button id="rearrangeButton" class="action-button top-button">再配置</button>
 
 
-    <div id="ui-container">
-        <div id="result-display">
-            <h1 id="result-title">チンチロ</h1>
-            <p id="result-description">下のボタンで投擲準備</p>
-        </div>
-        <div id="power-meter-container">
-            <div id="power-meter-bar"></div>
-        </div>
-        <button id="rollButton" class="action-button">サイコロを振る</button>
-    </div>
+	<div id="ui-container">
+		<div id="result-display">
+			<h1 id="result-title">チンチロ</h1>
+			<p id="result-description">下のボタンで投擲準備</p>
+		</div>
+		<div id="power-meter-container">
+			<div id="power-meter-bar"></div>
+		</div>
+		<button id="rollButton" class="action-button">サイコロを振る</button>
+	</div>
 
-    <script type="importmap">
+	<script type="importmap">
     {
         "imports": {
             "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -203,11 +240,21 @@
     }
     </script>
 
-    <script type="module">
+	<script type="module">
+		// =================================================================================
+        // C H I N C H I R O R I N - 3 D
+        //
+        // A 3D dice game based on the traditional Japanese game "Chinchirorin".
+        // Built with Three.js for rendering and cannon-es.js for physics.
+        // =================================================================================
+
         import * as THREE from 'three';
         import * as CANNON from 'cannon-es';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+        // =================================================================================
+        // DOM Elements
+        // =================================================================================
         const canvasContainer = document.getElementById('canvas-container');
         const rollButton = document.getElementById('rollButton');
         const nudgeButton = document.getElementById('nudgeButton');
@@ -218,68 +265,98 @@
         const powerMeterContainer = document.getElementById('power-meter-container');
         const powerMeterBar = document.getElementById('power-meter-bar');
 
+        // =================================================================================
+        // Global State & Constants
+        // =================================================================================
+        // Three.js related variables
         let scene, camera, renderer, controls, clock;
+        // Physics world
         let world;
+        // Arrays to hold dice objects (visual and physical)
         const dice = [];
         const diceBodies = [];
-        const diceSize = 0.5;
-        const bowlRadius = 4;
-        const bowlHeight = 2;
-        
-        let gameState = 'initializing';
-        let diceType = 'normal';
-        let rollStartTime = 0;
-        const STUCK_THRESHOLD_MS = 5000;
-        const SHONBEN_GRACE_PERIOD_MS = 100;
-        let shonbenTimers = [0, 0, 0];
-        
-        let power = 0;
-        let powerDirection = 1;
-        let powerAnimationId = null;
 
+        // --- Game Constants ---
+        const diceSize = 0.5;   // Size of each die
+        const bowlRadius = 4;   // Radius of the bowl
+        const bowlHeight = 2;   // Height of the bowl wall
+
+        // --- Game State Management ---
+        // Manages the flow of the game (e.g., 'initializing', 'ready', 'charging', 'rolling', 'checking')
+        let gameState = 'initializing'; 
+        let diceType = 'normal'; // Current type of dice being used
+        let rollStartTime = 0;   // Timestamp when a roll starts, used for stuck detection
+
+        // --- Game Rules & Timers ---
+        const STUCK_THRESHOLD_MS = 5000; // Time after which the "Nudge" button appears if dice are stuck
+        const SHONBEN_GRACE_PERIOD_MS = 100; // Grace period before a die that has left the bowl is considered "shonben" (foul)
+        let shonbenTimers = [0, 0, 0]; // Timers for each die to track the grace period
+
+        // --- Power Meter ---
+        let power = 0; // Current power level for throwing dice
+        let powerDirection = 1; // Direction of power meter animation (1 for increasing, -1 for decreasing)
+        let powerAnimationId = null; // ID for the requestAnimationFrame loop of the power meter
+
+        /**
+         * @class ParticleEmitter
+         * @description Creates a simple particle effect for visual feedback, e.g., when a die goes out of bounds.
+         */
         class ParticleEmitter {
             constructor(scene, count = 100) { this.scene = scene; this.particles = []; const geometry = new THREE.BufferGeometry(); const material = new THREE.PointsMaterial({ color: 0xf0ead6, size: 0.1, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, vertexColors: true }); this.positions = new Float32Array(count * 3); this.colors = new Float32Array(count * 3); geometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3)); geometry.setAttribute('color', new THREE.BufferAttribute(this.colors, 3)); this.points = new THREE.Points(geometry, material); this.points.visible = false; this.scene.add(this.points); for (let i = 0; i < count; i++) { this.particles.push({ position: new THREE.Vector3(), velocity: new THREE.Vector3(), life: 0 }); } }
-            trigger(origin) { const particleColor = new THREE.Color(0xf0ead6); this.points.visible = true; this.particles.forEach((p, i) => { p.position.copy(origin); const speed = 5 + Math.random() * 5; p.velocity.set((Math.random() - 0.5) * speed, (Math.random() * 0.5) * speed, (Math.random() - 0.5) * speed); p.life = 1.0; this.positions[i*3]=p.position.x; this.positions[i*3+1]=p.position.y; this.positions[i*3+2]=p.position.z; this.colors[i*3]=particleColor.r; this.colors[i*3+1]=particleColor.g; this.colors[i*3+2]=particleColor.b; }); this.points.geometry.attributes.position.needsUpdate = true; this.points.geometry.attributes.color.needsUpdate = true; }
-            update(deltaTime) { if (!this.points.visible) return; let aliveParticles = 0; this.particles.forEach((p, i) => { if (p.life > 0) { p.life -= deltaTime; p.velocity.y -= 9.8 * deltaTime; p.position.add(p.velocity.clone().multiplyScalar(deltaTime)); this.positions[i*3]=p.position.x; this.positions[i*3+1]=p.position.y; this.positions[i*3+2]=p.position.z; aliveParticles++; } }); this.points.material.opacity = Math.max(0, this.particles[0].life); this.points.geometry.attributes.position.needsUpdate = true; if (aliveParticles === 0) this.points.visible = false; }
+            trigger(origin) { const particleColor = new THREE.Color(0xf0ead6); this.points.visible = true; this.particles.forEach((p, i) => { p.position.copy(origin); const speed = 5 + Math.random() * 5; p.velocity.set((Math.random() - 0.5) * speed, (Math.random() * 0.5) * speed, (Math.random() - 0.5) * speed); p.life = 1.0; this.positions[i * 3] = p.position.x; this.positions[i * 3 + 1] = p.position.y; this.positions[i * 3 + 2] = p.position.z; this.colors[i * 3] = particleColor.r; this.colors[i * 3 + 1] = particleColor.g; this.colors[i * 3 + 2] = particleColor.b; }); this.points.geometry.attributes.position.needsUpdate = true; this.points.geometry.attributes.color.needsUpdate = true; }
+            update(deltaTime) { if (!this.points.visible) return; let aliveParticles = 0; this.particles.forEach((p, i) => { if (p.life > 0) { p.life -= deltaTime; p.velocity.y -= 9.8 * deltaTime; p.position.add(p.velocity.clone().multiplyScalar(deltaTime)); this.positions[i * 3] = p.position.x; this.positions[i * 3 + 1] = p.position.y; this.positions[i * 3 + 2] = p.position.z; aliveParticles++; } }); this.points.material.opacity = Math.max(0, this.particles[0].life); this.points.geometry.attributes.position.needsUpdate = true; if (aliveParticles === 0) this.points.visible = false; }
         }
         let particleEmitter;
 
+        /**
+         * @function init
+         * @description Initializes the entire scene, physics world, objects, and event listeners.
+         */
         function init() {
+            // --- Scene and Renderer Setup ---
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x2c3e50);
+            scene.background = new THREE.Color(0x2c3e50); // A dark, neutral background color
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 8, 6);
+            camera.position.set(0, 8, 6); // Positioned to look down into the bowl
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.enabled = true; // Enable shadows for realism
             canvasContainer.appendChild(renderer.domElement);
             controls = new OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
+            controls.enableDamping = true; // Smooths camera movement
             clock = new THREE.Clock();
             
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            // --- Lighting Setup ---
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); // Provides soft, even lighting
             scene.add(ambientLight);
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2); // Simulates a main light source (like the sun)
             directionalLight.position.set(5, 10, 7.5);
             directionalLight.castShadow = true;
             scene.add(directionalLight);
             
-            world = new CANNON.World({ gravity: new CANNON.Vec3(0, -55, 0) });
-            world.allowSleep = true;
+            // --- Physics World Setup ---
+            world = new CANNON.World({ gravity: new CANNON.Vec3(0, -55, 0) }); // Stronger gravity for a more dynamic feel
+            world.allowSleep = true; // Allows objects to "sleep" when not moving, improving performance
             world.sleepSpeedLimit = 0.05;
             world.sleepTimeLimit = 0.5;
-            world.solver.iterations = 50; // 反復回数を増やして物理演算の精度を向上させ、突き抜けを抑制します。
+            // Why: Increased solver iterations for better physics accuracy.
+            // This helps prevent "tunneling" (objects passing through each other at high speeds).
+            world.solver.iterations = 50; 
 
+            // --- Material Definitions ---
+            // Define physics materials for different objects to control their interactions (friction, restitution).
             const dicePhysicsMaterial = new CANNON.Material('dice');
             const bowlFloorMaterial = new CANNON.Material('bowlFloor');
             const bowlWallMaterial = new CANNON.Material('bowlWall');
 
+            // --- Object Creation ---
             createBowl(bowlFloorMaterial, bowlWallMaterial);
             createDice(dicePhysicsMaterial);
             setupContactMaterials(dicePhysicsMaterial, bowlFloorMaterial, bowlWallMaterial);
             
             particleEmitter = new ParticleEmitter(scene);
             
+            // --- Event Listener Setup ---
             rollButton.disabled = true;
             rollButton.addEventListener('click', startCharging);
             nudgeButton.addEventListener('click', nudgeDice);
@@ -291,51 +368,64 @@
             canvasContainer.addEventListener('click', decidePower);
             window.addEventListener('resize', onWindowResize);
 
+            // --- Start the simulation ---
             animate();
             
+            // Initial roll to place dice in the bowl at the start.
             setTimeout(() => { rollDice(0, true); }, 100);
         }
 
+        /**
+         * @function createBowl
+         * @description Creates the visual (Three.js) and physical (cannon-es) bowl.
+         * Ensures that the visual representation and the physical collision shape are perfectly aligned.
+         */
         function createBowl(bowlFloorMaterial, bowlWallMaterial) {
-            const bowlWallThickness = 0.2; // 物理的な壁の厚み
+            const bowlWallThickness = 0.2; // Defines the thickness of the bowl's wall.
             const bowlMaterial = new THREE.MeshStandardMaterial({ color: 0x6B4F3A, side: THREE.DoubleSide, metalness: 0.2, roughness: 0.7 });
             const bowlGroup = new THREE.Group();
 
-            // --- 見た目の部分(Three.js) ---
-            // 底
+            // --- Visual Bowl (Three.js) ---
+            // 1. Create the bottom of the bowl.
             const bottomGeometry = new THREE.CylinderGeometry(bowlRadius, bowlRadius, 0.2, 64);
             const bottomMesh = new THREE.Mesh(bottomGeometry, bowlMaterial);
             bottomMesh.receiveShadow = true;
             bowlGroup.add(bottomMesh);
 
-            // 壁（厚みのある形状に修正）
+            // 2. Create the wall with thickness.
+            // Why: Use ExtrudeGeometry to create a wall with actual thickness, matching the physics body.
             const wallShape = new THREE.Shape();
-            wallShape.absarc(0, 0, bowlRadius, 0, Math.PI * 2, false);
+            wallShape.absarc(0, 0, bowlRadius, 0, Math.PI * 2, false); // Outer circle
             const holePath = new THREE.Path();
-            holePath.absarc(0, 0, bowlRadius - bowlWallThickness, 0, Math.PI * 2, true);
+            holePath.absarc(0, 0, bowlRadius - bowlWallThickness, 0, Math.PI * 2, true); // Inner circle (hole)
             wallShape.holes.push(holePath);
             const extrudeSettings = { depth: bowlHeight, bevelEnabled: false };
             const wallGeometry = new THREE.ExtrudeGeometry(wallShape, extrudeSettings);
             const wallMesh = new THREE.Mesh(wallGeometry, bowlMaterial);
-            wallMesh.rotation.x = -Math.PI / 2; // 形状を立てる
+            wallMesh.rotation.x = -Math.PI / 2; // Rotate to stand upright
             wallMesh.receiveShadow = true;
             bowlGroup.add(wallMesh);
 
             scene.add(bowlGroup);
 
-            // --- 物理演算の部分(cannon-es) ---
-            // 床
+            // --- Physical Bowl (cannon-es) ---
+            // 1. Create the floor body.
             const bowlFloorBody = new CANNON.Body({ mass: 0, material: bowlFloorMaterial });
+            // Why: The physical floor is thicker than the visual one to provide a more stable collision surface.
             const bottomShape = new CANNON.Cylinder(bowlRadius, bowlRadius, 0.5, 32);
             bowlFloorBody.addShape(bottomShape, new CANNON.Vec3(0, -0.2, 0));
             world.addBody(bowlFloorBody);
             
-            // 壁
+            // 2. Create the wall body.
+            // Why: The physical wall is approximated by a series of narrow boxes arranged in a circle.
+            // This is a common and efficient way to create a cylindrical collider in cannon-es.
             const bowlWallBody = new CANNON.Body({ mass: 0, material: bowlWallMaterial });
             const wallSegments = 64;
             const segmentAngle = (Math.PI * 2) / wallSegments;
             const segmentWidth = 2 * bowlRadius * Math.tan(segmentAngle / 2);
             const wallShapeCannon = new CANNON.Box(new CANNON.Vec3(segmentWidth / 2, bowlHeight / 2, bowlWallThickness / 2));
+            
+            // Position the wall segments inward to match the visual thickness.
             const wallPlacementRadius = bowlRadius - (bowlWallThickness / 2);
 
             for (let i = 0; i < wallSegments; i++) {
@@ -348,73 +438,113 @@
             world.addBody(bowlWallBody);
         }
 
+        /**
+         * @function createDice
+         * @description Creates three dice, both visual and physical, and sets up their properties.
+         */
         function createDice(dicePhysicsMaterial) {
             const diceGeometry = new THREE.BoxGeometry(diceSize, diceSize, diceSize);
             for (let i = 0; i < 3; i++) {
+                // Visual die
                 const die = new THREE.Mesh(diceGeometry, []);
                 die.castShadow = true;
                 scene.add(die);
                 dice.push(die);
 
-                const body = new CANNON.Body({ mass: 1, shape: new CANNON.Box(new CANNON.Vec3(diceSize/2, diceSize/2, diceSize/2)), material: dicePhysicsMaterial, angularDamping: 0.25, linearDamping: 0.3 });
+                // Physical die
+                const body = new CANNON.Body({ 
+                    mass: 1, 
+                    shape: new CANNON.Box(new CANNON.Vec3(diceSize/2, diceSize/2, diceSize/2)), 
+                    material: dicePhysicsMaterial, 
+                    angularDamping: 0.25, // Simulates air resistance on rotation
+                    linearDamping: 0.3   // Simulates air resistance on movement
+                });
                 body.collisionResponse = true;
-                body.ccdSpeedThreshold = 0.01;
+                // Why: CCD (Continuous Collision Detection) is enabled to prevent the fast-moving dice
+                // from passing through the bowl, especially at the start of the roll.
+                body.ccdSpeedThreshold = 0.01; 
                 body.ccdMotionThreshold = diceSize / 4;
                 world.addBody(body);
                 diceBodies.push(body);
             }
-            updateDiceMaterials();
+            updateDiceMaterials(); // Apply initial textures
         }
         
+        /**
+         * @function setupContactMaterials
+         * @description Defines the physical interaction properties (friction, restitution) between different materials.
+         */
         function setupContactMaterials(diceMat, floorMat, wallMat) {
+            // How dice interact with the bowl floor
             const diceBowlFloorContact = new CANNON.ContactMaterial(floorMat, diceMat, { friction: 0.25, restitution: 0.5 });
             world.addContactMaterial(diceBowlFloorContact);
+            // How dice interact with the bowl wall
             const diceBowlWallContact = new CANNON.ContactMaterial(wallMat, diceMat, { friction: 0.1, restitution: 0.6 });
             world.addContactMaterial(diceBowlWallContact);
+            // How dice interact with each other
             const diceDiceContactMaterial = new CANNON.ContactMaterial(diceMat, diceMat, { friction: 0.15, restitution: 0.4 });
             world.addContactMaterial(diceDiceContactMaterial);
         }
         
+        /**
+         * @function updateDiceMaterials
+         * @description Applies the correct face textures to the dice based on the selected dice type.
+         */
         function updateDiceMaterials() {
             let faceSet;
             switch(diceType) {
-                case 'shigoro': faceSet = [4, 4, 5, 5, 6, 6]; break;
-                case 'pinzoro': faceSet = [1, 1, 1, 1, 1, 1]; break;
-                default: faceSet = [1, 6, 2, 5, 3, 4]; break;
+                case 'shigoro': faceSet = [4, 4, 5, 5, 6, 6]; break; // Special dice for aiming for "Shigoro"
+                case 'pinzoro': faceSet = [1, 1, 1, 1, 1, 1]; break; // Special dice for aiming for "Pinzoro"
+                default: faceSet = [1, 6, 2, 5, 3, 4]; break; // Standard dice layout
             }
             dice.forEach(die => {
-                die.material.forEach(m => m.dispose());
+                die.material.forEach(m => m.dispose()); // Dispose old materials to free up memory
                 die.material = faceSet.map(val => new THREE.MeshStandardMaterial({ map: createDiceTexture(val) }));
             });
         }
 
+        /**
+         * @function createDiceTexture
+         * @description Generates a canvas texture for a single face of a die.
+         */
         function createDiceTexture(value) {
             const canvas = document.createElement('canvas');
             canvas.width = 128; canvas.height = 128;
             const context = canvas.getContext('2d');
-            context.fillStyle = '#f0ead6';
+            context.fillStyle = '#f0ead6'; // Off-white background
             context.fillRect(0, 0, 128, 128);
             const dotRadius = 12;
+            // Standard dot positions for dice faces 1-6
             const positions = { 1: [[0.5, 0.5]], 2: [[0.25, 0.25], [0.75, 0.75]], 3: [[0.25, 0.25], [0.5, 0.5], [0.75, 0.75]], 4: [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]], 5: [[0.25, 0.25], [0.75, 0.25], [0.5, 0.5], [0.25, 0.75], [0.75, 0.75]], 6: [[0.25, 0.25], [0.75, 0.25], [0.25, 0.5], [0.75, 0.5], [0.25, 0.75], [0.75, 0.75]],};
-            context.fillStyle = (value === 1) ? '#c0392b' : '#2c3e50';
+            context.fillStyle = (value === 1) ? '#c0392b' : '#2c3e50'; // Red for '1', black for others
             if (positions[value]) { positions[value].forEach(pos => { context.beginPath(); context.arc(pos[0] * 128, pos[1] * 128, dotRadius, 0, Math.PI * 2); context.fill(); });}
             return new THREE.CanvasTexture(canvas);
         }
 
+        /**
+         * @function resetDiceToStartPosition
+         * @description Resets the dice to their initial positions above the bowl, ready for a new roll.
+         */
         function resetDiceToStartPosition() {
-            const startPositions = [ new CANNON.Vec3(0, 4.5, 0.3), new CANNON.Vec3(-0.3, 4.7, -0.2), new CANNON.Vec3(0.3, 4.9, -0.2) ];
+            const startPositions = [new CANNON.Vec3(0, 4.5, 0.3), new CANNON.Vec3(-0.3, 4.7, -0.2), new CANNON.Vec3(0.3, 4.9, -0.2)];
             diceBodies.forEach((body, i) => {
                 body.velocity.set(0, 0, 0); body.angularVelocity.set(0, 0, 0);
                 body.position.copy(startPositions[i]);
+                // Apply a random rotation to each die
                 const randomAxis = new CANNON.Vec3(Math.random(), Math.random(), Math.random()).unit();
                 const randomAngle = Math.random() * Math.PI * 2;
                 body.quaternion.setFromAxisAngle(randomAxis, randomAngle);
+                // Sync visual model to physical body
                 dice[i].position.copy(body.position);
                 dice[i].quaternion.copy(body.quaternion);
                 dice[i].visible = true;
             });
         }
 
+        /**
+         * @function startCharging
+         * @description Initiates the power charging sequence when the user clicks the roll button.
+         */
         function startCharging() {
             if (gameState !== 'ready') return;
             resetDiceToStartPosition();
@@ -429,6 +559,10 @@
             powerAnimationId = requestAnimationFrame(updatePowerMeter);
         }
 
+        /**
+         * @function updatePowerMeter
+         * @description Animates the power meter bar.
+         */
         function updatePowerMeter() {
             power += powerDirection * 2.0;
             if (power >= 100) { power = 100; powerDirection = -1; } 
@@ -437,6 +571,10 @@
             if (gameState === 'charging') powerAnimationId = requestAnimationFrame(updatePowerMeter);
         }
         
+        /**
+         * @function decidePower
+         * @description Stops the power meter and initiates the dice roll with the selected power.
+         */
         function decidePower() {
             if (gameState !== 'charging') return;
             cancelAnimationFrame(powerAnimationId);
@@ -444,6 +582,10 @@
             rollDice(power);
         }
 
+        /**
+         * @function rollDice
+         * @description Throws the dice with a given power, applying forces and torques.
+         */
         function rollDice(throwPower, isInitialSetup = false) {
             gameState = isInitialSetup ? 'initializing' : 'rolling';
             if (!isInitialSetup) {
@@ -452,13 +594,16 @@
             nudgeButton.style.display = 'none';
             shonbenTimers.fill(0);
             
+            // --- Calculate Throw Force ---
             const minPower = 12;
             const maxPower = 36;
+            // Use a power curve to make lower power throws more sensitive
             const powerRatio = Math.pow(throwPower / 100, 1.5);
             const force = minPower + (maxPower - minPower) * powerRatio;
 
             if(isInitialSetup) {
-                 const startPositions = [ new CANNON.Vec3(0, 4, 0.6), new CANNON.Vec3(-0.6, 4.5, -0.3), new CANNON.Vec3(0.6, 5, -0.3) ];
+                 // For the initial setup, just drop the dice in gently.
+                 const startPositions = [new CANNON.Vec3(0, 4, 0.6), new CANNON.Vec3(-0.6, 4.5, -0.3), new CANNON.Vec3(0.6, 5, -0.3)];
                  diceBodies.forEach((body, i) => {
                     dice[i].visible = true;
                     body.wakeUp(); body.position.copy(startPositions[i]);
@@ -467,26 +612,27 @@
                     body.velocity.set(0,0,0); body.angularVelocity.set((Math.random()-0.5)*3, (Math.random()-0.5)*3, (Math.random()-0.5)*3);
                  });
             } else {
+                 // For a player-controlled roll, apply calculated forces.
                  diceBodies.forEach((body, i) => {
                     dice[i].visible = true;
                     body.wakeUp();
                     body.position.copy(dice[i].position);
                     body.quaternion.copy(dice[i].quaternion);
 
-                    // パワーに応じて投擲角度を調整します。
-                    let velDir; // 速度の方向ベクトル
+                    // Why: Adjust the throw angle based on power.
+                    // Low power results in a near-vertical drop, while high power results in a more horizontal throw.
+                    // This prevents weak throws from immediately exiting the bowl.
+                    let velDir; 
                     if (powerRatio < 0.01) {
-                        // 【最低パワー時】確実に真下に投げる
+                        // A very weak throw goes straight down.
                         velDir = new CANNON.Vec3(0, -1, 0);
                     } else {
-                        // 【通常〜最高パワー時】
-                        // Y成分を計算。常にマイナス(下)かゼロ(水平)になり、上向きには投げません。
-                        // パワーが低いほど真下(-1)に、高いほど水平(0)に近づきます。
-                        const yMax = -(1 - powerRatio); // パワー0で-1、パワー1で0
+                        // The vertical component is adjusted so it never throws upwards.
+                        const yMax = -(1 - powerRatio); 
                         const yMin = -1.0;
                         const yComponent = yMin + (Math.random() * (yMax - yMin));
 
-                        // XZ成分の大きさ。パワーが高いほど大きくなる
+                        // The horizontal component scales with power.
                         const xzMagnitude = powerRatio * 1.5;
                         
                         velDir = new CANNON.Vec3(
@@ -496,20 +642,23 @@
                         );
                     }
 
-                    // ゼロベクトル（無方向）になった場合の安全策
+                    // Safety check for a zero vector.
                     if (velDir.lengthSquared() < 1e-6) {
                         velDir.set(0, -1, 0);
                     }
                     
-                    // 方向ベクトルを正規化し、最終的な速度を計算
+                    // Apply the final velocity and a random spin.
                     const velocityDirection = velDir.unit();
                     body.velocity.copy(velocityDirection.scale(force));
-
                     body.angularVelocity.set( (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20 );
                 });
             }
         }
         
+        /**
+         * @function nudgeDice
+         * @description Applies a small random impulse to each die if they get stuck.
+         */
         function nudgeDice() {
             if (gameState !== 'rolling') return;
             const nudgeForce = 5;
@@ -522,15 +671,23 @@
             nudgeButton.style.display = 'none';
         }
 
+        /**
+         * @function getDiceFace
+         * @description Determines which face of a die is pointing upwards.
+         */
         function getDiceFace(body) {
-            const up = new CANNON.Vec3(0, 1, 0); let maxDot = -1, topFace = -1;
-            const faceVectors = [ new CANNON.Vec3(1,0,0), new CANNON.Vec3(-1,0,0), new CANNON.Vec3(0,1,0), new CANNON.Vec3(0,-1,0), new CANNON.Vec3(0,0,1), new CANNON.Vec3(0,0,-1) ];
+            const up = new CANNON.Vec3(0, 1, 0); // World's 'up' direction
+            let maxDot = -1, topFace = -1;
+            // Vectors representing the local direction of each face of the die
+            const faceVectors = [new CANNON.Vec3(1, 0, 0), new CANNON.Vec3(-1, 0, 0), new CANNON.Vec3(0, 1, 0), new CANNON.Vec3(0, -1, 0), new CANNON.Vec3(0, 0, 1), new CANNON.Vec3(0, 0, -1)];
             let faceValues;
+            // Map local face vectors to their corresponding number values
             switch(diceType) {
                 case 'shigoro': faceValues = [4, 4, 5, 5, 6, 6]; break;
                 case 'pinzoro': faceValues = [1, 1, 1, 1, 1, 1]; break;
-                default: faceValues = [1, 6, 2, 5, 3, 4]; break;
+                default: faceValues = [1, 6, 2, 5, 3, 4]; break; // Standard mapping
             }
+            // Find the face vector that points most closely to the world's 'up' direction.
             for (let i = 0; i < faceVectors.length; i++) {
                 const worldVector = body.quaternion.vmult(faceVectors[i]);
                 const dot = worldVector.dot(up);
@@ -539,6 +696,10 @@
             return topFace;
         }
         
+        /**
+         * @function finishRoll
+         * @description Updates the UI with the final result and resets the game state to 'ready'.
+         */
         function finishRoll(result, desc) {
             resultTitle.textContent = result;
             resultDescription.textContent = desc;
@@ -550,41 +711,55 @@
             rollButton.disabled = false;
         }
 
+        /**
+         * @function areAllDiceStable
+         * @description Checks if the dice have settled on a flat face.
+         * This is a more robust check than just waiting for the physics bodies to sleep.
+         */
         function areAllDiceStable() {
-            const STABILITY_THRESHOLD = 0.99;
-            for(const body of diceBodies) {
-                if(!dice[diceBodies.indexOf(body)].visible) continue;
+            const STABILITY_THRESHOLD = 0.99; // How flat the face must be (dot product close to 1)
+            for (const body of diceBodies) {
+                if (!dice[diceBodies.indexOf(body)].visible) continue;
                 let isStable = false;
-                const localAxes = [ new CANNON.Vec3(1,0,0), new CANNON.Vec3(0,1,0), new CANNON.Vec3(0,0,1) ];
-                for(const axis of localAxes) {
+                const localAxes = [new CANNON.Vec3(1, 0, 0), new CANNON.Vec3(0, 1, 0), new CANNON.Vec3(0, 0, 1)];
+                for (const axis of localAxes) {
                     const worldAxis = body.quaternion.vmult(axis);
                     const dotProduct = Math.abs(worldAxis.dot(new CANNON.Vec3(0, 1, 0)));
                     if (dotProduct > STABILITY_THRESHOLD) { isStable = true; break; }
                 }
-                if (!isStable) return false;
+                if (!isStable) return false; // If any die is not stable, return false
             }
-            return true;
+            return true; // All visible dice are stable
         }
 
+        /**
+         * @function checkAndDisplayResult
+         * @description Checks the values of the dice and displays the corresponding Chinchirorin result.
+         */
         function checkAndDisplayResult() {
             rollButton.disabled = true;
             const visibleDiceBodies = diceBodies.filter((body, i) => dice[i].visible);
-            
+
+            // Check for "Shonben" (foul)
             if (visibleDiceBodies.length < 3) {
                 finishRoll("ションベン！", "サイコロが丼から出てしまいました。");
                 return;
             }
 
-            const values = visibleDiceBodies.map(getDiceFace).sort((a,b) => a-b);
+            // --- Determine the Hand ---
+            const values = visibleDiceBodies.map(getDiceFace).sort((a, b) => a - b);
             let title = '', description = `出目: ${values.join(', ')}`;
             const counts = {}; values.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
 
             if (Object.values(counts).includes(3)) {
+                // Triple
                 title = (values[0] === 1) ? "ピンゾロ" : "アラシ";
             } else if (Object.values(counts).includes(2)) {
+                // Pair
                 const singleValue = Object.keys(counts).find(k => counts[k] === 1);
-                title = `${['','一','二','三','四','五','六'][singleValue]}の目`;
+                title = `${['', '一', '二', '三', '四', '五', '六'][singleValue]}の目`;
             } else {
+                // No pair or triple
                  switch(diceType) {
                     case 'shigoro':
                         if (values.join('') === '456') title = "シゴロ";
@@ -601,43 +776,55 @@
         }
 
         let lastCheckTime = 0;
+        /**
+         * @function animate
+         * @description The main animation loop, called every frame.
+         */
         function animate() {
             requestAnimationFrame(animate);
             const deltaTime = clock.getDelta();
-            
+
+            // Only step the physics world if the game is in a dynamic state.
             if (gameState === 'rolling' || gameState === 'initializing') {
+                // The third argument (10) is the maxSubSteps. 
+                // It allows the physics engine to take smaller steps internally if the frame rate drops, preventing tunneling.
                 world.step(1 / 60, deltaTime, 10);
+
+                // Sync visual objects with their physics counterparts.
                 for (let i = 0; i < dice.length; i++) {
                      dice[i].position.copy(diceBodies[i].position);
                      dice[i].quaternion.copy(diceBodies[i].quaternion);
                 }
             }
-            
+
             particleEmitter.update(deltaTime);
             controls.update();
             renderer.render(scene, camera);
 
+            // Animate dice orbiting while charging power
             if (gameState === 'charging') {
                 const elapsedTime = clock.getElapsedTime();
                 const orbitRadius = 0.4;
-                const orbitSpeed = 60.0; 
+                const orbitSpeed = 60.0;
                 const rotationSpeed = 40.0;
                 dice.forEach((die, i) => {
                     const angle = elapsedTime * orbitSpeed + (i * 2 * Math.PI / 3);
-                    const bodyPos = diceBodies[i].position; 
+                    const bodyPos = diceBodies[i].position;
                     die.position.x = bodyPos.x + Math.cos(angle) * orbitRadius;
                     die.position.z = bodyPos.z + Math.sin(angle) * orbitRadius;
-                    die.position.y = bodyPos.y + Math.sin(elapsedTime * (orbitSpeed*1.5) + i) * 0.1;
-                    
-                    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,1,1).normalize(), (rotationSpeed + i*0.5) * deltaTime);
+                    die.position.y = bodyPos.y + Math.sin(elapsedTime * (orbitSpeed * 1.5) + i) * 0.1;
+
+                    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 1, 1).normalize(), (rotationSpeed + i * 0.5) * deltaTime);
                     die.quaternion.premultiply(q);
                 });
             }
 
 
+            // --- State Checking Logic ---
             if (gameState === 'rolling' || gameState === 'initializing') {
                 const now = performance.now();
 
+                // Check for "Shonben" (foul) condition for each die.
                 for (let i = 0; i < diceBodies.length; i++) {
                     const body = diceBodies[i];
                     if (!dice[i].visible) continue;
@@ -649,28 +836,33 @@
                         else if (now - shonbenTimers[i] > SHONBEN_GRACE_PERIOD_MS) {
                             dice[i].visible = false;
                             body.sleep();
-                            body.position.set(0, -100 - i, 0);
+                            body.position.set(0, -100 - i, 0); // Move it far away
                             particleEmitter.trigger(dice[i].position);
                         }
                     } else { shonbenTimers[i] = 0; }
                 }
-                
+
+                // Check if all dice have stopped moving.
                 const isStill = diceBodies.every(body => body.sleepState === CANNON.Body.SLEEPING || !dice[diceBodies.indexOf(body)].visible);
-                
+
                 if (isStill) {
+                    // If they have stopped, also check if they are stable on a face.
                     if (areAllDiceStable()) {
                         if (gameState === 'initializing') {
-                            gameState = 'ready'; rollButton.disabled = false;
+                            // If it was the initial setup, transition to ready state.
+                            gameState = 'ready';
+							rollButton.disabled = false;
                         } else if (gameState === 'rolling') {
+                            // If it was a roll, wait a brief moment before checking the result to let the user see the final state.
                             if (lastCheckTime === 0) lastCheckTime = now;
                             else if (now - lastCheckTime > 200) {
-                                lastCheckTime = 0; gameState = 'checking'; 
+                                lastCheckTime = 0; gameState = 'checking';
                                 checkAndDisplayResult();
                             }
                         }
                     } else { lastCheckTime = 0; }
                 } else { lastCheckTime = 0; }
-                
+
                 // Why: カイト様のご指摘に基づき、「揺らす」ボタンの表示条件を、より本質的で確実なものに修正しました。
                 // (Why: Based on Kaito-sama's feedback, the display condition for the "Nudge" button has been corrected to be more fundamental and reliable.)
                 if (gameState === 'rolling') {
@@ -683,15 +875,20 @@
                 }
             }
         }
-        
+
+        /**
+         * @function onWindowResize
+         * @description Handles window resize events to keep the viewport and camera aspect ratio correct.
+         */
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
-        
-        init();
-    </script>
-</body>
-</html>
 
+        // Let's roll!
+        init();
+	</script>
+</body>
+
+</html>
