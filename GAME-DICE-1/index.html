@@ -9,7 +9,7 @@
 		 For production, consider installing Tailwind via npm and building a CSS bundle.
 		 See https://tailwindcss.com/docs/installation if you want me to set that up. -->
 	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link rel="preconnect" href="https://fonts.gstatic" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&display=swap" rel="stylesheet">
 	<style>
 		body {
@@ -237,20 +237,25 @@
         "imports": {
             "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
             "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-            "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
+            "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js",
+            "tone": "https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.js"
         }
     }
     </script>
+
+	<!-- Ensure Tone.js UMD build is available on window.Tone for broad compatibility -->
+	<script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.js"></script>
 
 	<script type="module">
 		// =================================================================================
 		// チンチロリン - 3D
 		//
 		// 伝統的な日本のゲーム「チンチロリン」を基にした3Dサイコロゲーム。
-		// レンダリングにThree.js、物理演算にcannon-es.jsを使用。
+		// レンダリングにThree.js、物理演算にcannon-es.js、音声にTone.jsを使用。
 		// =================================================================================        
 		import * as THREE from 'three';
 		import * as CANNON from 'cannon-es';
+		// Tone is loaded via UMD script tag above and available as window.Tone
 		import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 		// =================================================================================
@@ -297,6 +302,259 @@
 		let power = 0; // 現在のパワーレベル
 		let powerDirection = 1; // パワーメーターアニメーションの方向（1で増加、-1で減少）
 		let powerAnimationId = null; // パワーメーターのrequestAnimationFrameループのID
+
+		/**
+		 * @class SoundManager
+		 * @description Why: サウンド関連のすべてのロジックをこのクラスにカプセル化することで、
+		 * 音声システムの関心をゲームの主要なロジックから分離します。これにより、コードの整理、保守、拡張が容易になります。
+		 */
+		class SoundManager {
+			constructor() {
+				this.isInitialized = false;
+				this.diceHitSynth = null;
+				this.bowlHitSynth = null;
+				this.winSynth = null;
+				this.loseSynth = null;
+				this.foulSynth = null;
+				this.clickSynth = null;
+				this.Tone = null; // resolved Tone namespace (handles default export cases)
+				this._lastPlay = {}; // timestamps for throttling sounds
+			}
+
+			// internal helper: get current time in seconds using Tone if available
+			_now() {
+				if (this.Tone && typeof this.Tone.now === 'function') return this.Tone.now();
+				return performance.now() / 1000;
+			}
+
+			// throttle by key (seconds)
+			_canPlay(key, minIntervalSec = 0.03) {
+				const now = this._now();
+				const last = this._lastPlay[key] || 0;
+				if (now - last >= minIntervalSec) { this._lastPlay[key] = now; return true; }
+				return false;
+			}
+
+			// Why: 多くのブラウザでは、音声の再生を開始する前にユーザーの操作が必要です。
+			// このメソッドは、最初のクリックで安全にTone.jsを初期化するために使用されます。
+			async init() {
+				if (this.isInitialized) return;
+				// Resolve Tone namespace: support both `import * as Tone` and default export shapes.
+				this.Tone = (typeof Tone !== 'undefined' && Tone.default) ? Tone.default : (typeof Tone !== 'undefined' ? Tone : window.Tone);
+				try {
+					if (this.Tone && typeof this.Tone.start === 'function') {
+						await this.Tone.start();
+					} else if (this.Tone && this.Tone.context && typeof this.Tone.context.resume === 'function') {
+						await this.Tone.context.resume();
+					} else if (typeof AudioContext !== 'undefined' && window && window.audioCtx && typeof window.audioCtx.resume === 'function') {
+						await window.audioCtx.resume();
+					} else {
+						// Last resort: try calling resume on a newly created AudioContext (may be blocked by autoplay rules)
+						try { if (typeof AudioContext !== 'undefined') { const tmp = new (AudioContext || window.webkitAudioContext)(); if (tmp && typeof tmp.resume === 'function') await tmp.resume(); } } catch (e) { /* ignore */ }
+					}
+				} catch (e) {
+					console.warn('SoundManager: audio start/resume failed or not required:', e);
+				}
+
+				// If Tone namespace wasn't resolved, try falling back to global Tone
+				this.Tone = this.Tone || (window && window.Tone) || Tone;
+
+
+				// Create synths using resolved Tone namespace. Use helper to find constructors
+				if (!this.Tone) {
+					console.warn('SoundManager: Tone.js not found; sound disabled.');
+					this.isInitialized = true;
+					return;
+				}
+
+				// Helper to resolve constructor across different Tone bundle shapes
+				const getCtor = (name) => {
+					if (!this.Tone) return null;
+					if (typeof this.Tone[name] === 'function') return this.Tone[name];
+					if (this.Tone.default && typeof this.Tone.default[name] === 'function') return this.Tone.default[name];
+					// sometimes constructors are nested one level deeper
+					for (const k in this.Tone) {
+						try {
+							const v = this.Tone[k];
+							if (v && typeof v[name] === 'function') return v[name];
+						} catch (e) { /* ignore */ }
+					}
+					return null;
+				};
+
+				const MembraneSynthCtor = getCtor('MembraneSynth');
+				const MetalSynthCtor = getCtor('MetalSynth');
+				const PolySynthCtor = getCtor('PolySynth');
+				const SynthCtor = getCtor('Synth');
+				const MonoSynthCtor = getCtor('MonoSynth');
+
+				if (MembraneSynthCtor) {
+					this.diceHitSynth = new MembraneSynthCtor({ pitchDecay: 0.01, octaves: 6, oscillator: { type: 'triangle' }, envelope: { attack: 0.001, decay: 0.18, sustain: 0.02, release: 0.18 } }).toDestination();
+					if (this.diceHitSynth.volume) this.diceHitSynth.volume.value = -6; // gentle default
+				} else console.warn('SoundManager: MembraneSynth not found in Tone build; dice hit sound disabled.');
+
+				if (MetalSynthCtor) {
+					this.bowlHitSynth = new MetalSynthCtor({ frequency: 180, envelope: { attack: 0.002, decay: 0.25, release: 0.12 }, harmonicity: 6.5, modulationIndex: 12, resonance: 3000, octaves: 1.2 }).toDestination();
+					if (this.bowlHitSynth.volume) this.bowlHitSynth.volume.value = -8;
+				} else console.warn('SoundManager: MetalSynth not found; bowl sound disabled.');
+
+				if (PolySynthCtor && SynthCtor) {
+					// Win: bright, sustained arpeggio
+					this.winSynth = new PolySynthCtor(SynthCtor, { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.45, release: 1.2 } }).toDestination();
+					if (this.winSynth.volume) this.winSynth.volume.value = -2;
+				} else console.warn('SoundManager: PolySynth/Synth not found; win sound disabled.');
+
+				if (PolySynthCtor && SynthCtor) {
+					// Lose: shorter, slightly darker response
+					this.loseSynth = new PolySynthCtor(SynthCtor, { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.003, decay: 0.18, sustain: 0.06, release: 0.22 } }).toDestination();
+					if (this.loseSynth.volume) this.loseSynth.volume.value = -10;
+				} else console.warn('SoundManager: PolySynth/Synth not found; lose sound disabled.');
+
+				if (MonoSynthCtor) this.foulSynth = new MonoSynthCtor({ oscillator: { type: 'square' }, filter: { Q: 6, type: 'lowpass', rolloff: -24 }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 1 }, filterEnvelope: { attack: 0.01, decay: 0.1, sustain: 1, release: 0.5, baseFrequency: 200, octaves: 2 } }).toDestination();
+				else console.warn('SoundManager: MonoSynth not found; foul sound disabled.');
+
+				if (SynthCtor) {
+					this.clickSynth = new SynthCtor({ oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.06, sustain: 0.02, release: 0.06 } }).toDestination();
+					if (this.clickSynth.volume) this.clickSynth.volume.value = -3;
+				}
+				else console.warn('SoundManager: Synth not found; click sound disabled.');
+
+				this.isInitialized = true;
+				console.log("SoundManager initialized.");
+			}
+
+			// Why: 衝突の強さ（衝撃速度）を音量にマッピングすることで、よりリアルでダイナミックなフィードバックを提供します。
+			// Map impact velocity to a 0..1 level suitable for synth velocity parameter
+			_impactToLevel(velocity, maxVelocity, minLevel = 0.05, maxLevel = 1.0) {
+				const norm = Math.min(1.0, Math.max(0.0, velocity / maxVelocity));
+				// use a slight curve to emphasize stronger hits a bit more
+				const level = Math.pow(norm, 0.9);
+				return minLevel + level * (maxLevel - minLevel);
+			}
+
+			// Choose a note from a gentle palette depending on impact strength
+			_pickNote(palette, level) {
+				const idx = Math.min(palette.length - 1, Math.floor(level * palette.length));
+				return palette[idx];
+			}
+
+			playDiceCollision(impactVelocity) {
+				if (!this.isInitialized || !this.diceHitSynth) return;
+				if (!this._canPlay('dice', 0.02)) return;
+				const level = this._impactToLevel(impactVelocity, 20, 0.06, 1.0);
+				const notes = ['C3', 'D3', 'E3', 'G3', 'A3', 'C4', 'E4', 'G4', 'B4', 'C5'];
+				const note = this._pickNote(notes, level);
+				const offset = 0.006;
+				const t = (this.Tone && typeof this.Tone.now === 'function') ? this.Tone.now() + offset : undefined;
+				try {
+					if (t !== undefined && typeof this.diceHitSynth.triggerAttackRelease === 'function') {
+						this.diceHitSynth.triggerAttackRelease(note, '8n', t, level);
+					} else if (typeof this.diceHitSynth.triggerAttackRelease === 'function') {
+						this.diceHitSynth.triggerAttackRelease(note, '8n', undefined, level);
+					}
+				} catch (e) { console.warn('playDiceCollision scheduling failed', e); }
+			}
+
+			playBowlCollision(impactVelocity) {
+				if (!this.isInitialized || !this.bowlHitSynth) return;
+				if (!this._canPlay('bowl', 0.05)) return;
+				const level = this._impactToLevel(impactVelocity, 25, 0.05, 1.0);
+				const notes = ['G2', 'B2', 'D3', 'F3', 'G3', 'A3'];
+				const note = this._pickNote(notes, level);
+				const offset = 0.01;
+				const t = (this.Tone && typeof this.Tone.now === 'function') ? this.Tone.now() + offset : undefined;
+				try {
+					if (t !== undefined && typeof this.bowlHitSynth.triggerAttackRelease === 'function') {
+						this.bowlHitSynth.triggerAttackRelease(note, '16n', t, level * 0.9);
+					} else if (typeof this.bowlHitSynth.triggerAttackRelease === 'function') {
+						this.bowlHitSynth.triggerAttackRelease(note, '16n', undefined, level * 0.9);
+					} else if (typeof this.bowlHitSynth.triggerAttack === 'function') {
+						this.bowlHitSynth.triggerAttack(note, t, level * 0.9);
+					}
+				} catch (e) { console.warn('playBowlCollision scheduling failed', e); }
+			}
+
+			playWinSound() {
+				if (!this.isInitialized || !this.winSynth) return;
+				if (!this._canPlay('win', 0.2)) return;
+				const offset = 0.02;
+				const t0 = (this.Tone && typeof this.Tone.now === 'function') ? this.Tone.now() + offset : undefined;
+				// ascend arpeggio
+				const arp = ['E4', 'G4', 'C5', 'E5'];
+				try {
+					if (t0 !== undefined && typeof this.winSynth.triggerAttackRelease === 'function') {
+						arp.forEach((n, i) => this.winSynth.triggerAttackRelease(n, '8n', t0 + i * 0.06));
+					} else if (typeof this.winSynth.triggerAttackRelease === 'function') {
+						arp.forEach((n, i) => this.winSynth.triggerAttackRelease(n, '8n'));
+					}
+				} catch (e) { console.warn('playWinSound failed', e); }
+			}
+
+			playLoseSound() {
+				if (!this.isInitialized || !this.loseSynth) return;
+				if (!this._canPlay('lose', 0.2)) return;
+				const offset = 0.02;
+				const t = (this.Tone && typeof this.Tone.now === 'function') ? this.Tone.now() + offset : undefined;
+				try {
+					// two short low notes
+					if (t !== undefined && typeof this.loseSynth.triggerAttackRelease === 'function') {
+						this.loseSynth.triggerAttackRelease('C3', '16n', t);
+						this.loseSynth.triggerAttackRelease('Bb2', '16n', t + 0.08);
+					} else if (typeof this.loseSynth.triggerAttackRelease === 'function') {
+						this.loseSynth.triggerAttackRelease('C3', '16n');
+						this.loseSynth.triggerAttackRelease('Bb2', '16n');
+					}
+				} catch (e) { console.warn('playLoseSound failed', e); }
+			}
+
+			playFoulSound() {
+				if (!this.isInitialized || !this.foulSynth) return;
+				if (!this._canPlay('foul', 0.5)) return;
+				try {
+					if (typeof this.foulSynth.triggerAttackRelease === 'function') this.foulSynth.triggerAttackRelease('C2', '0.5');
+				} catch (e) { console.warn('playFoulSound failed', e); }
+			}
+
+			// Play a stronger impact-like sound when the result is a 'win' (目あり)
+			playHitForWin(strength = 1.0) {
+				if (!this.isInitialized) return;
+				// Prefer diceHitSynth if available for punchy percussive hit
+				if (this.diceHitSynth && this._canPlay('winHit', 0.06)) {
+					const level = Math.min(1, Math.max(0.1, strength));
+					const notes = ['G3', 'B3', 'D4', 'G4'];
+					const note = notes[Math.floor(level * (notes.length - 1))];
+					const t = (this.Tone && typeof this.Tone.now === 'function') ? this.Tone.now() + 0.005 : undefined;
+					try {
+						if (t !== undefined && typeof this.diceHitSynth.triggerAttackRelease === 'function') this.diceHitSynth.triggerAttackRelease(note, '16n', t, level);
+						else if (typeof this.diceHitSynth.triggerAttackRelease === 'function') this.diceHitSynth.triggerAttackRelease(note, '16n', undefined, level);
+					} catch (e) { console.warn('playHitForWin failed', e); }
+				} else if (this.bowlHitSynth && this._canPlay('winHit', 0.08)) {
+					// fallback to bowl synth for a more resonant hit
+					const level = Math.min(1, Math.max(0.1, strength));
+					const note = 'G3';
+					const t = (this.Tone && typeof this.Tone.now === 'function') ? this.Tone.now() + 0.01 : undefined;
+					try {
+						if (t !== undefined && typeof this.bowlHitSynth.triggerAttackRelease === 'function') this.bowlHitSynth.triggerAttackRelease(note, '8n', t, level * 0.9);
+						else if (typeof this.bowlHitSynth.triggerAttackRelease === 'function') this.bowlHitSynth.triggerAttackRelease(note, '8n', undefined, level * 0.9);
+					} catch (e) { console.warn('playHitForWin failed (bowl fallback)', e); }
+				}
+			}
+
+			playClickSound() {
+				if (!this.isInitialized || !this.clickSynth) return;
+				if (!this._canPlay('click', 0.05)) return;
+				const offset = 0.01;
+				const t = (this.Tone && typeof this.Tone.now === 'function') ? this.Tone.now() + offset : undefined;
+				try {
+					if (t !== undefined && typeof this.clickSynth.triggerAttackRelease === 'function') {
+						this.clickSynth.triggerAttackRelease('C5', '16n', t, 0.5);
+					} else if (typeof this.clickSynth.triggerAttackRelease === 'function') {
+						this.clickSynth.triggerAttackRelease('C5', '16n');
+					}
+				} catch (e) { console.warn('playClickSound failed', e); }
+			}
+		}
+		let soundManager;
 
 		/**
 		 * @class ParticleEmitter
@@ -414,18 +672,10 @@
 			setupContactMaterials(dicePhysicsMaterial, bowlFloorMaterial, bowlWallMaterial);
 
 			particleEmitter = new ParticleEmitter(scene);
+			soundManager = new SoundManager();
 
 			// --- イベントリスナーのセットアップ ---
-			rollButton.disabled = true;
-			rollButton.addEventListener('click', startCharging);
-			nudgeButton.addEventListener('click', nudgeDice);
-			rearrangeButton.addEventListener('click', resetDiceToStartPosition);
-			diceTypeSelector.addEventListener('change', (e) => {
-				diceType = e.target.value;
-				updateDiceMaterials();
-			});
-			canvasContainer.addEventListener('click', decidePower);
-			window.addEventListener('resize', onWindowResize);
+			setupEventListeners();
 
 			// --- シミュレーションを開始 ---
 			animate();
@@ -433,6 +683,45 @@
 			// 開始時にサイコロを丼に配置するための初期ロール。
 			setTimeout(() => { rollDice(0, true); }, 100);
 		}
+
+		/**
+		 * @function setupEventListeners
+		 * @description Why: UIとサウンドの初期化に関するイベントリスナーを1か所にまとめることで、
+		 * セットアップロジックが整理され、見つけやすくなります。
+		 */
+		function setupEventListeners() {
+			rollButton.disabled = true;
+
+			// Why: サウンドはユーザーの操作後にのみ開始できます。この関数は最初のインタラクションでサウンドを初期化し、
+			// その後自身を削除するため、一度しか実行されません。
+			const initSoundOnFirstInteraction = async () => {
+				await soundManager.init();
+				soundManager.playClickSound(); // 最初のクリック音を再生
+				// すべての要素からこの初期化リスナーを削除
+				canvasContainer.removeEventListener('click', initSoundOnFirstInteraction);
+				rollButton.removeEventListener('click', initSoundOnFirstInteraction);
+				nudgeButton.removeEventListener('click', initSoundOnFirstInteraction);
+				rearrangeButton.removeEventListener('click', initSoundOnFirstInteraction);
+			};
+
+			canvasContainer.addEventListener('click', initSoundOnFirstInteraction, { once: true });
+			rollButton.addEventListener('click', initSoundOnFirstInteraction, { once: true });
+			nudgeButton.addEventListener('click', initSoundOnFirstInteraction, { once: true });
+			rearrangeButton.addEventListener('click', initSoundOnFirstInteraction, { once: true });
+
+			// --- 通常のゲームプレイリスナー ---
+			rollButton.addEventListener('click', startCharging);
+			nudgeButton.addEventListener('click', nudgeDice);
+			rearrangeButton.addEventListener('click', resetDiceToStartPosition);
+			diceTypeSelector.addEventListener('change', (e) => {
+				soundManager.playClickSound();
+				diceType = e.target.value;
+				updateDiceMaterials();
+			});
+			canvasContainer.addEventListener('click', decidePower);
+			window.addEventListener('resize', onWindowResize);
+		}
+
 
 		/**
 		 * @function createBowl
@@ -521,6 +810,22 @@
 				// なぜ: CCD（Continuous Collision Detection）を有効化して、高速で移動するサイコロが丼を貫通するのを防ぎます。特にロール開始時。
 				body.ccdSpeedThreshold = 0.01;
 				body.ccdMotionThreshold = diceSize / 4;
+
+				// Why: 物理エンジンからの衝突イベントをリッスンして、サウンドをトリガーします。
+				// これにより、視覚的な出来事と聴覚的なフィードバックが正確に同期します。
+				body.addEventListener('collide', (event) => {
+					const impactVelocity = event.contact.getImpactVelocityAlongNormal();
+					// Why: 非常に小さな衝突（例：静止時の接触）でサウンドが再生されるのを防ぐための閾値。
+					if (impactVelocity > 0.5) {
+						const otherBodyMaterialName = event.body.material ? event.body.material.name : '';
+						if (otherBodyMaterialName === 'dice') {
+							soundManager.playDiceCollision(impactVelocity);
+						} else if (otherBodyMaterialName === 'bowlFloor' || otherBodyMaterialName === 'bowlWall') {
+							soundManager.playBowlCollision(impactVelocity);
+						}
+					}
+				});
+
 				world.addBody(body);
 				diceBodies.push(body);
 			}
@@ -583,6 +888,7 @@
 		 * @description 新しいロールの準備として、サイコロを初期位置にリセットします。
 		 */
 		function resetDiceToStartPosition() {
+			soundManager.playClickSound();
 			const startPositions = [new CANNON.Vec3(0, 4.5, 0.3), new CANNON.Vec3(-0.3, 4.7, -0.2), new CANNON.Vec3(0.3, 4.9, -0.2)];
 			diceBodies.forEach((body, i) => {
 				body.velocity.set(0, 0, 0); body.angularVelocity.set(0, 0, 0);
@@ -604,6 +910,7 @@
 		 */
 		function startCharging() {
 			if (gameState !== 'ready') return;
+			soundManager.playClickSound();
 			resetDiceToStartPosition();
 			rearrangeButton.style.display = 'block';
 			diceTypeSelector.disabled = true;
@@ -634,6 +941,7 @@
 		 */
 		function decidePower() {
 			if (gameState !== 'charging') return;
+			soundManager.playClickSound();
 			cancelAnimationFrame(powerAnimationId);
 			rearrangeButton.style.display = 'none';
 			rollDice(power);
@@ -751,6 +1059,7 @@
 		 */
 		function nudgeDice() {
 			if (gameState !== 'rolling') return;
+			soundManager.playClickSound();
 			const nudgeForce = 5;
 			diceBodies.forEach(body => {
 				body.wakeUp();
@@ -832,6 +1141,7 @@
 
 			// Check for "Shonben" (foul)
 			if (visibleDiceBodies.length < 3) {
+				soundManager.playFoulSound();
 				finishRoll("ションベン！", "サイコロが丼から出てしまいました。");
 				return;
 			}
@@ -841,9 +1151,11 @@
 			let title = '', description = `出目: ${values.join(', ')}`;
 			const counts = {}; values.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
 
+			let hasWon = false;
 			if (Object.values(counts).includes(3)) {
 				// Triple
 				title = (values[0] === 1) ? "ピンゾロ" : "アラシ";
+				hasWon = true;
 			} else if (Object.values(counts).includes(2)) {
 				// Pair
 				const singleValue = Object.keys(counts).find(k => counts[k] === 1);
@@ -852,16 +1164,31 @@
 				// ペアやトリプルなし
 				switch (diceType) {
 					case 'shigoro':
-						if (values.join('') === '456') title = "シゴロ";
+						if (values.join('') === '456') { title = "シゴロ"; hasWon = true; }
 						else title = "目なし";
 						break;
 					default:
-						if (values.join('') === '456') title = "シゴロ";
+						if (values.join('') === '456') { title = "シゴロ"; hasWon = true; }
 						else if (values.join('') === '123') title = "ヒフミ";
 						else title = "目なし";
 						break;
 				}
 			}
+
+			// Determine whether this result has any 'eyes' (目あり) vs '目なし'
+			const hasEyes = (title !== '目なし');
+			if (visibleDiceBodies.length >= 3 && hasEyes) {
+				// For triples or special winning combos, keep full strength
+				const strength = hasWon ? 1.0 : 0.6; // pairs get a softer hit
+				soundManager.playWinSound();
+				soundManager.playHitForWin(strength);
+			} else if (visibleDiceBodies.length < 3) {
+				// foul already handled above, but keep safety
+				soundManager.playFoulSound();
+			} else {
+				soundManager.playLoseSound();
+			}
+
 			finishRoll(title, description);
 		}
 
