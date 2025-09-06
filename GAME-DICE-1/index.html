@@ -310,10 +310,12 @@
 		class SoundManager {
 			constructor() {
 				this.isInitialized = false;
-				this.diceHitSynth = null;
-				this.bowlHitSynth = null;
+				
+				// SOUND REDESIGN #3: Single, re-tuned synth for the "karan karan" effect.
+				this.clinkSynth = null; 
+
 				this.winSynth = null;
-				this.pairSynth = null; // ADDED: Synth for pairs
+				this.pairSynth = null;
 				this.loseSynth = null;
 				this.foulSynth = null;
 				this.clickSynth = null;
@@ -353,31 +355,22 @@
 					console.warn('SoundManager: Tone.start() failed. Audio may not play.', e);
 				}
 
-				// SOUND DESIGN: Replaced synths for more realistic, ceramic sounds.
-				this.diceHitSynth = new Tone.PolySynth(Tone.FMSynth, {
-					"harmonicity": 1.8,
-					"modulationIndex": 1.5,
-					"oscillator": { "type": "sine" },
-					"envelope": { "attack": 0.001, "decay": 0.08, "sustain": 0.01, "release": 0.06 },
-					"modulation": { "type": "square" },
-					"modulationEnvelope": { "attack": 0.002, "decay": 0.05, "sustain": 0, "release": 0.05 }
+				// SOUND REDESIGN #3: A single MetalSynth, tuned for a very short, hard, "clink" sound.
+				// This is used for all parts of the collision, including the "karan karan" clatter.
+				this.clinkSynth = new Tone.PolySynth(Tone.MetalSynth, {
+					frequency: 350,
+					envelope: { attack: 0.001, decay: 0.1, release: 0.08 },
+					harmonicity: 4.1,
+					modulationIndex: 22,
+					resonance: 3000,
+					octaves: 1.2
 				}).toDestination();
-				if (this.diceHitSynth.volume) this.diceHitSynth.volume.value = -8;
+				if (this.clinkSynth.volume) this.clinkSynth.volume.value = -9;
 
-				this.bowlHitSynth = new Tone.MetalSynth({
-					"frequency": 220,
-					"envelope": { "attack": 0.001, "decay": 0.3, "release": 0.2 },
-					"harmonicity": 2.8,
-					"modulationIndex": 9,
-					"resonance": 1500,
-					"octaves": 0.5
-				}).toDestination();
-				if (this.bowlHitSynth.volume) this.bowlHitSynth.volume.value = -7;
 
 				this.winSynth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.45, release: 1.2 } }).toDestination();
 				if (this.winSynth.volume) this.winSynth.volume.value = -2;
 				
-				// ADDED: A dedicated synth for the "pair" sound. Less grand than the win sound.
 				this.pairSynth = new Tone.PolySynth(Tone.Synth, {
 					oscillator: { type: 'sine' },
 					envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.3 }
@@ -412,40 +405,35 @@
 				const idx = Math.min(palette.length - 1, Math.floor(level * palette.length));
 				return palette[idx];
 			}
+			
+			// SOUND REDESIGN #3: Collision logic now focuses on creating the "karan karan" effect.
+			_playCollision(impactVelocity, maxVelocity, notePalette, isBowl) {
+				if (!this.isInitialized || !this.clinkSynth) return;
+				
+				const key = isBowl ? 'bowl' : 'dice';
+				if (!this._canPlay(key, isBowl ? 0.08 : 0.07)) return;
 
-			// SOUND DESIGN: Implemented a "clatter" effect for more realism.
-			playDiceCollision(impactVelocity) {
-				if (!this.isInitialized || !this.diceHitSynth) return;
-				if (!this._canPlay('dice', 0.07)) return;
-				// DYNAMIC SOUND: Use the new curve and constants.
-				const baseLevel = this._impactToLevel(impactVelocity, this.MAX_IMPACT_VELOCITY_DICE, 0.02, 1.0);
+				const baseLevel = this._impactToLevel(impactVelocity, maxVelocity, 0.02, 1.0);
 				const time = this._now();
-				const notePalette = ["A3", "C4", "D#4", "F#4", "A4", "C5"];
 
-				// Main impact sound
-				this.diceHitSynth.triggerAttackRelease(
-					this._pickNote(notePalette, baseLevel), "16n", time, baseLevel
-				);
-
-				// Secondary clatter sounds to simulate rattling
-				const clatterCount = Math.floor(baseLevel * 2) + 1; // 1 to 3 extra sounds
+				// The "Karan Karan Karan" effect: A series of rapid, slightly randomized clinks.
+				const clatterCount = 1 + Math.floor(baseLevel * 4); // 1 to 5 sounds per impact
 				for (let i = 0; i < clatterCount; i++) {
-					const clatterTime = time + 0.005 + Math.random() * 0.04;
+					const clatterTime = time + (i * 0.03) + (Math.random() * 0.02);
 					const clatterNote = notePalette[Math.floor(Math.random() * notePalette.length)];
-					const clatterLevel = baseLevel * (0.3 + Math.random() * 0.5);
-					this.diceHitSynth.triggerAttackRelease(clatterNote, "32n", clatterTime, clatterLevel);
+					const clatterLevel = baseLevel * (0.5 + Math.random() * 0.5);
+					this.clinkSynth.triggerAttackRelease(clatterNote, "16n", clatterTime, clatterLevel);
 				}
 			}
 
-			// SOUND DESIGN: Uses the new, less metallic bowl synth.
+			playDiceCollision(impactVelocity) {
+				const notePalette = ["A4", "C5", "D#5", "F#5", "A5"]; // Higher pitch for dice
+				this._playCollision(impactVelocity, this.MAX_IMPACT_VELOCITY_DICE, notePalette, false);
+			}
+
 			playBowlCollision(impactVelocity) {
-				if (!this.isInitialized || !this.bowlHitSynth) return;
-				if (!this._canPlay('bowl', 0.08)) return;
-				// DYNAMIC SOUND: Use the new curve and constants.
-				const level = this._impactToLevel(impactVelocity, this.MAX_IMPACT_VELOCITY_BOWL, 0.02, 1.0);
-				const notes = ['C2', 'E2', 'G2', 'A#2'];
-				const note = this._pickNote(notes, level);
-				this.bowlHitSynth.triggerAttackRelease(note, "8n", this._now(), level);
+				const notePalette = ['C4', 'E4', 'G4', 'A#4']; // Mid-range pitch for bowl
+				this._playCollision(impactVelocity, this.MAX_IMPACT_VELOCITY_BOWL, notePalette, true);
 			}
 
 			playWinSound() {
@@ -456,7 +444,6 @@
 				arp.forEach((n, i) => this.winSynth.triggerAttackRelease(n, '8n', t0 + i * 0.06));
 			}
 
-			// ADDED: A pleasant but simple chord for getting a pair.
 			playPairSound() {
 				if (!this.isInitialized || !this.pairSynth) return;
 				if (!this._canPlay('pair', 0.2)) return;
