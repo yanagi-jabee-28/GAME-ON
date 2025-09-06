@@ -310,9 +310,9 @@
 		class SoundManager {
 			constructor() {
 				this.isInitialized = false;
-				
+
 				// SOUND REDESIGN #3: Single, re-tuned synth for the "karan karan" effect.
-				this.clinkSynth = null; 
+				this.clinkSynth = null;
 
 				this.winSynth = null;
 				this.pairSynth = null;
@@ -370,7 +370,7 @@
 
 				this.winSynth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.45, release: 1.2 } }).toDestination();
 				if (this.winSynth.volume) this.winSynth.volume.value = -2;
-				
+
 				this.pairSynth = new Tone.PolySynth(Tone.Synth, {
 					oscillator: { type: 'sine' },
 					envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.3 }
@@ -388,7 +388,7 @@
 				this.isInitialized = true;
 				console.log("SoundManager initialized.");
 			}
-			
+
 			/**
 			 * DYNAMIC SOUND: Why: 衝撃速度と知覚される音量の関係は線形ではありません。
 			 * この関数は指数曲線（Math.pow(norm, 2)）を使用して速度をオーディオレベルにマッピングし、
@@ -405,11 +405,11 @@
 				const idx = Math.min(palette.length - 1, Math.floor(level * palette.length));
 				return palette[idx];
 			}
-			
+
 			// SOUND REDESIGN #3: Collision logic now focuses on creating the "karan karan" effect.
 			_playCollision(impactVelocity, maxVelocity, notePalette, isBowl) {
 				if (!this.isInitialized || !this.clinkSynth) return;
-				
+
 				const key = isBowl ? 'bowl' : 'dice';
 				if (!this._canPlay(key, isBowl ? 0.08 : 0.07)) return;
 
@@ -1089,7 +1089,7 @@
 						break;
 				}
 			}
-			
+
 			// --- Sound Triggering Logic ---
 			// Why: 役の結果に基づいて適切なサウンドを再生するための、明確で分離されたロジック。
 			// これにより、どの結果がどのサウンドをトリガーするかが分かりやすくなります。
@@ -1227,4 +1227,3 @@
 </body>
 
 </html>
-
