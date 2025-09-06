@@ -237,13 +237,12 @@
         "imports": {
             "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
             "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-            "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js",
-            "tone": "https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.js"
+            "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
         }
     }
     </script>
 
-	<!-- Ensure Tone.js UMD build is available on window.Tone for broad compatibility -->
+	<!-- Tone.js is loaded via this UMD script tag, making it available as `window.Tone` -->
 	<script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.js"></script>
 
 	<script type="module">
@@ -314,17 +313,20 @@
 				this.diceHitSynth = null;
 				this.bowlHitSynth = null;
 				this.winSynth = null;
+				this.pairSynth = null; // ADDED: Synth for pairs
 				this.loseSynth = null;
 				this.foulSynth = null;
 				this.clickSynth = null;
-				this.Tone = null; // resolved Tone namespace (handles default export cases)
 				this._lastPlay = {}; // timestamps for throttling sounds
+
+				// DYNAMIC SOUND: Constants for tuning impact response.
+				this.MAX_IMPACT_VELOCITY_DICE = 20; // サイコロ同士の衝突で想定される最大衝撃速度
+				this.MAX_IMPACT_VELOCITY_BOWL = 25; // サイコロと丼の衝突で想定される最大衝撃速度
 			}
 
-			// internal helper: get current time in seconds using Tone if available
+			// internal helper: get current time in seconds
 			_now() {
-				if (this.Tone && typeof this.Tone.now === 'function') return this.Tone.now();
-				return performance.now() / 1000;
+				return Tone.now();
 			}
 
 			// throttle by key (seconds)
@@ -339,219 +341,147 @@
 			// このメソッドは、最初のクリックで安全にTone.jsを初期化するために使用されます。
 			async init() {
 				if (this.isInitialized) return;
-				// Resolve Tone namespace: support both `import * as Tone` and default export shapes.
-				this.Tone = (typeof Tone !== 'undefined' && Tone.default) ? Tone.default : (typeof Tone !== 'undefined' ? Tone : window.Tone);
-				try {
-					if (this.Tone && typeof this.Tone.start === 'function') {
-						await this.Tone.start();
-					} else if (this.Tone && this.Tone.context && typeof this.Tone.context.resume === 'function') {
-						await this.Tone.context.resume();
-					} else if (typeof AudioContext !== 'undefined' && window && window.audioCtx && typeof window.audioCtx.resume === 'function') {
-						await window.audioCtx.resume();
-					} else {
-						// Last resort: try calling resume on a newly created AudioContext (may be blocked by autoplay rules)
-						try { if (typeof AudioContext !== 'undefined') { const tmp = new (AudioContext || window.webkitAudioContext)(); if (tmp && typeof tmp.resume === 'function') await tmp.resume(); } } catch (e) { /* ignore */ }
-					}
-				} catch (e) {
-					console.warn('SoundManager: audio start/resume failed or not required:', e);
-				}
-
-				// If Tone namespace wasn't resolved, try falling back to global Tone
-				this.Tone = this.Tone || (window && window.Tone) || Tone;
-
-
-				// Create synths using resolved Tone namespace. Use helper to find constructors
-				if (!this.Tone) {
-					console.warn('SoundManager: Tone.js not found; sound disabled.');
-					this.isInitialized = true;
+				if (typeof Tone === 'undefined' || !Tone) {
+					console.warn('SoundManager: Tone.js not found on window; sound disabled.');
+					this.isInitialized = true; // Mark as initialized to prevent retries
 					return;
 				}
 
-				// Helper to resolve constructor across different Tone bundle shapes
-				const getCtor = (name) => {
-					if (!this.Tone) return null;
-					if (typeof this.Tone[name] === 'function') return this.Tone[name];
-					if (this.Tone.default && typeof this.Tone.default[name] === 'function') return this.Tone.default[name];
-					// sometimes constructors are nested one level deeper
-					for (const k in this.Tone) {
-						try {
-							const v = this.Tone[k];
-							if (v && typeof v[name] === 'function') return v[name];
-						} catch (e) { /* ignore */ }
-					}
-					return null;
-				};
-
-				const MembraneSynthCtor = getCtor('MembraneSynth');
-				const MetalSynthCtor = getCtor('MetalSynth');
-				const PolySynthCtor = getCtor('PolySynth');
-				const SynthCtor = getCtor('Synth');
-				const MonoSynthCtor = getCtor('MonoSynth');
-
-				if (MembraneSynthCtor) {
-					this.diceHitSynth = new MembraneSynthCtor({ pitchDecay: 0.01, octaves: 6, oscillator: { type: 'triangle' }, envelope: { attack: 0.001, decay: 0.18, sustain: 0.02, release: 0.18 } }).toDestination();
-					if (this.diceHitSynth.volume) this.diceHitSynth.volume.value = -6; // gentle default
-				} else console.warn('SoundManager: MembraneSynth not found in Tone build; dice hit sound disabled.');
-
-				if (MetalSynthCtor) {
-					this.bowlHitSynth = new MetalSynthCtor({ frequency: 180, envelope: { attack: 0.002, decay: 0.25, release: 0.12 }, harmonicity: 6.5, modulationIndex: 12, resonance: 3000, octaves: 1.2 }).toDestination();
-					if (this.bowlHitSynth.volume) this.bowlHitSynth.volume.value = -8;
-				} else console.warn('SoundManager: MetalSynth not found; bowl sound disabled.');
-
-				if (PolySynthCtor && SynthCtor) {
-					// Win: bright, sustained arpeggio
-					this.winSynth = new PolySynthCtor(SynthCtor, { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.45, release: 1.2 } }).toDestination();
-					if (this.winSynth.volume) this.winSynth.volume.value = -2;
-				} else console.warn('SoundManager: PolySynth/Synth not found; win sound disabled.');
-
-				if (PolySynthCtor && SynthCtor) {
-					// Lose: shorter, slightly darker response
-					this.loseSynth = new PolySynthCtor(SynthCtor, { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.003, decay: 0.18, sustain: 0.06, release: 0.22 } }).toDestination();
-					if (this.loseSynth.volume) this.loseSynth.volume.value = -10;
-				} else console.warn('SoundManager: PolySynth/Synth not found; lose sound disabled.');
-
-				if (MonoSynthCtor) this.foulSynth = new MonoSynthCtor({ oscillator: { type: 'square' }, filter: { Q: 6, type: 'lowpass', rolloff: -24 }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 1 }, filterEnvelope: { attack: 0.01, decay: 0.1, sustain: 1, release: 0.5, baseFrequency: 200, octaves: 2 } }).toDestination();
-				else console.warn('SoundManager: MonoSynth not found; foul sound disabled.');
-
-				if (SynthCtor) {
-					this.clickSynth = new SynthCtor({ oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.06, sustain: 0.02, release: 0.06 } }).toDestination();
-					if (this.clickSynth.volume) this.clickSynth.volume.value = -3;
+				try {
+					await Tone.start();
+				} catch (e) {
+					console.warn('SoundManager: Tone.start() failed. Audio may not play.', e);
 				}
-				else console.warn('SoundManager: Synth not found; click sound disabled.');
+
+				// SOUND DESIGN: Replaced synths for more realistic, ceramic sounds.
+				this.diceHitSynth = new Tone.PolySynth(Tone.FMSynth, {
+					"harmonicity": 1.8,
+					"modulationIndex": 1.5,
+					"oscillator": { "type": "sine" },
+					"envelope": { "attack": 0.001, "decay": 0.08, "sustain": 0.01, "release": 0.06 },
+					"modulation": { "type": "square" },
+					"modulationEnvelope": { "attack": 0.002, "decay": 0.05, "sustain": 0, "release": 0.05 }
+				}).toDestination();
+				if (this.diceHitSynth.volume) this.diceHitSynth.volume.value = -8;
+
+				this.bowlHitSynth = new Tone.MetalSynth({
+					"frequency": 220,
+					"envelope": { "attack": 0.001, "decay": 0.3, "release": 0.2 },
+					"harmonicity": 2.8,
+					"modulationIndex": 9,
+					"resonance": 1500,
+					"octaves": 0.5
+				}).toDestination();
+				if (this.bowlHitSynth.volume) this.bowlHitSynth.volume.value = -7;
+
+				this.winSynth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.45, release: 1.2 } }).toDestination();
+				if (this.winSynth.volume) this.winSynth.volume.value = -2;
+				
+				// ADDED: A dedicated synth for the "pair" sound. Less grand than the win sound.
+				this.pairSynth = new Tone.PolySynth(Tone.Synth, {
+					oscillator: { type: 'sine' },
+					envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.3 }
+				}).toDestination();
+				if (this.pairSynth.volume) this.pairSynth.volume.value = -6;
+
+				this.loseSynth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.003, decay: 0.18, sustain: 0.06, release: 0.22 } }).toDestination();
+				if (this.loseSynth.volume) this.loseSynth.volume.value = -10;
+
+				this.foulSynth = new Tone.MonoSynth({ oscillator: { type: 'square' }, filter: { Q: 6, type: 'lowpass', rolloff: -24 }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 1 }, filterEnvelope: { attack: 0.01, decay: 0.1, sustain: 1, release: 0.5, baseFrequency: 200, octaves: 2 } }).toDestination();
+
+				this.clickSynth = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.06, sustain: 0.02, release: 0.06 } }).toDestination();
+				if (this.clickSynth.volume) this.clickSynth.volume.value = -3;
 
 				this.isInitialized = true;
 				console.log("SoundManager initialized.");
 			}
-
-			// Why: 衝突の強さ（衝撃速度）を音量にマッピングすることで、よりリアルでダイナミックなフィードバックを提供します。
-			// Map impact velocity to a 0..1 level suitable for synth velocity parameter
-			_impactToLevel(velocity, maxVelocity, minLevel = 0.05, maxLevel = 1.0) {
+			
+			/**
+			 * DYNAMIC SOUND: Why: 衝撃速度と知覚される音量の関係は線形ではありません。
+			 * この関数は指数曲線（Math.pow(norm, 2)）を使用して速度をオーディオレベルにマッピングし、
+			 * 小さな衝撃が大きな衝撃よりも大幅に静かになるようにします。これにより、より自然な感覚が得られます。
+			 */
+			_impactToLevel(velocity, maxVelocity, minLevel = 0.0, maxLevel = 1.0) {
 				const norm = Math.min(1.0, Math.max(0.0, velocity / maxVelocity));
-				// use a slight curve to emphasize stronger hits a bit more
-				const level = Math.pow(norm, 0.9);
+				// 2乗を使用することで、低速と高速の衝撃の間に顕著な差が生まれます。
+				const level = Math.pow(norm, 2);
 				return minLevel + level * (maxLevel - minLevel);
 			}
 
-			// Choose a note from a gentle palette depending on impact strength
 			_pickNote(palette, level) {
 				const idx = Math.min(palette.length - 1, Math.floor(level * palette.length));
 				return palette[idx];
 			}
 
+			// SOUND DESIGN: Implemented a "clatter" effect for more realism.
 			playDiceCollision(impactVelocity) {
 				if (!this.isInitialized || !this.diceHitSynth) return;
-				if (!this._canPlay('dice', 0.02)) return;
-				const level = this._impactToLevel(impactVelocity, 20, 0.06, 1.0);
-				const notes = ['C3', 'D3', 'E3', 'G3', 'A3', 'C4', 'E4', 'G4', 'B4', 'C5'];
-				const note = this._pickNote(notes, level);
-				const offset = 0.006;
-				const t = (this.Tone && typeof this.Tone.now === 'function') ? this.Tone.now() + offset : undefined;
-				try {
-					if (t !== undefined && typeof this.diceHitSynth.triggerAttackRelease === 'function') {
-						this.diceHitSynth.triggerAttackRelease(note, '8n', t, level);
-					} else if (typeof this.diceHitSynth.triggerAttackRelease === 'function') {
-						this.diceHitSynth.triggerAttackRelease(note, '8n', undefined, level);
-					}
-				} catch (e) { console.warn('playDiceCollision scheduling failed', e); }
+				if (!this._canPlay('dice', 0.07)) return;
+				// DYNAMIC SOUND: Use the new curve and constants.
+				const baseLevel = this._impactToLevel(impactVelocity, this.MAX_IMPACT_VELOCITY_DICE, 0.02, 1.0);
+				const time = this._now();
+				const notePalette = ["A3", "C4", "D#4", "F#4", "A4", "C5"];
+
+				// Main impact sound
+				this.diceHitSynth.triggerAttackRelease(
+					this._pickNote(notePalette, baseLevel), "16n", time, baseLevel
+				);
+
+				// Secondary clatter sounds to simulate rattling
+				const clatterCount = Math.floor(baseLevel * 2) + 1; // 1 to 3 extra sounds
+				for (let i = 0; i < clatterCount; i++) {
+					const clatterTime = time + 0.005 + Math.random() * 0.04;
+					const clatterNote = notePalette[Math.floor(Math.random() * notePalette.length)];
+					const clatterLevel = baseLevel * (0.3 + Math.random() * 0.5);
+					this.diceHitSynth.triggerAttackRelease(clatterNote, "32n", clatterTime, clatterLevel);
+				}
 			}
 
+			// SOUND DESIGN: Uses the new, less metallic bowl synth.
 			playBowlCollision(impactVelocity) {
 				if (!this.isInitialized || !this.bowlHitSynth) return;
-				if (!this._canPlay('bowl', 0.05)) return;
-				const level = this._impactToLevel(impactVelocity, 25, 0.05, 1.0);
-				const notes = ['G2', 'B2', 'D3', 'F3', 'G3', 'A3'];
+				if (!this._canPlay('bowl', 0.08)) return;
+				// DYNAMIC SOUND: Use the new curve and constants.
+				const level = this._impactToLevel(impactVelocity, this.MAX_IMPACT_VELOCITY_BOWL, 0.02, 1.0);
+				const notes = ['C2', 'E2', 'G2', 'A#2'];
 				const note = this._pickNote(notes, level);
-				const offset = 0.01;
-				const t = (this.Tone && typeof this.Tone.now === 'function') ? this.Tone.now() + offset : undefined;
-				try {
-					if (t !== undefined && typeof this.bowlHitSynth.triggerAttackRelease === 'function') {
-						this.bowlHitSynth.triggerAttackRelease(note, '16n', t, level * 0.9);
-					} else if (typeof this.bowlHitSynth.triggerAttackRelease === 'function') {
-						this.bowlHitSynth.triggerAttackRelease(note, '16n', undefined, level * 0.9);
-					} else if (typeof this.bowlHitSynth.triggerAttack === 'function') {
-						this.bowlHitSynth.triggerAttack(note, t, level * 0.9);
-					}
-				} catch (e) { console.warn('playBowlCollision scheduling failed', e); }
+				this.bowlHitSynth.triggerAttackRelease(note, "8n", this._now(), level);
 			}
 
 			playWinSound() {
 				if (!this.isInitialized || !this.winSynth) return;
 				if (!this._canPlay('win', 0.2)) return;
-				const offset = 0.02;
-				const t0 = (this.Tone && typeof this.Tone.now === 'function') ? this.Tone.now() + offset : undefined;
-				// ascend arpeggio
+				const t0 = this._now();
 				const arp = ['E4', 'G4', 'C5', 'E5'];
-				try {
-					if (t0 !== undefined && typeof this.winSynth.triggerAttackRelease === 'function') {
-						arp.forEach((n, i) => this.winSynth.triggerAttackRelease(n, '8n', t0 + i * 0.06));
-					} else if (typeof this.winSynth.triggerAttackRelease === 'function') {
-						arp.forEach((n, i) => this.winSynth.triggerAttackRelease(n, '8n'));
-					}
-				} catch (e) { console.warn('playWinSound failed', e); }
+				arp.forEach((n, i) => this.winSynth.triggerAttackRelease(n, '8n', t0 + i * 0.06));
+			}
+
+			// ADDED: A pleasant but simple chord for getting a pair.
+			playPairSound() {
+				if (!this.isInitialized || !this.pairSynth) return;
+				if (!this._canPlay('pair', 0.2)) return;
+				const t = this._now();
+				this.pairSynth.triggerAttackRelease(['C4', 'E4', 'G4'], '8n', t);
 			}
 
 			playLoseSound() {
 				if (!this.isInitialized || !this.loseSynth) return;
 				if (!this._canPlay('lose', 0.2)) return;
-				const offset = 0.02;
-				const t = (this.Tone && typeof this.Tone.now === 'function') ? this.Tone.now() + offset : undefined;
-				try {
-					// two short low notes
-					if (t !== undefined && typeof this.loseSynth.triggerAttackRelease === 'function') {
-						this.loseSynth.triggerAttackRelease('C3', '16n', t);
-						this.loseSynth.triggerAttackRelease('Bb2', '16n', t + 0.08);
-					} else if (typeof this.loseSynth.triggerAttackRelease === 'function') {
-						this.loseSynth.triggerAttackRelease('C3', '16n');
-						this.loseSynth.triggerAttackRelease('Bb2', '16n');
-					}
-				} catch (e) { console.warn('playLoseSound failed', e); }
+				const t = this._now();
+				this.loseSynth.triggerAttackRelease('C3', '16n', t);
+				this.loseSynth.triggerAttackRelease('Bb2', '16n', t + 0.08);
 			}
 
 			playFoulSound() {
 				if (!this.isInitialized || !this.foulSynth) return;
 				if (!this._canPlay('foul', 0.5)) return;
-				try {
-					if (typeof this.foulSynth.triggerAttackRelease === 'function') this.foulSynth.triggerAttackRelease('C2', '0.5');
-				} catch (e) { console.warn('playFoulSound failed', e); }
-			}
-
-			// Play a stronger impact-like sound when the result is a 'win' (目あり)
-			playHitForWin(strength = 1.0) {
-				if (!this.isInitialized) return;
-				// Prefer diceHitSynth if available for punchy percussive hit
-				if (this.diceHitSynth && this._canPlay('winHit', 0.06)) {
-					const level = Math.min(1, Math.max(0.1, strength));
-					const notes = ['G3', 'B3', 'D4', 'G4'];
-					const note = notes[Math.floor(level * (notes.length - 1))];
-					const t = (this.Tone && typeof this.Tone.now === 'function') ? this.Tone.now() + 0.005 : undefined;
-					try {
-						if (t !== undefined && typeof this.diceHitSynth.triggerAttackRelease === 'function') this.diceHitSynth.triggerAttackRelease(note, '16n', t, level);
-						else if (typeof this.diceHitSynth.triggerAttackRelease === 'function') this.diceHitSynth.triggerAttackRelease(note, '16n', undefined, level);
-					} catch (e) { console.warn('playHitForWin failed', e); }
-				} else if (this.bowlHitSynth && this._canPlay('winHit', 0.08)) {
-					// fallback to bowl synth for a more resonant hit
-					const level = Math.min(1, Math.max(0.1, strength));
-					const note = 'G3';
-					const t = (this.Tone && typeof this.Tone.now === 'function') ? this.Tone.now() + 0.01 : undefined;
-					try {
-						if (t !== undefined && typeof this.bowlHitSynth.triggerAttackRelease === 'function') this.bowlHitSynth.triggerAttackRelease(note, '8n', t, level * 0.9);
-						else if (typeof this.bowlHitSynth.triggerAttackRelease === 'function') this.bowlHitSynth.triggerAttackRelease(note, '8n', undefined, level * 0.9);
-					} catch (e) { console.warn('playHitForWin failed (bowl fallback)', e); }
-				}
+				this.foulSynth.triggerAttackRelease('C2', '0.5');
 			}
 
 			playClickSound() {
 				if (!this.isInitialized || !this.clickSynth) return;
 				if (!this._canPlay('click', 0.05)) return;
-				const offset = 0.01;
-				const t = (this.Tone && typeof this.Tone.now === 'function') ? this.Tone.now() + offset : undefined;
-				try {
-					if (t !== undefined && typeof this.clickSynth.triggerAttackRelease === 'function') {
-						this.clickSynth.triggerAttackRelease('C5', '16n', t, 0.5);
-					} else if (typeof this.clickSynth.triggerAttackRelease === 'function') {
-						this.clickSynth.triggerAttackRelease('C5', '16n');
-					}
-				} catch (e) { console.warn('playClickSound failed', e); }
+				this.clickSynth.triggerAttackRelease('C5', '16n', this._now(), 0.5);
 			}
 		}
 		let soundManager;
@@ -636,6 +566,8 @@
 			camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 			camera.position.set(0, 8, 6); // 丼を見下ろす位置
 			renderer = new THREE.WebGLRenderer({ antialias: true });
+			// OPTIMIZATION: Prevent rendering at excessive resolutions on high-DPI displays.
+			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 			renderer.setSize(window.innerWidth, window.innerHeight);
 			renderer.shadowMap.enabled = true; // リアルさのために影を有効化
 			canvasContainer.appendChild(renderer.domElement);
@@ -656,9 +588,8 @@
 			world.allowSleep = true; // 動かないオブジェクトを「スリープ」させてパフォーマンスを向上
 			world.sleepSpeedLimit = 0.05;
 			world.sleepTimeLimit = 0.5;
-			// なぜ: 物理精度を向上させるためにソルバーの反復回数を増加。
-			// これにより、高速で移動するオブジェクトが互いに貫通する「トンネリング」を防ぎます。
-			world.solver.iterations = 50;
+			// OPTIMIZATION: Reduced solver iterations for better performance. 20 is a good balance.
+			world.solver.iterations = 20;
 
 			// --- マテリアルの定義 ---
 			// 異なるオブジェクトの相互作用を制御するために、物理マテリアルを定義（摩擦、反発）。
@@ -730,6 +661,8 @@
 		 */
 		function createBowl(bowlFloorMaterial, bowlWallMaterial) {
 			const bowlWallThickness = 0.2; // 丼の壁の厚さを定義。
+			// TUNNELING FIX: 物理的な壁の厚みを視覚的なものより厚く設定
+			const physicsWallThickness = 0.4;
 			const bowlMaterial = new THREE.MeshStandardMaterial({ color: 0x6B4F3A, side: THREE.DoubleSide, metalness: 0.2, roughness: 0.7 });
 			const bowlGroup = new THREE.Group();
 
@@ -741,7 +674,6 @@
 			bowlGroup.add(bottomMesh);
 
 			// 2. 厚みのある壁を作成。
-			// なぜ: 物理ボディに一致する厚みのある壁を作成するためにExtrudeGeometryを使用。
 			const wallShape = new THREE.Shape();
 			wallShape.absarc(0, 0, bowlRadius, 0, Math.PI * 2, false); // 外側の円
 			const holePath = new THREE.Path();
@@ -757,23 +689,19 @@
 			scene.add(bowlGroup);
 
 			// --- 物理的な丼（cannon-es） ---
-			// 1. 底のボディを作成。
 			const bowlFloorBody = new CANNON.Body({ mass: 0, material: bowlFloorMaterial });
-			// なぜ: 物理的な底は視覚的なものよりも厚く、より安定した衝突面を提供。
 			const bottomShape = new CANNON.Cylinder(bowlRadius, bowlRadius, 0.5, 32);
 			bowlFloorBody.addShape(bottomShape, new CANNON.Vec3(0, -0.2, 0));
 			world.addBody(bowlFloorBody);
 
-			// 2. 壁のボディを作成。
-			// なぜ: 物理的な壁は円形のコライダーを作成するための一般的な効率的な方法である、円周に沿った狭いボックスのシリーズで近似されます。
+			// OPTIMIZATION: Reduced wall segments from 64 to 32 to lessen physics calculations.
 			const bowlWallBody = new CANNON.Body({ mass: 0, material: bowlWallMaterial });
-			const wallSegments = 64;
+			const wallSegments = 32;
 			const segmentAngle = (Math.PI * 2) / wallSegments;
 			const segmentWidth = 2 * bowlRadius * Math.tan(segmentAngle / 2);
-			const wallShapeCannon = new CANNON.Box(new CANNON.Vec3(segmentWidth / 2, bowlHeight / 2, bowlWallThickness / 2));
-
-			// 視覚的な厚みに一致させるために壁セグメントを内側に配置。
-			const wallPlacementRadius = bowlRadius - (bowlWallThickness / 2);
+			// TUNNELING FIX: Use the thicker physics wall for the collision shape.
+			const wallShapeCannon = new CANNON.Box(new CANNON.Vec3(segmentWidth / 2, bowlHeight / 2, physicsWallThickness / 2));
+			const wallPlacementRadius = bowlRadius - (physicsWallThickness / 2);
 
 			for (let i = 0; i < wallSegments; i++) {
 				const angle = i * segmentAngle;
@@ -1021,7 +949,7 @@
 					// Configure reasonable min/max spin (radians/sec).
 					const minSpin = 8;   // gentle tumble
 					const maxSpin = 80;  // vigorous tumble for full power
-					const spinMag = minSpin + (maxSpin - minSpin) * Math.min(1, Math.max(0, powerRatio));
+					const spinMag = minSpin + (maxSpin - minPower) * Math.min(1, Math.max(0, powerRatio));
 
 					// Candidate random vector
 					const rc = new CANNON.Vec3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
@@ -1174,20 +1102,22 @@
 						break;
 				}
 			}
-
-			// Determine whether this result has any 'eyes' (目あり) vs '目なし'
-			const hasEyes = (title !== '目なし');
-			if (visibleDiceBodies.length >= 3 && hasEyes) {
-				// For triples or special winning combos, keep full strength
-				const strength = hasWon ? 1.0 : 0.6; // pairs get a softer hit
+			
+			// --- Sound Triggering Logic ---
+			// Why: 役の結果に基づいて適切なサウンドを再生するための、明確で分離されたロジック。
+			// これにより、どの結果がどのサウンドをトリガーするかが分かりやすくなります。
+			if (title === "ヒフミ") {
+				soundManager.playFoulSound(); // カイト様のご指示通り、「ションベン」と同じ音を再生
+			} else if (hasWon) {
+				// ピンゾロ, アラシ, シゴロ
 				soundManager.playWinSound();
-				soundManager.playHitForWin(strength);
-			} else if (visibleDiceBodies.length < 3) {
-				// foul already handled above, but keep safety
-				soundManager.playFoulSound();
-			} else {
+			} else if (title === "目なし") {
 				soundManager.playLoseSound();
+			} else if (title.includes("の目")) {
+				// FIXED: Call the dedicated sound for pairs.
+				soundManager.playPairSound();
 			}
+			// 「ションベン」の音は、この関数の冒頭で既に再生されています。
 
 			finishRoll(title, description);
 		}
@@ -1203,8 +1133,8 @@
 
 			// ゲームが動的な状態にある場合のみ、物理世界をステップ。
 			if (gameState === 'rolling' || gameState === 'initializing') {
-				// 第3引数（10）はmaxSubSteps。フレームレートが低下した場合、内部で小さなステップを取ることを許可し、トンネリングを防ぎます。
-				world.step(1 / 60, deltaTime, 10);
+				// TUNNELING FIX: maxSubstepsを増やすことで、フレームドロップ時の物理的な精度を向上させます。
+				world.step(1 / 60, deltaTime, 20);
 
 				// 視覚オブジェクトを物理カウンターパートと同期。
 				for (let i = 0; i < dice.length; i++) {
@@ -1299,6 +1229,8 @@
 		function onWindowResize() {
 			camera.aspect = window.innerWidth / window.innerHeight;
 			camera.updateProjectionMatrix();
+			// OPTIMIZATION: Ensure pixel ratio is also updated on resize.
+			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 			renderer.setSize(window.innerWidth, window.innerHeight);
 		}
 
@@ -1308,3 +1240,4 @@
 </body>
 
 </html>
+
