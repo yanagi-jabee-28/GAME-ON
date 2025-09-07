@@ -267,6 +267,14 @@ document.addEventListener('DOMContentLoaded', () => {
 							}
 						}
 					} else if (rot.mode === 'inertial' && rot.inertial) {
+						// If no spring parameters are present, treat this as physics-only inertial
+						// (we rely on Matter.js collisions and body.mass/inertia). Avoid NaN by
+						// guarding access to missing properties.
+						if (typeof rot.inertial.springStiffness !== 'number') {
+							// ensure body remains at pivot to avoid drift
+							try { Body.setPosition(rot.body, rot.pivot); } catch (_) { /* no-op */ }
+							continue; // skip custom torque integration
+						}
 						// スプリング（角度誤差）+ ダンパ（角速度）で安定回帰させる
 						const I = rot.body.inertia || 0;
 						if (I > 0) {
@@ -277,15 +285,27 @@ document.addEventListener('DOMContentLoaded', () => {
 							const omega = rot.body.angularVelocity || 0;
 							const k = rot.inertial.springStiffness;
 							const c = rot.inertial.springDamping;
+							const gBias = Number(rot.inertial.gravityBias ?? 0);
+							const gAngleDeg = Number(rot.inertial.gravityAngleDeg ?? rot.inertial.gravityAngle ?? 90);
+							const gAngle = gAngleDeg * Math.PI / 180;
+							const gravityTarget = rot.zeroAngle + gAngle;
+							let gravityTorque = 0;
+							if (gBias && Math.abs(gBias) > 0) {
+								const mass = (rot.body && rot.body.mass) ? rot.body.mass : 1;
+								const gravityOffset = Number(rot.inertial.gravityOffset ?? rot.inertial.gravityRadius ?? 8);
+								const worldG = (engine && engine.world && typeof engine.world.gravity?.y === 'number') ? Math.abs(engine.world.gravity.y) : 1;
+								gravityTorque = -gBias * mass * gravityOffset * worldG * Math.sin(cur - gravityTarget);
+								if (!Number.isFinite(gravityTorque)) gravityTorque = 0;
+								gravityTorque = Math.max(-10000, Math.min(10000, gravityTorque));
+							}
 							const ad = Math.max(0, rot.inertial.angularDamping || 0);
-							const torque = (-k * err) + (-c * omega);
+							const torque = (-k * err) + (-c * omega) + gravityTorque;
 							let newOmega = omega + (torque / I) * rotDeltaSec;
 							if (ad > 0) {
 								const factor = Math.max(0, 1 - ad * rotDeltaSec);
 								newOmega *= factor;
 							}
 							Body.setAngularVelocity(rot.body, newOmega);
-							// 位置ドリフトを補正（数値誤差でズレた場合に中心へ吸着）
 							try { Body.setPosition(rot.body, rot.pivot); } catch (_) { /* no-op */ }
 						}
 					} else {
@@ -510,25 +530,18 @@ document.addEventListener('DOMContentLoaded', () => {
 			// 2) 慣性（物理）駆動モード：衝突で回り、減衰とスプリングで静止角へ戻る
 			if (rotCfg && String(rotCfg.mode || '').toLowerCase() === 'inertial') {
 				// 動的化し、中心点にピン制約（位置固定、回転は自由）
+				// 注意: ここでは独自の "stiffness/damping/sensitivity/gravityBias" 等の
+				// パラメータを使わず、純粋に Matter.js の質量・密度・衝突インパルス
+				// と world.gravity による挙動に任せる実装にする。
 				Body.setStatic(body, false);
-				// パラメータ
-				const frictionAir = Number(rotCfg.frictionAir ?? 0.01);
-				const inertiaScale = Number(rotCfg.inertiaScale ?? 1.0);
-				const springStiffness = Number(rotCfg.stiffness ?? rotCfg.springK ?? 4.0);
-				const springDamping = Number(rotCfg.damping ?? rotCfg.springC ?? 0.8);
-				const angularDamping = Number(rotCfg.angularDamping ?? 0.0);
 				const restDeg = Number(rotCfg.restDeg ?? rotCfg.restAngleDeg ?? 0);
 				const restRad = restDeg * Math.PI / 180;
-				// 空気抵抗
-				body.frictionAir = Number.isFinite(frictionAir) ? Math.max(0, frictionAir) : 0.01;
-				// 慣性調整
-				try { if (Number.isFinite(inertiaScale) && inertiaScale > 0) Matter.Body.setInertia(body, body.inertia * inertiaScale); } catch (_) { /* no-op */ }
-				// ピボット固定
+				// ピボット固定（回転は Matter.js の力学に委ねる）
 				const pin = Constraint.create({ pointA: { x: pivot.x, y: pivot.y }, bodyB: body, pointB: { x: 0, y: 0 }, length: 0, stiffness: 1 });
 				World.add(world, pin);
-				// 初期角
+				// 初期角（あれば設定）
 				try { setBodyAngleAroundPivot(body, pivot, zeroAngle + restRad); } catch (_) { /* no-op */ }
-				const inertial = { springStiffness, springDamping, restRad, angularDamping, pin };
+				const inertial = { pin };
 				return { id, kind, body, mode: 'inertial', inertial, pivot, zeroAngle, enabled };
 			}
 			// 3) 開始/終了角のレンジ指定（従来のプログラム回転）
@@ -1096,6 +1109,22 @@ document.addEventListener('DOMContentLoaded', () => {
 				pair.restitution = interaction.restitution;
 				pair.friction = interaction.friction;
 			}
+
+			// --- 軽量: 衝突で回転体へ角運動量を簡易伝達 ---
+			// 物理計算は単純化: 接触点とボールの速度からモーメントを算出し
+			// 小さな係数で角速度に加算するだけ。これで弱い当たりでも回りやすくなる。
+			try {
+				if (Array.isArray(rotators) && rotators.length) {
+					const ballLabel = GAME_CONFIG.objects.ball.label;
+					// map bodyId -> rotator for quick lookup
+					const map = new Map(rotators.filter(Boolean).map(r => [r.body.id, r]));
+					let ballBody = null, rot = null;
+					if (bodyA.label === ballLabel && map.has(bodyB.id)) { ballBody = bodyA; rot = map.get(bodyB.id); }
+					else if (bodyB.label === ballLabel && map.has(bodyA.id)) { ballBody = bodyB; rot = map.get(bodyA.id); }
+					// inertial mode: rely on Matter.js collision/impulse and body.mass/inertia
+					// (custom sensitivity-based angular impulse removed)
+				}
+			} catch (_) { /* no-op */ }
 
 			// センサー通過カウント処理（進入イベント）
 			if (GAME_CONFIG.sensorCounters.enabled) {

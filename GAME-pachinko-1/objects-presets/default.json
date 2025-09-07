@@ -22,11 +22,7 @@
 			"enabled": true,
 			"rotation": {
 				"mode": "inertial",
-				"restDeg": 0,
-				"stiffness": 3.5,
-				"damping": 0.9,
-				"frictionAir": 0.02,
-				"inertiaScale": 1.2
+				"restDeg": 0
 			},
 			"bladeColor": "hsl(35,100%,60%)",
 			"centerColor": "#333333",

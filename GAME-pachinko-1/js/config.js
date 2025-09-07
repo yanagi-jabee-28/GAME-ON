@@ -199,7 +199,7 @@ const GAME_CONFIG = {
 			label: 'yakumono_blade',
 			material: GAME_MATERIALS.PLASTIC,
 			options: {
-				density: 0.2 // ボールと同じ密度
+				density: 0.01 // 軽めにして風車が動きやすくなるよう調整
 			},
 			render: { layer: 1 }
 		},
