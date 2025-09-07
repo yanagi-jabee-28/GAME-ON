@@ -19,7 +19,7 @@
  */
 document.addEventListener('DOMContentLoaded', () => {
 	// Matter.jsの主要モジュールを取得
-	const { Engine, Render, Runner, World, Events, Body } = Matter;
+	const { Engine, Render, Runner, World, Events, Body, Constraint } = Matter;
 
 
 	// If this sensor is configured to trigger the embedded slot, start it
@@ -266,6 +266,28 @@ document.addEventListener('DOMContentLoaded', () => {
 								setBodyAngleAroundPivot(rot.body, rot.pivot, rot.zeroAngle + angle);
 							}
 						}
+					} else if (rot.mode === 'inertial' && rot.inertial) {
+						// スプリング（角度誤差）+ ダンパ（角速度）で安定回帰させる
+						const I = rot.body.inertia || 0;
+						if (I > 0) {
+							const cur = rot.body.angle || 0;
+							const target = rot.zeroAngle + rot.inertial.restRad;
+							let err = cur - target;
+							err = Math.atan2(Math.sin(err), Math.cos(err));
+							const omega = rot.body.angularVelocity || 0;
+							const k = rot.inertial.springStiffness;
+							const c = rot.inertial.springDamping;
+							const ad = Math.max(0, rot.inertial.angularDamping || 0);
+							const torque = (-k * err) + (-c * omega);
+							let newOmega = omega + (torque / I) * rotDeltaSec;
+							if (ad > 0) {
+								const factor = Math.max(0, 1 - ad * rotDeltaSec);
+								newOmega *= factor;
+							}
+							Body.setAngularVelocity(rot.body, newOmega);
+							// 位置ドリフトを補正（数値誤差でズレた場合に中心へ吸着）
+							try { Body.setPosition(rot.body, rot.pivot); } catch (_) { /* no-op */ }
+						}
 					} else {
 						const angle = (rot.anglePerSecond || 0) * rotDeltaSec;
 						if (angle) Body.rotate(rot.body, angle, rot.pivot);
@@ -485,7 +507,31 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 				return { id, kind, body, mode: 'program', program, pivot, zeroAngle, enabled };
 			}
-			// 2) 開始/終了角のレンジ指定（従来のプログラム回転）
+			// 2) 慣性（物理）駆動モード：衝突で回り、減衰とスプリングで静止角へ戻る
+			if (rotCfg && String(rotCfg.mode || '').toLowerCase() === 'inertial') {
+				// 動的化し、中心点にピン制約（位置固定、回転は自由）
+				Body.setStatic(body, false);
+				// パラメータ
+				const frictionAir = Number(rotCfg.frictionAir ?? 0.01);
+				const inertiaScale = Number(rotCfg.inertiaScale ?? 1.0);
+				const springStiffness = Number(rotCfg.stiffness ?? rotCfg.springK ?? 4.0);
+				const springDamping = Number(rotCfg.damping ?? rotCfg.springC ?? 0.8);
+				const angularDamping = Number(rotCfg.angularDamping ?? 0.0);
+				const restDeg = Number(rotCfg.restDeg ?? rotCfg.restAngleDeg ?? 0);
+				const restRad = restDeg * Math.PI / 180;
+				// 空気抵抗
+				body.frictionAir = Number.isFinite(frictionAir) ? Math.max(0, frictionAir) : 0.01;
+				// 慣性調整
+				try { if (Number.isFinite(inertiaScale) && inertiaScale > 0) Matter.Body.setInertia(body, body.inertia * inertiaScale); } catch (_) { /* no-op */ }
+				// ピボット固定
+				const pin = Constraint.create({ pointA: { x: pivot.x, y: pivot.y }, bodyB: body, pointB: { x: 0, y: 0 }, length: 0, stiffness: 1 });
+				World.add(world, pin);
+				// 初期角
+				try { setBodyAngleAroundPivot(body, pivot, zeroAngle + restRad); } catch (_) { /* no-op */ }
+				const inertial = { springStiffness, springDamping, restRad, angularDamping, pin };
+				return { id, kind, body, mode: 'inertial', inertial, pivot, zeroAngle, enabled };
+			}
+			// 3) 開始/終了角のレンジ指定（従来のプログラム回転）
 			if (rotCfg && (Number.isFinite(rotCfg.durationMs || rotCfg.duration))) {
 				const startDeg = Number(rotCfg.startDeg ?? rotCfg.fromDeg ?? rotCfg.startAngleDeg ?? rotCfg.from) || 0;
 				const endDeg = Number(rotCfg.endDeg ?? rotCfg.toDeg ?? rotCfg.endAngleDeg ?? rotCfg.to);
