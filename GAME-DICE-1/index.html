@@ -6,15 +6,26 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>3Dチンチロ</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link rel="preconnect" href="https://fonts.gstatic" crossorigin>
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&display=swap" rel="stylesheet">
 	<style>
+		:root {
+			/* 色やフォントサイズを変数として定義し、一元管理を容易にします */
+			--primary-font: 'Shippori Mincho', serif;
+			--bg-color: #333;
+			--text-color: #fff;
+			--accent-color: #f1c40f;
+			--button-red-start: #e74c3c;
+			--button-red-end: #c0392b;
+			--button-red-shadow: #962d22;
+		}
+
 		body {
 			margin: 0;
 			overflow: hidden;
-			font-family: 'Shippori Mincho', serif;
-			background-color: #333;
-			color: #fff;
+			font-family: var(--primary-font);
+			background-color: var(--bg-color);
+			color: var(--text-color);
 		}
 
 		#canvas-container {
@@ -73,8 +84,8 @@
 		}
 
 		#rollButton {
-			background: linear-gradient(145deg, #e74c3c, #c0392b);
-			border-bottom: 4px solid #962d22;
+			background: linear-gradient(145deg, var(--button-red-start), var(--button-red-end));
+			border-bottom: 4px solid var(--button-red-shadow);
 		}
 
 		#rollButton:hover {
@@ -134,7 +145,7 @@
 			top: 20px;
 			right: 20px;
 			z-index: 10;
-			font-family: 'Shippori Mincho', serif;
+			font-family: var(--primary-font);
 			font-size: 1rem;
 			padding: 8px 12px;
 			border-radius: 8px;
@@ -167,18 +178,19 @@
 		}
 
 		#result-title {
-			font-size: 2.5rem;
+			/* Why: clamp() を使用することで、ビューポートの幅に応じてフォントサイズが滑らかに変化します。
+			   これにより、極端に小さい画面や大きい画面でもテキストが適切なサイズで表示され、
+			   レイアウトの崩れを防ぎます。最小値、推奨値、最大値を設定できます。 */
+			font-size: clamp(2rem, 8vw, 2.5rem);
 			font-weight: 700;
-			color: #f1c40f;
+			color: var(--accent-color);
 			text-shadow: 0 0 5px rgba(241, 196, 15, 0.5), 0 0 15px rgba(0, 0, 0, 0.7);
 			margin: 0;
 			transition: all 0.3s ease;
 		}
 
-
-
 		#result-description {
-			font-size: 1.1rem;
+			font-size: clamp(1rem, 4vw, 1.1rem);
 			color: #ecf0f1;
 			text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7);
 			margin: 5px 0 0 0;
@@ -204,6 +216,68 @@
 			background: linear-gradient(to right, #f1c40f, #e74c3c);
 			border-radius: 8px;
 			transition: width 0.05s linear;
+		}
+
+		/* --- レスポンシブデザイン対応 --- */
+		/* Why: メディアクエリを使用して、特定の画面幅以下でスタイルを上書きします。
+		   これにより、スマートフォンやタブレットなどのデバイスでUIが最適に表示されるようになります。*/
+
+		/* タブレットサイズ向けの調整 */
+		@media (max-width: 768px) {
+			.action-button {
+				font-size: 1.1rem;
+				padding: 11px 26px;
+			}
+
+			#result-display {
+				height: 75px;
+			}
+		}
+
+		/* スマートフォンサイズ向けの調整 */
+		@media (max-width: 480px) {
+			#ui-container {
+				padding: 15px;
+			}
+
+			.action-button {
+				font-size: 1rem;
+				padding: 10px 24px;
+				/* 画面幅いっぱいに広がる場合も考慮 */
+				min-width: 180px;
+				box-sizing: border-box;
+			}
+			
+			.top-button {
+				top: 10px;
+				font-size: 0.8rem;
+				padding: 6px 12px;
+			}
+
+			#rearrangeButton {
+				left: 10px;
+			}
+			
+			#diceTypeSelector {
+				top: 10px;
+				right: 10px;
+				font-size: 0.8rem;
+				padding: 6px 8px;
+				padding-right: 2rem; /* アイコンのスペースを確保 */
+				background-size: 1.2em 1.2em;
+			}
+			
+			#result-display {
+				height: auto; /* コンテンツに応じて高さを自動調整 */
+				min-height: 60px;
+				margin-bottom: 10px;
+			}
+			
+			#power-meter-container {
+				width: 90%;
+				height: 15px;
+				margin-bottom: 15px;
+			}
 		}
 	</style>
 </head>
