@@ -247,7 +247,7 @@
 				min-width: 180px;
 				box-sizing: border-box;
 			}
-			
+
 			.top-button {
 				top: 10px;
 				font-size: 0.8rem;
@@ -257,22 +257,24 @@
 			#rearrangeButton {
 				left: 10px;
 			}
-			
+
 			#diceTypeSelector {
 				top: 10px;
 				right: 10px;
 				font-size: 0.8rem;
 				padding: 6px 8px;
-				padding-right: 2rem; /* アイコンのスペースを確保 */
+				padding-right: 2rem;
+				/* アイコンのスペースを確保 */
 				background-size: 1.2em 1.2em;
 			}
-			
+
 			#result-display {
-				height: auto; /* コンテンツに応じて高さを自動調整 */
+				height: auto;
+				/* コンテンツに応じて高さを自動調整 */
 				min-height: 60px;
 				margin-bottom: 10px;
 			}
-			
+
 			#power-meter-container {
 				width: 90%;
 				height: 15px;
@@ -772,8 +774,10 @@
 			scene.add(bowlGroup);
 
 			const bowlFloorBody = new CANNON.Body({ mass: 0, material: bowlFloorMaterial });
-			const bottomShape = new CANNON.Cylinder(bowlRadius, bowlRadius, 0.5, 32);
-			bowlFloorBody.addShape(bottomShape, new CANNON.Vec3(0, -0.2, 0));
+			// Three.js の底ジオメトリ（高さ 0.2）に合わせて物理形状も高さ 0.2 に設定し、
+			// オフセットを 0 に揃えて視覚と物理のトップ面を一致させます。
+			const bottomShape = new CANNON.Cylinder(bowlRadius, bowlRadius, 0.2, 32);
+			bowlFloorBody.addShape(bottomShape, new CANNON.Vec3(0, 0, 0));
 			world.addBody(bowlFloorBody);
 
 			const bowlWallBody = new CANNON.Body({ mass: 0, material: bowlWallMaterial });
@@ -816,11 +820,13 @@
 					mass: 1,
 					shape: new CANNON.Box(new CANNON.Vec3(diceSize / 2, diceSize / 2, diceSize / 2)),
 					material: dicePhysicsMaterial,
-					// Why: 角速度の減衰を少し強くし、より早く回転が収まるようにします。
+					// Why: 減衰値を上げることで、サイコロがエネルギーを失いやすくなり、
+					// より早く、より自然に停止するようになります。これにより、停止直前の
+					// 不自然な振動や動き（ジッター）を効果的に抑制します。
 					// 角速度減衰の設定
-					angularDamping: 0.3,
+					angularDamping: 0.5,
 					// 線速度減衰の設定
-					linearDamping: 0.3
+					linearDamping: 0.5
 				});
 				// 衝突応答の有効化
 				body.collisionResponse = true;
@@ -933,7 +939,8 @@
 		 */
 		function resetDiceToStartPosition() {
 			soundManager.playClickSound();
-			const startPositions = [new CANNON.Vec3(0, 4.5, 0.3), new CANNON.Vec3(-0.3, 4.7, -0.2), new CANNON.Vec3(0.3, 4.9, -0.2)];
+			// 初期位置をわずかに上げて、物理的なめり込みを防止します（Y 座標を +0.2 ほど上げる）。
+			const startPositions = [new CANNON.Vec3(0, 4.7, 0.3), new CANNON.Vec3(-0.3, 4.9, -0.2), new CANNON.Vec3(0.3, 5.1, -0.2)];
 			diceBodies.forEach((body, i) => {
 				body.velocity.set(0, 0, 0); body.angularVelocity.set(0, 0, 0);
 				body.position.copy(startPositions[i]);
@@ -1010,7 +1017,8 @@
 
 			if (isInitialSetup) {
 				// 初期セットアップ：サイコロを優しく落とす
-				const startPositions = [new CANNON.Vec3(0, 4, 0.6), new CANNON.Vec3(-0.6, 4.5, -0.3), new CANNON.Vec3(0.6, 5, -0.3)];
+				// 初期ドロップ位置を少し上げ、底との衝突でめり込まないようにする
+				const startPositions = [new CANNON.Vec3(0, 4.2, 0.6), new CANNON.Vec3(-0.6, 4.7, -0.3), new CANNON.Vec3(0.6, 5.2, -0.3)];
 				diceBodies.forEach((body, i) => {
 					dice[i].visible = true;
 					body.wakeUp(); body.position.copy(startPositions[i]);
@@ -1278,3 +1286,4 @@
 </body>
 
 </html>
+
