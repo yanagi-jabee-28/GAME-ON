@@ -272,7 +272,17 @@ document.addEventListener('DOMContentLoaded', () => {
 						// guarding access to missing properties.
 						if (typeof rot.inertial.springStiffness !== 'number') {
 							// ensure body remains at pivot to avoid drift
-							try { Body.setPosition(rot.body, rot.pivot); } catch (_) { /* no-op */ }
+							try {
+								// avoid hard snapping which causes visible jitter: translate a fraction
+								const pos = rot.body.position || { x: 0, y: 0 };
+								const dx = rot.pivot.x - pos.x;
+								const dy = rot.pivot.y - pos.y;
+								const distSq = dx * dx + dy * dy;
+								if (distSq > 2.25) { // > 1.5 px
+									const frac = 0.3; // move 30% of the offset per frame
+									Matter.Body.translate(rot.body, { x: dx * frac, y: dy * frac });
+								}
+							} catch (_) { /* no-op */ }
 							continue; // skip custom torque integration
 						}
 						// スプリング（角度誤差）+ ダンパ（角速度）で安定回帰させる
@@ -300,13 +310,40 @@ document.addEventListener('DOMContentLoaded', () => {
 							}
 							const ad = Math.max(0, rot.inertial.angularDamping || 0);
 							const torque = (-k * err) + (-c * omega) + gravityTorque;
-							let newOmega = omega + (torque / I) * rotDeltaSec;
+							// integrate desired angular acceleration -> torque/I
+							const angAcc = (torque / I);
+							let newOmega = omega + angAcc * rotDeltaSec;
 							if (ad > 0) {
 								const factor = Math.max(0, 1 - ad * rotDeltaSec);
 								newOmega *= factor;
 							}
-							Body.setAngularVelocity(rot.body, newOmega);
-							try { Body.setPosition(rot.body, rot.pivot); } catch (_) { /* no-op */ }
+							// instead of directly setting angular velocity (which can cause jank),
+							// apply an equivalent tangential force at an approximate radius to produce torque
+							try {
+								const approxR = Math.max(8, (rot.body.bounds.max.x - rot.body.bounds.min.x) / 4);
+								// torque = r x F  -> F_tangential = torque / r
+								const force = { x: 0, y: 0 };
+								const fMag = torque / approxR;
+								// apply force perpendicular to current angle to produce angular acceleration
+								const dirX = -Math.sin(rot.body.angle || 0);
+								const dirY = Math.cos(rot.body.angle || 0);
+								force.x = dirX * fMag * 0.5; // scale down to be gentle
+								force.y = dirY * fMag * 0.5;
+								Matter.Body.applyForce(rot.body, rot.body.position, force);
+							} catch (_) {
+								// fallback: set angular velocity if force application fails
+								try { Body.setAngularVelocity(rot.body, newOmega); } catch (_) { /* no-op */ }
+							}
+							try {
+								const pos = rot.body.position || { x: 0, y: 0 };
+								const dx = rot.pivot.x - pos.x;
+								const dy = rot.pivot.y - pos.y;
+								const distSq = dx * dx + dy * dy;
+								if (distSq > 2.25) {
+									const frac = 0.3;
+									Matter.Body.translate(rot.body, { x: dx * frac, y: dy * frac });
+								}
+							} catch (_) { /* no-op */ }
 						}
 					} else {
 						const angle = (rot.anglePerSecond || 0) * rotDeltaSec;
@@ -537,8 +574,11 @@ document.addEventListener('DOMContentLoaded', () => {
 				const restDeg = Number(rotCfg.restDeg ?? rotCfg.restAngleDeg ?? 0);
 				const restRad = restDeg * Math.PI / 180;
 				// ピボット固定（回転は Matter.js の力学に委ねる）
-				const pin = Constraint.create({ pointA: { x: pivot.x, y: pivot.y }, bodyB: body, pointB: { x: 0, y: 0 }, length: 0, stiffness: 1 });
+				// use a softer pin (not perfectly rigid) to avoid harsh corrections
+				const pin = Constraint.create({ pointA: { x: pivot.x, y: pivot.y }, bodyB: body, pointB: { x: 0, y: 0 }, length: 0, stiffness: 0.7, damping: 0.1 });
 				World.add(world, pin);
+				// apply a small air friction so rotations decay smoothly
+				body.frictionAir = Math.max(0.001, body.frictionAir || 0.02);
 				// 初期角（あれば設定）
 				try { setBodyAngleAroundPivot(body, pivot, zeroAngle + restRad); } catch (_) { /* no-op */ }
 				const inertial = { pin };
