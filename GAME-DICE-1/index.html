@@ -5,9 +5,6 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>3Dチンチロ</title>
-	<!-- Tailwind CDN removed to avoid production warning in console.
-		 For production, consider installing Tailwind via npm and building a CSS bundle.
-		 See https://tailwindcss.com/docs/installation if you want me to set that up. -->
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&display=swap" rel="stylesheet">
@@ -178,6 +175,8 @@
 			transition: all 0.3s ease;
 		}
 
+
+
 		#result-description {
 			font-size: 1.1rem;
 			color: #ecf0f1;
@@ -216,6 +215,7 @@
 		<option value="normal">通常賽</option>
 		<option value="shigoro">四五六賽</option>
 		<option value="pinzoro">ピンゾロ賽</option>
+		<option value="hifumi">ヒフミ賽</option>
 	</select>
 	<button id="nudgeButton" class="action-button top-button">揺らす</button>
 	<button id="rearrangeButton" class="action-button top-button">再配置</button>
@@ -242,7 +242,6 @@
     }
     </script>
 
-	<!-- Tone.js is loaded via this UMD script tag, making it available as `window.Tone` -->
 	<script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.js"></script>
 
 	<script type="module">
@@ -254,53 +253,44 @@
 		// =================================================================================        
 		import * as THREE from 'three';
 		import * as CANNON from 'cannon-es';
-		// Tone is loaded via UMD script tag above and available as window.Tone
 		import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 		// =================================================================================
-		// DOM要素
+		// DOM要素の取得
 		// =================================================================================
-		const canvasContainer = document.getElementById('canvas-container');
-		const rollButton = document.getElementById('rollButton');
-		const nudgeButton = document.getElementById('nudgeButton');
-		const rearrangeButton = document.getElementById('rearrangeButton');
-		const diceTypeSelector = document.getElementById('diceTypeSelector');
-		const resultTitle = document.getElementById('result-title');
-		const resultDescription = document.getElementById('result-description');
-		const powerMeterContainer = document.getElementById('power-meter-container');
-		const powerMeterBar = document.getElementById('power-meter-bar');
+		const canvasContainer = document.getElementById('canvas-container'); // キャンバスコンテナ要素
+		const rollButton = document.getElementById('rollButton'); // サイコロを振るボタン
+		const nudgeButton = document.getElementById('nudgeButton'); // サイコロを揺らすボタン
+		const rearrangeButton = document.getElementById('rearrangeButton'); // サイコロを再配置するボタン
+		const diceTypeSelector = document.getElementById('diceTypeSelector'); // サイコロの種類選択セレクタ
+		const resultTitle = document.getElementById('result-title'); // 結果タイトルの表示要素
+		const resultDescription = document.getElementById('result-description'); // 結果説明の表示要素
+		const powerMeterContainer = document.getElementById('power-meter-container'); // パワーメーターコンテナ
+		const powerMeterBar = document.getElementById('power-meter-bar'); // パワーメーターバー
 
 		// =================================================================================
 		// グローバル状態と定数
 		// =================================================================================
-		// Three.js related variables
-		let scene, camera, renderer, controls, clock;
-		// Physics world
-		let world;
-		// Arrays to hold dice objects (visual and physical)
-		const dice = [];
-		const diceBodies = [];
+		let scene, camera, renderer, controls, clock; // Three.js のシーン、カメラ、レンダラー、コントロール、クロック
+		let world; // Cannon.js の物理世界
+		const dice = []; // サイコロの視覚オブジェクト配列
+		const diceBodies = []; // サイコロの物理ボディ配列
 
-		// --- ゲーム定数 ---
-		const diceSize = 0.5;   // 各サイコロのサイズ
-		const bowlRadius = 4;   // 丼の半径
-		const bowlHeight = 2;   // 丼の壁の高さ
+		const diceSize = 0.5; // サイコロのサイズ
+		const bowlRadius = 4; // 丼の半径
+		const bowlHeight = 2; // 丼の高さ
 
-		// --- ゲーム状態管理 ---
-		// ゲームの流れを管理（例: 'initializing', 'ready', 'charging', 'rolling', 'checking'）
-		let gameState = 'initializing';
-		let diceType = 'normal'; // 使用中のサイコロの種類
-		let rollStartTime = 0;   // ロール開始時のタイムスタンプ、スタック検出に使用
+		let gameState = 'initializing'; // ゲームの状態（初期化中、準備中など）
+		let diceType = 'normal'; // サイコロの種類（通常、四五六、ピンゾロ）
+		let rollStartTime = 0; // ロール開始時刻
 
-		// --- ゲームルールとタイマー ---
-		const STUCK_THRESHOLD_MS = 5000; // サイコロがスタックした場合に「揺らす」ボタンが表示されるまでの時間
-		const SHONBEN_GRACE_PERIOD_MS = 100; // サイコロが丼から出た後、「ションベン」と見なされるまでの猶予期間
-		let shonbenTimers = [0, 0, 0]; // 各サイコロの猶予期間を追跡するタイマー
+		const STUCK_THRESHOLD_MS = 5000; // スタック判定の閾値（ミリ秒）
+		const SHONBEN_GRACE_PERIOD_MS = 100; // ションベン判定の猶予期間（ミリ秒）
+		let shonbenTimers = [0, 0, 0]; // 各サイコロのションベンタイマー
 
-		// --- パワーメーター ---
-		let power = 0; // 現在のパワーレベル
-		let powerDirection = 1; // パワーメーターアニメーションの方向（1で増加、-1で減少）
-		let powerAnimationId = null; // パワーメーターのrequestAnimationFrameループのID
+		let power = 0; // 現在のパワー値
+		let powerDirection = 1; // パワーメーターのアニメーション方向
+		let powerAnimationId = null; // パワーメーターアニメーションのID
 
 		/**
 		 * @class SoundManager
@@ -309,29 +299,22 @@
 		 */
 		class SoundManager {
 			constructor() {
-				this.isInitialized = false;
-
-				// SOUND REDESIGN #3: Single, re-tuned synth for the "karan karan" effect.
-				this.clinkSynth = null;
-
-				this.winSynth = null;
-				this.pairSynth = null;
-				this.loseSynth = null;
-				this.foulSynth = null;
-				this.clickSynth = null;
-				this._lastPlay = {}; // timestamps for throttling sounds
-
-				// DYNAMIC SOUND: Constants for tuning impact response.
-				this.MAX_IMPACT_VELOCITY_DICE = 20; // サイコロ同士の衝突で想定される最大衝撃速度
-				this.MAX_IMPACT_VELOCITY_BOWL = 25; // サイコロと丼の衝突で想定される最大衝撃速度
+				this.isInitialized = false; // 初期化済みフラグ
+				this.clinkSynth = null; // 衝突音シンセサイザー
+				this.winSynth = null; // 勝利音シンセサイザー
+				this.pairSynth = null; // ペア音シンセサイザー
+				this.loseSynth = null; // 敗北音シンセサイザー
+				this.foulSynth = null; // ファウル音シンセサイザー
+				this.clickSynth = null; // クリック音シンセサイザー
+				this._lastPlay = {}; // 各音の最終再生時刻（スロットリング用）
+				this.MAX_IMPACT_VELOCITY_DICE = 20; // サイコロ衝突の最大速度
+				this.MAX_IMPACT_VELOCITY_BOWL = 25; // 丼衝突の最大速度
 			}
 
-			// internal helper: get current time in seconds
-			_now() {
-				return Tone.now();
-			}
+			// 現在のTone.js時間を取得
+			_now() { return Tone.now(); }
 
-			// throttle by key (seconds)
+			// 指定キーの音を再生可能かチェック（スロットリング）
 			_canPlay(key, minIntervalSec = 0.03) {
 				const now = this._now();
 				const last = this._lastPlay[key] || 0;
@@ -339,174 +322,145 @@
 				return false;
 			}
 
-			// Why: 多くのブラウザでは、音声の再生を開始する前にユーザーの操作が必要です。
-			// このメソッドは、最初のクリックで安全にTone.jsを初期化するために使用されます。
+			// サウンドマネージャーの初期化
 			async init() {
 				if (this.isInitialized) return;
 				if (typeof Tone === 'undefined' || !Tone) {
-					console.warn('SoundManager: Tone.js not found on window; sound disabled.');
-					this.isInitialized = true; // Mark as initialized to prevent retries
+					console.warn('SoundManager: Tone.js not found; sound disabled.');
+					this.isInitialized = true;
 					return;
 				}
-
 				try {
-					await Tone.start();
+					await Tone.start(); // Tone.jsのオーディオコンテキストを開始
 				} catch (e) {
-					console.warn('SoundManager: Tone.start() failed. Audio may not play.', e);
+					console.warn('SoundManager: Tone.start() failed.', e);
 				}
-
-				// SOUND REDESIGN #3: A single MetalSynth, tuned for a very short, hard, "clink" sound.
-				// This is used for all parts of the collision, including the "karan karan" clatter.
-				this.clinkSynth = new Tone.PolySynth(Tone.MetalSynth, {
-					frequency: 350,
-					envelope: { attack: 0.001, decay: 0.1, release: 0.08 },
-					harmonicity: 4.1,
-					modulationIndex: 22,
-					resonance: 3000,
-					octaves: 1.2
-				}).toDestination();
-				if (this.clinkSynth.volume) this.clinkSynth.volume.value = -9;
-
-
+				// 各シンセサイザーの初期化
+				this.clinkSynth = new Tone.PolySynth(Tone.MetalSynth, { frequency: 350, envelope: { attack: 0.001, decay: 0.1, release: 0.08 }, harmonicity: 4.1, modulationIndex: 22, resonance: 3000, octaves: 1.2 }).toDestination();
+				if (this.clinkSynth.volume) this.clinkSynth.volume.value = -9; // ボリューム調整
 				this.winSynth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.45, release: 1.2 } }).toDestination();
 				if (this.winSynth.volume) this.winSynth.volume.value = -2;
-
-				this.pairSynth = new Tone.PolySynth(Tone.Synth, {
-					oscillator: { type: 'sine' },
-					envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.3 }
-				}).toDestination();
+				this.pairSynth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.3 } }).toDestination();
 				if (this.pairSynth.volume) this.pairSynth.volume.value = -6;
-
 				this.loseSynth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.003, decay: 0.18, sustain: 0.06, release: 0.22 } }).toDestination();
 				if (this.loseSynth.volume) this.loseSynth.volume.value = -10;
-
 				this.foulSynth = new Tone.MonoSynth({ oscillator: { type: 'square' }, filter: { Q: 6, type: 'lowpass', rolloff: -24 }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 1 }, filterEnvelope: { attack: 0.01, decay: 0.1, sustain: 1, release: 0.5, baseFrequency: 200, octaves: 2 } }).toDestination();
-
 				this.clickSynth = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.06, sustain: 0.02, release: 0.06 } }).toDestination();
 				if (this.clickSynth.volume) this.clickSynth.volume.value = -3;
-
 				this.isInitialized = true;
 				console.log("SoundManager initialized.");
 			}
 
-			/**
-			 * DYNAMIC SOUND: Why: 衝撃速度と知覚される音量の関係は線形ではありません。
-			 * この関数は指数曲線（Math.pow(norm, 2)）を使用して速度をオーディオレベルにマッピングし、
-			 * 小さな衝撃が大きな衝撃よりも大幅に静かになるようにします。これにより、より自然な感覚が得られます。
-			 */
+			// 衝突速度を音量レベルに変換
 			_impactToLevel(velocity, maxVelocity, minLevel = 0.0, maxLevel = 1.0) {
 				const norm = Math.min(1.0, Math.max(0.0, velocity / maxVelocity));
-				// 2乗を使用することで、低速と高速の衝撃の間に顕著な差が生まれます。
-				const level = Math.pow(norm, 2);
+				const level = Math.pow(norm, 2); // レベルを強調
 				return minLevel + level * (maxLevel - minLevel);
 			}
 
+			// レベルに基づいてノートを選択
 			_pickNote(palette, level) {
 				const idx = Math.min(palette.length - 1, Math.floor(level * palette.length));
 				return palette[idx];
 			}
 
-			// SOUND REDESIGN #3: Collision logic now focuses on creating the "karan karan" effect.
+			// 衝突音を再生する共通メソッド
 			_playCollision(impactVelocity, maxVelocity, notePalette, isBowl) {
 				if (!this.isInitialized || !this.clinkSynth) return;
-
-				const key = isBowl ? 'bowl' : 'dice';
-				if (!this._canPlay(key, isBowl ? 0.08 : 0.07)) return;
-
+				const key = isBowl ? 'bowl' : 'dice'; // キー設定
+				if (!this._canPlay(key, isBowl ? 0.08 : 0.07)) return; // スロットリング
 				const baseLevel = this._impactToLevel(impactVelocity, maxVelocity, 0.02, 1.0);
 				const time = this._now();
-
-				// The "Karan Karan Karan" effect: A series of rapid, slightly randomized clinks.
-				const clatterCount = 1 + Math.floor(baseLevel * 4); // 1 to 5 sounds per impact
+				const clatterCount = 1 + Math.floor(baseLevel * 4); // クラッター数
 				for (let i = 0; i < clatterCount; i++) {
-					const clatterTime = time + (i * 0.03) + (Math.random() * 0.02);
-					const clatterNote = notePalette[Math.floor(Math.random() * notePalette.length)];
-					const clatterLevel = baseLevel * (0.5 + Math.random() * 0.5);
+					const clatterTime = time + (i * 0.03) + (Math.random() * 0.02); // ランダム遅延
+					const clatterNote = notePalette[Math.floor(Math.random() * notePalette.length)]; // ノート選択
+					const clatterLevel = baseLevel * (0.5 + Math.random() * 0.5); // レベル調整
 					this.clinkSynth.triggerAttackRelease(clatterNote, "16n", clatterTime, clatterLevel);
 				}
 			}
 
+			// サイコロ衝突音を再生
 			playDiceCollision(impactVelocity) {
-				const notePalette = ["A4", "C5", "D#5", "F#5", "A5"]; // Higher pitch for dice
-				this._playCollision(impactVelocity, this.MAX_IMPACT_VELOCITY_DICE, notePalette, false);
+				this._playCollision(impactVelocity, this.MAX_IMPACT_VELOCITY_DICE, ["A4", "C5", "D#5", "F#5", "A5"], false);
 			}
 
+			// 丼衝突音を再生
 			playBowlCollision(impactVelocity) {
-				const notePalette = ['C4', 'E4', 'G4', 'A#4']; // Mid-range pitch for bowl
-				this._playCollision(impactVelocity, this.MAX_IMPACT_VELOCITY_BOWL, notePalette, true);
+				this._playCollision(impactVelocity, this.MAX_IMPACT_VELOCITY_BOWL, ['C4', 'E4', 'G4', 'A#4'], true);
 			}
 
+			// 勝利音を再生
 			playWinSound() {
-				if (!this.isInitialized || !this.winSynth) return;
-				if (!this._canPlay('win', 0.2)) return;
+				if (!this.isInitialized || !this.winSynth || !this._canPlay('win', 0.2)) return;
 				const t0 = this._now();
-				const arp = ['E4', 'G4', 'C5', 'E5'];
-				arp.forEach((n, i) => this.winSynth.triggerAttackRelease(n, '8n', t0 + i * 0.06));
+				['E4', 'G4', 'C5', 'E5'].forEach((n, i) => this.winSynth.triggerAttackRelease(n, '8n', t0 + i * 0.06)); // アルペジオ再生
 			}
 
+			// ペア音を再生
 			playPairSound() {
-				if (!this.isInitialized || !this.pairSynth) return;
-				if (!this._canPlay('pair', 0.2)) return;
-				const t = this._now();
-				this.pairSynth.triggerAttackRelease(['C4', 'E4', 'G4'], '8n', t);
+				if (!this.isInitialized || !this.pairSynth || !this._canPlay('pair', 0.2)) return;
+				this.pairSynth.triggerAttackRelease(['C4', 'E4', 'G4'], '8n', this._now()); // 和音再生
 			}
 
+			// 敗北音を再生
 			playLoseSound() {
-				if (!this.isInitialized || !this.loseSynth) return;
-				if (!this._canPlay('lose', 0.2)) return;
+				if (!this.isInitialized || !this.loseSynth || !this._canPlay('lose', 0.2)) return;
 				const t = this._now();
-				this.loseSynth.triggerAttackRelease('C3', '16n', t);
-				this.loseSynth.triggerAttackRelease('Bb2', '16n', t + 0.08);
+				this.loseSynth.triggerAttackRelease('C3', '16n', t); // 低音1
+				this.loseSynth.triggerAttackRelease('Bb2', '16n', t + 0.08); // 低音2
 			}
 
+			// ファウル音を再生
 			playFoulSound() {
-				if (!this.isInitialized || !this.foulSynth) return;
-				if (!this._canPlay('foul', 0.5)) return;
-				this.foulSynth.triggerAttackRelease('C2', '0.5');
+				if (!this.isInitialized || !this.foulSynth || !this._canPlay('foul', 0.5)) return;
+				this.foulSynth.triggerAttackRelease('C2', '0.5'); // 長めの低音
 			}
 
+			// クリック音を再生
 			playClickSound() {
-				if (!this.isInitialized || !this.clickSynth) return;
-				if (!this._canPlay('click', 0.05)) return;
-				this.clickSynth.triggerAttackRelease('C5', '16n', this._now(), 0.5);
+				if (!this.isInitialized || !this.clickSynth || !this._canPlay('click', 0.05)) return;
+				this.clickSynth.triggerAttackRelease('C5', '16n', this._now(), 0.5); // 短いクリック音
 			}
 		}
 		let soundManager;
 
 		/**
 		 * @class ParticleEmitter
-		 * @description 視覚的なフィードバックのためのシンプルなパーティクル効果を作成します。例えば、サイコロが境界外に出た場合など。
+		 * @description 視覚的なフィードバックのためのシンプルなパーティクル効果を作成します。
 		 */
 		class ParticleEmitter {
 			constructor(scene, count = 100) {
 				this.scene = scene;
 				this.particles = [];
 				const geometry = new THREE.BufferGeometry();
-				// Slightly larger points to improve visibility
 				const material = new THREE.PointsMaterial({ color: 0xf0ead6, size: 0.2, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, vertexColors: true });
 				this.positions = new Float32Array(count * 3);
 				this.colors = new Float32Array(count * 3);
 				geometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
 				geometry.setAttribute('color', new THREE.BufferAttribute(this.colors, 3));
 				this.points = new THREE.Points(geometry, material);
-				// Prevent frustum culling from accidentally hiding the points
 				this.points.frustumCulled = false;
 				this.points.visible = false;
 				this.scene.add(this.points);
 				for (let i = 0; i < count; i++) {
 					this.particles.push({ position: new THREE.Vector3(), velocity: new THREE.Vector3(), life: 0 });
 				}
+				// Why: 計算用の一時的なベクトルを予め生成し、使い回すことで、
+				// アニメーションループ内でのオブジェクト生成を防ぎ、ガベージコレクションによる
+				// フレームレートの低下を回避します。
+				this.tempVec = new THREE.Vector3();
 			}
-			// Accept either THREE.Vector3 or objects with x/y/z (e.g., CANNON.Vec3)
+			// パーティクルをトリガーして発生させる
 			trigger(origin) {
-				const particleColor = new THREE.Color(0xf0ead6);
+				const particleColor = new THREE.Color(0xf0ead6); // パーティクル色
 				this.points.visible = true;
-				const originVec = (origin && origin.isVector3) ? origin : new THREE.Vector3(origin.x, origin.y, origin.z);
+				const originVec = (origin && origin.isVector3) ? origin : new THREE.Vector3(origin.x, origin.y, origin.z); // 原点ベクトル
 				this.particles.forEach((p, i) => {
-					p.position.copy(originVec);
-					const speed = 5 + Math.random() * 5;
+					p.position.copy(originVec); // 位置設定
+					const speed = 5 + Math.random() * 5; // 速度設定
 					p.velocity.set((Math.random() - 0.5) * speed, (Math.random() * 0.5) * speed, (Math.random() - 0.5) * speed);
-					p.life = 1.0;
+					p.life = 1.0; // ライフ設定
 					this.positions[i * 3] = p.position.x;
 					this.positions[i * 3 + 1] = p.position.y;
 					this.positions[i * 3 + 2] = p.position.z;
@@ -514,30 +468,33 @@
 					this.colors[i * 3 + 1] = particleColor.g;
 					this.colors[i * 3 + 2] = particleColor.b;
 				});
-				this.points.geometry.attributes.position.needsUpdate = true;
-				this.points.geometry.attributes.color.needsUpdate = true;
+				this.points.geometry.attributes.position.needsUpdate = true; // 位置更新
+				this.points.geometry.attributes.color.needsUpdate = true; // 色更新
 			}
+
+			// パーティクルを更新
 			update(deltaTime) {
 				if (!this.points.visible) return;
-				let aliveParticles = 0;
+				let aliveParticles = 0; // 生存パーティクル数
 				for (let i = 0; i < this.particles.length; i++) {
 					const p = this.particles[i];
 					if (p.life > 0) {
-						p.life -= deltaTime;
-						p.velocity.y -= 9.8 * deltaTime;
-						p.position.add(p.velocity.clone().multiplyScalar(deltaTime));
+						p.life -= deltaTime; // ライフ減少
+						p.velocity.y -= 9.8 * deltaTime; // 重力適用
+						// オブジェクトを再利用して計算
+						this.tempVec.copy(p.velocity).multiplyScalar(deltaTime);
+						p.position.add(this.tempVec);
 						this.positions[i * 3] = p.position.x;
 						this.positions[i * 3 + 1] = p.position.y;
 						this.positions[i * 3 + 2] = p.position.z;
 						aliveParticles++;
 					}
 				}
-				// Safely update opacity based on first particle life if available
 				const life0 = (this.particles[0] && typeof this.particles[0].life === 'number') ? this.particles[0].life : 0;
-				this.points.material.opacity = Math.max(0, life0);
+				this.points.material.opacity = Math.max(0, life0); // 不透明度設定
 				this.points.geometry.attributes.position.needsUpdate = true;
 				this.points.geometry.attributes.color.needsUpdate = true;
-				if (aliveParticles === 0) this.points.visible = false;
+				if (aliveParticles === 0) this.points.visible = false; // 非表示
 			}
 		}
 		let particleEmitter;
@@ -547,146 +504,208 @@
 		 * @description シーン全体、物理世界、オブジェクト、およびイベントリスナーを初期化します。
 		 */
 		function init() {
-			// --- シーンとレンダラーのセットアップ ---
+			// Three.js シーンのセットアップ
 			scene = new THREE.Scene();
-			scene.background = new THREE.Color(0x2c3e50); // 暗く中立的な背景色
+			// 背景色設定
+			scene.background = new THREE.Color(0x2c3e50);
+			// カメラの設定
 			camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-			camera.position.set(0, 8, 6); // 丼を見下ろす位置
+			// カメラ位置の設定
+			camera.position.set(0, 8, 6);
+			// レンダラーの初期化
 			renderer = new THREE.WebGLRenderer({ antialias: true });
-			// OPTIMIZATION: Prevent rendering at excessive resolutions on high-DPI displays.
+			// ピクセル比の設定
 			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+			// レンダラーサイズの設定
 			renderer.setSize(window.innerWidth, window.innerHeight);
-			renderer.shadowMap.enabled = true; // リアルさのために影を有効化
+			// シャドウマップの有効化
+			renderer.shadowMap.enabled = true;
+			// DOM への追加
 			canvasContainer.appendChild(renderer.domElement);
+			// コントロールの設定
 			controls = new OrbitControls(camera, renderer.domElement);
-			controls.enableDamping = true; // カメラ移動をスムーズに
+			// ダンピングの有効化
+			controls.enableDamping = true;
+			// クロックの初期化
 			clock = new THREE.Clock();
 
-			// --- 照明のセットアップ ---
-			const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); // ソフトで均等な照明を提供
+			// 環境光の設定
+			const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+			// シーンへの追加
 			scene.add(ambientLight);
-			const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2); // メインの光源（太陽のような）をシミュレート
+			// 指向性ライトの設定
+			const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+			// ライト位置の設定
 			directionalLight.position.set(5, 10, 7.5);
+			// シャドウキャストの有効化
 			directionalLight.castShadow = true;
+
+			// Why: 影の計算範囲を丼の周辺に限定することで、描画負荷を軽減し、
+			// フレームレートの安定化を図ります。これは、不要な領域のシャドウマップ計算を
+			// 省略することによる最適化です。
+			// シャドウカメラの上限設定
+			directionalLight.shadow.camera.top = 5;
+			// シャドウカメラの下限設定
+			directionalLight.shadow.camera.bottom = -5;
+			// シャドウカメラの左限設定
+			directionalLight.shadow.camera.left = -5;
+			// シャドウカメラの右限設定
+			directionalLight.shadow.camera.right = 5;
+			// シャドウカメラの近距離設定
+			directionalLight.shadow.camera.near = 1;
+			// シャドウカメラの遠距離設定
+			directionalLight.shadow.camera.far = 25;
+			// シャドウマップの幅設定
+			directionalLight.shadow.mapSize.width = 1024;
+			// シャドウマップの高さ設定
+			directionalLight.shadow.mapSize.height = 1024;
+
+			// シーンへのライト追加
 			scene.add(directionalLight);
 
 			// --- 物理世界のセットアップ ---
-			world = new CANNON.World({ gravity: new CANNON.Vec3(0, -55, 0) }); // よりダイナミックな感じのために重力を強く
-			world.allowSleep = true; // 動かないオブジェクトを「スリープ」させてパフォーマンスを向上
+			// Why: 重力を-55から-40に調整。これにより、過度に「重い」感覚が緩和され、
+			// より自然な落下速度になりますが、ゲームとしてのダイナミックさも維持されます。
+			world = new CANNON.World({ gravity: new CANNON.Vec3(0, -40, 0) });
+			world.allowSleep = true;
 			world.sleepSpeedLimit = 0.05;
 			world.sleepTimeLimit = 0.5;
-			// OPTIMIZATION: Reduced solver iterations for better performance. 20 is a good balance.
-			world.solver.iterations = 20;
 
-			// --- マテリアルの定義 ---
-			// 異なるオブジェクトの相互作用を制御するために、物理マテリアルを定義（摩擦、反発）。
+			// Why: ソルバーの反復回数を20から30に増やします。
+			// これは、特に複数のサイコロが同時に衝突するような複雑な状況で、
+			// 物理オブジェクト同士がめり込む（トンネリング）現象を防ぐための措置です。
+			// 反復回数を増やすことで、衝突解決の精度が向上し、より安定した物理シミュレーションが実現されます。
+			// パフォーマンスへの影響は軽微であると判断しました。
+			// ソルバー反復回数の設定
+			world.solver.iterations = 30;
+
+			// 物理マテリアルの作成
 			const dicePhysicsMaterial = new CANNON.Material('dice');
+			// 丼床マテリアルの作成
 			const bowlFloorMaterial = new CANNON.Material('bowlFloor');
+			// 丼壁マテリアルの作成
 			const bowlWallMaterial = new CANNON.Material('bowlWall');
 
-			// --- オブジェクトの作成 ---
+			// 丼の作成
 			createBowl(bowlFloorMaterial, bowlWallMaterial);
+			// サイコロの作成
 			createDice(dicePhysicsMaterial);
+			// 接触マテリアルのセットアップ
 			setupContactMaterials(dicePhysicsMaterial, bowlFloorMaterial, bowlWallMaterial);
 
+			// パーティクルエミッターの初期化
 			particleEmitter = new ParticleEmitter(scene);
+			// サウンドマネージャーの初期化
 			soundManager = new SoundManager();
 
-			// --- イベントリスナーのセットアップ ---
+			// イベントリスナーのセットアップ
 			setupEventListeners();
-
-			// --- シミュレーションを開始 ---
+			// アニメーションループの開始
 			animate();
-
-			// 開始時にサイコロを丼に配置するための初期ロール。
+			// 初期ロールの遅延実行
 			setTimeout(() => { rollDice(0, true); }, 100);
 		}
 
 		/**
 		 * @function setupEventListeners
-		 * @description Why: UIとサウンドの初期化に関するイベントリスナーを1か所にまとめることで、
-		 * セットアップロジックが整理され、見つけやすくなります。
+		 * @description UIとサウンドの初期化に関するイベントリスナーをセットアップします。
 		 */
 		function setupEventListeners() {
+			// 初期状態でロールボタンを無効化
 			rollButton.disabled = true;
 
-			// Why: サウンドはユーザーの操作後にのみ開始できます。この関数は最初のインタラクションでサウンドを初期化し、
-			// その後自身を削除するため、一度しか実行されません。
+			// 初回インタラクションでサウンドを初期化する関数
 			const initSoundOnFirstInteraction = async () => {
+				// サウンドマネージャーの初期化
 				await soundManager.init();
-				soundManager.playClickSound(); // 最初のクリック音を再生
-				// すべての要素からこの初期化リスナーを削除
+				// クリック音の再生
+				soundManager.playClickSound();
+				// イベントリスナーの削除
 				canvasContainer.removeEventListener('click', initSoundOnFirstInteraction);
 				rollButton.removeEventListener('click', initSoundOnFirstInteraction);
 				nudgeButton.removeEventListener('click', initSoundOnFirstInteraction);
 				rearrangeButton.removeEventListener('click', initSoundOnFirstInteraction);
 			};
 
+			// 初回クリックでサウンド初期化
 			canvasContainer.addEventListener('click', initSoundOnFirstInteraction, { once: true });
+			// ロールボタンクリックでサウンド初期化
 			rollButton.addEventListener('click', initSoundOnFirstInteraction, { once: true });
+			// ナッジボタンクリックでサウンド初期化
 			nudgeButton.addEventListener('click', initSoundOnFirstInteraction, { once: true });
+			// リアレンジボタンクリックでサウンド初期化
 			rearrangeButton.addEventListener('click', initSoundOnFirstInteraction, { once: true });
 
-			// --- 通常のゲームプレイリスナー ---
+			// ロールボタンクリックでチャージ開始
 			rollButton.addEventListener('click', startCharging);
+			// ナッジボタンクリックでサイコロをナッジ
 			nudgeButton.addEventListener('click', nudgeDice);
+			// リアレンジボタンクリックでサイコロをリセット
 			rearrangeButton.addEventListener('click', resetDiceToStartPosition);
+			// サイコロタイプ変更でマテリアル更新
 			diceTypeSelector.addEventListener('change', (e) => {
+				// クリック音の再生
 				soundManager.playClickSound();
+				// サイコロタイプの更新
 				diceType = e.target.value;
+				// マテリアルの更新
 				updateDiceMaterials();
 			});
+			// キャンバスクリックでパワー決定
 			canvasContainer.addEventListener('click', decidePower);
+			// ウィンドウリサイズでサイズ調整
 			window.addEventListener('resize', onWindowResize);
 		}
-
 
 		/**
 		 * @function createBowl
 		 * @description 視覚（Three.js）と物理（cannon-es）の丼を作成します。
-		 * 視覚表現と物理衝突形状が完全に一致するようにします。
 		 */
 		function createBowl(bowlFloorMaterial, bowlWallMaterial) {
-			const bowlWallThickness = 0.2; // 丼の壁の厚さを定義。
-			// TUNNELING FIX: 物理的な壁の厚みを視覚的なものより厚く設定
+			// 丼壁の厚さ設定
+			const bowlWallThickness = 0.2;
+			// 物理壁の厚さ設定
 			const physicsWallThickness = 0.4;
+			// 丼マテリアルの作成
 			const bowlMaterial = new THREE.MeshStandardMaterial({ color: 0x6B4F3A, side: THREE.DoubleSide, metalness: 0.2, roughness: 0.7 });
+			// 丼グループの作成
 			const bowlGroup = new THREE.Group();
 
-			// --- 視覚的な丼（Three.js） ---
-			// 1. 丼の底を作成。
+			// 底ジオメトリの作成
 			const bottomGeometry = new THREE.CylinderGeometry(bowlRadius, bowlRadius, 0.2, 64);
+			// 底メッシュの作成
 			const bottomMesh = new THREE.Mesh(bottomGeometry, bowlMaterial);
+			// シャドウ受信の有効化
 			bottomMesh.receiveShadow = true;
+			// グループへの追加
 			bowlGroup.add(bottomMesh);
 
-			// 2. 厚みのある壁を作成。
+			// 壁シェイプの作成
 			const wallShape = new THREE.Shape();
-			wallShape.absarc(0, 0, bowlRadius, 0, Math.PI * 2, false); // 外側の円
+			// 外側円弧の追加
+			wallShape.absarc(0, 0, bowlRadius, 0, Math.PI * 2, false);
+			// 穴パスの作成
 			const holePath = new THREE.Path();
-			holePath.absarc(0, 0, bowlRadius - bowlWallThickness, 0, Math.PI * 2, true); // 内側の円（穴）
+			// 内側円弧の追加
+			holePath.absarc(0, 0, bowlRadius - bowlWallThickness, 0, Math.PI * 2, true);
 			wallShape.holes.push(holePath);
 			const extrudeSettings = { depth: bowlHeight, bevelEnabled: false };
 			const wallGeometry = new THREE.ExtrudeGeometry(wallShape, extrudeSettings);
 			const wallMesh = new THREE.Mesh(wallGeometry, bowlMaterial);
-			wallMesh.rotation.x = -Math.PI / 2; // 直立させるために回転
+			wallMesh.rotation.x = -Math.PI / 2;
 			wallMesh.receiveShadow = true;
 			bowlGroup.add(wallMesh);
-
 			scene.add(bowlGroup);
 
-			// --- 物理的な丼（cannon-es） ---
 			const bowlFloorBody = new CANNON.Body({ mass: 0, material: bowlFloorMaterial });
 			const bottomShape = new CANNON.Cylinder(bowlRadius, bowlRadius, 0.5, 32);
 			bowlFloorBody.addShape(bottomShape, new CANNON.Vec3(0, -0.2, 0));
 			world.addBody(bowlFloorBody);
 
-			// OPTIMIZATION: Reduced wall segments from 64 to 32 to lessen physics calculations.
 			const bowlWallBody = new CANNON.Body({ mass: 0, material: bowlWallMaterial });
 			const wallSegments = 32;
 			const segmentAngle = (Math.PI * 2) / wallSegments;
 			const segmentWidth = 2 * bowlRadius * Math.tan(segmentAngle / 2);
-			// TUNNELING FIX: Use the thicker physics wall for the collision shape.
 			const wallShapeCannon = new CANNON.Box(new CANNON.Vec3(segmentWidth / 2, bowlHeight / 2, physicsWallThickness / 2));
 			const wallPlacementRadius = bowlRadius - (physicsWallThickness / 2);
 
@@ -702,105 +721,141 @@
 
 		/**
 		 * @function createDice
-		 * @description 3つのサイコロを視覚的および物理的に作成し、プロパティを設定します。
+		 * @description 3つのサイコロを視覚的および物理的に作成します。
 		 */
 		function createDice(dicePhysicsMaterial) {
+			// サイコロジオメトリの作成
 			const diceGeometry = new THREE.BoxGeometry(diceSize, diceSize, diceSize);
+			// 3つのサイコロを作成
 			for (let i = 0; i < 3; i++) {
-				// Visual die
+				// サイコロメッシュの作成
 				const die = new THREE.Mesh(diceGeometry, []);
+				// シャドウキャストの有効化
 				die.castShadow = true;
+				// シーンへの追加
 				scene.add(die);
+				// サイコロ配列への追加
 				dice.push(die);
 
-				// Physical die
+				// 物理ボディの作成
 				const body = new CANNON.Body({
 					mass: 1,
 					shape: new CANNON.Box(new CANNON.Vec3(diceSize / 2, diceSize / 2, diceSize / 2)),
 					material: dicePhysicsMaterial,
-					angularDamping: 0.25, // Simulates air resistance on rotation
-					linearDamping: 0.3   // Simulates air resistance on movement
+					// Why: 角速度の減衰を少し強くし、より早く回転が収まるようにします。
+					// 角速度減衰の設定
+					angularDamping: 0.3,
+					// 線速度減衰の設定
+					linearDamping: 0.3
 				});
+				// 衝突応答の有効化
 				body.collisionResponse = true;
-				// なぜ: CCD（Continuous Collision Detection）を有効化して、高速で移動するサイコロが丼を貫通するのを防ぎます。特にロール開始時。
+				// CCD速度閾値の設定
 				body.ccdSpeedThreshold = 0.01;
+				// CCDモーション閾値の設定
 				body.ccdMotionThreshold = diceSize / 4;
 
-				// Why: 物理エンジンからの衝突イベントをリッスンして、サウンドをトリガーします。
-				// これにより、視覚的な出来事と聴覚的なフィードバックが正確に同期します。
+				// 衝突イベントリスナーの追加
 				body.addEventListener('collide', (event) => {
+					// 衝突速度の取得
 					const impactVelocity = event.contact.getImpactVelocityAlongNormal();
-					// Why: 非常に小さな衝突（例：静止時の接触）でサウンドが再生されるのを防ぐための閾値。
 					if (impactVelocity > 0.5) {
+						// 相手のマテリアル名を取得
 						const otherBodyMaterialName = event.body.material ? event.body.material.name : '';
 						if (otherBodyMaterialName === 'dice') {
+							// サイコロ同士の衝突音再生
 							soundManager.playDiceCollision(impactVelocity);
 						} else if (otherBodyMaterialName === 'bowlFloor' || otherBodyMaterialName === 'bowlWall') {
+							// 丼との衝突音再生
 							soundManager.playBowlCollision(impactVelocity);
 						}
 					}
 				});
 
+				// 物理世界へのボディ追加
 				world.addBody(body);
+				// ボディ配列への追加
 				diceBodies.push(body);
 			}
-			updateDiceMaterials(); // Apply initial textures
+			// サイコロマテリアルの更新
+			updateDiceMaterials();
 		}
 
 		/**
 		 * @function setupContactMaterials
-		 * @description 異なるマテリアル間の物理的相互作用プロパティ（摩擦、反発）を定義します。
+		 * @description 異なるマテリアル間の物理的相互作用プロパティを定義します。
+		 * Why: 摩擦と反発の値を調整し、より自然な挙動を目指します。
+		 * 摩擦を上げることで、サイコロは滑るよりも転がりやすくなります。
+		 * 反発を微調整することで、硬い表面での現実的な跳ね返りを再現します。
 		 */
 		function setupContactMaterials(diceMat, floorMat, wallMat) {
-			// How dice interact with the bowl floor
-			const diceBowlFloorContact = new CANNON.ContactMaterial(floorMat, diceMat, { friction: 0.25, restitution: 0.5 });
+			// サイコロと丼の底の接触
+			const diceBowlFloorContact = new CANNON.ContactMaterial(floorMat, diceMat, {
+				friction: 0.3,      // 摩擦を増加させ、転がりを促進
+				restitution: 0.45,  // 反発を少し減少させ、エネルギー損失を表現
+				contactEquationStiffness: 1e8, // 接触の剛性を高め、めり込みを防止
+				contactEquationRelaxation: 2   // 接触の緩和を減らし、反発を硬くする
+			});
 			world.addContactMaterial(diceBowlFloorContact);
-			// How dice interact with the bowl wall
-			const diceBowlWallContact = new CANNON.ContactMaterial(wallMat, diceMat, { friction: 0.1, restitution: 0.6 });
+
+			// サイコロと丼の壁の接触
+			const diceBowlWallContact = new CANNON.ContactMaterial(wallMat, diceMat, {
+				friction: 0.2,      // 壁との摩擦も少し増加
+				restitution: 0.6,   // 壁との反発は高めに維持
+				contactEquationStiffness: 1e8,
+				contactEquationRelaxation: 2
+			});
 			world.addContactMaterial(diceBowlWallContact);
-			// How dice interact with each other
-			const diceDiceContactMaterial = new CANNON.ContactMaterial(diceMat, diceMat, { friction: 0.15, restitution: 0.4 });
+
+			// サイコロ同士の接触
+			const diceDiceContactMaterial = new CANNON.ContactMaterial(diceMat, diceMat, {
+				friction: 0.2,      // 摩擦を増加
+				restitution: 0.35,  // 反発を減少させ、衝突時のエネルギー吸収を表現
+				contactEquationStiffness: 1e8,
+				contactEquationRelaxation: 2
+			});
 			world.addContactMaterial(diceDiceContactMaterial);
 		}
 
+
 		/**
 		 * @function updateDiceMaterials
-		 * @description 選択されたサイコロの種類に基づいて、サイコロに正しい面テクスチャを適用します。
+		 * @description 選択されたサイコロの種類に基づいて、テクスチャを適用します。
 		 */
 		function updateDiceMaterials() {
 			let faceSet;
 			switch (diceType) {
-				case 'shigoro': faceSet = [4, 4, 5, 5, 6, 6]; break; // Special dice for aiming for "Shigoro"
-				case 'pinzoro': faceSet = [1, 1, 1, 1, 1, 1]; break; // Special dice for aiming for "Pinzoro"
-				default: faceSet = [1, 6, 2, 5, 3, 4]; break; // Standard dice layout
+				case 'shigoro': faceSet = [4, 4, 5, 5, 6, 6]; break;
+				case 'pinzoro': faceSet = [1, 1, 1, 1, 1, 1]; break;
+				case 'hifumi': faceSet = [1, 1, 2, 2, 3, 3]; break; // ヒフミ賽用の出目
+				default: faceSet = [1, 6, 2, 5, 3, 4]; break;
 			}
 			dice.forEach(die => {
-				die.material.forEach(m => m.dispose()); // Dispose old materials to free up memory
+				die.material.forEach(m => m.dispose());
 				die.material = faceSet.map(val => new THREE.MeshStandardMaterial({ map: createDiceTexture(val) }));
 			});
 		}
 
 		/**
 		 * @function createDiceTexture
-		 * @description サイコロの1つの面のキャンバステクスチャを生成します。
+		 * @description サイコロの面のテクスチャを生成します。
 		 */
 		function createDiceTexture(value) {
 			const canvas = document.createElement('canvas');
 			canvas.width = 128; canvas.height = 128;
 			const context = canvas.getContext('2d');
-			context.fillStyle = '#f0ead6'; // Off-white background
+			context.fillStyle = '#f0ead6';
 			context.fillRect(0, 0, 128, 128);
 			const dotRadius = 12;
-			// 標準的なサイコロの面のドット位置 1-6
 			const positions = { 1: [[0.5, 0.5]], 2: [[0.25, 0.25], [0.75, 0.75]], 3: [[0.25, 0.25], [0.5, 0.5], [0.75, 0.75]], 4: [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]], 5: [[0.25, 0.25], [0.75, 0.25], [0.5, 0.5], [0.25, 0.75], [0.75, 0.75]], 6: [[0.25, 0.25], [0.75, 0.25], [0.25, 0.5], [0.75, 0.5], [0.25, 0.75], [0.75, 0.75]], };
-			context.fillStyle = (value === 1) ? '#c0392b' : '#2c3e50'; // Red for '1', black for others
+			context.fillStyle = (value === 1) ? '#c0392b' : '#2c3e50';
 			if (positions[value]) { positions[value].forEach(pos => { context.beginPath(); context.arc(pos[0] * 128, pos[1] * 128, dotRadius, 0, Math.PI * 2); context.fill(); }); }
 			return new THREE.CanvasTexture(canvas);
 		}
 
 		/**
 		 * @function resetDiceToStartPosition
-		 * @description 新しいロールの準備として、サイコロを初期位置にリセットします。
+		 * @description サイコロを初期位置にリセットします。
 		 */
 		function resetDiceToStartPosition() {
 			soundManager.playClickSound();
@@ -808,11 +863,9 @@
 			diceBodies.forEach((body, i) => {
 				body.velocity.set(0, 0, 0); body.angularVelocity.set(0, 0, 0);
 				body.position.copy(startPositions[i]);
-				// Apply a random rotation to each die
 				const randomAxis = new CANNON.Vec3(Math.random(), Math.random(), Math.random()).unit();
 				const randomAngle = Math.random() * Math.PI * 2;
 				body.quaternion.setFromAxisAngle(randomAxis, randomAngle);
-				// Sync visual model to physical body
 				dice[i].position.copy(body.position);
 				dice[i].quaternion.copy(body.quaternion);
 				dice[i].visible = true;
@@ -821,7 +874,7 @@
 
 		/**
 		 * @function startCharging
-		 * @description ユーザーがロールボタンをクリックしたときに、パワーチャージシーケンスを開始します。
+		 * @description パワーチャージシーケンスを開始します。
 		 */
 		function startCharging() {
 			if (gameState !== 'ready') return;
@@ -852,7 +905,7 @@
 
 		/**
 		 * @function decidePower
-		 * @description パワーメーターを停止し、選択されたパワーでサイコロのロールを開始します。
+		 * @description パワーメーターを停止し、ロールを開始します。
 		 */
 		function decidePower() {
 			if (gameState !== 'charging') return;
@@ -864,7 +917,12 @@
 
 		/**
 		 * @function rollDice
-		 * @description 指定されたパワーでサイコロを投げ、力とトルクを適用します。
+		 * @description 指定されたパワーでサイコロを投げます。
+		 * Why: この関数は、より物理的に正確なアプローチを採用するために完全に再設計されました。
+		 * 速度と角速度を個別に計算する代わりに、`applyImpulse` を使用します。
+		 * サイコロの表面上のランダムな点にインパルス（力積）を適用することで、直線運動と回転運動が
+		 * 自然かつ同時に発生し、よりリアルで予測不可能な転がり方が生まれます。
+		 * これは、手の中でサイコロを振って投げる実際の物理現象を忠実に模倣しています。
 		 */
 		function rollDice(throwPower, isInitialSetup = false) {
 			gameState = isInitialSetup ? 'initializing' : 'rolling';
@@ -874,15 +932,10 @@
 			nudgeButton.style.display = 'none';
 			shonbenTimers.fill(0);
 
-			// --- 投擲力の計算 ---
-			const minPower = 12;
-			const maxPower = 36;
-			// 低いパワーの投擲をより敏感にするために、パワーカーブを使用。
 			const powerRatio = Math.pow(throwPower / 100, 1.5);
-			const force = minPower + (maxPower - minPower) * powerRatio;
 
 			if (isInitialSetup) {
-				// 初期セットアップの場合、サイコロを優しく落とすだけ。
+				// 初期セットアップ：サイコロを優しく落とす
 				const startPositions = [new CANNON.Vec3(0, 4, 0.6), new CANNON.Vec3(-0.6, 4.5, -0.3), new CANNON.Vec3(0.6, 5, -0.3)];
 				diceBodies.forEach((body, i) => {
 					dice[i].visible = true;
@@ -892,85 +945,42 @@
 					body.velocity.set(0, 0, 0); body.angularVelocity.set((Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3);
 				});
 			} else {
-				// プレイヤー制御のロールの場合、計算された力を適用。
+				// プレイヤーによる投擲：インパルスを適用
 				diceBodies.forEach((body, i) => {
 					dice[i].visible = true;
 					body.wakeUp();
 					body.position.copy(dice[i].position);
 					body.quaternion.copy(dice[i].quaternion);
 
-					// なぜ: パワーに基づいて投擲角度を調整。
-					// 低いパワーはほぼ垂直なドロップ、高いパワーはより水平な投擲。
-					// これにより、弱い投擲がすぐに丼から出るのを防ぎます。
-					let velDir;
-					if (powerRatio < 0.01) {
-						// 非常に弱い投擲は真下に落ちる。
-						velDir = new CANNON.Vec3(0, -1, 0);
-					} else {
-						// 垂直成分は決して上向きにならないように調整。
-						const yMax = -(1 - powerRatio);
-						const yMin = -1.0;
-						const yComponent = yMin + (Math.random() * (yMax - yMin));
+					// インパルスの大きさを計算
+					const minImpulse = 4.5;
+					const maxImpulse = 8.0;
+					const impulseMagnitude = minImpulse + (maxImpulse - minImpulse) * powerRatio;
 
-						// 水平成分はパワーに比例。
-						const xzMagnitude = powerRatio * 1.5;
-
-						velDir = new CANNON.Vec3(
-							(Math.random() - 0.5) * 2 * xzMagnitude,
-							yComponent,
-							(Math.random() - 0.5) * 2 * xzMagnitude
-						);
-					}
-
-					// ゼロベクトルの安全チェック。
-					if (velDir.lengthSquared() < 1e-6) {
-						velDir.set(0, -1, 0);
-					}
-
-					// 最終的な速度とランダムなスピンを適用。
-					const velocityDirection = velDir.unit();
-					body.velocity.copy(velocityDirection.scale(force));
-					// More natural spin: pick an axis roughly perpendicular to the
-					// throw direction and set angular velocity along that axis.
-					// This reduces unrealistic spins like all-around random huge values.
-					// Configure reasonable min/max spin (radians/sec).
-					const minSpin = 8;   // gentle tumble
-					const maxSpin = 80;  // vigorous tumble for full power
-					const spinMag = minSpin + (maxSpin - minPower) * Math.min(1, Math.max(0, powerRatio));
-
-					// Candidate random vector
-					const rc = new CANNON.Vec3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
-					// cross product velocityDirection x rc to get roughly perpendicular axis
-					const axis = new CANNON.Vec3(
-						velocityDirection.y * rc.z - velocityDirection.z * rc.y,
-						velocityDirection.z * rc.x - velocityDirection.x * rc.z,
-						velocityDirection.x * rc.y - velocityDirection.y * rc.x
+					// 丼の中心付近を狙う、わずかにランダムな方向ベクトルを生成
+					const targetPoint = new CANNON.Vec3(
+						(Math.random() - 0.5) * bowlRadius * 0.3,
+						-bowlHeight * 0.5, // 少し下向きに
+						(Math.random() - 0.5) * bowlRadius * 0.3
 					);
-					// fallback if cross produced near-zero vector
-					let spinAxis = axis;
-					if (spinAxis.lengthSquared() < 1e-6) spinAxis = new CANNON.Vec3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
-					spinAxis = spinAxis.unit();
+					const impulseDirection = targetPoint.vsub(body.position).unit();
+					const impulse = impulseDirection.scale(impulseMagnitude);
 
-					// base spin along axis, plus a small random tilt to avoid perfect alignment
-					const tiltFactor = 0.25;
-					const spinVec = new CANNON.Vec3(
-						spinAxis.x * spinMag + (Math.random() - 0.5) * spinMag * tiltFactor,
-						spinAxis.y * spinMag + (Math.random() - 0.5) * spinMag * tiltFactor,
-						spinAxis.z * spinMag + (Math.random() - 0.5) * spinMag * tiltFactor
+					// サイコロの中心からずれたランダムな点にインパルスを適用し、自然な回転を生み出す
+					const pointOfApplication = new CANNON.Vec3(
+						(Math.random() - 0.5) * diceSize * 0.8,
+						(Math.random() - 0.5) * diceSize * 0.8,
+						(Math.random() - 0.5) * diceSize * 0.8
 					);
 
-					// clamp extreme magnitudes
-					const maxAllowed = maxSpin * 1.2;
-					if (spinVec.length() > maxAllowed) spinVec.scale(maxAllowed / spinVec.length(), spinVec);
-
-					body.angularVelocity.copy(spinVec);
+					body.applyImpulse(impulse, pointOfApplication);
 				});
 			}
 		}
 
 		/**
 		 * @function nudgeDice
-		 * @description サイコロがスタックした場合、各サイコロに小さなランダムなインパルスを適用します。
+		 * @description スタックしたサイコロに小さなランダムなインパルスを適用します。
 		 */
 		function nudgeDice() {
 			if (gameState !== 'rolling') return;
@@ -990,18 +1000,16 @@
 		 * @description サイコロのどの面が上を向いているかを決定します。
 		 */
 		function getDiceFace(body) {
-			const up = new CANNON.Vec3(0, 1, 0); // World's 'up' direction
+			const up = new CANNON.Vec3(0, 1, 0);
 			let maxDot = -1, topFace = -1;
-			// サイコロの各面のローカル方向を表すベクトル
 			const faceVectors = [new CANNON.Vec3(1, 0, 0), new CANNON.Vec3(-1, 0, 0), new CANNON.Vec3(0, 1, 0), new CANNON.Vec3(0, -1, 0), new CANNON.Vec3(0, 0, 1), new CANNON.Vec3(0, 0, -1)];
 			let faceValues;
-			// Map local face vectors to their corresponding number values
 			switch (diceType) {
 				case 'shigoro': faceValues = [4, 4, 5, 5, 6, 6]; break;
 				case 'pinzoro': faceValues = [1, 1, 1, 1, 1, 1]; break;
-				default: faceValues = [1, 6, 2, 5, 3, 4]; break; // Standard mapping
+				case 'hifumi': faceValues = [1, 1, 2, 2, 3, 3]; break; // ヒフミ賽用の値マッピング
+				default: faceValues = [1, 6, 2, 5, 3, 4]; break;
 			}
-			// 世界の「上」方向に最も近い面ベクトルを見つける。
 			for (let i = 0; i < faceVectors.length; i++) {
 				const worldVector = body.quaternion.vmult(faceVectors[i]);
 				const dot = worldVector.dot(up);
@@ -1012,7 +1020,7 @@
 
 		/**
 		 * @function finishRoll
-		 * @description 最終結果をUIに更新し、ゲーム状態を'ready'にリセットします。
+		 * @description 結果をUIに更新し、ゲーム状態をリセットします。
 		 */
 		function finishRoll(result, desc) {
 			resultTitle.textContent = result;
@@ -1027,11 +1035,10 @@
 
 		/**
 		 * @function areAllDiceStable
-		 * @description サイコロが平らな面に落ち着いているかをチェックします。
-		 * これは、物理ボディがスリープしたかどうかだけを待つよりも堅牢なチェックです。
+		 * @description サイコロが平らな面に落ち着いているかチェックします。
 		 */
 		function areAllDiceStable() {
-			const STABILITY_THRESHOLD = 0.99; // How flat the face must be (dot product close to 1)
+			const STABILITY_THRESHOLD = 0.99;
 			for (const body of diceBodies) {
 				if (!dice[diceBodies.indexOf(body)].visible) continue;
 				let isStable = false;
@@ -1041,70 +1048,57 @@
 					const dotProduct = Math.abs(worldAxis.dot(new CANNON.Vec3(0, 1, 0)));
 					if (dotProduct > STABILITY_THRESHOLD) { isStable = true; break; }
 				}
-				if (!isStable) return false; // If any die is not stable, return false
+				if (!isStable) return false;
 			}
-			return true; // All visible dice are stable
+			return true;
 		}
 
 		/**
 		 * @function checkAndDisplayResult
-		 * @description サイコロの値をチェックし、対応するチンチロリンの結果を表示します。
+		 * @description サイコロの値をチェックし、結果を表示します。
 		 */
 		function checkAndDisplayResult() {
 			rollButton.disabled = true;
 			const visibleDiceBodies = diceBodies.filter((body, i) => dice[i].visible);
 
-			// Check for "Shonben" (foul)
 			if (visibleDiceBodies.length < 3) {
 				soundManager.playFoulSound();
 				finishRoll("ションベン！", "サイコロが丼から出てしまいました。");
 				return;
 			}
 
-			// --- 役の決定 ---
 			const values = visibleDiceBodies.map(getDiceFace).sort((a, b) => a - b);
 			let title = '', description = `出目: ${values.join(', ')}`;
 			const counts = {}; values.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
 
 			let hasWon = false;
 			if (Object.values(counts).includes(3)) {
-				// Triple
 				title = (values[0] === 1) ? "ピンゾロ" : "アラシ";
 				hasWon = true;
 			} else if (Object.values(counts).includes(2)) {
-				// Pair
 				const singleValue = Object.keys(counts).find(k => counts[k] === 1);
 				title = `${['', '一', '二', '三', '四', '五', '六'][singleValue]}の目`;
 			} else {
-				// ペアやトリプルなし
-				switch (diceType) {
-					case 'shigoro':
-						if (values.join('') === '456') { title = "シゴロ"; hasWon = true; }
-						else title = "目なし";
-						break;
-					default:
-						if (values.join('') === '456') { title = "シゴロ"; hasWon = true; }
-						else if (values.join('') === '123') title = "ヒフミ";
-						else title = "目なし";
-						break;
+				// 'ヒフミ賽'でも他の役を判定できるようにロジックを修正
+				if (values.join('') === '123') {
+					title = "ヒフミ";
+				} else if (values.join('') === '456') {
+					title = "シゴロ";
+					hasWon = true;
+				} else {
+					title = "目なし";
 				}
 			}
 
-			// --- Sound Triggering Logic ---
-			// Why: 役の結果に基づいて適切なサウンドを再生するための、明確で分離されたロジック。
-			// これにより、どの結果がどのサウンドをトリガーするかが分かりやすくなります。
 			if (title === "ヒフミ") {
-				soundManager.playFoulSound(); // カイト様のご指示通り、「ションベン」と同じ音を再生
+				soundManager.playFoulSound();
 			} else if (hasWon) {
-				// ピンゾロ, アラシ, シゴロ
 				soundManager.playWinSound();
 			} else if (title === "目なし") {
 				soundManager.playLoseSound();
 			} else if (title.includes("の目")) {
-				// FIXED: Call the dedicated sound for pairs.
 				soundManager.playPairSound();
 			}
-			// 「ションベン」の音は、この関数の冒頭で既に再生されています。
 
 			finishRoll(title, description);
 		}
@@ -1112,18 +1106,14 @@
 		let lastCheckTime = 0;
 		/**
 		 * @function animate
-		 * @description メインのアニメーションループ、各フレームごとに呼び出されます。
+		 * @description メインのアニメーションループ。
 		 */
 		function animate() {
 			requestAnimationFrame(animate);
 			const deltaTime = clock.getDelta();
 
-			// ゲームが動的な状態にある場合のみ、物理世界をステップ。
 			if (gameState === 'rolling' || gameState === 'initializing') {
-				// TUNNELING FIX: maxSubstepsを増やすことで、フレームドロップ時の物理的な精度を向上させます。
 				world.step(1 / 60, deltaTime, 20);
-
-				// 視覚オブジェクトを物理カウンターパートと同期。
 				for (let i = 0; i < dice.length; i++) {
 					dice[i].position.copy(diceBodies[i].position);
 					dice[i].quaternion.copy(diceBodies[i].quaternion);
@@ -1134,7 +1124,6 @@
 			controls.update();
 			renderer.render(scene, camera);
 
-			// パワーチャージ中にサイコロを軌道アニメーション。
 			if (gameState === 'charging') {
 				const elapsedTime = clock.getElapsedTime();
 				const orbitRadius = 0.4;
@@ -1146,18 +1135,14 @@
 					die.position.x = bodyPos.x + Math.cos(angle) * orbitRadius;
 					die.position.z = bodyPos.z + Math.sin(angle) * orbitRadius;
 					die.position.y = bodyPos.y + Math.sin(elapsedTime * (orbitSpeed * 1.5) + i) * 0.1;
-
 					const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 1, 1).normalize(), (rotationSpeed + i * 0.5) * deltaTime);
 					die.quaternion.premultiply(q);
 				});
 			}
 
-
-			// --- State Checking Logic ---
 			if (gameState === 'rolling' || gameState === 'initializing') {
 				const now = performance.now();
 
-				// Check for "Shonben" (foul) condition for each die.
 				for (let i = 0; i < diceBodies.length; i++) {
 					const body = diceBodies[i];
 					if (!dice[i].visible) continue;
@@ -1169,24 +1154,20 @@
 						else if (now - shonbenTimers[i] > SHONBEN_GRACE_PERIOD_MS) {
 							dice[i].visible = false;
 							body.sleep();
-							body.position.set(0, -100 - i, 0); // Move it far away
+							body.position.set(0, -100 - i, 0);
 							particleEmitter.trigger(dice[i].position);
 						}
 					} else { shonbenTimers[i] = 0; }
 				}
 
-				// Check if all dice have stopped moving.
 				const isStill = diceBodies.every(body => body.sleepState === CANNON.Body.SLEEPING || !dice[diceBodies.indexOf(body)].visible);
 
 				if (isStill) {
-					// If they have stopped, also check if they are stable on a face.
 					if (areAllDiceStable()) {
 						if (gameState === 'initializing') {
-							// If it was the initial setup, transition to ready state.
 							gameState = 'ready';
 							rollButton.disabled = false;
 						} else if (gameState === 'rolling') {
-							// If it was a roll, wait a brief moment before checking the result to let the user see the final state.
 							if (lastCheckTime === 0) lastCheckTime = now;
 							else if (now - lastCheckTime > 200) {
 								lastCheckTime = 0; gameState = 'checking';
@@ -1196,8 +1177,6 @@
 					} else { lastCheckTime = 0; }
 				} else { lastCheckTime = 0; }
 
-				// Why: カイト様のご指摘に基づき、「揺らす」ボタンの表示条件を、より本質的で確実なものに修正しました。
-				// (Why: Based on Kaito-sama's feedback, the display condition for the "Nudge" button has been corrected to be more fundamental and reliable.)
 				if (gameState === 'rolling') {
 					const elapsedTime = now - rollStartTime;
 					if (elapsedTime > STUCK_THRESHOLD_MS) {
@@ -1211,17 +1190,15 @@
 
 		/**
 		 * @function onWindowResize
-		 * @description ウィンドウリサイズイベントを処理し、ビューポートとカメラのアスペクト比を正しく保ちます。
+		 * @description ウィンドウリサイズイベントを処理します。
 		 */
 		function onWindowResize() {
 			camera.aspect = window.innerWidth / window.innerHeight;
 			camera.updateProjectionMatrix();
-			// OPTIMIZATION: Ensure pixel ratio is also updated on resize.
 			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 			renderer.setSize(window.innerWidth, window.innerHeight);
 		}
 
-		// Let's roll!
 		init();
 	</script>
 </body>
