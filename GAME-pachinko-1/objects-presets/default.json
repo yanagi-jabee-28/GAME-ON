@@ -17,8 +17,8 @@
 		},
 		{
 			"type": "windmill",
-			"x": 55,
-			"y": 20,
+			"x": 100,
+			"y": 0,
 			"enabled": true,
 			"rotation": {
 				"mode": "inertial",
