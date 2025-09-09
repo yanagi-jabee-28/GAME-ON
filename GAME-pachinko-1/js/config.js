@@ -22,361 +22,124 @@ const GAME_MATERIALS = {
  */
 const GAME_CONFIG = {
 
-	// 基本的なゲーム領域設定
-	dimensions: {
-		width: 650,
-		height: 900,
-		baseWidth: 450,   // レイアウト計算の基準
-		baseHeight: 675   // レイアウト計算の基準
-	},
+	// ------------------ 基本設定 (表示・物理) ------------------
+	// ゲームキャンバスの基準サイズと実際の描画領域
+	dimensions: { width: 650, height: 900, baseWidth: 450, baseHeight: 675 }, // width/height: 描画用の論理サイズ
 
-	// 描画設定
+	// レンダラとデバッグ表示に関する設定
 	render: {
-		wireframes: false,
-		// 暗めの背景（HSL）
-		background: 'hsl(220, 12%, 15%)',
-		showDebug: false,            // 全デバッグ描画をまとめて表示する総合フラグ（個別フラグの上書き）
-		showBroadphase: false,       // ブロードフェーズ（大まかな衝突検出領域）を可視化するフラグ
-		showPerformance: false,      // FPS や処理時間などのパフォーマンス統計を表示するフラグ
-		showBounds: false,           // 各ボディの AABB（境界ボックス）を描画するフラグ
-		showVelocity: false,         // 各ボディの速度ベクトルを描画するフラグ
-		showCollisions: false,       // 衝突点や接触情報（接触法線など）を表示するフラグ
-		showSeparations: false,      // 接触の分離ベクトル（反発方向）を描画するフラグ
-		showAxes: false,             // 各ボディのローカル座標軸（X/Y）を表示するフラグ
-		showPositions: false,        // 物体の中心位置（座標マーカー）を表示するフラグ
-		showAngleIndicator: false    // ボディの回転角を示すインジケータを表示するフラグ
+		wireframes: false,                 // true でワイヤフレーム描画（デバッグ用）
+		background: 'hsl(220, 12%, 15%)',  // キャンバス背景色
+		showDebug: false,                  // デバッグ系をまとめてON/OFF
+		showBroadphase: false,             // 衝突検出領域の表示
+		showPerformance: false,            // FPS 等の統計表示
+		showBounds: false,                 // 各ボディAABBを描画
+		showVelocity: false,               // 速度ベクトルを描画
+		showCollisions: false,             // 衝突点・法線の可視化
+		showSeparations: false,
+		showAxes: false,
+		showPositions: false,
+		showAngleIndicator: false
 	},
 
-	// 物理エンジン設定（安定性調整用）
+	// 物理エンジンの安定性/パフォーマンス設定
 	physics: {
-		positionIterations: 12,
-		velocityIterations: 8,
+		positionIterations: 12, // 位置解決の反復回数 (安定性)
+		velocityIterations: 8,  // 速度解決の反復回数
 		constraintIterations: 6,
-		// サブステップ数（1フレームを何分割してEngine.updateするか）
-		substeps: 4,
-		// 固定フレームレート（物理の基準FPS）。実時間とのズレを減らす
-		fixedFps: 60,
-		// 遅延が大きいフレームではサブステップを一時的に 1 に落として処理を軽量化
-		adaptiveSubsteps: true,
-		// 即時一時停止（UIやデバッグホットキーから切替可能）
-		paused: false,
-		// 時間スケール（全体の進み具合を倍率で調整）
-		timeScale: 1,
-		// 重力（Y軸）。体感が弱い/強い場合に調整
-		gravityY: 1.5
+		substeps: 4,            // 1フレームを分割する物理サブステップ数
+		fixedFps: 60,           // 物理の基準FPS
+		adaptiveSubsteps: true, // 実行時にサブステップを調整する
+		paused: false,          // 一時停止フラグ（UIで切替）
+		timeScale: 1,           // 世界時間倍率（スローモーション等に使用）
+		gravityY: 1.5           // Y方向重力の強さ（正: 下向き）
 	},
 
-	// UI/ページ全体に関する見た目設定
-	ui: {
-		// ゲーム外（ページの背景色）
-		outerBackground: '#EDE8DB',
-		// ラベルや数値表示などのテキスト色を上書きできます。
-		// 例: '#333333' や 'hsl(0,0%,100%)'
-		labelColor: '#333'
+	// ------------------ UI / UX ------------------
+	ui: { outerBackground: '#EDE8DB', labelColor: '#333' }, // ページ背景とラベル色
+
+	// ------------------ 発射 (launch) 関連 ------------------
+	// UI スライダーや長押し連射の挙動をまとめたセクション
+	launch: {
+		speedScale: 1,                 // スライダー -> px/s 変換の乗数
+		speedPrecision: 2,             // 速度表示の小数桁数
+		minSpeed: 29,                  // スライダー最小レンジ（px/s ベース）
+		maxSpeed: 39.3,                // スライダー最大レンジ
+		angleMin: 0,                   // 発射角度の下限（度）
+		angleMax: 180,                 // 発射角度の上限（度）
+		defaultAngle: 120,             // スライダー未指定時の初期角度
+		angleRandomness: 0.5,          // 発射時の角度ランダム幅（度）
+		holdToFireEnabled: true,       // 長押しで連射を有効にするか
+		holdIntervalMs: 250,           // 連射間隔 (ms)
+		holdFirstShotDelayMs: 10,      // 長押し開始から初回発射までの遅延 (ms)
+		ammo: 100,                     // デフォルト持ち玉（残弾）
+		ammoGainOnSensor: 100,         // センサー入賞で付与される玉数
+		spawn: { x: -70, yOffsetFromBottom: 350 }, // 初期発射点（画面右下基準のオフセット）
+		pad: {                          // 発射台の見た目設定（UI側で動的変更されることがある）
+			visible: true, width: 15, height: 50, borderRadius: 8, background: '#2F3B45', borderColor: '#fff', layer: 2, offsetY: 25
+		}
 	},
 
-	// ランタイム計測値（メトリクス）を格納する領域
-	metrics: {
-		// 総射出数（spawnBallFromUI が増加させる）
-		totalSpawned: 0
+	// ------------------ エフェクト / ビジュアル ------------------
+	effects: {
+		floor: {
+			removeBall: true, // 床での玉削除を行う
+			particle: { enabled: true, mode: 'ball', color: null, count: 12, lifeMs: 700 } // 床ヒット時のパーティクル
+		}
 	},
 
-	// スロット関連の報酬換算（パチンコ側で制御）
+	// ------------------ メトリクス / 報酬 ------------------
+	metrics: { totalSpawned: 0 },
 	rewards: {
-		// スロットの配当金額 -> 持ち玉(ammo)への換算倍率
-		// 例: 0.5 なら「配当 100」で ammo を +50（小数点以下は切り捨て）
 		slotWinAmmoMultiplier: 10,
-		// 内蔵スロット当たり時の表示メッセージ（テンプレート）
-		// {amount}=配当(円), {mult}=倍率, {adjusted}=配当×倍率（玉）
-		slotWinMessageTemplate: 'スロット当たり！ {adjusted}玉',
-		// メッセージ表示時間(ms)
+		slotWinMessageTemplate: 'スロット当たり！ {adjusted}玉', // 表示テンプレート
 		slotWinMessageMs: 2200,
-		// センサー進入（入賞）時のメッセージ（{gain}=増加玉数）
 		sensorEnterMessageTemplate: '入賞！{gain}玉'
 	},
 
-	// 各種エフェクト挙動の設定
-	effects: {
-		// 床に触れたときの玉の扱いと演出
-		floor: {
-			removeBall: true, // true: 床ヒットで玉を取り除く（既定動作）
-			particle: {
-				enabled: true,      // true で床ヒット時にパーティクルを発生
-				mode: 'ball',       // 'ball' | 'custom' | 'default'
-				color: null,        // mode: 'custom' のときに使用する色（'#rrggbb' など）
-				count: 12,          // 生成数
-				lifeMs: 700         // 寿命（フェードアウト時間の目安）
-			}
-		}
-	},
-
-	// ▼▼▼ オブジェクトの定義 ▼▼▼
+	// ------------------ 物体デフォルト定義 ------------------
+	// 各オブジェクトの物理パラメータや描画デフォルトをここで定義
 	objects: {
-		// --- ボールの定義 ---
-		ball: {
-			radius: 6,     // ボールの半径
-			label: 'ball', // 衝突判定などで使用する識別子
-			material: GAME_MATERIALS.TAMA, // 玉専用の材質
-			options: {
-				// restitutionとfrictionは材質ペアで定義するため、ここでは設定しない
-				density: 0.01,    // 密度 (値が大きいほど重くなる)
-			},
-			// ボールの描画設定: デフォルト色は指定できるが、randomColor を true にすると生成時に
-			// ランダム色が割り当てられます。
-			render: {
-				// デフォルトのボール色（固定色を使いたい場合はこちらを設定）
-				fillStyle: 'hsla(345, 100%, 85%, 1.00)',
-				// 既存資材はすべてレイヤー1（未指定時も1）
-				layer: 1
-			},
-			// true: 生成時にランダムな色を割り当てる（デフォルト true）
-			randomColor: false
-		},
-		// --- 釘の定義 ---
-		peg: {
-			radius: 4,
-			label: 'peg',
-			material: GAME_MATERIALS.METAL, // 材質を金属に設定
-			options: {
-				isStatic: true,
-			},
-			render: {
-				fillStyle: '#778899', // 塗りつぶしの色
-				layer: 1
-			}
-		},
-		// --- 風車の定義 ---
-		windmill: {
-			rotationsPerSecond: 1, // 毎秒の回転数
-
-			bladeColor: 'hsl(210, 100%, 50%)', // 羽の色
-			centerColor: 'hsl(200, 19%, 18%)',   // 中心円の色
-			// 形状のデフォルト値（ここを変えれば全体のデフォルト挙動が変わる）
-			defaults: {
-				centerRadius: 6,
-				numBlades: 4,
-				bladeLength: 20,
-				bladeWidth: 5
-			}
-		},
-		// --- 壁の定義 ---
-		wall: {
-			label: 'wall',
-			material: GAME_MATERIALS.TOP_PLATE,
-			options: {
-				isStatic: true,
-			},
-			render: {
-				fillStyle: '#333',
-				layer: 1
-			}
-		},
-		// --- 床の定義 ---
-		floor: {
-			label: 'floor',
-			options: {
-				isStatic: true,
-			},
-			render: {
-				fillStyle: '#333',
-				layer: 1
-			}
-		},
-		// --- 天板（物理用ボディ設定） ---
-		topPlateBody: {
-			label: 'top-plate',
-			material: GAME_MATERIALS.TOP_PLATE,
-			options: {
-				isStatic: true,
-			},
-			render: {
-				fillStyle: '#333',
-				layer: 1
-			}
-		},
-		// --- 役物パーツの共通定義 ---
-		yakumono_blade: {
-			label: 'yakumono_blade',
-			material: GAME_MATERIALS.PLASTIC,
-			options: {
-				density: 0.025 // 軽めにして風車が動きやすくなるよう調整
-			},
-			render: { layer: 1 }
-		},
-		// --- 任意長方形（ユーザーが追加する矩形） ---
-		rect: {
-			label: 'guide_rect',
-			material: GAME_MATERIALS.GUIDE,
-			options: {
-				isStatic: true
-			},
-			render: {
-				fillStyle: '#B0C4DE',
-				layer: 1
-			}
-		},
-		// --- 任意多角形（ユーザーが追加するポリゴン） ---
-		polygon: {
-			label: 'guide_polygon',
-			material: GAME_MATERIALS.GUIDE,
-			options: {
-				isStatic: true
-			},
-			render: {
-				fillStyle: '#66bb6a',
-				layer: 1
-			}
-		},
-		// --- 物理的に干渉しない装飾用（描画のみ） ---
-		decor: {
-			label: 'decor',
-			material: GAME_MATERIALS.DECOR,
-			options: {
-				isSensor: true,   // 衝突は検出するが力は伝えない
-				isStatic: true
-			},
-			render: {
-				fillStyle: '#9e9e9e',
-				layer: 1
-			}
-		},
-		// --- 描画専用の多角形（装飾・非干渉） ---
-		decorPolygon: {
-			label: 'decor_polygon',
-			material: GAME_MATERIALS.DECOR,
-			options: {
-				isSensor: true,
-				isStatic: true
-			},
-			render: {
-				fillStyle: '#9e9e9e',
-				layer: 1
-			}
-		}
+		ball: { radius: 6, label: 'ball', material: GAME_MATERIALS.TAMA, options: { density: 0.01 }, render: { fillStyle: 'hsla(345, 100%, 85%, 1.00)', layer: 1 }, randomColor: false }, // ボール
+		peg: { radius: 4, label: 'peg', material: GAME_MATERIALS.METAL, options: { isStatic: true }, render: { fillStyle: '#778899', layer: 1 } }, // 釘
+		windmill: { rotationsPerSecond: 1, bladeColor: 'hsl(210, 100%, 50%)', centerColor: 'hsl(200, 19%, 18%)', defaults: { centerRadius: 6, numBlades: 4, bladeLength: 20, bladeWidth: 5 } }, // 風車
+		wall: { label: 'wall', material: GAME_MATERIALS.TOP_PLATE, options: { isStatic: true }, render: { fillStyle: '#333', layer: 1 } },
+		floor: { label: 'floor', options: { isStatic: true }, render: { fillStyle: '#333', layer: 1 } },
+		topPlateBody: { label: 'top-plate', material: GAME_MATERIALS.TOP_PLATE, options: { isStatic: true }, render: { fillStyle: '#333', layer: 1 } },
+		yakumono_blade: { label: 'yakumono_blade', material: GAME_MATERIALS.PLASTIC, options: { density: 0.025 }, render: { layer: 1 } },
+		rect: { label: 'guide_rect', material: GAME_MATERIALS.GUIDE, options: { isStatic: true }, render: { fillStyle: '#B0C4DE', layer: 1 } },
+		polygon: { label: 'guide_polygon', material: GAME_MATERIALS.GUIDE, options: { isStatic: true }, render: { fillStyle: '#66bb6a', layer: 1 } },
+		decor: { label: 'decor', material: GAME_MATERIALS.DECOR, options: { isSensor: true, isStatic: true }, render: { fillStyle: '#9e9e9e', layer: 1 } },
+		decorPolygon: { label: 'decor_polygon', material: GAME_MATERIALS.DECOR, options: { isSensor: true, isStatic: true }, render: { fillStyle: '#9e9e9e', layer: 1 } }
 	},
 
-	// 埋め込みスロットの音量設定
-	slotAudio: {
-		// スロット全体のマスター音量 (0.0 - 1.0)
-		masterVolume: 0.2,
-		// 個別のサウンドに対する音量 (マスター音量に対する倍率)
-		volumes: {
-			spinStart: 1.0,
-			reelStop: 0.6,
-			win: 1.0
-		}
+	// ------------------ 埋め込みスロット音量 ------------------
+	slotAudio: { masterVolume: 0.2, volumes: { spinStart: 1.0, reelStop: 0.6, win: 1.0 } }, // slot の音量倍率
+
+	// ------------------ 開発者用設定 / プリセット ------------------
+	dev: { enabled: true, hotkeys: { toggle: 'F1', wire: 'F2', collide: 'F3', bounds: 'F4' } },
+	presets: { pegs: 'pegs-presets/pegs4.json', objects: 'objects-presets/default.json' },
+	sensorCounters: { enabled: true, counters: {} },
+
+	// ------------------ 天板 (topPlate) の描画/形状設定 ------------------
+	topPlate: {
+		enabled: true,         // true: 円弧天板を使う
+		radius: 355,           // 円弧の半径(px)
+		segments: 60,          // ポリゴン分割数（多いほど滑らか）
+		thickness: 25,         // 見た目の厚み
+		slop: 0.007,           // 衝突許容オーバーラップ
+		centerOffsetX: 0,
+		centerOffsetY: -15,
+		color: 'hsl(190,80%,70%)',
+		useSinglePolygon: false,
+		mode: 'dome'           // 'dome' or 'arc'
 	}
 };
 
-// 発射関連の調整パラメータ（UI の速度値を実際の初速に変換するためのスケール等）
-GAME_CONFIG.launch = {
-	// UI の px/s 値に乗じる係数。値を上げると速くなる。
-	// 0.6 にして、スライダーの値がより力強い初速になるよう調整しました。
-	speedScale: 1,
-	// 速度表示の小数点桁数（0〜3）。UIの"(xx px/s)"に適用
-	speedPrecision: 2,
-	// スライダーと一致させたい最小/最大（ここで maxSpeed を下げて上限を制御します）
-	minSpeed: 29,
-	maxSpeed: 39.3,
-	// angle control: min/max degrees and default
-	angleMin: 0,
-	angleMax: 180,
-	defaultAngle: 120,
-	// 発射角度のランダムな「ぶれ」の大きさ（度数）。0で無効。
-	angleRandomness: 0.5,
-	// 長押しで一定間隔発射するモード
-	holdToFireEnabled: true,      // false にすると従来方式のみ
-	holdIntervalMs: 250,          // 連射間隔（ミリ秒）
-	// 連射モード開始から最初の発射までの遅延（ミリ秒）
-	holdFirstShotDelayMs: 250
-	,
-	// 持ち玉（残弾）に関するデフォルト値: 単純な数値としてここに置く
-	// 実行時の検証や型変換は main 側で行います
-	ammo: 100,
-	// センサー反応で増える弾数
-	ammoGainOnSensor: 100
-};
-
-// (ammo と ammoGainOnSensor は上の GAME_CONFIG.launch 内で単純な数値として定義しています)
-
-// 発射の初期位置設定（config で制御可能にする）
-// - x: 発射点の x 座標（ピクセル、ゲームコンテナ左端を 0 とする）
-// - y: 発射点の明示的な y 座標（ピクセル）を指定する場合はこちらを使います
-// - yOffsetFromBottom: 明示的な y を指定しない場合、ゲーム領域の下端からのオフセットで指定します
-GAME_CONFIG.launch.spawn = {
-	x: -70,
-	// デフォルトはコンテナ下端から 40px 上
-	yOffsetFromBottom: 350
-};
-
-// 発射台の見た目設定（UIではライブ変更あり）
-GAME_CONFIG.launch.pad = {
-	visible: true,
-	width: 15,          // px
-	height: 50,         // px
-	borderRadius: 8,    // px
-	background: '#2F3B45', // single color fallback
-	borderColor: '#fff',
-	// レイヤー（DOM要素は z-index に反映）。未指定は1。
-	layer: 2,
-	// pad の垂直オフセット量（px）をボールの座標に対して追加で下に移動
-	offsetY: 25
-};
-
-// 天板（上部の板）設定 - 円弧で作る場合のパラメータ
-GAME_CONFIG.topPlate = {
-	// 有効化フラグ。false の場合は従来どおり長方形の上壁を使います。
-	enabled: true,
-	// 円の半径(px)。大きいほど浅い弧になります。
-	// 注意: radius が画面幅 / 2 より小さいと円弧が作成できず矩形にフォールバックします。
-	//       明示的な半径(px)をここで設定できます。例: radius: 340
-	//       空にすると起動時に幅に基づく推奨値が設定されます。
-	radius: 355,
-	// 分割数（多いほど滑らか）。パフォーマンスを考慮して 24 程度が良い。
-	segments: 60,
-	// 板の厚み。見た目をわかりやすくするために増やす。
-	thickness: 25,
-	// 接触解決の許容オーバーラップ（小さいほどめり込みが起きにくい）
-	slop: 0.007,
-	// 天板の中心オフセット（画面中央からの差分、px）。ここで初期値を変更できます。
-	centerOffsetX: 0,
-	centerOffsetY: -15,
-	// 天板の描画色（指定があれば topPlateBody.render より優先）
-	color: 'hsl(190,80%,70%)',
-	// poly-decomp が使える環境では単一ポリゴンにできる（継ぎ目をなくす）
-	useSinglePolygon: false
-};
-
-// 表示モード: 'arc'（幅に合わせた弧）または 'dome'（左右対称の半円ドーム）
-GAME_CONFIG.topPlate.mode = 'dome';
-
-// (centerOffsetX/centerOffsetY are set in the GAME_CONFIG.topPlate block above)
-
-
-// --- 物理相互作用の定義 ---
-
-// 開発者機能の有効化設定
-GAME_CONFIG.dev = {
-	enabled: true,         // オン/オフ切り替え
-	hotkeys: {             // 任意: ホットキー上書き
-		toggle: 'F1',
-		wire: 'F2',
-		collide: 'F3',
-		bounds: 'F4'
-	}
-};
-
-// 使用するプリセットファイルの指定（相対パス）
-GAME_CONFIG.presets = {
-	pegs: 'pegs-presets/pegs4.json',           // 釘の配置
-	objects: 'objects-presets/default.json'    // 風車やポリゴン等のオブジェクト
-};
-
-// センサー通過カウント機能の設定
-GAME_CONFIG.sensorCounters = {
-	enabled: true,        // カウント機能を有効化
-	counters: {}          // 実行時にカウントデータを格納するオブジェクト
-};
+// Note: launch/spawn/pad/topPlate/dev/presets/sensorCounters
+// have been consolidated into the main GAME_CONFIG object above.
+// The duplicate assignments that used to appear here were removed
+// to keep the configuration file single-sourced and easier to read.
 
 /**
  * 材質ペアの相互作用を定義するマトリクス。
@@ -433,6 +196,9 @@ const MATERIAL_INTERACTIONS = {
 	}
 };
 
+// MATERIAL_INTERACTIONS のキーは 'a:b' (アルファベット順) を想定します。
+// 未定義の組み合わせについては default を返します。
+
 /**
  * 二つの材質から、適用すべき物理特性（反発係数など）を取得します。
  * @param {string} materialA - 一つ目の材質名 (e.g., GAME_MATERIALS.METAL)
@@ -447,6 +213,6 @@ function getMaterialInteraction(materialA, materialB) {
 	if (a === GAME_MATERIALS.DECOR || b === GAME_MATERIALS.DECOR || a === 'decor' || b === 'decor') {
 		return { restitution: 0, friction: 0 };
 	}
-	const key = [materialA, materialB].sort().join(':');
-	return MATERIAL_INTERACTIONS[key] || MATERIAL_INTERACTIONS.default;
+	const key = [materialA, materialB].sort().join(':'); // 例: ['metal','tama'] -> 'metal:tama'
+	return MATERIAL_INTERACTIONS[key] || MATERIAL_INTERACTIONS.default; // フォールバック
 }
