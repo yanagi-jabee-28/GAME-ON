@@ -247,12 +247,14 @@
 		style.id = 'slot-win-lamp-style';
 		style.textContent = `
 			#winLampPanel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 6px}
-			#winLampPanel .label{font-weight:600;color:#333}
-			#winLampPanel .count{font-variant-numeric:tabular-nums;color:#555}
+			/* Match other UI message color (default text color used across the page) */
+			#winLampPanel .label{font-weight:600;color:#222}
+			#winLampPanel .count{font-variant-numeric:tabular-nums;color:#222}
 			#winLampPanel .lamps{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 			#winLampPanel .lamp{width:14px;height:14px;border-radius:50%;border:1px solid #222;background:#111;box-shadow:none}
 			#winLampPanel .lamp.on{background:#e53935;border-color:#8b0000;box-shadow:0 0 8px rgba(244,67,54,.9)}
 			@media (prefers-color-scheme: dark){
+				/* Slightly muted in dark mode but maintain sufficient contrast */
 				#winLampPanel .label{color:#eee}
 				#winLampPanel .count{color:#ddd}
 			}
@@ -272,10 +274,15 @@
 			const label = document.createElement('span');
 			label.className = 'label';
 			label.textContent = '当たり:';
+			// Ensure visible color even if page styles are overriding generic .label rules
+			label.style.color = '#222';
+			label.style.fontWeight = '600';
 			const count = document.createElement('span');
 			count.id = 'winLampCount';
 			count.className = 'count';
 			count.textContent = '0/6';
+			count.style.color = '#222';
+			count.style.fontVariantNumeric = 'tabular-nums';
 			const lamps = document.createElement('div');
 			lamps.id = 'winLampList';
 			lamps.className = 'lamps';

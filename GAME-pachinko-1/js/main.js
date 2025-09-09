@@ -267,6 +267,16 @@ document.addEventListener('DOMContentLoaded', () => {
 							}
 						}
 					} else if (rot.mode === 'inertial' && rot.inertial) {
+						// sleep idle rotators: skip processing if not recently active
+						try {
+							const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+							const last = Number(rot.lastActiveAt || 0);
+							const thr = Number(rot.sleepThresholdMs || 3000);
+							if (now - last > thr) {
+								// let Matter.js simulate passively; skip custom inertial updates
+								continue;
+							}
+						} catch (_) { /* no-op */ }
 						// If no spring parameters are present, treat this as physics-only inertial
 						// (we rely on Matter.js collisions and body.mass/inertia). Avoid NaN by
 						// guarding access to missing properties.
@@ -582,7 +592,9 @@ document.addEventListener('DOMContentLoaded', () => {
 				// 初期角（あれば設定）
 				try { setBodyAngleAroundPivot(body, pivot, zeroAngle + restRad); } catch (_) { /* no-op */ }
 				const inertial = { pin };
-				return { id, kind, body, mode: 'inertial', inertial, pivot, zeroAngle, enabled };
+				const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+				const rot = { id, kind, body, mode: 'inertial', inertial, pivot, zeroAngle, enabled, lastActiveAt: now, sleepThresholdMs: 3000 };
+				return rot;
 			}
 			// 3) 開始/終了角のレンジ指定（従来のプログラム回転）
 			if (rotCfg && (Number.isFinite(rotCfg.durationMs || rotCfg.duration))) {
@@ -1161,8 +1173,12 @@ document.addEventListener('DOMContentLoaded', () => {
 					let ballBody = null, rot = null;
 					if (bodyA.label === ballLabel && map.has(bodyB.id)) { ballBody = bodyA; rot = map.get(bodyB.id); }
 					else if (bodyB.label === ballLabel && map.has(bodyA.id)) { ballBody = bodyB; rot = map.get(bodyA.id); }
-					// inertial mode: rely on Matter.js collision/impulse and body.mass/inertia
-					// (custom sensitivity-based angular impulse removed)
+					// if collision involves an inertial rotator, mark it active to prevent sleeping
+					try {
+						if (rot && rot.mode === 'inertial') {
+							rot.lastActiveAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+						}
+					} catch (_) { /* no-op */ }
 				}
 			} catch (_) { /* no-op */ }
 
