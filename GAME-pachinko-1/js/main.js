@@ -21,6 +21,38 @@ document.addEventListener('DOMContentLoaded', () => {
 	// Matter.jsの主要モジュールを取得
 	const { Engine, Render, Runner, World, Events, Body, Constraint } = Matter;
 
+	// -------------------------
+	// 小さなユーティリティ群（リファクタリング用）
+	// -------------------------
+	/** 安全に関数を実行するヘルパー（例外を無視） */
+	function safeCall(fn) { try { return fn(); } catch (_) { /* no-op */ } }
+
+	/** clamp helper */
+	function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+	/** map range helper: t in [0,1] -> [a,b] */
+	function mapRange(t, a, b) { return a + (b - a) * t; }
+
+	/** スライダー値(0..100)から速度(px/s)を算出する共通関数 */
+	function computeSpeedFromSlider(sliderValue) {
+		const { minSpeed = 5, maxSpeed = 400, speedScale = 1 } = GAME_CONFIG.launch || {};
+		const v = clamp(Number(sliderValue || 0), 0, 100) / 100;
+		return (minSpeed + v * (maxSpeed - minSpeed)) * speedScale;
+	}
+
+	/** パーティクル色選定を共通化するヘルパー
+	 * cfg may have .mode/.particleMode and .color/.particleColor
+	 */
+	function pickParticleColor(cfg, ballBody) {
+		try {
+			if (!cfg) return undefined;
+			const mode = cfg.mode || cfg.particleMode;
+			if (mode === 'custom') return cfg.color || cfg.particleColor || undefined;
+			if (mode === 'ball') return (ballBody && ballBody.render && ballBody.render.fillStyle) ? ballBody.render.fillStyle : undefined;
+		} catch (_) { /* no-op */ }
+		return undefined;
+	}
+
 
 	// If this sensor is configured to trigger the embedded slot, start it
 	try {
@@ -902,9 +934,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (!launchArrow) return; // arrow removed via CSS/HTML — no-op
 		const angle = Number(angleSlider?.value ?? GAME_CONFIG.launch?.defaultAngle ?? 90);
 		const sliderValue = Number(speedSlider.value);
-		// map slider 0..100 -> px/s using config min/max and speedScale
-		const { minSpeed = 5, maxSpeed = 400, speedScale = 1 } = GAME_CONFIG.launch || {};
-		const speed = (minSpeed + (sliderValue / 100) * (maxSpeed - minSpeed)) * speedScale;
+		const speed = computeSpeedFromSlider(sliderValue);
 		const decimals = Number.isFinite(GAME_CONFIG.launch?.speedPrecision)
 			? Math.max(0, Math.min(3, Number(GAME_CONFIG.launch.speedPrecision)))
 			: 1;
@@ -1053,9 +1083,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			angleDeg += randomAngleOffset;
 		}
 		const sliderValue = Number(speedSlider.value || 0);
-		const { minSpeed = 5, maxSpeed = 400, speedScale = 1 } = GAME_CONFIG.launch || {};
-		const baseSpeed = minSpeed + (sliderValue / 100) * (maxSpeed - minSpeed);
-		const speedPxPerSec = baseSpeed * speedScale;
+		const speedPxPerSec = computeSpeedFromSlider(sliderValue);
 		const angleRad = angleDeg * Math.PI / 180;
 		const velocity = { x: Math.cos(angleRad) * speedPxPerSec, y: -Math.sin(angleRad) * speedPxPerSec };
 		const ball = createBall(start.x, start.y);
@@ -1196,12 +1224,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				if (!ballBody) return;
 				try {
 					if (particleCfg.enabled && typeof createParticleBurst === 'function') {
-						let pColor;
-						switch (particleCfg.mode) {
-							case 'custom': pColor = particleCfg.color || undefined; break;
-							case 'ball': pColor = (ballBody.render && ballBody.render.fillStyle) || undefined; break;
-							default: pColor = undefined; // default style in createParticleBurst
-						}
+						const pColor = pickParticleColor(particleCfg, ballBody);
 						const cnt = Number.isFinite(particleCfg.count) ? particleCfg.count : 12;
 						const life = Number.isFinite(particleCfg.lifeMs) ? particleCfg.lifeMs : 700;
 						createParticleBurst(world, ballBody.position.x, ballBody.position.y, pColor, cnt, life);
@@ -1299,10 +1322,7 @@ document.addEventListener('DOMContentLoaded', () => {
 								if (typeof createParticleBurst === 'function') {
 									try {
 										const cfgEntry = GAME_CONFIG.sensorCounters.counters[counterId] || {};
-										let pColor;
-										if (cfgEntry.particleMode === 'custom' && cfgEntry.particleColor) pColor = cfgEntry.particleColor;
-										else if (cfgEntry.particleMode === 'ball') pColor = (ballBody.render && ballBody.render.fillStyle) ? ballBody.render.fillStyle : undefined;
-										else pColor = undefined; // default styling handled by createParticleBurst
+										const pColor = pickParticleColor(cfgEntry, ballBody);
 										createParticleBurst(world, ballBody.position.x, ballBody.position.y, pColor, 12, 700);
 									} catch (_) { /* no-op */ }
 								}
@@ -1337,10 +1357,7 @@ document.addEventListener('DOMContentLoaded', () => {
 									if (typeof createParticleBurst === 'function') {
 										try {
 											const cfgEntry = GAME_CONFIG.sensorCounters.counters[counterId] || {};
-											let pColor;
-											if (cfgEntry.particleMode === 'custom' && cfgEntry.particleColor) pColor = cfgEntry.particleColor;
-											else if (cfgEntry.particleMode === 'ball') pColor = (ballBody.render && ballBody.render.fillStyle) ? ballBody.render.fillStyle : undefined;
-											else pColor = undefined;
+											const pColor = pickParticleColor(cfgEntry, ballBody);
 											createParticleBurst(world, ballBody.position.x, ballBody.position.y, pColor, 12, 700);
 										} catch (_) { /* no-op */ }
 									}
