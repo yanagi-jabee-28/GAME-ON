@@ -1,86 +1,97 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>沼 - 三段クルーンゲーム</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #1a1a1a;
-            color: white;
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-        }
-        #info-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            padding: 20px;
-            box-sizing: border-box;
-            text-align: center;
-            pointer-events: none; /* UIが3D操作を妨げないようにする */
-        }
-        #controls {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 10px;
-        }
-        button {
-            background-color: #c0392b;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.3s, transform 0.1s;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-        }
-        button:hover {
-            background-color: #e74c3c;
-        }
-        button:active {
-            transform: translateY(2px);
-            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
-        }
-        #message-box {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.8);
-            padding: 40px;
-            border-radius: 15px;
-            font-size: 48px;
-            font-weight: bold;
-            color: #f1c40f;
-            display: none; /* 最初は非表示 */
-            text-shadow: 2px 2px 4px #000;
-            border: 3px solid #f1c40f;
-        }
-    </style>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>沼 - 三段クルーンゲーム</title>
+	<!-- TailwindCSS開発環境用 - 本番では適切なビルドプロセスを使用してください -->
+	<script src="https://cdn.tailwindcss.com"></script>
+	<style>
+		body {
+			margin: 0;
+			overflow: hidden;
+			background-color: #1a1a1a;
+			color: white;
+			font-family: 'Helvetica Neue', Arial, sans-serif;
+		}
+
+		#info-container {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			padding: 20px;
+			box-sizing: border-box;
+			text-align: center;
+			pointer-events: none;
+			/* UIが3D操作を妨げないようにする */
+		}
+
+		#controls {
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			display: flex;
+			gap: 10px;
+		}
+
+		button {
+			background-color: #c0392b;
+			color: white;
+			border: none;
+			padding: 12px 24px;
+			border-radius: 8px;
+			font-size: 16px;
+			font-weight: bold;
+			cursor: pointer;
+			transition: background-color 0.3s, transform 0.1s;
+			box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+		}
+
+		button:hover {
+			background-color: #e74c3c;
+		}
+
+		button:active {
+			transform: translateY(2px);
+			box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
+		}
+
+		#message-box {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			background-color: rgba(0, 0, 0, 0.8);
+			padding: 40px;
+			border-radius: 15px;
+			font-size: 48px;
+			font-weight: bold;
+			color: #f1c40f;
+			display: none;
+			/* 最初は非表示 */
+			text-shadow: 2px 2px 4px #000;
+			border: 3px solid #f1c40f;
+		}
+	</style>
 </head>
+
 <body>
 
-    <div id="info-container" class="text-white">
-        <h1 class="text-4xl font-bold mb-2 text-red-500" style="text-shadow: 2px 2px 4px #000;">沼</h1>
-        <p class="text-lg">マウスドラッグで視点操作、スクロールでズーム</p>
-    </div>
+	<div id="info-container" class="text-white">
+		<h1 class="text-4xl font-bold mb-2 text-red-500" style="text-shadow: 2px 2px 4px #000;">沼</h1>
+		<p class="text-lg">マウスドラッグで視点操作、スクロールでズーム</p>
+	</div>
 
-    <div id="controls">
-        <button id="add-ball-btn">玉を発射</button>
-    </div>
+	<div id="controls">
+		<button id="add-ball-btn">玉を発射</button>
+	</div>
 
-    <div id="message-box">大当たり！</div>
+	<div id="message-box">大当たり！</div>
 
-    <script type="importmap">
+	<script type="importmap">
         {
             "imports": {
                 "three": "https://cdn.jsdelivr.net/npm/three@0.164.0/build/three.module.js",
@@ -89,275 +100,337 @@
             }
         }
     </script>
-    <script type="module">
-        import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import * as CANNON from 'cannon-es';
+	<script type="module">
+		import * as THREE from 'three';
+		import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+		import * as CANNON from 'cannon-es';
 
-        // --- 基本設定 ---
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 30, 25);
+		// --- 基本設定 ---
+		const scene = new THREE.Scene();
+		const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+		camera.position.set(0, 30, 25);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        document.body.appendChild(renderer.domElement);
+		const renderer = new THREE.WebGLRenderer({ antialias: true });
+		renderer.setSize(window.innerWidth, window.innerHeight);
+		renderer.setPixelRatio(window.devicePixelRatio);
+		renderer.shadowMap.enabled = true;
+		renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+		document.body.appendChild(renderer.domElement);
 
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
+		const controls = new OrbitControls(camera, renderer.domElement);
+		controls.enableDamping = true;
 
-        // --- ライティング ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        scene.add(ambientLight);
+		// --- ライティング ---
+		const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+		scene.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        directionalLight.position.set(10, 20, 5);
-        directionalLight.castShadow = true;
-        directionalLight.shadow.mapSize.width = 2048;
-        directionalLight.shadow.mapSize.height = 2048;
-        directionalLight.shadow.camera.near = 1;
-        directionalLight.shadow.camera.far = 60;
-        directionalLight.shadow.camera.left = -15;
-        directionalLight.shadow.camera.right = 15;
-        directionalLight.shadow.camera.top = 15;
-        directionalLight.shadow.camera.bottom = -15;
-        directionalLight.shadow.bias = -0.0005;
-        directionalLight.shadow.normalBias = 0.02; 
-        scene.add(directionalLight);
+		const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+		directionalLight.position.set(10, 20, 5);
+		directionalLight.castShadow = true;
+		directionalLight.shadow.mapSize.width = 2048;
+		directionalLight.shadow.mapSize.height = 2048;
+		directionalLight.shadow.camera.near = 1;
+		directionalLight.shadow.camera.far = 60;
+		directionalLight.shadow.camera.left = -15;
+		directionalLight.shadow.camera.right = 15;
+		directionalLight.shadow.camera.top = 15;
+		directionalLight.shadow.camera.bottom = -15;
+		directionalLight.shadow.bias = -0.0005;
+		directionalLight.shadow.normalBias = 0.02;
+		scene.add(directionalLight);
 
-        // --- 物理ワールド ---
-        const world = new CANNON.World({
-            gravity: new CANNON.Vec3(0, -30, 0),
-        });
+		// --- 物理ワールド ---
+		const world = new CANNON.World({
+			gravity: new CANNON.Vec3(0, -30, 0),
+		});
 
-        // --- マテリアル ---
-        const ballMaterial = new CANNON.Material('ballMaterial');
-        const wallMaterial = new CANNON.Material('wallMaterial');
-        const groundMaterial = new CANNON.Material('groundMaterial');
+		// 物理シミュレーションの安定性を向上
+		world.defaultContactMaterial.contactEquationStiffness = 1e6; // より低い値で安定性向上
+		world.defaultContactMaterial.contactEquationRelaxation = 4;
+		world.solver.iterations = 10; // 反復回数を下げて計算負荷を軽減
+		world.solver.tolerance = 0.001;
 
-        const ballWallContactMaterial = new CANNON.ContactMaterial(ballMaterial, wallMaterial, {
-            friction: 0.1,
-            restitution: 0.3,
-        });
-        world.addContactMaterial(ballWallContactMaterial);
-        
-        const ballGroundContactMaterial = new CANNON.ContactMaterial(ballMaterial, groundMaterial, {
-            friction: 0.2,
-            restitution: 0.1, // 反発係数を下げて弾みを抑える
-        });
-        world.addContactMaterial(ballGroundContactMaterial);
+		// --- マテリアル ---
+		const ballMaterial = new CANNON.Material('ballMaterial');
+		const wallMaterial = new CANNON.Material('wallMaterial');
+		const groundMaterial = new CANNON.Material('groundMaterial');
 
-        // --- 削除予定のオブジェクトを管理する配列 ---
-        const objectsToRemove = [];
+		const ballWallContactMaterial = new CANNON.ContactMaterial(ballMaterial, wallMaterial, {
+			friction: 0.4,
+			restitution: 0.3,
+			contactEquationStiffness: 1e6,
+		});
+		world.addContactMaterial(ballWallContactMaterial);
 
-        // --- クルーンの作成 ---
-        const cruunRadius = 10;
-        const cruunThickness = 0.2;
-        const holeRadius = 0.8;
-        const numHoles = 10;
-        const cruunYPositions = [15, 7.5, 0];
+		const ballGroundContactMaterial = new CANNON.ContactMaterial(ballMaterial, groundMaterial, {
+			friction: 0.6,
+			restitution: 0.1, // 反発係数を下げて弾みを抑える
+			contactEquationStiffness: 1e6,
+		});
+		world.addContactMaterial(ballGroundContactMaterial);
 
-        cruunYPositions.forEach((yPos, index) => {
-            createCruun(new THREE.Vector3(0, yPos, 0), index);
-        });
-        
-        function createCruun(position, stageIndex) {
-            const cruunGroup = new THREE.Group();
-            scene.add(cruunGroup);
+		// --- 削除予定のオブジェクトを管理する配列 ---
+		const objectsToRemove = [];
 
-            const tiltAngle = -Math.PI / 6;
+		// --- クルーンの作成 ---
+		const cruunRadius = 10;
+		const cruunThickness = 0.2;
+		const holeRadius = 0.8;
+		const numHoles = 10;
+		const cruunYPositions = [15, 7.5, 0];
 
-            const holePositions = [];
-            for (let i = 0; i < numHoles; i++) {
-                const angle = (i / numHoles) * Math.PI * 2;
-                const holeX = Math.cos(angle) * (cruunRadius * 0.65);
-                const holeZ = Math.sin(angle) * (cruunRadius * 0.65);
-                holePositions.push({x: holeX, z: holeZ});
-            }
+		cruunYPositions.forEach((yPos, index) => {
+			createCruun(new THREE.Vector3(0, yPos, 0), index);
+		});
 
-            // 1. Create the visual mesh (見た目用のモデル)
-            const cruunShape = new THREE.Shape();
-            cruunShape.absarc(0, 0, cruunRadius, 0, Math.PI * 2, false);
-            const holeShapes = [];
-            for (const holePos of holePositions) {
-                const holePath = new THREE.Path();
-                holePath.absarc(holePos.x, holePos.z, holeRadius, 0, Math.PI * 2, true);
-                holeShapes.push(holePath);
-            }
-            cruunShape.holes = holeShapes;
-            
-            const extrudeSettings = { depth: cruunThickness, bevelEnabled: false };
-            const geometry = new THREE.ExtrudeGeometry(cruunShape, extrudeSettings);
-            const material = new THREE.MeshPhongMaterial({ color: '#888888', shininess: 10, specular: '#222222', side: THREE.DoubleSide });
-            const cruunMesh = new THREE.Mesh(geometry, material);
-            cruunMesh.castShadow = true;
-            cruunMesh.receiveShadow = true;
-            cruunMesh.rotation.x = -Math.PI / 2;
-            cruunGroup.add(cruunMesh);
+		function createCruun(position, stageIndex) {
+			const cruunGroup = new THREE.Group();
+			scene.add(cruunGroup);
 
-            // 2. Create the physics body using a Heightfield (物理挙動用のモデル)
-            const matrixSize = 128; // 解像度
-            const heightData = [];
-            const elementSize = (cruunRadius * 2) / (matrixSize - 1);
-            for (let i = 0; i < matrixSize; i++) {
-                heightData.push([]);
-                for (let j = 0; j < matrixSize; j++) {
-                    const x = (j - (matrixSize - 1) / 2) * elementSize;
-                    const z = (i - (matrixSize - 1) / 2) * elementSize;
-                    const dist = Math.sqrt(x * x + z * z);
-                    
-                    let height = 0; // 平らな円盤の表面
+			const tiltAngle = -Math.PI / 6;
+			const tiltQuaternion = new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(1, 0, 0), tiltAngle);
 
-                    let inHole = false;
-                    for(const holePos of holePositions) {
-                        const holeDist = Math.sqrt(Math.pow(x - holePos.x, 2) + Math.pow(z - holePos.z, 2));
-                        if (holeDist < holeRadius) {
-                            inHole = true;
-                            break;
-                        }
-                    }
-                    
-                    if (dist > cruunRadius || inHole) {
-                        height = -10; // 穴や範囲外は物理的に存在しない深い谷
-                    }
-                    heightData[i].push(height);
-                }
-            }
-            const heightfieldShape = new CANNON.Heightfield(heightData, { elementSize });
-            const cruunBody = new CANNON.Body({ mass: 0, material: groundMaterial });
-            // HeightfieldはXY平面に作られるため、XZ平面に寝かせる回転が必要
-            const hfRotation = new CANNON.Quaternion().setFromEuler(-Math.PI / 2, 0, 0);
-            // Heightfieldの中心が原点に来るようにオフセットを計算
-            const hfOffset = new CANNON.Vec3(-matrixSize * elementSize * 0.5, -cruunThickness * 0.5, matrixSize * elementSize * 0.5);
-            cruunBody.addShape(heightfieldShape, hfOffset, hfRotation);
-            world.addBody(cruunBody);
+			const holePositions = [];
+			for (let i = 0; i < numHoles; i++) {
+				const angle = (i / numHoles) * Math.PI * 2;
+				const holeX = Math.cos(angle) * (cruunRadius * 0.65);
+				const holeZ = Math.sin(angle) * (cruunRadius * 0.65);
+				holePositions.push({ x: holeX, z: holeZ });
+			}
 
-            // 3. 外壁 (物理ボディのみ)
-            const outerWallBody = new CANNON.Body({ mass: 0, material: wallMaterial });
-            outerWallBody.addShape(new CANNON.Cylinder(cruunRadius, cruunRadius, 2, 32));
-            world.addBody(outerWallBody);
-            
-            // 4. Position and tilt everything
-            cruunGroup.position.copy(position);
-            cruunBody.position.copy(position);
-            outerWallBody.position.copy(position);
+			// 1. Create the visual mesh (見た目用のモデル)
+			const cruunShape = new THREE.Shape();
+			cruunShape.absarc(0, 0, cruunRadius, 0, Math.PI * 2, false);
+			const holeShapes = [];
+			for (const holePos of holePositions) {
+				const holePath = new THREE.Path();
+				holePath.absarc(holePos.x, holePos.z, holeRadius, 0, Math.PI * 2, true);
+				holeShapes.push(holePath);
+			}
+			cruunShape.holes = holeShapes;
 
-            const tiltQuaternion = new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(1, 0, 0), tiltAngle);
-            
-            cruunGroup.quaternion.copy(tiltQuaternion);
-            cruunBody.quaternion.copy(tiltQuaternion);
-            outerWallBody.quaternion.copy(tiltQuaternion);
+			const extrudeSettings = { depth: cruunThickness, bevelEnabled: false };
+			const geometry = new THREE.ExtrudeGeometry(cruunShape, extrudeSettings);
+			const material = new THREE.MeshPhongMaterial({ color: '#888888', shininess: 10, specular: '#222222', side: THREE.DoubleSide });
+			const cruunMesh = new THREE.Mesh(geometry, material);
+			cruunMesh.castShadow = true;
+			cruunMesh.receiveShadow = true;
+			cruunMesh.rotation.x = -Math.PI / 2;
+			cruunGroup.add(cruunMesh);
 
-            // 5. 当たり判定用のトリガーを設置
-            for (let i = 0; i < holePositions.length; i++) {
-                const holePos = holePositions[i];
-                const triggerShape = new CANNON.Cylinder(holeRadius, holeRadius, 2, 24); // Tall cylinder
-                const triggerBody = new CANNON.Body({ isTrigger: true, mass: 0 });
-                triggerBody.addShape(triggerShape);
-                
-                const localHolePos = new CANNON.Vec3(holePos.x, 0, holePos.z);
-                const rotatedHolePos = tiltQuaternion.vmult(localHolePos);
-                triggerBody.position.copy(position).vadd(rotatedHolePos, triggerBody.position);
-                
-                const alignQuaternion = new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
-                triggerBody.quaternion.copy(tiltQuaternion).mult(alignQuaternion, triggerBody.quaternion);
+			// 2. Create the physics body using box segments (より確実な物理ボディ)
+			const cruunBody = new CANNON.Body({ mass: 0, material: groundMaterial });
 
-                world.addBody(triggerBody);
-                
-                const isWinHole = (i === 0);
-                triggerBody.addEventListener('collide', (event) => {
-                    const ballBody = event.body;
-                    if (ballBody.isBall) {
-                        const alreadyMarked = objectsToRemove.some(item => item.body === ballBody);
-                        if (!alreadyMarked) {
-                            objectsToRemove.push({ body: ballBody, mesh: ballBody.mesh });
-                            if (isWinHole) {
-                                if (stageIndex < cruunYPositions.length - 1) {
-                                    addBall(cruunYPositions[stageIndex + 1] + 5);
-                                } else {
-                                    showWinMessage();
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        }
+			// 円形のクルーンを放射状のセグメントで構成
+			const radialSegments = 32;
+			const ringSegments = 8;
 
-        // --- パチンコ玉 ---
-        const balls = [];
-        const ballRadius = 0.4;
-        const ballGeometry = new THREE.SphereGeometry(ballRadius, 32, 32);
-        const ballThreeMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.5, roughness: 0.1 });
+			for (let ring = 0; ring < ringSegments; ring++) {
+				const innerRadius = (ring / ringSegments) * cruunRadius;
+				const outerRadius = ((ring + 1) / ringSegments) * cruunRadius;
+				const midRadius = (innerRadius + outerRadius) / 2;
+				const ringWidth = outerRadius - innerRadius;
 
-        function addBall(startY = 22) {
-            const ballMesh = new THREE.Mesh(ballGeometry, ballThreeMaterial);
-            ballMesh.castShadow = true;
-            ballMesh.receiveShadow = true;
-            scene.add(ballMesh);
+				for (let segment = 0; segment < radialSegments; segment++) {
+					const angle = (segment / radialSegments) * Math.PI * 2;
+					const nextAngle = ((segment + 1) / radialSegments) * Math.PI * 2;
+					const midAngle = (angle + nextAngle) / 2;
 
-            const ballBody = new CANNON.Body({ mass: 1, shape: new CANNON.Sphere(ballRadius), material: ballMaterial });
-            const randomX = (Math.random() - 0.5) * 5;
-            const randomZ = (Math.random() - 0.5) * 5;
-            ballBody.position.set(randomX, startY, randomZ);
-            world.addBody(ballBody);
-            
-            ballBody.isBall = true;
-            ballBody.mesh = ballMesh;
-            balls.push({ mesh: ballMesh, body: ballBody });
-        }
-        
-        document.getElementById('add-ball-btn').addEventListener('click', () => addBall());
+					const segmentX = Math.cos(midAngle) * midRadius;
+					const segmentZ = Math.sin(midAngle) * midRadius;
 
-        // --- 大当たりメッセージ ---
-        const messageBox = document.getElementById('message-box');
-        function showWinMessage() {
-            messageBox.style.display = 'block';
-            setTimeout(() => { messageBox.style.display = 'none'; }, 3000);
-        }
+					// この位置が穴の中にあるかチェック
+					let inHole = false;
+					for (const holePos of holePositions) {
+						const holeDist = Math.sqrt(Math.pow(segmentX - holePos.x, 2) + Math.pow(segmentZ - holePos.z, 2));
+						if (holeDist < holeRadius) {
+							inHole = true;
+							break;
+						}
+					}
 
-        // --- アニメーションループ ---
-        const clock = new THREE.Clock();
-        function animate() {
-            requestAnimationFrame(animate);
-            const deltaTime = clock.getDelta();
-            world.step(1 / 60, deltaTime, 3);
+					// 穴の中でなければボックスを配置
+					if (!inHole && midRadius < cruunRadius) {
+						const segmentWidth = (midRadius > 0) ? (Math.PI * 2 * midRadius) / radialSegments : ringWidth;
+						const boxShape = new CANNON.Box(new CANNON.Vec3(
+							Math.min(segmentWidth / 2, ringWidth / 2),
+							cruunThickness / 2,
+							ringWidth / 2
+						));
+						cruunBody.addShape(boxShape, new CANNON.Vec3(segmentX, 0, segmentZ));
+					}
+				}
+			}
 
-            while(objectsToRemove.length > 0) {
-                const item = objectsToRemove.pop();
-                world.removeBody(item.body);
-                scene.remove(item.mesh);
-                const ballIndex = balls.findIndex(b => b.body === item.body);
-                if(ballIndex > -1) { balls.splice(ballIndex, 1); }
-            }
-            
-            balls.forEach(ball => {
-                ball.mesh.position.copy(ball.body.position);
-                ball.mesh.quaternion.copy(ball.body.quaternion);
-                if (ball.body.position.y < -10) {
-                    const alreadyMarked = objectsToRemove.some(item => item.body === ball.body);
-                    if (!alreadyMarked) { objectsToRemove.push({ body: ball.body, mesh: ball.mesh }); }
-                }
-            });
-            
-            controls.update();
-            renderer.render(scene, camera);
-        }
+			world.addBody(cruunBody);
 
-        // --- ウィンドウリサイズ対応 ---
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+			// 3. 外壁 (物理ボディのみ) - 円筒形の薄い壁を作成
+			const wallHeight = cruunThickness + 2; // 壁の高さ
+			const wallThickness = 0.5; // 壁の厚さ
+			const numWallSegments = 16; // 壁のセグメント数
 
-        // --- 初期化 ---
-        animate();
-        addBall();
-    </script>
+			// 外壁を複数のボックスで構成してより正確な円形にする
+			for (let i = 0; i < numWallSegments; i++) {
+				const angle = (i / numWallSegments) * Math.PI * 2;
+				const wallX = Math.cos(angle) * cruunRadius;
+				const wallZ = Math.sin(angle) * cruunRadius;
+
+				const wallBody = new CANNON.Body({ mass: 0, material: wallMaterial });
+				const wallShape = new CANNON.Box(new CANNON.Vec3(wallThickness / 2, wallHeight / 2, wallThickness / 2));
+				wallBody.addShape(wallShape);
+
+				// 外壁も同じように傾斜をつける
+				const localWallPos = new CANNON.Vec3(wallX, 0, wallZ);
+				const rotatedWallPos = tiltQuaternion.vmult(localWallPos);
+				wallBody.position.copy(position).vadd(rotatedWallPos, wallBody.position);
+				wallBody.quaternion.copy(tiltQuaternion);
+
+				world.addBody(wallBody);
+			}
+
+			// 4. Position and tilt everything
+			cruunGroup.position.copy(position);
+			cruunBody.position.copy(position);
+
+			cruunGroup.quaternion.copy(tiltQuaternion);
+			cruunBody.quaternion.copy(tiltQuaternion);
+
+			// 5. 穴の周りに落下ガイド（斜面）を追加
+			for (const holePos of holePositions) {
+				const guideSegments = 8;
+				for (let g = 0; g < guideSegments; g++) {
+					const guideAngle = (g / guideSegments) * Math.PI * 2;
+					const guideDistance = holeRadius * 1.5;
+					const guideX = holePos.x + Math.cos(guideAngle) * guideDistance;
+					const guideZ = holePos.z + Math.sin(guideAngle) * guideDistance;
+
+					// 斜面の角度を穴に向ける
+					const toHoleX = holePos.x - guideX;
+					const toHoleZ = holePos.z - guideZ;
+					const angleToHole = Math.atan2(toHoleZ, toHoleX);
+
+					const guideShape = new CANNON.Box(new CANNON.Vec3(0.2, cruunThickness / 4, 0.2));
+					const guideRotation = new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angleToHole);
+					guideRotation.mult(new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 8), guideRotation); // 少し傾ける
+
+					cruunBody.addShape(guideShape, new CANNON.Vec3(guideX, -cruunThickness / 4, guideZ), guideRotation);
+				}
+			}
+
+			// 6. 当たり判定用のトリガーを設置（より大きく、より確実に）
+			for (let i = 0; i < holePositions.length; i++) {
+				const holePos = holePositions[i];
+				const triggerShape = new CANNON.Cylinder(holeRadius * 1.2, holeRadius * 1.2, 5, 16); // より大きく
+				const triggerBody = new CANNON.Body({ isTrigger: true, mass: 0 });
+				triggerBody.addShape(triggerShape);
+
+				// トリガーの位置を正確に計算
+				const localHolePos = new CANNON.Vec3(holePos.x, -1, holePos.z); // 少し下に配置
+				const rotatedHolePos = tiltQuaternion.vmult(localHolePos);
+				triggerBody.position.copy(position).vadd(rotatedHolePos, triggerBody.position);
+
+				// トリガーの回転も合わせる
+				triggerBody.quaternion.copy(tiltQuaternion);
+
+				world.addBody(triggerBody);
+
+				const isWinHole = (i === 0);
+				triggerBody.addEventListener('collide', (event) => {
+					const ballBody = event.body;
+					if (ballBody.isBall) {
+						const alreadyMarked = objectsToRemove.some(item => item.body === ballBody);
+						if (!alreadyMarked) {
+							objectsToRemove.push({ body: ballBody, mesh: ballBody.mesh });
+							if (isWinHole) {
+								if (stageIndex < cruunYPositions.length - 1) {
+									addBall(cruunYPositions[stageIndex + 1] + 5);
+								} else {
+									showWinMessage();
+								}
+							}
+						}
+					}
+				});
+			}
+		}
+
+		// --- パチンコ玉 ---
+		const balls = [];
+		const ballRadius = 0.4;
+		const ballGeometry = new THREE.SphereGeometry(ballRadius, 32, 32);
+		const ballThreeMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.5, roughness: 0.1 });
+
+		function addBall(startY = 22) {
+			const ballMesh = new THREE.Mesh(ballGeometry, ballThreeMaterial);
+			ballMesh.castShadow = true;
+			ballMesh.receiveShadow = true;
+			scene.add(ballMesh);
+
+			const ballBody = new CANNON.Body({
+				mass: 1,
+				shape: new CANNON.Sphere(ballRadius),
+				material: ballMaterial,
+				linearDamping: 0.1, // 線形減衰を追加
+				angularDamping: 0.1 // 角減衰を追加
+			});
+			const randomX = (Math.random() - 0.5) * 3; // 範囲を狭める
+			const randomZ = (Math.random() - 0.5) * 3;
+			ballBody.position.set(randomX, startY, randomZ);
+			world.addBody(ballBody);
+
+			ballBody.isBall = true;
+			ballBody.mesh = ballMesh;
+			balls.push({ mesh: ballMesh, body: ballBody });
+		}
+
+		document.getElementById('add-ball-btn').addEventListener('click', () => addBall());
+
+		// --- 大当たりメッセージ ---
+		const messageBox = document.getElementById('message-box');
+		function showWinMessage() {
+			messageBox.style.display = 'block';
+			setTimeout(() => { messageBox.style.display = 'none'; }, 3000);
+		}
+
+		// --- アニメーションループ ---
+		const clock = new THREE.Clock();
+		function animate() {
+			requestAnimationFrame(animate);
+			const deltaTime = Math.min(clock.getDelta(), 0.016); // 60FPSに制限
+			world.step(1 / 60, deltaTime, 3); // 標準的な設定に戻す
+
+			while (objectsToRemove.length > 0) {
+				const item = objectsToRemove.pop();
+				world.removeBody(item.body);
+				scene.remove(item.mesh);
+				const ballIndex = balls.findIndex(b => b.body === item.body);
+				if (ballIndex > -1) { balls.splice(ballIndex, 1); }
+			}
+
+			balls.forEach(ball => {
+				ball.mesh.position.copy(ball.body.position);
+				ball.mesh.quaternion.copy(ball.body.quaternion);
+				if (ball.body.position.y < -10) {
+					const alreadyMarked = objectsToRemove.some(item => item.body === ball.body);
+					if (!alreadyMarked) { objectsToRemove.push({ body: ball.body, mesh: ball.mesh }); }
+				}
+			});
+
+			controls.update();
+			renderer.render(scene, camera);
+		}
+
+		// --- ウィンドウリサイズ対応 ---
+		window.addEventListener('resize', () => {
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+			renderer.setSize(window.innerWidth, window.innerHeight);
+		});
+
+		// --- 初期化 ---
+		animate();
+		addBall();
+	</script>
 </body>
-</html>
 
+</html>
