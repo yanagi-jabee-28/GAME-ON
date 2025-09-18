@@ -145,10 +145,10 @@
 		});
 
 		// 物理シミュレーションの安定性を向上
-		world.defaultContactMaterial.contactEquationStiffness = 1e6; // より低い値で安定性向上
-		world.defaultContactMaterial.contactEquationRelaxation = 4;
-		world.solver.iterations = 10; // 反復回数を下げて計算負荷を軽減
-		world.solver.tolerance = 0.001;
+		world.defaultContactMaterial.contactEquationStiffness = 1e7;
+		world.defaultContactMaterial.contactEquationRelaxation = 3;
+		world.solver.iterations = 10;
+		world.solver.tolerance = 0.01;
 
 		// --- マテリアル ---
 		const ballMaterial = new CANNON.Material('ballMaterial');
@@ -156,16 +156,16 @@
 		const groundMaterial = new CANNON.Material('groundMaterial');
 
 		const ballWallContactMaterial = new CANNON.ContactMaterial(ballMaterial, wallMaterial, {
-			friction: 0.4,
-			restitution: 0.3,
-			contactEquationStiffness: 1e6,
+			friction: 0.2,
+			restitution: 0.4,
+			contactEquationStiffness: 1e7,
 		});
 		world.addContactMaterial(ballWallContactMaterial);
 
 		const ballGroundContactMaterial = new CANNON.ContactMaterial(ballMaterial, groundMaterial, {
-			friction: 0.6,
-			restitution: 0.1, // 反発係数を下げて弾みを抑える
-			contactEquationStiffness: 1e6,
+			friction: 0.4,
+			restitution: 0.2,
+			contactEquationStiffness: 1e7,
 		});
 		world.addContactMaterial(ballGroundContactMaterial);
 
@@ -218,53 +218,36 @@
 			cruunMesh.rotation.x = -Math.PI / 2;
 			cruunGroup.add(cruunMesh);
 
-			// 2. Create the physics body using box segments (より確実な物理ボディ)
+			// 2. Create the physics body using simple plane (シンプルで確実な物理ボディ)
 			const cruunBody = new CANNON.Body({ mass: 0, material: groundMaterial });
 
-			// 円形のクルーンを放射状のセグメントで構成
-			const radialSegments = 32;
-			const ringSegments = 8;
+			// 基本的な円盤を作成（穴は後でトリガーで処理）
+			const diskRadius = cruunRadius;
+			const diskThickness = cruunThickness;
 
-			for (let ring = 0; ring < ringSegments; ring++) {
-				const innerRadius = (ring / ringSegments) * cruunRadius;
-				const outerRadius = ((ring + 1) / ringSegments) * cruunRadius;
-				const midRadius = (innerRadius + outerRadius) / 2;
-				const ringWidth = outerRadius - innerRadius;
+			// 円盤を複数の薄いボックスで構成（より安定）
+			const numSegments = 16;
+			for (let i = 0; i < numSegments; i++) {
+				const angle = (i / numSegments) * Math.PI * 2;
+				const segmentLength = (Math.PI * 2 * diskRadius) / numSegments;
+				const segmentX = Math.cos(angle) * diskRadius * 0.7; // 少し内側に配置
+				const segmentZ = Math.sin(angle) * diskRadius * 0.7;
 
-				for (let segment = 0; segment < radialSegments; segment++) {
-					const angle = (segment / radialSegments) * Math.PI * 2;
-					const nextAngle = ((segment + 1) / radialSegments) * Math.PI * 2;
-					const midAngle = (angle + nextAngle) / 2;
+				const segmentShape = new CANNON.Box(new CANNON.Vec3(
+					segmentLength / 4,
+					diskThickness / 2,
+					diskRadius * 0.4
+				));
 
-					const segmentX = Math.cos(midAngle) * midRadius;
-					const segmentZ = Math.sin(midAngle) * midRadius;
-
-					// この位置が穴の中にあるかチェック
-					let inHole = false;
-					for (const holePos of holePositions) {
-						const holeDist = Math.sqrt(Math.pow(segmentX - holePos.x, 2) + Math.pow(segmentZ - holePos.z, 2));
-						if (holeDist < holeRadius) {
-							inHole = true;
-							break;
-						}
-					}
-
-					// 穴の中でなければボックスを配置
-					if (!inHole && midRadius < cruunRadius) {
-						const segmentWidth = (midRadius > 0) ? (Math.PI * 2 * midRadius) / radialSegments : ringWidth;
-						const boxShape = new CANNON.Box(new CANNON.Vec3(
-							Math.min(segmentWidth / 2, ringWidth / 2),
-							cruunThickness / 2,
-							ringWidth / 2
-						));
-						cruunBody.addShape(boxShape, new CANNON.Vec3(segmentX, 0, segmentZ));
-					}
-				}
+				const segmentRotation = new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angle);
+				cruunBody.addShape(segmentShape, new CANNON.Vec3(segmentX, 0, segmentZ), segmentRotation);
 			}
 
-			world.addBody(cruunBody);
+			// 中央部分も追加（より確実な接触面を提供）
+			const centerShape = new CANNON.Cylinder(diskRadius * 0.6, diskRadius * 0.6, diskThickness, 16);
+			cruunBody.addShape(centerShape);
 
-			// 3. 外壁 (物理ボディのみ) - 円筒形の薄い壁を作成
+			world.addBody(cruunBody);			// 3. 外壁 (物理ボディのみ) - 円筒形の薄い壁を作成
 			const wallHeight = cruunThickness + 2; // 壁の高さ
 			const wallThickness = 0.5; // 壁の厚さ
 			const numWallSegments = 16; // 壁のセグメント数
@@ -295,37 +278,15 @@
 			cruunGroup.quaternion.copy(tiltQuaternion);
 			cruunBody.quaternion.copy(tiltQuaternion);
 
-			// 5. 穴の周りに落下ガイド（斜面）を追加
-			for (const holePos of holePositions) {
-				const guideSegments = 8;
-				for (let g = 0; g < guideSegments; g++) {
-					const guideAngle = (g / guideSegments) * Math.PI * 2;
-					const guideDistance = holeRadius * 1.5;
-					const guideX = holePos.x + Math.cos(guideAngle) * guideDistance;
-					const guideZ = holePos.z + Math.sin(guideAngle) * guideDistance;
-
-					// 斜面の角度を穴に向ける
-					const toHoleX = holePos.x - guideX;
-					const toHoleZ = holePos.z - guideZ;
-					const angleToHole = Math.atan2(toHoleZ, toHoleX);
-
-					const guideShape = new CANNON.Box(new CANNON.Vec3(0.2, cruunThickness / 4, 0.2));
-					const guideRotation = new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angleToHole);
-					guideRotation.mult(new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 8), guideRotation); // 少し傾ける
-
-					cruunBody.addShape(guideShape, new CANNON.Vec3(guideX, -cruunThickness / 4, guideZ), guideRotation);
-				}
-			}
-
-			// 6. 当たり判定用のトリガーを設置（より大きく、より確実に）
+			// 5. 当たり判定用のトリガーを設置（シンプルで確実）
 			for (let i = 0; i < holePositions.length; i++) {
 				const holePos = holePositions[i];
-				const triggerShape = new CANNON.Cylinder(holeRadius * 1.2, holeRadius * 1.2, 5, 16); // より大きく
+				const triggerShape = new CANNON.Cylinder(holeRadius, holeRadius, 3, 16);
 				const triggerBody = new CANNON.Body({ isTrigger: true, mass: 0 });
 				triggerBody.addShape(triggerShape);
 
 				// トリガーの位置を正確に計算
-				const localHolePos = new CANNON.Vec3(holePos.x, -1, holePos.z); // 少し下に配置
+				const localHolePos = new CANNON.Vec3(holePos.x, 0, holePos.z);
 				const rotatedHolePos = tiltQuaternion.vmult(localHolePos);
 				triggerBody.position.copy(position).vadd(rotatedHolePos, triggerBody.position);
 
@@ -356,8 +317,8 @@
 
 		// --- パチンコ玉 ---
 		const balls = [];
-		const ballRadius = 0.4;
-		const ballGeometry = new THREE.SphereGeometry(ballRadius, 32, 32);
+		const ballRadius = 0.3; // 少し小さくして安定性向上
+		const ballGeometry = new THREE.SphereGeometry(ballRadius, 16, 16); // ポリゴン数を減らして軽量化
 		const ballThreeMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.5, roughness: 0.1 });
 
 		function addBall(startY = 22) {
@@ -367,14 +328,14 @@
 			scene.add(ballMesh);
 
 			const ballBody = new CANNON.Body({
-				mass: 1,
+				mass: 0.5, // 質量を軽くして安定性向上
 				shape: new CANNON.Sphere(ballRadius),
 				material: ballMaterial,
-				linearDamping: 0.1, // 線形減衰を追加
-				angularDamping: 0.1 // 角減衰を追加
+				linearDamping: 0.05, // 減衰を軽くして自然な動き
+				angularDamping: 0.05
 			});
-			const randomX = (Math.random() - 0.5) * 3; // 範囲を狭める
-			const randomZ = (Math.random() - 0.5) * 3;
+			const randomX = (Math.random() - 0.5) * 2; // さらに範囲を狭める
+			const randomZ = (Math.random() - 0.5) * 2;
 			ballBody.position.set(randomX, startY, randomZ);
 			world.addBody(ballBody);
 
@@ -397,7 +358,7 @@
 		function animate() {
 			requestAnimationFrame(animate);
 			const deltaTime = Math.min(clock.getDelta(), 0.016); // 60FPSに制限
-			world.step(1 / 60, deltaTime, 3); // 標準的な設定に戻す
+			world.step(1 / 60, deltaTime, 3); // 標準的な設定
 
 			while (objectsToRemove.length > 0) {
 				const item = objectsToRemove.pop();
@@ -410,9 +371,23 @@
 			balls.forEach(ball => {
 				ball.mesh.position.copy(ball.body.position);
 				ball.mesh.quaternion.copy(ball.body.quaternion);
-				if (ball.body.position.y < -10) {
+
+				// ボールが下に落ちすぎた場合の処理
+				if (ball.body.position.y < -15) {
 					const alreadyMarked = objectsToRemove.some(item => item.body === ball.body);
 					if (!alreadyMarked) { objectsToRemove.push({ body: ball.body, mesh: ball.mesh }); }
+				}
+
+				// ボールが停止したか判定（デバッグ用）
+				const velocity = ball.body.velocity;
+				const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z);
+				if (speed < 0.1 && ball.body.position.y > -5) {
+					// 停止したボールに少し力を加える
+					ball.body.velocity.set(
+						(Math.random() - 0.5) * 2,
+						0,
+						(Math.random() - 0.5) * 2
+					);
 				}
 			});
 
