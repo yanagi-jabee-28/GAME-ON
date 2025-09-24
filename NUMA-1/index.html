@@ -145,10 +145,13 @@
 		});
 
 		// 物理シミュレーションの安定性を向上
-		world.defaultContactMaterial.contactEquationStiffness = 1e7;
+		world.defaultContactMaterial.contactEquationStiffness = 1e8; // さらに剛性を上げる
 		world.defaultContactMaterial.contactEquationRelaxation = 3;
-		world.solver.iterations = 10;
-		world.solver.tolerance = 0.01;
+		world.solver.iterations = 15; // 反復回数を増やして精度向上
+		world.solver.tolerance = 0.001; // 許容値を厳しくして貫通を防ぐ
+
+		// 連続衝突検出を有効化
+		world.allowSleep = false; // スリープモードを無効化してより確実な計算
 
 		// --- マテリアル ---
 		const ballMaterial = new CANNON.Material('ballMaterial');
@@ -156,9 +159,10 @@
 		const groundMaterial = new CANNON.Material('groundMaterial');
 
 		const ballWallContactMaterial = new CANNON.ContactMaterial(ballMaterial, wallMaterial, {
-			friction: 0.2,
-			restitution: 0.4,
-			contactEquationStiffness: 1e7,
+			friction: 0.1, // 摩擦を下げて滑らかな跳ね返り
+			restitution: 0.6, // 反発係数を上げてより確実な跳ね返り
+			contactEquationStiffness: 1e8, // 剛性を上げて貫通を防ぐ
+			contactEquationRelaxation: 3,
 		});
 		world.addContactMaterial(ballWallContactMaterial);
 
@@ -247,23 +251,56 @@
 			const centerShape = new CANNON.Cylinder(diskRadius * 0.6, diskRadius * 0.6, diskThickness, 16);
 			cruunBody.addShape(centerShape);
 
-			world.addBody(cruunBody);			// 3. 外壁 (物理ボディのみ) - 円筒形の薄い壁を作成
-			const wallHeight = cruunThickness + 2; // 壁の高さ
-			const wallThickness = 0.5; // 壁の厚さ
-			const numWallSegments = 16; // 壁のセグメント数
+			// 外周リングを追加（壁との隙間を埋める）
+			const outerRingSegments = 24;
+			for (let i = 0; i < outerRingSegments; i++) {
+				const angle = (i / outerRingSegments) * Math.PI * 2;
+				const ringRadius = diskRadius * 0.95; // 外周近くに配置
+				const ringX = Math.cos(angle) * ringRadius;
+				const ringZ = Math.sin(angle) * ringRadius;
+
+				const ringSegmentLength = (Math.PI * 2 * ringRadius) / outerRingSegments;
+				const ringShape = new CANNON.Box(new CANNON.Vec3(
+					ringSegmentLength / 2,
+					diskThickness / 2,
+					diskThickness * 2 // 厚めにして確実な壁を作る
+				));
+
+				const ringRotation = new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angle);
+				cruunBody.addShape(ringShape, new CANNON.Vec3(ringX, 0, ringZ), ringRotation);
+			}
+
+			world.addBody(cruunBody);			// 3. 外壁 (物理ボディのみ) - より確実な壁を作成
+			const wallHeight = 4; // 壁の高さを大幅に増加
+			const wallThickness = 1.0; // 壁の厚さを倍増
+			const numWallSegments = 32; // セグメント数を倍増して隙間を削減
 
 			// 外壁を複数のボックスで構成してより正確な円形にする
 			for (let i = 0; i < numWallSegments; i++) {
 				const angle = (i / numWallSegments) * Math.PI * 2;
-				const wallX = Math.cos(angle) * cruunRadius;
-				const wallZ = Math.sin(angle) * cruunRadius;
+				const nextAngle = ((i + 1) / numWallSegments) * Math.PI * 2;
+
+				// 壁の位置を少し外側に配置して確実に囲む
+				const wallRadius = cruunRadius + wallThickness / 2;
+				const wallX = Math.cos(angle) * wallRadius;
+				const wallZ = Math.sin(angle) * wallRadius;
 
 				const wallBody = new CANNON.Body({ mass: 0, material: wallMaterial });
-				const wallShape = new CANNON.Box(new CANNON.Vec3(wallThickness / 2, wallHeight / 2, wallThickness / 2));
-				wallBody.addShape(wallShape);
+
+				// セグメントの長さを計算して隙間をなくす
+				const segmentLength = 2 * Math.PI * wallRadius / numWallSegments;
+				const wallShape = new CANNON.Box(new CANNON.Vec3(
+					segmentLength / 2 * 1.1, // 少しオーバーラップさせる
+					wallHeight / 2,
+					wallThickness / 2
+				));
+
+				// 壁の向きを調整
+				const wallRotation = new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angle);
+				wallBody.addShape(wallShape, new CANNON.Vec3(0, 0, 0), wallRotation);
 
 				// 外壁も同じように傾斜をつける
-				const localWallPos = new CANNON.Vec3(wallX, 0, wallZ);
+				const localWallPos = new CANNON.Vec3(wallX, wallHeight / 2, wallZ);
 				const rotatedWallPos = tiltQuaternion.vmult(localWallPos);
 				wallBody.position.copy(position).vadd(rotatedWallPos, wallBody.position);
 				wallBody.quaternion.copy(tiltQuaternion);
@@ -378,6 +415,16 @@
 					if (!alreadyMarked) { objectsToRemove.push({ body: ball.body, mesh: ball.mesh }); }
 				}
 
+				// ボールがクルーンの範囲外に出た場合の処理（すり抜け対策）
+				const distanceFromCenter = Math.sqrt(ball.body.position.x * ball.body.position.x + ball.body.position.z * ball.body.position.z);
+				if (distanceFromCenter > cruunRadius * 1.5 && ball.body.position.y > -5) {
+					const alreadyMarked = objectsToRemove.some(item => item.body === ball.body);
+					if (!alreadyMarked) {
+						console.log('ボールが範囲外に出ました:', ball.body.position);
+						objectsToRemove.push({ body: ball.body, mesh: ball.mesh });
+					}
+				}
+
 				// ボールが停止したか判定（デバッグ用）
 				const velocity = ball.body.velocity;
 				const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z);
@@ -389,9 +436,7 @@
 						(Math.random() - 0.5) * 2
 					);
 				}
-			});
-
-			controls.update();
+			}); controls.update();
 			renderer.render(scene, camera);
 		}
 
