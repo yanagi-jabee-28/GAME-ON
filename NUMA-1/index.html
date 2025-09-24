@@ -243,20 +243,22 @@
 			cruunBody.addShape(diskShape);
 
 			world.addBody(cruunBody)			// 3. 外壁 (物理ボディのみ) - クルーン縁に沿った連続壁を生成
-			const wallHeight = cruunThickness + 1; // 壁の高さ（少し低めに）
+			const wallHeight = cruunThickness + 1.2; // 壁の高さ（少し低く）
 			const wallThickness = 0.5; // 壁の厚さ(半径方向)
-			const numWallSegments = 72; // セグメント数をさらに増やして滑らかに
-			const halfRadial = wallThickness / 2;
-			const rCenter = cruunRadius + halfRadial; // 壁の内側面がクルーンの縁(R)に一致
-			const circumference = Math.PI * 2 * rCenter;
-			const segmentLength = (circumference / numWallSegments) * 1.02; // わずかに重ねて隙間防止（弱め）
-			const wallThreeMaterial = new THREE.MeshPhongMaterial({ color: '#666666', shininess: 10, specular: '#222222' });
+			const numWallSegments = 12; // セグメント数をさらに増やして滑らかに
+			const circumference = Math.PI * 2 * cruunRadius;
+			const segmentLength = (circumference / numWallSegments) * 1.02; // わずかに重ねて隙間防止（最小限）
+
+			// 見た目の壁（物理と完全一致）用マテリアル
+			const wallVisMaterial = new THREE.MeshPhongMaterial({ color: '#777777', shininess: 10, specular: '#222222' });
 
 			for (let i = 0; i < numWallSegments; i++) {
 				const angle = (i / numWallSegments) * Math.PI * 2;
-				// 円周上の中心位置（ローカル平面）
-				const wallX = Math.cos(angle) * rCenter;
-				const wallZ = Math.sin(angle) * rCenter;
+				// 円周上の中心位置（ローカル平面）: 内側面がディスク端に一致するよう、中心を半径方向に 1/2 厚み分オフセット
+				const halfRadial = wallThickness / 2;
+				const radialCenter = cruunRadius + halfRadial;
+				const wallX = Math.cos(angle) * radialCenter;
+				const wallZ = Math.sin(angle) * radialCenter;
 
 				// セグメント形状: 半径方向に薄く、接線方向に長い箱
 				const halfHeight = wallHeight / 2;
@@ -266,37 +268,42 @@
 				const wallBody = new CANNON.Body({ mass: 0, material: wallMaterial });
 				wallBody.addShape(wallShape);
 
-				// 姿勢: r(半径)・n(面法線)・t(接線)の直交基底から算出
-				const rLocal = new CANNON.Vec3(Math.cos(angle), 0, Math.sin(angle));
-				const nLocal = new CANNON.Vec3(0, 1, 0);
-				const rWorldC = tiltQuaternion.vmult(rLocal);
-				const nWorldC = tiltQuaternion.vmult(nLocal);
-				// THREE で正規直交基底→クォータニオンを作る
-				const rWorld = new THREE.Vector3(rWorldC.x, rWorldC.y, rWorldC.z).normalize();
-				const nWorld = new THREE.Vector3(nWorldC.x, nWorldC.y, nWorldC.z).normalize();
-				const tWorld = new THREE.Vector3().crossVectors(rWorld, nWorld).normalize(); // z軸=接線
-				const basis = new THREE.Matrix4().makeBasis(rWorld, nWorld, tWorld);
-				const qThree = new THREE.Quaternion().setFromRotationMatrix(basis);
-				wallBody.quaternion.set(qThree.x, qThree.y, qThree.z, qThree.w);
+				// 向き: まず円周方向に回し（接線方向合わせ）、その後クルーンの傾斜を適用
+				const qY = new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angle);
+				const qFinal = new CANNON.Quaternion();
+				tiltQuaternion.mult(qY, qFinal); // qFinal = tilt * qY（qY→tilt の順で適用）
+				wallBody.quaternion.copy(qFinal);
+
+				// Three.js 側の回転（ローカルYaw。グループに傾斜と位置が入るため、ここではYawのみ）
+				const qYThree = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
 
 				// 位置にも傾斜を反映
 				const localWallPos = new CANNON.Vec3(wallX, 0, wallZ);
 				const rotatedWallPos = tiltQuaternion.vmult(localWallPos);
 				wallBody.position.copy(position).vadd(rotatedWallPos, wallBody.position);
 
-				world.addBody(wallBody);
+				// 見た目の壁は連続したリングメッシュで構築するため、ここでは追加しない
 
-				// 見た目用の壁メッシュ（物理壁と同じ基底で姿勢を決定）
-				const wallGeom = new THREE.BoxGeometry(wallThickness, wallHeight, segmentLength);
-				const wallMesh = new THREE.Mesh(wallGeom, wallThreeMaterial);
-				wallMesh.castShadow = shadowsEnabled;
-				wallMesh.receiveShadow = shadowsEnabled;
-				// 位置はローカル座標（親の傾斜を継承）
-				wallMesh.position.set(wallX, 0, wallZ);
-				// 直交基底から姿勢を作成
-				wallMesh.setRotationFromQuaternion(qThree);
-				cruunGroup.add(wallMesh);
+				world.addBody(wallBody);
 			}
+
+			// 見た目の壁（連続リング）を追加（物理の壁と寸法・傾斜を一致）
+			const outerR = cruunRadius + wallThickness;
+			const innerR = cruunRadius;
+			const ringShape = new THREE.Shape();
+			ringShape.absarc(0, 0, outerR, 0, Math.PI * 2, false);
+			const ringHole = new THREE.Path();
+			ringHole.absarc(0, 0, innerR, 0, Math.PI * 2, true);
+			ringShape.holes = [ringHole];
+			const ringGeom = new THREE.ExtrudeGeometry(ringShape, { depth: wallHeight, bevelEnabled: false, curveSegments: 128 });
+			// 高さ中央を原点に合わせる
+			ringGeom.translate(0, 0, -wallHeight / 2);
+			const ringMesh = new THREE.Mesh(ringGeom, wallVisMaterial);
+			ringMesh.castShadow = shadowsEnabled;
+			ringMesh.receiveShadow = shadowsEnabled;
+			// Extrudeは+Z方向に押し出されるため、-90度回転して高さをローカルYに揃える
+			ringMesh.rotation.x = -Math.PI / 2;
+			cruunGroup.add(ringMesh);
 
 			// 4. Position and tilt everything
 			cruunGroup.position.copy(position);
