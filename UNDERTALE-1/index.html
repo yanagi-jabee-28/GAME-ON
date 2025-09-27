@@ -151,6 +151,9 @@
 			display: flex;
 			justify-content: center;
 			align-items: center;
+			position: relative;
+			z-index: 20;
+			/* default stacking below message-window */
 		}
 
 		#battle-canvas {
@@ -259,8 +262,14 @@
 			justify-content: center;
 			align-items: center;
 			cursor: pointer;
-			z-index: 10;
+			z-index: 20;
 			border-radius: 5px;
+		}
+
+		/* When battle needs to be shown above messages (e.g. PLAYER_ATTACK), bring these forward */
+		.bring-front {
+			z-index: 120 !important;
+			position: relative !important;
 		}
 
 		/* メッセージウィンドウ */
@@ -407,17 +416,11 @@
 		}
 
 		// clicking with mouse should also update selection
-		optionButtons.forEach((btn, i) => btn.addEventListener('click', () => {
-			if (promptActive) clearMessage();
-			setSelection(i);
-		}));
+		optionButtons.forEach((btn, i) => btn.addEventListener('click', () => setSelection(i)));
 
 
 		function drawPlayer() {
-			// Do not draw player heart when invincible blink or when a message/prompt is shown
 			if (player.isInvincible && Math.floor(player.invincibleTimer / 6) % 2 === 0) return;
-			if (typeof messageActive !== 'undefined' && messageActive) return;
-			if (typeof promptActive !== 'undefined' && promptActive) return;
 			ctx.fillStyle = '#ff0000';
 			ctx.font = "20px sans-serif";
 			ctx.textAlign = "center";
@@ -601,6 +604,11 @@
 			} else {
 				setTimeout(() => setGameState('ENEMY_TURN'), 1000);
 			}
+
+			// After the attack resolves, ensure battle visuals are returned to normal
+			document.getElementById('battle-box-container').classList.remove('bring-front');
+			document.getElementById('attack-button').classList.remove('bring-front');
+			attackButton.style.display = 'none';
 		}
 
 		function setGameState(newState) {
@@ -608,7 +616,7 @@
 
 			// If a message is currently active, don't start the enemy turn yet.
 			// Defer entering ENEMY_TURN until messages are cleared.
-			if (newState === 'ENEMY_TURN' && ((typeof messageActive !== 'undefined' && messageActive) || (typeof promptActive !== 'undefined' && promptActive))) {
+			if (newState === 'ENEMY_TURN' && typeof messageActive !== 'undefined' && messageActive) {
 				setTimeout(() => setGameState(newState), 200);
 				return;
 			}
@@ -634,19 +642,22 @@
 			} else if (gameState === 'PLAYER_TURN') {
 				// ENEMY_TURN から PLAYER_TURN に戻った時は順にメッセージを表示
 				if (previousState === 'ENEMY_TURN') {
-					// まず敵の攻撃終了を短く表示し、その後行動選択を促す
+					// まず敵の攻撃終了を短く表示し、その後 行動選択メッセージを常時表示（入力はブロックしない）
 					showMessage('敵の攻撃が終わった！', 1500);
 					setTimeout(() => {
-						showMessage('行動を選択してください');
+						showMessage('行動を選択してください', { persistent: true, blockInput: false });
 					}, 1600);
 				} else {
-					// それ以外の PLAYER_TURN では即座に行動選択を表示
-					showMessage('行動を選択してください');
+					// それ以外の PLAYER_TURN では即座に 行動選択メッセージを常時表示（入力はブロックしない）
+					showMessage('行動を選択してください', { persistent: true, blockInput: false });
 				}
 			} else if (gameState === 'PLAYER_ATTACK') {
 				attackBar.markerX = battleBox.x;
 				attackBar.moving = true;
 				attackButton.style.display = 'flex';
+				// Bring battle visuals above the message window so the attack minigame is visible
+				document.getElementById('battle-box-container').classList.add('bring-front');
+				document.getElementById('attack-button').classList.add('bring-front');
 			} else if (gameState === 'GAME_OVER') {
 				gameOverText.style.display = 'block';
 				bullets.length = 0;
@@ -659,17 +670,19 @@
 
 			if (gameState === 'ENEMY_TURN') {
 				framesSinceLastHoming++;
-				drawBattleBox();
+				if (!messageVisible) drawBattleBox();
 				updatePlayerPosition();
-				updateBulletsPosition();
-				checkCollisions();
-				drawBullets();
-				drawPlayer();
+				if (!messageVisible) {
+					updateBulletsPosition();
+					checkCollisions();
+					drawBullets();
+					drawPlayer();
+				}
 			} else if (gameState === 'PLAYER_TURN') {
-				drawBattleBox(); // Show box background
+				if (!messageVisible) drawBattleBox(); // Show box background
 			} else if (gameState === 'PLAYER_ATTACK') {
-				updateAttackBar();
-				drawAttackBar();
+				// Always draw attack visuals during PLAYER_ATTACK, even if a message is visible
+				updateAttackBar(); drawAttackBar();
 			} else if (gameState === 'GAME_OVER') {
 				// ゲームオーバー画面を描画し続ける
 				drawBattleBox();
@@ -705,8 +718,6 @@
 					const btn = optionButtons[selectionIndex];
 					if (!btn) return;
 					const id = btn.id;
-					// if a persistent prompt is active, clear it when player acts
-					if (promptActive) clearMessage();
 					if (id === 'fight') {
 						setGameState('PLAYER_ATTACK');
 					} else if (id === 'act') {
@@ -736,39 +747,46 @@
 		// --- Message window helpers ---
 		const messageWindow = document.getElementById('message-window');
 		let messageTimer = null;
-		let messageActive = false; // blocks input
-		let promptActive = false;  // persistent prompt that allows player input
+		let messageActive = false; // input lock
+		let messageVisible = false; // visual state
 
-		function clearMessage() {
-			if (!messageWindow) return;
-			messageWindow.style.display = 'none';
-			if (messageTimer) { clearTimeout(messageTimer); messageTimer = null; }
-			messageActive = false;
-			promptActive = false;
-		}
-
-		function showMessage(text, ms = 3000) {
+		function showMessage(text, optsOrMs = 3000) {
 			if (!messageWindow) return;
 			messageWindow.textContent = text;
 			messageWindow.style.display = 'block';
 			messageWindow.style.opacity = '1';
-			// ms === 0 means persistent prompt (do not block input)
-			if (ms === 0) {
-				promptActive = true;
-				// do not set a timer
-				if (messageTimer) { clearTimeout(messageTimer); messageTimer = null; }
-				messageActive = false;
-				return;
+			messageVisible = true;
+
+			// normalize options
+			let duration = 3000;
+			let blockInput = true;
+			let persistent = false;
+			if (typeof optsOrMs === 'number') {
+				duration = optsOrMs;
+			} else if (typeof optsOrMs === 'object' && optsOrMs !== null) {
+				if (typeof optsOrMs.duration === 'number') duration = optsOrMs.duration;
+				if (typeof optsOrMs.blockInput === 'boolean') blockInput = optsOrMs.blockInput;
+				if (typeof optsOrMs.persistent === 'boolean') persistent = optsOrMs.persistent;
 			}
-			// otherwise, show temporary blocking message
-			promptActive = false;
-			messageActive = true;
-			if (messageTimer) clearTimeout(messageTimer);
-			messageTimer = setTimeout(() => {
-				messageWindow.style.display = 'none';
-				messageTimer = null;
-				messageActive = false;
-			}, ms);
+
+			messageActive = !!blockInput;
+			if (messageTimer) { clearTimeout(messageTimer); messageTimer = null; }
+			if (!persistent) {
+				messageTimer = setTimeout(() => {
+					messageWindow.style.display = 'none';
+					messageTimer = null;
+					messageActive = false;
+					messageVisible = false;
+				}, duration);
+			}
+		}
+
+		function hideMessage() {
+			if (!messageWindow) return;
+			messageWindow.style.display = 'none';
+			if (messageTimer) { clearTimeout(messageTimer); messageTimer = null; }
+			messageActive = false;
+			messageVisible = false;
 		}
 
 		// Wire other action buttons to show messages
