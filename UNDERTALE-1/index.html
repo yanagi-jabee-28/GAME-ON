@@ -33,17 +33,18 @@
             height: 480px;
             background-color: var(--box-bg-color);
             border: var(--border-style);
-            display: grid;
-            grid-template-rows: 1fr 1fr;
-            grid-template-columns: 1fr;
+            display: flex; /* gridからflexに変更 */
+            flex-direction: column;
+            justify-content: center; /* 上下中央寄せ */
+            align-items: center; /* 左右中央寄せ */
             padding: 20px;
-            transform: scale(0.9); /* スマホ表示用に少し縮小 */
+            position: relative;
         }
         
         @media (max-width: 640px) {
              #game-container {
                 width: 100vw;
-                height: auto;
+                height: 60vh; /* 高さを調整 */
                 border: none;
                 padding: 5px;
                 transform: scale(1);
@@ -52,22 +53,35 @@
 
 
         #top-section {
-            /* 敵やメッセージが表示されるエリア (今は空) */
+           /* 敵やメッセージが表示されるエリア (今は空) */
+           flex-grow: 1; /* 中央寄せのためにスペースを確保 */
         }
         
-        #bottom-section {
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
+        #player-info {
+            display: flex;
             align-items: center;
-            justify-items: center;
+            justify-content: center; /* 中央寄せに変更 */
+            gap: 20px;
+            font-size: 18px;
+            width: 640px;
+            margin-top: 20px; /* game-containerとの間隔 */
+            margin-bottom: 20px; /* options-containerとの間隔 */
         }
 
-        #player-info {
-            /* プレイヤー情報 (HPなど) */
+        #hp-bar-container {
+            width: 120px;
+            height: 20px;
+            border: 2px solid #fff;
         }
+        #hp-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #ff0; /* 黄色 */
+            transition: width 0.2s ease-out;
+        }
+
 
         #battle-box-container {
-            /* JSで描画するため、CSSの枠線は不要 */
             width: 250px;
             height: 250px;
             display: flex;
@@ -83,13 +97,19 @@
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 20px;
-            margin-top: 20px;
             width: 640px;
         }
         
          @media (max-width: 640px) {
-             #options-container {
+             #player-info, #options-container {
                  width: 100vw;
+             }
+             #player-info {
+                 font-size: 14px;
+                 gap: 10px;
+                 padding: 0 10px;
+             }
+             #options-container {
                  gap: 10px;
                  padding: 0 10px;
              }
@@ -121,43 +141,69 @@
             margin-right: 15px;
         }
 
-        /* スティックUIのコンテナ */
         #joystick-container {
             position: fixed;
             bottom: 30px;
-            right: 30px; /* 右下に配置 */
+            right: 30px;
             width: 150px;
             height: 150px;
-            opacity: 0.8; /* 見やすくするために少し濃くする */
-            display: block; /* 常に表示 */
+            opacity: 0.8;
+            display: block;
         }
         
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            color: red;
+            display: none;
+            text-align: center;
+        }
+        
+        #attack-button {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 50px;
+            background-color: #ff0;
+            color: #000;
+            border: 2px solid #fff;
+            font-family: var(--font-family);
+            font-size: 18px;
+            display: none; /* Initially hidden */
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 10;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
 
-    <!-- ゲーム全体のコンテナ -->
     <div id="game-container">
-        <!-- 上半分 (敵やメッセージ用) -->
         <div id="top-section">
-             <!-- ここに敵キャラクターやメッセージボックスが入ります -->
         </div>
-
-        <!-- 下半分 (戦闘フィールドとプレイヤー情報) -->
-        <div id="bottom-section">
-            <div id="player-info">
-                <!-- ここにプレイヤー名やHPが入ります -->
-            </div>
-            <div id="battle-box-container">
-                <canvas id="battle-canvas" width="250" height="250"></canvas>
-            </div>
-             <div>
-                <!-- 右側の空スペース -->
-            </div>
+        <div id="battle-box-container">
+            <canvas id="battle-canvas" width="250" height="250"></canvas>
         </div>
+        <div id="attack-button">ATTACK</div>
+        <div id="game-over">GAME OVER</div>
     </div>
     
-    <!-- 操作ボタン -->
+    <div id="player-info">
+        <span>PLAYER</span>
+        <span>LV 1</span>
+        <div id="hp-bar-container">
+            <div id="hp-bar"></div>
+        </div>
+        <span id="hp-value">20 / 20</span>
+    </div>
+
     <div id="options-container">
         <button class="option-button selected" id="fight">
             <svg class="heart-icon" viewBox="0 0 10 10" fill="#ff0"><path d="M5 1 L1 5 L5 9 L9 5 Z"/></svg>
@@ -174,57 +220,54 @@
         </button>
     </div>
 
-    <!-- スティックUI用のコンテナ -->
     <div id="joystick-container"></div>
     
-    <!-- スティックのライブラリを読み込み -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
 
     <script>
         const canvas = document.getElementById('battle-canvas');
         const ctx = canvas.getContext('2d');
 
-        // 戦闘フィールドの定義
+        // --- Game State Management ---
+        let gameState = null; // Initial state set to null to fix bug
+        let enemyTurnTimer;
+
         const battleBox = {
-            width: 150,
-            height: 150,
-            x: (canvas.width - 150) / 2,  // canvasの中央に配置
-            y: (canvas.height - 150) / 2, // canvasの中央に配置
+            width: 150, height: 150,
+            x: (canvas.width - 150) / 2, y: (canvas.height - 150) / 2,
         };
 
-        // プレイヤー（ハート）の状態
         const player = {
-            x: canvas.width / 2,
-            y: canvas.height / 2,
-            width: 20, // 当たり判定の幅
-            height: 20, // 当たり判定の高さ
-            speed: 3,
-            isInvincible: false, // 無敵状態フラグ
-            invincibleTimer: 0 // 無敵時間タイマー
+            x: canvas.width / 2, y: canvas.height / 2,
+            width: 20, height: 20, speed: 3,
+            isInvincible: false, invincibleTimer: 0,
+            maxHp: 20, hp: 20,
         };
 
-        // 弾を管理する配列
         const bullets = [];
-
-        // 追尾弾の確率管理用タイマー
+        let bulletSpawnInterval;
+        let bulletSpawnMode = 'top';
         let framesSinceLastHoming = 0;
 
-        // キー入力の状態を管理するオブジェクト
-        const keys = {
-            ArrowUp: false,
-            ArrowDown: false,
-            ArrowLeft: false,
-            ArrowRight: false
+        const attackBar = {
+            x: battleBox.x, y: battleBox.y + battleBox.height / 2 - 10,
+            width: battleBox.width, height: 20,
+            markerX: battleBox.x, markerSpeed: 4, moving: false,
         };
 
-        // スティックの入力ベクトル
+        const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
         let joystickVector = { x: 0, y: 0 };
 
-        // ハートを描画する関数
+        // --- DOM Elements ---
+        const hpBar = document.getElementById('hp-bar');
+        const hpValue = document.getElementById('hp-value');
+        const gameOverText = document.getElementById('game-over');
+        const fightButton = document.getElementById('fight');
+        const attackButton = document.getElementById('attack-button');
+
+
         function drawPlayer() {
-            if (player.isInvincible && Math.floor(player.invincibleTimer / 6) % 2 === 0) {
-                return;
-            }
+            if (player.isInvincible && Math.floor(player.invincibleTimer / 6) % 2 === 0) return;
             ctx.fillStyle = '#ff0000';
             ctx.font = "20px sans-serif";
             ctx.textAlign = "center";
@@ -232,35 +275,25 @@
             ctx.fillText('❤️', player.x, player.y);
         }
         
-        // プレイヤーの位置を更新する関数
         function updatePlayerPosition() {
-            let moveX = 0;
-            let moveY = 0;
-
-            // スティック入力があれば優先
+            let moveX = 0, moveY = 0;
             if (joystickVector.x !== 0 || joystickVector.y !== 0) {
                 moveX = joystickVector.x;
                 moveY = joystickVector.y;
-            } else { // なければキーボード入力をチェック
+            } else {
                 if (keys.ArrowUp) moveY -= 1;
                 if (keys.ArrowDown) moveY += 1;
                 if (keys.ArrowLeft) moveX -= 1;
                 if (keys.ArrowRight) moveX += 1;
-
-                // キーボードの斜め移動速度を正規化
                 const magnitude = Math.sqrt(moveX * moveX + moveY * moveY);
                 if (magnitude > 1) {
                     moveX /= magnitude;
                     moveY /= magnitude;
                 }
             }
-            
-            // プレイヤーを動かす
             player.x += moveX * player.speed;
             player.y += moveY * player.speed;
 
-
-            // 壁の衝突判定をbattleBox基準に変更
             if (player.x - player.width / 2 < battleBox.x) player.x = battleBox.x + player.width / 2;
             if (player.x + player.width / 2 > battleBox.x + battleBox.width) player.x = battleBox.x + battleBox.width - player.width / 2;
             if (player.y - player.height / 2 < battleBox.y) player.y = battleBox.y + player.height / 2;
@@ -268,82 +301,58 @@
             
             if (player.isInvincible) {
                 player.invincibleTimer--;
-                if (player.invincibleTimer <= 0) {
-                    player.isInvincible = false;
-                }
+                if (player.invincibleTimer <= 0) player.isInvincible = false;
             }
         }
         
-        // 新しい弾を生成する関数
         function createBullet() {
             let startX, startY;
-            const side = Math.floor(Math.random() * 4); 
-            
-            switch(side) {
-                case 0: startX = Math.random() * canvas.width; startY = -10; break;
-                case 1: startX = canvas.width + 10; startY = Math.random() * canvas.height; break;
-                case 2: startX = Math.random() * canvas.width; startY = canvas.height + 10; break;
-                case 3: startX = -10; startY = Math.random() * canvas.height; break;
+            if (bulletSpawnMode === 'top') {
+                startX = Math.random() * canvas.width;
+                startY = -10;
+            } else {
+                const side = Math.floor(Math.random() * 4); 
+                switch(side) {
+                    case 0: startX = Math.random() * canvas.width; startY = -10; break;
+                    case 1: startX = canvas.width + 10; startY = Math.random() * canvas.height; break;
+                    case 2: startX = Math.random() * canvas.width; startY = canvas.height + 10; break;
+                    case 3: startX = -10; startY = Math.random() * canvas.height; break;
+                }
             }
-            
             let isHoming = false;
             const secondsSince = framesSinceLastHoming / 60;
-
-            // 5秒経過していたら強制的に追尾弾にする
-            if (secondsSince >= 5) {
-                isHoming = true;
-            } else {
-                // 時間経過で確率を計算 (0.2 + 0.16 * 秒数)
+            if (secondsSince >= 5) isHoming = true;
+            else {
                 const homingChance = 0.20 + 0.16 * secondsSince;
-                if (Math.random() < homingChance) {
-                    isHoming = true;
-                }
+                if (Math.random() < homingChance) isHoming = true;
             }
-
-            if (isHoming) {
-                framesSinceLastHoming = 0; // タイマーをリセット
-            }
-
+            if (isHoming) framesSinceLastHoming = 0;
             const angle = Math.atan2(player.y - startY, player.x - startX);
-            const speed = isHoming ? 1.5 : 2; // 追尾弾は少し遅くする
-
-            const bullet = {
-                x: startX, 
-                y: startY, 
-                radius: 5, // 半径
-                speedX: Math.cos(angle) * speed, 
-                speedY: Math.sin(angle) * speed,
-                color: isHoming ? '#ff3333' : '#fff', // 追尾弾は赤色
-                isHoming: isHoming,
-                lifetime: isHoming ? 600 : null, // 追尾弾の寿命(10秒 * 60fps)
-                originalSpeed: speed // 追尾弾の速度維持用
-            };
-            bullets.push(bullet);
+            const speed = isHoming ? 1.5 : 2;
+            bullets.push({
+                x: startX, y: startY, radius: 5, speedX: Math.cos(angle) * speed, speedY: Math.sin(angle) * speed,
+                color: isHoming ? '#ff3333' : '#fff', isHoming: isHoming, lifetime: isHoming ? 300 : null,
+                originalSpeed: speed, hasEnteredBox: false, isFadingOut: false, fadeOutTimer: 60
+            });
         }
 
-        // 弾を描画する関数
         function drawBullets() {
             bullets.forEach(bullet => {
-                ctx.save(); // 現在の描画状態を保存
-                if (bullet.isHoming && bullet.lifetime !== null && bullet.lifetime < 120) {
-                    // 残り2秒でフェードアウト開始
-                    ctx.globalAlpha = Math.max(0, bullet.lifetime / 120);
-                }
+                ctx.save();
+                if (bullet.isFadingOut) ctx.globalAlpha = Math.max(0, bullet.fadeOutTimer / 60);
                 ctx.fillStyle = bullet.color;
                 ctx.beginPath();
                 ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.restore(); // 描画状態を元に戻す
+                ctx.restore();
             });
         }
 
-        // 弾の位置を更新する関数
         function updateBulletsPosition() {
             for (let i = bullets.length - 1; i >= 0; i--) {
                 const bullet = bullets[i];
-
-                if (bullet.isHoming) {
-                    const turnRate = 0.0225; // 加速度を0.75倍に変更
+                if (bullet.isHoming && !bullet.isFadingOut) {
+                    const turnRate = 0.025;
                     const targetAngle = Math.atan2(player.y - bullet.y, player.x - bullet.x);
                     const currentAngle = Math.atan2(bullet.speedY, bullet.speedX);
                     let angleDiff = targetAngle - currentAngle;
@@ -353,106 +362,189 @@
                     const newAngle = currentAngle + turnAmount;
                     bullet.speedX = Math.cos(newAngle) * bullet.originalSpeed;
                     bullet.speedY = Math.sin(newAngle) * bullet.originalSpeed;
-                    
-                    if (bullet.lifetime !== null) {
-                        bullet.lifetime--;
-                        if (bullet.lifetime <= 0) {
-                            bullets.splice(i, 1);
-                            continue;
-                        }
-                    }
                 }
-
                 bullet.x += bullet.speedX;
                 bullet.y += bullet.speedY;
-
-                const margin = 10;
-                if (bullet.x < -margin || bullet.x > canvas.width + margin || bullet.y < -margin || bullet.y > canvas.height + margin) {
+                const isInsideBox = bullet.x > battleBox.x && bullet.x < battleBox.x + battleBox.width && bullet.y > battleBox.y && bullet.y < battleBox.y + battleBox.height;
+                if (isInsideBox) bullet.hasEnteredBox = true;
+                if (bullet.isHoming && bullet.lifetime !== null) bullet.lifetime--;
+                if ((bullet.hasEnteredBox && !isInsideBox) || (bullet.isHoming && bullet.lifetime !== null && bullet.lifetime <= 0)) bullet.isFadingOut = true;
+                if (bullet.isFadingOut) {
+                    bullet.fadeOutTimer--;
+                    if (bullet.fadeOutTimer <= 0) { bullets.splice(i, 1); continue; }
+                }
+                const margin = 20;
+                if (!bullet.hasEnteredBox && (bullet.x < -margin || bullet.x > canvas.width + margin || bullet.y < -margin || bullet.y > canvas.height + margin)) {
                     bullets.splice(i, 1);
                     continue; 
                 }
             }
         }
         
-        // 当たり判定をチェックする関数
         function checkCollisions() {
             if (player.isInvincible) return;
-
             for (let i = bullets.length - 1; i >= 0; i--) {
                 const bullet = bullets[i];
-                if (
-                    player.x - player.width / 2 < bullet.x + bullet.radius &&
-                    player.x + player.width / 2 > bullet.x - bullet.radius &&
-                    player.y - player.height / 2 < bullet.y + bullet.radius &&
-                    player.y + player.height / 2 > bullet.y - bullet.radius
-                ) {
+                if (bullet.isFadingOut) continue;
+                if (player.x - player.width / 2 < bullet.x + bullet.radius && player.x + player.width / 2 > bullet.x - bullet.radius && player.y - player.height / 2 < bullet.y + bullet.radius && player.y + player.height / 2 > bullet.y - bullet.radius) {
                     bullets.splice(i, 1);
+                    player.hp -= 2; // Damage
+                    if (player.hp < 0) player.hp = 0;
+                    updateHPDisplay();
                     player.isInvincible = true;
-                    player.invincibleTimer = 30; // 無敵時間を0.5秒に変更 (30フレーム)
-                    console.log("HIT!");
+                    player.invincibleTimer = 30;
+                    if (player.hp <= 0) setGameState('GAME_OVER');
                     break;
                 }
             }
         }
 
-        // 戦闘フィールドの枠線を描画する関数
+        function updateHPDisplay() {
+            const hpPercentage = (player.hp / player.maxHp) * 100;
+            hpBar.style.width = `${hpPercentage}%`;
+            hpValue.textContent = `${player.hp} / ${player.maxHp}`;
+        }
+
         function drawBattleBox() {
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 4;
             ctx.strokeRect(battleBox.x, battleBox.y, battleBox.width, battleBox.height);
         }
 
-        // メインのゲームループ
+        function drawAttackBar() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(attackBar.x, attackBar.y, attackBar.width, attackBar.height);
+            ctx.strokeStyle = '#fff';
+            ctx.strokeRect(attackBar.x, attackBar.y, attackBar.width, attackBar.height);
+            const targetZoneWidth = 10;
+            const targetZoneX = battleBox.x + (battleBox.width / 2) - (targetZoneWidth / 2);
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
+            ctx.fillRect(targetZoneX, attackBar.y, targetZoneWidth, attackBar.height);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(attackBar.markerX, attackBar.y, 2, attackBar.height);
+        }
+
+        function updateAttackBar() {
+            if (!attackBar.moving) return;
+            attackBar.markerX += attackBar.markerSpeed;
+            if (attackBar.markerX > battleBox.x + battleBox.width || attackBar.markerX < battleBox.x) {
+                attackBar.markerSpeed *= -1;
+            }
+        }
+
+        function handlePlayerAttack() {
+            attackBar.moving = false;
+            const targetCenter = battleBox.x + battleBox.width / 2;
+            const distance = Math.abs(attackBar.markerX - targetCenter);
+            const damage = Math.max(0, 10 - Math.floor(distance / 5));
+            console.log(`Damage: ${damage}`);
+            setTimeout(() => setGameState('ENEMY_TURN'), 1000);
+        }
+
+        function setGameState(newState) {
+            if (gameState === newState) return;
+
+            clearTimeout(enemyTurnTimer);
+            clearInterval(bulletSpawnInterval);
+            gameState = newState;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            attackButton.style.display = 'none';
+
+            if (gameState === 'ENEMY_TURN') {
+                bullets.length = 0;
+                framesSinceLastHoming = 0;
+                bulletSpawnInterval = setInterval(createBullet, 700);
+                enemyTurnTimer = setTimeout(() => {
+                    if (gameState !== 'GAME_OVER') {
+                        setGameState('PLAYER_TURN');
+                    }
+                }, 10000); // 10 seconds
+            } else if (gameState === 'PLAYER_TURN'){
+                // Player can now choose an action
+            } else if (gameState === 'PLAYER_ATTACK') {
+                attackBar.markerX = battleBox.x;
+                attackBar.moving = true;
+                attackButton.style.display = 'flex';
+            } else if (gameState === 'GAME_OVER') {
+                gameOverText.style.display = 'block';
+                bullets.length = 0;
+            }
+        }
+
         function gameLoop() {
+            // ゲームオーバー時にループがフリーズする問題を修正
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            framesSinceLastHoming++; // 追尾弾タイマーを更新
+            if (gameState === 'ENEMY_TURN') {
+                framesSinceLastHoming++;
+                drawBattleBox();
+                updatePlayerPosition();
+                updateBulletsPosition();
+                checkCollisions();
+                drawBullets();
+                drawPlayer();
+            } else if (gameState === 'PLAYER_TURN') {
+                 drawBattleBox(); // Show box background
+            } else if (gameState === 'PLAYER_ATTACK') {
+                updateAttackBar();
+                drawAttackBar();
+            } else if (gameState === 'GAME_OVER') {
+                // ゲームオーバー画面を描画し続ける
+                drawBattleBox();
+                drawPlayer();
+            }
 
-            drawBattleBox();
-            updatePlayerPosition();
-            updateBulletsPosition();
-            checkCollisions();
-            drawBullets();
-            drawPlayer();
             requestAnimationFrame(gameLoop);
         }
         
-        // キーボードイベント
-        window.addEventListener('keydown', (e) => { if (e.key in keys) keys[e.key] = true; });
+        // --- Event Listeners ---
+        function triggerAttack() {
+            if (gameState === 'PLAYER_ATTACK' && attackBar.moving) {
+                handlePlayerAttack();
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key in keys) keys[e.key] = true;
+            if (e.code === 'Space') {
+                e.preventDefault(); // Prevent page scrolling
+                triggerAttack();
+            }
+        });
         window.addEventListener('keyup', (e) => { if (e.key in keys) keys[e.key] = false; });
         
-        // スティックUIの初期化
+        fightButton.addEventListener('click', () => {
+            if (gameState === 'PLAYER_TURN') {
+                setGameState('PLAYER_ATTACK');
+            }
+        });
+        
+        attackButton.addEventListener('click', triggerAttack);
+
+        // --- Initialization ---
         try {
             const joystickManager = nipplejs.create({
-                zone: document.getElementById('joystick-container'),
-                mode: 'static',
-                position: { right: '75px', bottom: '105px' },
-                color: 'white',
-                size: 120
+                zone: document.getElementById('joystick-container'), mode: 'static',
+                position: { right: '75px', bottom: '105px' }, color: 'white', size: 120
             });
-
             joystickManager.on('move', (evt, data) => {
                 const angle = data.angle.radian;
                 const force = Math.min(data.force, 1.0);
                 joystickVector.x = Math.cos(angle) * force;
                 joystickVector.y = -Math.sin(angle) * force;
-            });
-
-            joystickManager.on('end', () => {
+            }).on('end', () => {
                 joystickVector.x = 0;
                 joystickVector.y = 0;
             });
-        } catch (e) {
-            console.log("Could not initialize joystick.");
-        }
+        } catch (e) { console.log("Could not initialize joystick."); }
 
-        // 700ミリ秒ごとに新しい弾を生成
-        setInterval(createBullet, 700);
-        
-        // ゲームループを開始
+        updateHPDisplay();
+        setGameState('PLAYER_TURN'); // Start with player's turn
         gameLoop();
 
     </script>
 </body>
 </html>
+
 
