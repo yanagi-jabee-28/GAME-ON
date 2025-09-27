@@ -64,6 +64,40 @@
 			/* 中央寄せのためにスペースを確保 */
 		}
 
+		/* 敵のHP表示 */
+		#enemy-info {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 6px;
+			position: relative;
+			z-index: 60;
+		}
+
+		#enemy-name {
+			font-size: 16px;
+			color: #fff;
+		}
+
+		#enemy-hp-container {
+			width: 300px;
+			height: 18px;
+			border: 2px solid #fff;
+			background: #222;
+		}
+
+		#enemy-hp-bar {
+			width: 100%;
+			height: 100%;
+			background: #f33;
+			transition: width 0.25s ease-out;
+		}
+
+		#enemy-hp-value {
+			font-size: 12px;
+			color: #fff;
+		}
+
 		/* 敵のマーク（💀）を常に上部に表示する */
 		#enemy-mark {
 			position: absolute;
@@ -73,7 +107,7 @@
 			transform: translateX(-50%);
 			font-size: 40px;
 			line-height: 1;
-			z-index: 50;
+			z-index: 10;
 			pointer-events: none;
 			/* クリックを邪魔しない */
 			user-select: none;
@@ -235,7 +269,8 @@
 			font-size: 14px;
 			display: none;
 			color: var(--font-color);
-			pointer-events: none;
+			/* メッセージ表示中はウィンドウがクリックを受け取って裏の操作を防ぐ */
+			pointer-events: auto;
 			font-family: var(--font-family);
 		}
 	</style>
@@ -245,6 +280,14 @@
 
 	<div id="game-container">
 		<div id="top-section">
+			<!-- 敵情報 -->
+			<div id="enemy-info">
+				<div id="enemy-name">SKELETON</div>
+				<div id="enemy-hp-container">
+					<div id="enemy-hp-bar"></div>
+				</div>
+				<div id="enemy-hp-value">30 / 30</div>
+			</div>
 			<!-- メッセージウィンドウ（行動選択時にメッセージを表示） -->
 			<div id="message-window" role="status" aria-live="polite"></div>
 		</div>
@@ -327,6 +370,38 @@
 		const gameOverText = document.getElementById('game-over');
 		const fightButton = document.getElementById('fight');
 		const attackButton = document.getElementById('attack-button');
+
+		// Enemy DOM refs
+		const enemyHpBar = document.getElementById('enemy-hp-bar');
+		const enemyHpValue = document.getElementById('enemy-hp-value');
+
+		// --- Enemy data ---
+		const enemy = {
+			name: 'SKELETON',
+			maxHp: 30,
+			hp: 30,
+		};
+
+		function updateEnemyHPDisplay() {
+			const pct = Math.max(0, enemy.hp) / enemy.maxHp * 100;
+			enemyHpBar.style.width = pct + '%';
+			enemyHpValue.textContent = `${enemy.hp} / ${enemy.maxHp}`;
+		}
+
+		// --- Option selection (keyboard D-pad) ---
+		const optionButtons = Array.from(document.querySelectorAll('.option-button'));
+		let selectionIndex = optionButtons.findIndex(b => b.classList.contains('selected'));
+		if (selectionIndex === -1) selectionIndex = 0;
+		function setSelection(idx) {
+			idx = Math.max(0, Math.min(optionButtons.length - 1, idx));
+			optionButtons.forEach((b, i) => {
+				if (i === idx) b.classList.add('selected'); else b.classList.remove('selected');
+			});
+			selectionIndex = idx;
+		}
+
+		// clicking with mouse should also update selection
+		optionButtons.forEach((btn, i) => btn.addEventListener('click', () => setSelection(i)));
 
 
 		function drawPlayer() {
@@ -501,11 +576,32 @@
 			const distance = Math.abs(attackBar.markerX - targetCenter);
 			const damage = Math.max(0, 10 - Math.floor(distance / 5));
 			console.log(`Damage: ${damage}`);
-			setTimeout(() => setGameState('ENEMY_TURN'), 1000);
+			// Apply damage to enemy
+			enemy.hp -= damage;
+			if (enemy.hp < 0) enemy.hp = 0;
+			updateEnemyHPDisplay();
+			showMessage(`敵に ${damage} のダメージ！`);
+			if (enemy.hp <= 0) {
+				// Enemy defeated
+				showMessage('敵を倒した！');
+				// For now, go to GAME_OVER as placeholder (could implement victory state)
+				setTimeout(() => setGameState('GAME_OVER'), 800);
+			} else {
+				setTimeout(() => setGameState('ENEMY_TURN'), 1000);
+			}
 		}
 
 		function setGameState(newState) {
 			if (gameState === newState) return;
+
+			// If a message is currently active, don't start the enemy turn yet.
+			// Defer entering ENEMY_TURN until messages are cleared.
+			if (newState === 'ENEMY_TURN' && typeof messageActive !== 'undefined' && messageActive) {
+				setTimeout(() => setGameState(newState), 200);
+				return;
+			}
+
+			const previousState = gameState;
 
 			clearTimeout(enemyTurnTimer);
 			clearInterval(bulletSpawnInterval);
@@ -524,7 +620,17 @@
 					}
 				}, 10000); // 10 seconds
 			} else if (gameState === 'PLAYER_TURN') {
-				// Player can now choose an action
+				// ENEMY_TURN から PLAYER_TURN に戻った時は順にメッセージを表示
+				if (previousState === 'ENEMY_TURN') {
+					// まず敵の攻撃終了を短く表示し、その後行動選択を促す
+					showMessage('敵の攻撃が終わった！', 1500);
+					setTimeout(() => {
+						showMessage('行動を選択してください');
+					}, 1600);
+				} else {
+					// それ以外の PLAYER_TURN では即座に行動選択を表示
+					showMessage('行動を選択してください');
+				}
 			} else if (gameState === 'PLAYER_ATTACK') {
 				attackBar.markerX = battleBox.x;
 				attackBar.moving = true;
@@ -569,15 +675,43 @@
 		}
 
 		window.addEventListener('keydown', (e) => {
-			if (e.key in keys) keys[e.key] = true;
+			if (messageActive) return; // ignore inputs while message displayed
+			// Arrow key behavior depends on current game state
+			if (gameState === 'PLAYER_TURN') {
+				// In player turn, use arrows to navigate options
+				if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { setSelection(selectionIndex - 1); return; }
+				if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { setSelection(selectionIndex + 1); return; }
+			} else {
+				// During enemy turn or attack phase, arrows control player movement only
+				if (e.key in keys) keys[e.key] = true;
+			}
+
 			if (e.code === 'Space') {
 				e.preventDefault(); // Prevent page scrolling
-				triggerAttack();
+				// If in player turn and not in attack substate, execute selected action
+				if (gameState === 'PLAYER_TURN') {
+					const btn = optionButtons[selectionIndex];
+					if (!btn) return;
+					const id = btn.id;
+					if (id === 'fight') {
+						setGameState('PLAYER_ATTACK');
+					} else if (id === 'act') {
+						showMessage('You try to ACT...');
+					} else if (id === 'item') {
+						showMessage('You check your ITEMS');
+					} else if (id === 'mercy') {
+						showMessage('You show MERCY...');
+					}
+				} else {
+					// If during attack phase, space triggers attack timing
+					if (gameState === 'PLAYER_ATTACK') triggerAttack();
+				}
 			}
 		});
 		window.addEventListener('keyup', (e) => { if (e.key in keys) keys[e.key] = false; });
 
 		fightButton.addEventListener('click', () => {
+			if (messageActive) return;
 			if (gameState === 'PLAYER_TURN') {
 				setGameState('PLAYER_ATTACK');
 			}
@@ -588,27 +722,34 @@
 		// --- Message window helpers ---
 		const messageWindow = document.getElementById('message-window');
 		let messageTimer = null;
+		let messageActive = false;
 
 		function showMessage(text, ms = 3000) {
 			if (!messageWindow) return;
 			messageWindow.textContent = text;
 			messageWindow.style.display = 'block';
 			messageWindow.style.opacity = '1';
+			// block other actions while message is active
+			messageActive = true;
 			if (messageTimer) clearTimeout(messageTimer);
 			messageTimer = setTimeout(() => {
 				messageWindow.style.display = 'none';
 				messageTimer = null;
+				messageActive = false;
 			}, ms);
 		}
 
 		// Wire other action buttons to show messages
 		document.getElementById('act').addEventListener('click', () => {
+			if (messageActive) return;
 			if (gameState === 'PLAYER_TURN') showMessage('You try to ACT...');
 		});
 		document.getElementById('item').addEventListener('click', () => {
+			if (messageActive) return;
 			if (gameState === 'PLAYER_TURN') showMessage('You check your ITEMS');
 		});
 		document.getElementById('mercy').addEventListener('click', () => {
+			if (messageActive) return;
 			if (gameState === 'PLAYER_TURN') showMessage('You show MERCY...');
 		});
 
@@ -619,6 +760,7 @@
 				position: { right: '75px', bottom: '105px' }, color: 'white', size: 120
 			});
 			joystickManager.on('move', (evt, data) => {
+				if (messageActive) return;
 				const angle = data.angle.radian;
 				const force = Math.min(data.force, 1.0);
 				joystickVector.x = Math.cos(angle) * force;
