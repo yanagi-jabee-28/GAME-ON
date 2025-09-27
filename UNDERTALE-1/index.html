@@ -206,6 +206,15 @@
 			/* 黄色 */
 		}
 
+		/* 選択中のオプションにハートマークを表示 */
+		.option-button.selected::before {
+			content: '❤️';
+			display: inline-block;
+			margin-right: 10px;
+			font-size: 20px;
+			line-height: 1;
+		}
+
 		.heart-icon {
 			width: 24px;
 			height: 24px;
@@ -310,9 +319,6 @@
 
 	<div id="options-container">
 		<button class="option-button selected" id="fight">
-			<svg class="heart-icon" viewBox="0 0 10 10" fill="#ff0">
-				<path d="M5 1 L1 5 L5 9 L9 5 Z" />
-			</svg>
 			* FIGHT
 		</button>
 		<button class="option-button" id="act">
@@ -401,11 +407,17 @@
 		}
 
 		// clicking with mouse should also update selection
-		optionButtons.forEach((btn, i) => btn.addEventListener('click', () => setSelection(i)));
+		optionButtons.forEach((btn, i) => btn.addEventListener('click', () => {
+			if (promptActive) clearMessage();
+			setSelection(i);
+		}));
 
 
 		function drawPlayer() {
+			// Do not draw player heart when invincible blink or when a message/prompt is shown
 			if (player.isInvincible && Math.floor(player.invincibleTimer / 6) % 2 === 0) return;
+			if (typeof messageActive !== 'undefined' && messageActive) return;
+			if (typeof promptActive !== 'undefined' && promptActive) return;
 			ctx.fillStyle = '#ff0000';
 			ctx.font = "20px sans-serif";
 			ctx.textAlign = "center";
@@ -596,7 +608,7 @@
 
 			// If a message is currently active, don't start the enemy turn yet.
 			// Defer entering ENEMY_TURN until messages are cleared.
-			if (newState === 'ENEMY_TURN' && typeof messageActive !== 'undefined' && messageActive) {
+			if (newState === 'ENEMY_TURN' && ((typeof messageActive !== 'undefined' && messageActive) || (typeof promptActive !== 'undefined' && promptActive))) {
 				setTimeout(() => setGameState(newState), 200);
 				return;
 			}
@@ -693,6 +705,8 @@
 					const btn = optionButtons[selectionIndex];
 					if (!btn) return;
 					const id = btn.id;
+					// if a persistent prompt is active, clear it when player acts
+					if (promptActive) clearMessage();
 					if (id === 'fight') {
 						setGameState('PLAYER_ATTACK');
 					} else if (id === 'act') {
@@ -722,14 +736,32 @@
 		// --- Message window helpers ---
 		const messageWindow = document.getElementById('message-window');
 		let messageTimer = null;
-		let messageActive = false;
+		let messageActive = false; // blocks input
+		let promptActive = false;  // persistent prompt that allows player input
+
+		function clearMessage() {
+			if (!messageWindow) return;
+			messageWindow.style.display = 'none';
+			if (messageTimer) { clearTimeout(messageTimer); messageTimer = null; }
+			messageActive = false;
+			promptActive = false;
+		}
 
 		function showMessage(text, ms = 3000) {
 			if (!messageWindow) return;
 			messageWindow.textContent = text;
 			messageWindow.style.display = 'block';
 			messageWindow.style.opacity = '1';
-			// block other actions while message is active
+			// ms === 0 means persistent prompt (do not block input)
+			if (ms === 0) {
+				promptActive = true;
+				// do not set a timer
+				if (messageTimer) { clearTimeout(messageTimer); messageTimer = null; }
+				messageActive = false;
+				return;
+			}
+			// otherwise, show temporary blocking message
+			promptActive = false;
 			messageActive = true;
 			if (messageTimer) clearTimeout(messageTimer);
 			messageTimer = setTimeout(() => {
