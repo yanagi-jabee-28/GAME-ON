@@ -1,550 +1,639 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Undertale風戦闘システム</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --border-style: 4px solid #fff;
-            --box-bg-color: #000;
-            --font-family: 'Press Start', cursive;
-            --font-color: #fff;
-        }
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+	<title>Undertale風戦闘システム</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+	<style>
+		:root {
+			--border-style: 4px solid #fff;
+			--box-bg-color: #000;
+			--font-family: 'Press Start', cursive;
+			--font-color: #fff;
+		}
 
-        body {
-            background-color: #000;
-            color: var(--font-color);
-            font-family: var(--font-family);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            flex-direction: column;
-            overflow: hidden; /* スクロールバーを非表示 */
-        }
+		body {
+			background-color: #000;
+			color: var(--font-color);
+			font-family: var(--font-family);
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			height: 100vh;
+			margin: 0;
+			flex-direction: column;
+			overflow: hidden;
+			/* スクロールバーを非表示 */
+		}
 
-        #game-container {
-            width: 640px;
-            height: 480px;
-            background-color: var(--box-bg-color);
-            border: var(--border-style);
-            display: flex; /* gridからflexに変更 */
-            flex-direction: column;
-            justify-content: center; /* 上下中央寄せ */
-            align-items: center; /* 左右中央寄せ */
-            padding: 20px;
-            position: relative;
-        }
-        
-        @media (max-width: 640px) {
-             #game-container {
-                width: 100vw;
-                height: 60vh; /* 高さを調整 */
-                border: none;
-                padding: 5px;
-                transform: scale(1);
-             }
-        }
+		#game-container {
+			width: 640px;
+			height: 480px;
+			background-color: var(--box-bg-color);
+			border: var(--border-style);
+			display: flex;
+			/* gridからflexに変更 */
+			flex-direction: column;
+			justify-content: center;
+			/* 上下中央寄せ */
+			align-items: center;
+			/* 左右中央寄せ */
+			padding: 20px;
+			position: relative;
+		}
 
-
-        #top-section {
-           /* 敵やメッセージが表示されるエリア (今は空) */
-           flex-grow: 1; /* 中央寄せのためにスペースを確保 */
-        }
-        
-        #player-info {
-            display: flex;
-            align-items: center;
-            justify-content: center; /* 中央寄せに変更 */
-            gap: 20px;
-            font-size: 18px;
-            width: 640px;
-            margin-top: 20px; /* game-containerとの間隔 */
-            margin-bottom: 20px; /* options-containerとの間隔 */
-        }
-
-        #hp-bar-container {
-            width: 120px;
-            height: 20px;
-            border: 2px solid #fff;
-        }
-        #hp-bar {
-            width: 100%;
-            height: 100%;
-            background-color: #ff0; /* 黄色 */
-            transition: width 0.2s ease-out;
-        }
+		@media (max-width: 640px) {
+			#game-container {
+				width: 100vw;
+				height: 60vh;
+				/* 高さを調整 */
+				border: none;
+				padding: 5px;
+				transform: scale(1);
+			}
+		}
 
 
-        #battle-box-container {
-            width: 250px;
-            height: 250px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+		#top-section {
+			/* 敵やメッセージが表示されるエリア (今は空) */
+			flex-grow: 1;
+			/* 中央寄せのためにスペースを確保 */
+		}
 
-        #battle-canvas {
-            background-color: #000;
-        }
-        
-        #options-container {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            width: 640px;
-        }
-        
-         @media (max-width: 640px) {
-             #player-info, #options-container {
-                 width: 100vw;
-             }
-             #player-info {
-                 font-size: 14px;
-                 gap: 10px;
-                 padding: 0 10px;
-             }
-             #options-container {
-                 gap: 10px;
-                 padding: 0 10px;
-             }
-             .option-button {
-                 font-size: 16px !important;
-             }
-         }
+		/* 敵のマーク（💀）を常に上部に表示する */
+		#enemy-mark {
+			position: absolute;
+			/* 親の #game-container が relative なのでそこに対して配置 */
+			top: 8px;
+			left: 50%;
+			transform: translateX(-50%);
+			font-size: 40px;
+			line-height: 1;
+			z-index: 50;
+			pointer-events: none;
+			/* クリックを邪魔しない */
+			user-select: none;
+			-webkit-user-select: none;
+			color: #fff;
+			text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+		}
+
+		#player-info {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			/* 中央寄せに変更 */
+			gap: 20px;
+			font-size: 18px;
+			width: 640px;
+			margin-top: 20px;
+			/* game-containerとの間隔 */
+			margin-bottom: 20px;
+			/* options-containerとの間隔 */
+		}
+
+		#hp-bar-container {
+			width: 120px;
+			height: 20px;
+			border: 2px solid #fff;
+		}
+
+		#hp-bar {
+			width: 100%;
+			height: 100%;
+			background-color: #ff0;
+			/* 黄色 */
+			transition: width 0.2s ease-out;
+		}
 
 
-        .option-button {
-            background: none;
-            border: none;
-            color: var(--font-color);
-            font-family: var(--font-family);
-            font-size: 22px;
-            text-align: left;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-        }
-        
-        .option-button:hover, .option-button.selected {
-            color: #ff0; /* 黄色 */
-        }
+		#battle-box-container {
+			width: 250px;
+			height: 250px;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
 
-        .heart-icon {
-            width: 24px;
-            height: 24px;
-            margin-right: 15px;
-        }
+		#battle-canvas {
+			background-color: #000;
+		}
 
-        #joystick-container {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            width: 150px;
-            height: 150px;
-            opacity: 0.8;
-            display: block;
-        }
-        
-        #game-over {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 48px;
-            color: red;
-            display: none;
-            text-align: center;
-        }
-        
-        #attack-button {
-            position: absolute;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 120px;
-            height: 50px;
-            background-color: #ff0;
-            color: #000;
-            border: 2px solid #fff;
-            font-family: var(--font-family);
-            font-size: 18px;
-            display: none; /* Initially hidden */
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            z-index: 10;
-            border-radius: 5px;
-        }
-    </style>
+		#options-container {
+			display: grid;
+			grid-template-columns: repeat(2, 1fr);
+			gap: 20px;
+			width: 640px;
+		}
+
+		@media (max-width: 640px) {
+
+			#player-info,
+			#options-container {
+				width: 100vw;
+			}
+
+			#player-info {
+				font-size: 14px;
+				gap: 10px;
+				padding: 0 10px;
+			}
+
+			#options-container {
+				gap: 10px;
+				padding: 0 10px;
+			}
+
+			.option-button {
+				font-size: 16px !important;
+			}
+		}
+
+
+		.option-button {
+			background: none;
+			border: none;
+			color: var(--font-color);
+			font-family: var(--font-family);
+			font-size: 22px;
+			text-align: left;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+		}
+
+		.option-button:hover,
+		.option-button.selected {
+			color: #ff0;
+			/* 黄色 */
+		}
+
+		.heart-icon {
+			width: 24px;
+			height: 24px;
+			margin-right: 15px;
+		}
+
+		#joystick-container {
+			position: fixed;
+			bottom: 30px;
+			right: 30px;
+			width: 150px;
+			height: 150px;
+			opacity: 0.8;
+			display: block;
+		}
+
+		#game-over {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			font-size: 48px;
+			color: red;
+			display: none;
+			text-align: center;
+		}
+
+		#attack-button {
+			position: absolute;
+			bottom: 40px;
+			left: 50%;
+			transform: translateX(-50%);
+			width: 120px;
+			height: 50px;
+			background-color: #ff0;
+			color: #000;
+			border: 2px solid #fff;
+			font-family: var(--font-family);
+			font-size: 18px;
+			display: none;
+			/* Initially hidden */
+			justify-content: center;
+			align-items: center;
+			cursor: pointer;
+			z-index: 10;
+			border-radius: 5px;
+		}
+
+		/* メッセージウィンドウ */
+		#message-window {
+			position: absolute;
+			bottom: 100px;
+			left: 50%;
+			transform: translateX(-50%);
+			width: calc(100% - 40px);
+			background: rgba(0, 0, 0, 0.9);
+			border: var(--border-style);
+			padding: 10px 12px;
+			text-align: center;
+			z-index: 40;
+			font-size: 14px;
+			display: none;
+			color: var(--font-color);
+			pointer-events: none;
+			font-family: var(--font-family);
+		}
+	</style>
 </head>
+
 <body>
 
-    <div id="game-container">
-        <div id="top-section">
-        </div>
-        <div id="battle-box-container">
-            <canvas id="battle-canvas" width="250" height="250"></canvas>
-        </div>
-        <div id="attack-button">ATTACK</div>
-        <div id="game-over">GAME OVER</div>
-    </div>
-    
-    <div id="player-info">
-        <span>PLAYER</span>
-        <span>LV 1</span>
-        <div id="hp-bar-container">
-            <div id="hp-bar"></div>
-        </div>
-        <span id="hp-value">20 / 20</span>
-    </div>
+	<div id="game-container">
+		<div id="top-section">
+			<!-- メッセージウィンドウ（行動選択時にメッセージを表示） -->
+			<div id="message-window" role="status" aria-live="polite"></div>
+		</div>
+		<div id="enemy-mark">💀</div>
+		<div id="battle-box-container">
+			<canvas id="battle-canvas" width="250" height="250"></canvas>
+		</div>
+		<div id="attack-button">ATTACK</div>
+		<div id="game-over">GAME OVER</div>
+	</div>
 
-    <div id="options-container">
-        <button class="option-button selected" id="fight">
-            <svg class="heart-icon" viewBox="0 0 10 10" fill="#ff0"><path d="M5 1 L1 5 L5 9 L9 5 Z"/></svg>
-            * FIGHT
-        </button>
-        <button class="option-button" id="act">
-             * ACT
-        </button>
-        <button class="option-button" id="item">
-             * ITEM
-        </button>
-        <button class="option-button" id="mercy">
-             * MERCY
-        </button>
-    </div>
+	<div id="player-info">
+		<span>PLAYER</span>
+		<span>LV 1</span>
+		<div id="hp-bar-container">
+			<div id="hp-bar"></div>
+		</div>
+		<span id="hp-value">20 / 20</span>
+	</div>
 
-    <div id="joystick-container"></div>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+	<div id="options-container">
+		<button class="option-button selected" id="fight">
+			<svg class="heart-icon" viewBox="0 0 10 10" fill="#ff0">
+				<path d="M5 1 L1 5 L5 9 L9 5 Z" />
+			</svg>
+			* FIGHT
+		</button>
+		<button class="option-button" id="act">
+			* ACT
+		</button>
+		<button class="option-button" id="item">
+			* ITEM
+		</button>
+		<button class="option-button" id="mercy">
+			* MERCY
+		</button>
+	</div>
 
-    <script>
-        const canvas = document.getElementById('battle-canvas');
-        const ctx = canvas.getContext('2d');
+	<div id="joystick-container"></div>
 
-        // --- Game State Management ---
-        let gameState = null; // Initial state set to null to fix bug
-        let enemyTurnTimer;
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
 
-        const battleBox = {
-            width: 150, height: 150,
-            x: (canvas.width - 150) / 2, y: (canvas.height - 150) / 2,
-        };
+	<script>
+		const canvas = document.getElementById('battle-canvas');
+		const ctx = canvas.getContext('2d');
 
-        const player = {
-            x: canvas.width / 2, y: canvas.height / 2,
-            width: 20, height: 20, speed: 3,
-            isInvincible: false, invincibleTimer: 0,
-            maxHp: 20, hp: 20,
-        };
+		// --- Game State Management ---
+		let gameState = null; // Initial state set to null to fix bug
+		let enemyTurnTimer;
 
-        const bullets = [];
-        let bulletSpawnInterval;
-        let bulletSpawnMode = 'top';
-        let framesSinceLastHoming = 0;
+		const battleBox = {
+			width: 150, height: 150,
+			x: (canvas.width - 150) / 2, y: (canvas.height - 150) / 2,
+		};
 
-        const attackBar = {
-            x: battleBox.x, y: battleBox.y + battleBox.height / 2 - 10,
-            width: battleBox.width, height: 20,
-            markerX: battleBox.x, markerSpeed: 4, moving: false,
-        };
+		const player = {
+			x: canvas.width / 2, y: canvas.height / 2,
+			width: 20, height: 20, speed: 3,
+			isInvincible: false, invincibleTimer: 0,
+			maxHp: 20, hp: 20,
+		};
 
-        const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
-        let joystickVector = { x: 0, y: 0 };
+		const bullets = [];
+		let bulletSpawnInterval;
+		let bulletSpawnMode = 'top';
+		let framesSinceLastHoming = 0;
 
-        // --- DOM Elements ---
-        const hpBar = document.getElementById('hp-bar');
-        const hpValue = document.getElementById('hp-value');
-        const gameOverText = document.getElementById('game-over');
-        const fightButton = document.getElementById('fight');
-        const attackButton = document.getElementById('attack-button');
+		const attackBar = {
+			x: battleBox.x, y: battleBox.y + battleBox.height / 2 - 10,
+			width: battleBox.width, height: 20,
+			markerX: battleBox.x, markerSpeed: 4, moving: false,
+		};
+
+		const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+		let joystickVector = { x: 0, y: 0 };
+
+		// --- DOM Elements ---
+		const hpBar = document.getElementById('hp-bar');
+		const hpValue = document.getElementById('hp-value');
+		const gameOverText = document.getElementById('game-over');
+		const fightButton = document.getElementById('fight');
+		const attackButton = document.getElementById('attack-button');
 
 
-        function drawPlayer() {
-            if (player.isInvincible && Math.floor(player.invincibleTimer / 6) % 2 === 0) return;
-            ctx.fillStyle = '#ff0000';
-            ctx.font = "20px sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText('❤️', player.x, player.y);
-        }
-        
-        function updatePlayerPosition() {
-            let moveX = 0, moveY = 0;
-            if (joystickVector.x !== 0 || joystickVector.y !== 0) {
-                moveX = joystickVector.x;
-                moveY = joystickVector.y;
-            } else {
-                if (keys.ArrowUp) moveY -= 1;
-                if (keys.ArrowDown) moveY += 1;
-                if (keys.ArrowLeft) moveX -= 1;
-                if (keys.ArrowRight) moveX += 1;
-                const magnitude = Math.sqrt(moveX * moveX + moveY * moveY);
-                if (magnitude > 1) {
-                    moveX /= magnitude;
-                    moveY /= magnitude;
-                }
-            }
-            player.x += moveX * player.speed;
-            player.y += moveY * player.speed;
+		function drawPlayer() {
+			if (player.isInvincible && Math.floor(player.invincibleTimer / 6) % 2 === 0) return;
+			ctx.fillStyle = '#ff0000';
+			ctx.font = "20px sans-serif";
+			ctx.textAlign = "center";
+			ctx.textBaseline = "middle";
+			ctx.fillText('❤️', player.x, player.y);
+		}
 
-            if (player.x - player.width / 2 < battleBox.x) player.x = battleBox.x + player.width / 2;
-            if (player.x + player.width / 2 > battleBox.x + battleBox.width) player.x = battleBox.x + battleBox.width - player.width / 2;
-            if (player.y - player.height / 2 < battleBox.y) player.y = battleBox.y + player.height / 2;
-            if (player.y + player.height / 2 > battleBox.y + battleBox.height) player.y = battleBox.y + battleBox.height - player.height / 2;
-            
-            if (player.isInvincible) {
-                player.invincibleTimer--;
-                if (player.invincibleTimer <= 0) player.isInvincible = false;
-            }
-        }
-        
-        function createBullet() {
-            let startX, startY;
-            if (bulletSpawnMode === 'top') {
-                startX = Math.random() * canvas.width;
-                startY = -10;
-            } else {
-                const side = Math.floor(Math.random() * 4); 
-                switch(side) {
-                    case 0: startX = Math.random() * canvas.width; startY = -10; break;
-                    case 1: startX = canvas.width + 10; startY = Math.random() * canvas.height; break;
-                    case 2: startX = Math.random() * canvas.width; startY = canvas.height + 10; break;
-                    case 3: startX = -10; startY = Math.random() * canvas.height; break;
-                }
-            }
-            let isHoming = false;
-            const secondsSince = framesSinceLastHoming / 60;
-            if (secondsSince >= 5) isHoming = true;
-            else {
-                const homingChance = 0.20 + 0.16 * secondsSince;
-                if (Math.random() < homingChance) isHoming = true;
-            }
-            if (isHoming) framesSinceLastHoming = 0;
-            const angle = Math.atan2(player.y - startY, player.x - startX);
-            const speed = isHoming ? 1.5 : 2;
-            bullets.push({
-                x: startX, y: startY, radius: 5, speedX: Math.cos(angle) * speed, speedY: Math.sin(angle) * speed,
-                color: isHoming ? '#ff3333' : '#fff', isHoming: isHoming, lifetime: isHoming ? 300 : null,
-                originalSpeed: speed, hasEnteredBox: false, isFadingOut: false, fadeOutTimer: 60
-            });
-        }
+		function updatePlayerPosition() {
+			let moveX = 0, moveY = 0;
+			if (joystickVector.x !== 0 || joystickVector.y !== 0) {
+				moveX = joystickVector.x;
+				moveY = joystickVector.y;
+			} else {
+				if (keys.ArrowUp) moveY -= 1;
+				if (keys.ArrowDown) moveY += 1;
+				if (keys.ArrowLeft) moveX -= 1;
+				if (keys.ArrowRight) moveX += 1;
+				const magnitude = Math.sqrt(moveX * moveX + moveY * moveY);
+				if (magnitude > 1) {
+					moveX /= magnitude;
+					moveY /= magnitude;
+				}
+			}
+			player.x += moveX * player.speed;
+			player.y += moveY * player.speed;
 
-        function drawBullets() {
-            bullets.forEach(bullet => {
-                ctx.save();
-                if (bullet.isFadingOut) ctx.globalAlpha = Math.max(0, bullet.fadeOutTimer / 60);
-                ctx.fillStyle = bullet.color;
-                ctx.beginPath();
-                ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-            });
-        }
+			if (player.x - player.width / 2 < battleBox.x) player.x = battleBox.x + player.width / 2;
+			if (player.x + player.width / 2 > battleBox.x + battleBox.width) player.x = battleBox.x + battleBox.width - player.width / 2;
+			if (player.y - player.height / 2 < battleBox.y) player.y = battleBox.y + player.height / 2;
+			if (player.y + player.height / 2 > battleBox.y + battleBox.height) player.y = battleBox.y + battleBox.height - player.height / 2;
 
-        function updateBulletsPosition() {
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                const bullet = bullets[i];
-                if (bullet.isHoming && !bullet.isFadingOut) {
-                    const turnRate = 0.025;
-                    const targetAngle = Math.atan2(player.y - bullet.y, player.x - bullet.x);
-                    const currentAngle = Math.atan2(bullet.speedY, bullet.speedX);
-                    let angleDiff = targetAngle - currentAngle;
-                    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-                    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-                    const turnAmount = Math.max(-turnRate, Math.min(turnRate, angleDiff));
-                    const newAngle = currentAngle + turnAmount;
-                    bullet.speedX = Math.cos(newAngle) * bullet.originalSpeed;
-                    bullet.speedY = Math.sin(newAngle) * bullet.originalSpeed;
-                }
-                bullet.x += bullet.speedX;
-                bullet.y += bullet.speedY;
-                const isInsideBox = bullet.x > battleBox.x && bullet.x < battleBox.x + battleBox.width && bullet.y > battleBox.y && bullet.y < battleBox.y + battleBox.height;
-                if (isInsideBox) bullet.hasEnteredBox = true;
-                if (bullet.isHoming && bullet.lifetime !== null) bullet.lifetime--;
-                if ((bullet.hasEnteredBox && !isInsideBox) || (bullet.isHoming && bullet.lifetime !== null && bullet.lifetime <= 0)) bullet.isFadingOut = true;
-                if (bullet.isFadingOut) {
-                    bullet.fadeOutTimer--;
-                    if (bullet.fadeOutTimer <= 0) { bullets.splice(i, 1); continue; }
-                }
-                const margin = 20;
-                if (!bullet.hasEnteredBox && (bullet.x < -margin || bullet.x > canvas.width + margin || bullet.y < -margin || bullet.y > canvas.height + margin)) {
-                    bullets.splice(i, 1);
-                    continue; 
-                }
-            }
-        }
-        
-        function checkCollisions() {
-            if (player.isInvincible) return;
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                const bullet = bullets[i];
-                if (bullet.isFadingOut) continue;
-                if (player.x - player.width / 2 < bullet.x + bullet.radius && player.x + player.width / 2 > bullet.x - bullet.radius && player.y - player.height / 2 < bullet.y + bullet.radius && player.y + player.height / 2 > bullet.y - bullet.radius) {
-                    bullets.splice(i, 1);
-                    player.hp -= 2; // Damage
-                    if (player.hp < 0) player.hp = 0;
-                    updateHPDisplay();
-                    player.isInvincible = true;
-                    player.invincibleTimer = 30;
-                    if (player.hp <= 0) setGameState('GAME_OVER');
-                    break;
-                }
-            }
-        }
+			if (player.isInvincible) {
+				player.invincibleTimer--;
+				if (player.invincibleTimer <= 0) player.isInvincible = false;
+			}
+		}
 
-        function updateHPDisplay() {
-            const hpPercentage = (player.hp / player.maxHp) * 100;
-            hpBar.style.width = `${hpPercentage}%`;
-            hpValue.textContent = `${player.hp} / ${player.maxHp}`;
-        }
+		function createBullet() {
+			let startX, startY;
+			if (bulletSpawnMode === 'top') {
+				startX = Math.random() * canvas.width;
+				startY = -10;
+			} else {
+				const side = Math.floor(Math.random() * 4);
+				switch (side) {
+					case 0: startX = Math.random() * canvas.width; startY = -10; break;
+					case 1: startX = canvas.width + 10; startY = Math.random() * canvas.height; break;
+					case 2: startX = Math.random() * canvas.width; startY = canvas.height + 10; break;
+					case 3: startX = -10; startY = Math.random() * canvas.height; break;
+				}
+			}
+			let isHoming = false;
+			const secondsSince = framesSinceLastHoming / 60;
+			if (secondsSince >= 5) isHoming = true;
+			else {
+				const homingChance = 0.20 + 0.16 * secondsSince;
+				if (Math.random() < homingChance) isHoming = true;
+			}
+			if (isHoming) framesSinceLastHoming = 0;
+			const angle = Math.atan2(player.y - startY, player.x - startX);
+			const speed = isHoming ? 1.5 : 2;
+			bullets.push({
+				x: startX, y: startY, radius: 5, speedX: Math.cos(angle) * speed, speedY: Math.sin(angle) * speed,
+				color: isHoming ? '#ff3333' : '#fff', isHoming: isHoming, lifetime: isHoming ? 300 : null,
+				originalSpeed: speed, hasEnteredBox: false, isFadingOut: false, fadeOutTimer: 60
+			});
+		}
 
-        function drawBattleBox() {
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 4;
-            ctx.strokeRect(battleBox.x, battleBox.y, battleBox.width, battleBox.height);
-        }
+		function drawBullets() {
+			bullets.forEach(bullet => {
+				ctx.save();
+				if (bullet.isFadingOut) ctx.globalAlpha = Math.max(0, bullet.fadeOutTimer / 60);
+				ctx.fillStyle = bullet.color;
+				ctx.beginPath();
+				ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
+				ctx.fill();
+				ctx.restore();
+			});
+		}
 
-        function drawAttackBar() {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(attackBar.x, attackBar.y, attackBar.width, attackBar.height);
-            ctx.strokeStyle = '#fff';
-            ctx.strokeRect(attackBar.x, attackBar.y, attackBar.width, attackBar.height);
-            const targetZoneWidth = 10;
-            const targetZoneX = battleBox.x + (battleBox.width / 2) - (targetZoneWidth / 2);
-            ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
-            ctx.fillRect(targetZoneX, attackBar.y, targetZoneWidth, attackBar.height);
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(attackBar.markerX, attackBar.y, 2, attackBar.height);
-        }
+		function updateBulletsPosition() {
+			for (let i = bullets.length - 1; i >= 0; i--) {
+				const bullet = bullets[i];
+				if (bullet.isHoming && !bullet.isFadingOut) {
+					const turnRate = 0.025;
+					const targetAngle = Math.atan2(player.y - bullet.y, player.x - bullet.x);
+					const currentAngle = Math.atan2(bullet.speedY, bullet.speedX);
+					let angleDiff = targetAngle - currentAngle;
+					while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+					while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+					const turnAmount = Math.max(-turnRate, Math.min(turnRate, angleDiff));
+					const newAngle = currentAngle + turnAmount;
+					bullet.speedX = Math.cos(newAngle) * bullet.originalSpeed;
+					bullet.speedY = Math.sin(newAngle) * bullet.originalSpeed;
+				}
+				bullet.x += bullet.speedX;
+				bullet.y += bullet.speedY;
+				const isInsideBox = bullet.x > battleBox.x && bullet.x < battleBox.x + battleBox.width && bullet.y > battleBox.y && bullet.y < battleBox.y + battleBox.height;
+				if (isInsideBox) bullet.hasEnteredBox = true;
+				if (bullet.isHoming && bullet.lifetime !== null) bullet.lifetime--;
+				if ((bullet.hasEnteredBox && !isInsideBox) || (bullet.isHoming && bullet.lifetime !== null && bullet.lifetime <= 0)) bullet.isFadingOut = true;
+				if (bullet.isFadingOut) {
+					bullet.fadeOutTimer--;
+					if (bullet.fadeOutTimer <= 0) { bullets.splice(i, 1); continue; }
+				}
+				const margin = 20;
+				if (!bullet.hasEnteredBox && (bullet.x < -margin || bullet.x > canvas.width + margin || bullet.y < -margin || bullet.y > canvas.height + margin)) {
+					bullets.splice(i, 1);
+					continue;
+				}
+			}
+		}
 
-        function updateAttackBar() {
-            if (!attackBar.moving) return;
-            attackBar.markerX += attackBar.markerSpeed;
-            if (attackBar.markerX > battleBox.x + battleBox.width || attackBar.markerX < battleBox.x) {
-                attackBar.markerSpeed *= -1;
-            }
-        }
+		function checkCollisions() {
+			if (player.isInvincible) return;
+			for (let i = bullets.length - 1; i >= 0; i--) {
+				const bullet = bullets[i];
+				if (bullet.isFadingOut) continue;
+				if (player.x - player.width / 2 < bullet.x + bullet.radius && player.x + player.width / 2 > bullet.x - bullet.radius && player.y - player.height / 2 < bullet.y + bullet.radius && player.y + player.height / 2 > bullet.y - bullet.radius) {
+					bullets.splice(i, 1);
+					player.hp -= 2; // Damage
+					if (player.hp < 0) player.hp = 0;
+					updateHPDisplay();
+					player.isInvincible = true;
+					player.invincibleTimer = 30;
+					if (player.hp <= 0) setGameState('GAME_OVER');
+					break;
+				}
+			}
+		}
 
-        function handlePlayerAttack() {
-            attackBar.moving = false;
-            const targetCenter = battleBox.x + battleBox.width / 2;
-            const distance = Math.abs(attackBar.markerX - targetCenter);
-            const damage = Math.max(0, 10 - Math.floor(distance / 5));
-            console.log(`Damage: ${damage}`);
-            setTimeout(() => setGameState('ENEMY_TURN'), 1000);
-        }
+		function updateHPDisplay() {
+			const hpPercentage = (player.hp / player.maxHp) * 100;
+			hpBar.style.width = `${hpPercentage}%`;
+			hpValue.textContent = `${player.hp} / ${player.maxHp}`;
+		}
 
-        function setGameState(newState) {
-            if (gameState === newState) return;
+		function drawBattleBox() {
+			ctx.strokeStyle = '#fff';
+			ctx.lineWidth = 4;
+			ctx.strokeRect(battleBox.x, battleBox.y, battleBox.width, battleBox.height);
+		}
 
-            clearTimeout(enemyTurnTimer);
-            clearInterval(bulletSpawnInterval);
-            gameState = newState;
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height); 
-            attackButton.style.display = 'none';
+		function drawAttackBar() {
+			ctx.fillStyle = '#000';
+			ctx.fillRect(attackBar.x, attackBar.y, attackBar.width, attackBar.height);
+			ctx.strokeStyle = '#fff';
+			ctx.strokeRect(attackBar.x, attackBar.y, attackBar.width, attackBar.height);
+			const targetZoneWidth = 10;
+			const targetZoneX = battleBox.x + (battleBox.width / 2) - (targetZoneWidth / 2);
+			ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
+			ctx.fillRect(targetZoneX, attackBar.y, targetZoneWidth, attackBar.height);
+			ctx.fillStyle = '#fff';
+			ctx.fillRect(attackBar.markerX, attackBar.y, 2, attackBar.height);
+		}
 
-            if (gameState === 'ENEMY_TURN') {
-                bullets.length = 0;
-                framesSinceLastHoming = 0;
-                bulletSpawnInterval = setInterval(createBullet, 700);
-                enemyTurnTimer = setTimeout(() => {
-                    if (gameState !== 'GAME_OVER') {
-                        setGameState('PLAYER_TURN');
-                    }
-                }, 10000); // 10 seconds
-            } else if (gameState === 'PLAYER_TURN'){
-                // Player can now choose an action
-            } else if (gameState === 'PLAYER_ATTACK') {
-                attackBar.markerX = battleBox.x;
-                attackBar.moving = true;
-                attackButton.style.display = 'flex';
-            } else if (gameState === 'GAME_OVER') {
-                gameOverText.style.display = 'block';
-                bullets.length = 0;
-            }
-        }
+		function updateAttackBar() {
+			if (!attackBar.moving) return;
+			attackBar.markerX += attackBar.markerSpeed;
+			if (attackBar.markerX > battleBox.x + battleBox.width || attackBar.markerX < battleBox.x) {
+				attackBar.markerSpeed *= -1;
+			}
+		}
 
-        function gameLoop() {
-            // ゲームオーバー時にループがフリーズする問題を修正
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            if (gameState === 'ENEMY_TURN') {
-                framesSinceLastHoming++;
-                drawBattleBox();
-                updatePlayerPosition();
-                updateBulletsPosition();
-                checkCollisions();
-                drawBullets();
-                drawPlayer();
-            } else if (gameState === 'PLAYER_TURN') {
-                 drawBattleBox(); // Show box background
-            } else if (gameState === 'PLAYER_ATTACK') {
-                updateAttackBar();
-                drawAttackBar();
-            } else if (gameState === 'GAME_OVER') {
-                // ゲームオーバー画面を描画し続ける
-                drawBattleBox();
-                drawPlayer();
-            }
+		function handlePlayerAttack() {
+			attackBar.moving = false;
+			const targetCenter = battleBox.x + battleBox.width / 2;
+			const distance = Math.abs(attackBar.markerX - targetCenter);
+			const damage = Math.max(0, 10 - Math.floor(distance / 5));
+			console.log(`Damage: ${damage}`);
+			setTimeout(() => setGameState('ENEMY_TURN'), 1000);
+		}
 
-            requestAnimationFrame(gameLoop);
-        }
-        
-        // --- Event Listeners ---
-        function triggerAttack() {
-            if (gameState === 'PLAYER_ATTACK' && attackBar.moving) {
-                handlePlayerAttack();
-            }
-        }
+		function setGameState(newState) {
+			if (gameState === newState) return;
 
-        window.addEventListener('keydown', (e) => {
-            if (e.key in keys) keys[e.key] = true;
-            if (e.code === 'Space') {
-                e.preventDefault(); // Prevent page scrolling
-                triggerAttack();
-            }
-        });
-        window.addEventListener('keyup', (e) => { if (e.key in keys) keys[e.key] = false; });
-        
-        fightButton.addEventListener('click', () => {
-            if (gameState === 'PLAYER_TURN') {
-                setGameState('PLAYER_ATTACK');
-            }
-        });
-        
-        attackButton.addEventListener('click', triggerAttack);
+			clearTimeout(enemyTurnTimer);
+			clearInterval(bulletSpawnInterval);
+			gameState = newState;
 
-        // --- Initialization ---
-        try {
-            const joystickManager = nipplejs.create({
-                zone: document.getElementById('joystick-container'), mode: 'static',
-                position: { right: '75px', bottom: '105px' }, color: 'white', size: 120
-            });
-            joystickManager.on('move', (evt, data) => {
-                const angle = data.angle.radian;
-                const force = Math.min(data.force, 1.0);
-                joystickVector.x = Math.cos(angle) * force;
-                joystickVector.y = -Math.sin(angle) * force;
-            }).on('end', () => {
-                joystickVector.x = 0;
-                joystickVector.y = 0;
-            });
-        } catch (e) { console.log("Could not initialize joystick."); }
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			attackButton.style.display = 'none';
 
-        updateHPDisplay();
-        setGameState('PLAYER_TURN'); // Start with player's turn
-        gameLoop();
+			if (gameState === 'ENEMY_TURN') {
+				bullets.length = 0;
+				framesSinceLastHoming = 0;
+				bulletSpawnInterval = setInterval(createBullet, 700);
+				enemyTurnTimer = setTimeout(() => {
+					if (gameState !== 'GAME_OVER') {
+						setGameState('PLAYER_TURN');
+					}
+				}, 10000); // 10 seconds
+			} else if (gameState === 'PLAYER_TURN') {
+				// Player can now choose an action
+			} else if (gameState === 'PLAYER_ATTACK') {
+				attackBar.markerX = battleBox.x;
+				attackBar.moving = true;
+				attackButton.style.display = 'flex';
+			} else if (gameState === 'GAME_OVER') {
+				gameOverText.style.display = 'block';
+				bullets.length = 0;
+			}
+		}
 
-    </script>
+		function gameLoop() {
+			// ゲームオーバー時にループがフリーズする問題を修正
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+			if (gameState === 'ENEMY_TURN') {
+				framesSinceLastHoming++;
+				drawBattleBox();
+				updatePlayerPosition();
+				updateBulletsPosition();
+				checkCollisions();
+				drawBullets();
+				drawPlayer();
+			} else if (gameState === 'PLAYER_TURN') {
+				drawBattleBox(); // Show box background
+			} else if (gameState === 'PLAYER_ATTACK') {
+				updateAttackBar();
+				drawAttackBar();
+			} else if (gameState === 'GAME_OVER') {
+				// ゲームオーバー画面を描画し続ける
+				drawBattleBox();
+				drawPlayer();
+			}
+
+			requestAnimationFrame(gameLoop);
+		}
+
+		// --- Event Listeners ---
+		function triggerAttack() {
+			if (gameState === 'PLAYER_ATTACK' && attackBar.moving) {
+				handlePlayerAttack();
+			}
+		}
+
+		window.addEventListener('keydown', (e) => {
+			if (e.key in keys) keys[e.key] = true;
+			if (e.code === 'Space') {
+				e.preventDefault(); // Prevent page scrolling
+				triggerAttack();
+			}
+		});
+		window.addEventListener('keyup', (e) => { if (e.key in keys) keys[e.key] = false; });
+
+		fightButton.addEventListener('click', () => {
+			if (gameState === 'PLAYER_TURN') {
+				setGameState('PLAYER_ATTACK');
+			}
+		});
+
+		attackButton.addEventListener('click', triggerAttack);
+
+		// --- Message window helpers ---
+		const messageWindow = document.getElementById('message-window');
+		let messageTimer = null;
+
+		function showMessage(text, ms = 3000) {
+			if (!messageWindow) return;
+			messageWindow.textContent = text;
+			messageWindow.style.display = 'block';
+			messageWindow.style.opacity = '1';
+			if (messageTimer) clearTimeout(messageTimer);
+			messageTimer = setTimeout(() => {
+				messageWindow.style.display = 'none';
+				messageTimer = null;
+			}, ms);
+		}
+
+		// Wire other action buttons to show messages
+		document.getElementById('act').addEventListener('click', () => {
+			if (gameState === 'PLAYER_TURN') showMessage('You try to ACT...');
+		});
+		document.getElementById('item').addEventListener('click', () => {
+			if (gameState === 'PLAYER_TURN') showMessage('You check your ITEMS');
+		});
+		document.getElementById('mercy').addEventListener('click', () => {
+			if (gameState === 'PLAYER_TURN') showMessage('You show MERCY...');
+		});
+
+		// --- Initialization ---
+		try {
+			const joystickManager = nipplejs.create({
+				zone: document.getElementById('joystick-container'), mode: 'static',
+				position: { right: '75px', bottom: '105px' }, color: 'white', size: 120
+			});
+			joystickManager.on('move', (evt, data) => {
+				const angle = data.angle.radian;
+				const force = Math.min(data.force, 1.0);
+				joystickVector.x = Math.cos(angle) * force;
+				joystickVector.y = -Math.sin(angle) * force;
+			}).on('end', () => {
+				joystickVector.x = 0;
+				joystickVector.y = 0;
+			});
+		} catch (e) { console.log("Could not initialize joystick."); }
+
+		updateHPDisplay();
+		setGameState('PLAYER_TURN'); // Start with player's turn
+		gameLoop();
+
+	</script>
 </body>
+
 </html>
-
-
