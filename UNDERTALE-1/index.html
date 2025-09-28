@@ -245,6 +245,17 @@
 			text-align: center;
 		}
 
+		#game-clear {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			font-size: 48px;
+			color: #00ff66;
+			display: none;
+			text-align: center;
+		}
+
 		#attack-button {
 			position: absolute;
 			bottom: 40px;
@@ -315,6 +326,7 @@
 		</div>
 		<div id="attack-button">ATTACK</div>
 		<div id="game-over">GAME OVER</div>
+		<div id="game-clear">GAME CLEAR</div>
 	</div>
 
 	<div id="player-info">
@@ -599,8 +611,8 @@
 			if (enemy.hp <= 0) {
 				// Enemy defeated
 				showMessage('敵を倒した！');
-				// For now, go to GAME_OVER as placeholder (could implement victory state)
-				setTimeout(() => setGameState('GAME_OVER'), 800);
+				// Go to VICTORY state (ゲームクリア)
+				setTimeout(() => setGameState('VICTORY'), 800);
 			} else {
 				setTimeout(() => setGameState('ENEMY_TURN'), 1000);
 			}
@@ -652,14 +664,22 @@
 					showMessage('行動を選択してください', { persistent: true, blockInput: false });
 				}
 			} else if (gameState === 'PLAYER_ATTACK') {
+				hideMessage(); // Hide message window during attack minigame
 				attackBar.markerX = battleBox.x;
 				attackBar.moving = true;
 				attackButton.style.display = 'flex';
-				// Bring battle visuals above the message window so the attack minigame is visible
 				document.getElementById('battle-box-container').classList.add('bring-front');
 				document.getElementById('attack-button').classList.add('bring-front');
 			} else if (gameState === 'GAME_OVER') {
 				gameOverText.style.display = 'block';
+				document.getElementById('battle-box-container').style.display = 'none';
+				document.getElementById('attack-button').style.display = 'none';
+				bullets.length = 0;
+			} else if (gameState === 'VICTORY') {
+				// Game clear: show victory text, hide the battle area
+				document.getElementById('game-clear').style.display = 'block';
+				document.getElementById('battle-box-container').style.display = 'none';
+				document.getElementById('attack-button').style.display = 'none';
 				bullets.length = 0;
 			}
 		}
@@ -684,9 +704,11 @@
 				// Always draw attack visuals during PLAYER_ATTACK, even if a message is visible
 				updateAttackBar(); drawAttackBar();
 			} else if (gameState === 'GAME_OVER') {
-				// ゲームオーバー画面を描画し続ける
-				drawBattleBox();
-				drawPlayer();
+				// GAME_OVER: no battle visuals, only the GAME OVER text is shown (DOM element)
+				// intentionally skip drawBattleBox/drawPlayer/drawBullets
+			} else if (gameState === 'VICTORY') {
+				// VICTORY: no battle visuals, only GAME CLEAR DOM element
+				// intentionally skip drawBattleBox/drawPlayer/drawBullets
 			}
 
 			requestAnimationFrame(gameLoop);
