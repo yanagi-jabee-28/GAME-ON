@@ -673,14 +673,7 @@
 		splitCancel.addEventListener('click', () => {
 			splitModalBackdrop.classList.add('hidden');
 		});
-		restartButton.addEventListener('click', () => {
-			hands = { player: [1, 1], cpu: [1, 1] };
-			turn = 'player';
-			gameState = 'playing';
-			selectedHand = null;
-			gameOverScreen.classList.add('hidden');
-			updateUI();
-		});
+		restartButton.addEventListener('click', initializeGame);
 
 		// Helper: open split modal for the sum of both player hands
 		function openSplitModalSum() {
@@ -733,9 +726,19 @@
 				note.className = 'mb-2 text-sm text-gray-300';
 				note.textContent = `注: 手が 0/5 の方は一時的に 0 として扱い、左右へ配分できます（${deadIndex === 0 ? '左' : '右'} が 0/5）。`;
 				splitOptionsContainer.appendChild(note);
+
+				const currentLeft = hands.player[0];
+				const currentRight = hands.player[1];
+
 				for (let a = 0; a <= sum; a++) {
 					const b = sum - a;
 					if (a > 5 || b > 5) continue;
+
+					// Rule: Do not allow splitting to the same distribution (including swapped)
+					if ((a === currentLeft && b === currentRight) || (a === currentRight && b === currentLeft)) {
+						continue;
+					}
+
 					const optionEl = document.createElement('div');
 					optionEl.className = 'split-option';
 					const label = document.createElement('div');
@@ -771,9 +774,29 @@
 			updateUI();
 		}
 
+		function initializeGame() {
+			hands = { player: [1, 1], cpu: [1, 1] };
+			selectedHand = null;
+			gameState = 'playing';
+			gameOverScreen.classList.add('hidden');
+
+			// Randomly determine the first turn
+			turn = Math.random() < 0.5 ? 'player' : 'cpu';
+
+			// If CPU starts, it needs to think
+			if (turn === 'cpu') {
+				gameState = 'cpu_thinking';
+				updateUI(); // Update UI to show CPU is thinking
+				setTimeout(cpuTurn, 500); // Start CPU turn after a short delay
+			} else {
+				// gameState remains 'playing'
+				updateUI(); // Update UI for player's turn
+			}
+		}
+
 
 		// --- Initial Render ---
-		updateUI();
+		initializeGame();
 	</script>
 </body>
 
