@@ -249,6 +249,12 @@
 		let turnCount = 0; // To track the number of turns
 		let CPU_MODE = 'strong'; // 'normal' | 'strong'
 		let lastResult = null; // 'playerWon' | 'playerLost'
+		let stateHistory = [];
+
+		function makeStateKey() {
+			// include turn to consider player to move as part of state
+			return JSON.stringify({ player: hands.player, cpu: hands.cpu, turn });
+		}
 
 		cpuModeToggle?.addEventListener('click', () => {
 			CPU_MODE = CPU_MODE === 'normal' ? 'strong' : 'normal';
@@ -410,6 +416,9 @@
 			} else {
 				gameState = 'playing';
 			}
+			// record state to history and cap length
+			stateHistory.push(makeStateKey());
+			if (stateHistory.length > 50) stateHistory.shift();
 		}
 
 		function checkWin() {
@@ -605,7 +614,11 @@
 				const snapshot = cloneState();
 				applyMove('cpu', move);
 				// It's now player's turn (minimizing player)
-				const value = minimax(searchDepth - 1, false, -Infinity, Infinity);
+				let value = minimax(searchDepth - 1, false, -Infinity, Infinity);
+				// Penalize moves that recreate a recent state (to avoid cycles)
+				const key = JSON.stringify({ player: hands.player, cpu: hands.cpu, turn: 'player' });
+				const recentCount = stateHistory.filter(s => s === key).length;
+				if (recentCount > 0) value -= recentCount * 50; // penalty per repetition
 				restoreState(snapshot);
 
 				if (value > bestValue) {
@@ -630,7 +643,10 @@
 				const snapshot = cloneState();
 				applyMove('cpu', move);
 				// It's now player's turn (minimizing player)
-				const value = minimax(searchDepth - 1, false, -Infinity, Infinity);
+				let value = minimax(searchDepth - 1, false, -Infinity, Infinity);
+				const key = JSON.stringify({ player: hands.player, cpu: hands.cpu, turn: 'player' });
+				const recentCount = stateHistory.filter(s => s === key).length;
+				if (recentCount > 0) value -= recentCount * 100; // stronger penalty for strong mode
 				restoreState(snapshot);
 
 				if (value > bestValue) {
@@ -927,6 +943,7 @@
 			selectedHand = null;
 			gameState = 'playing';
 			gameOverScreen.classList.add('hidden');
+			stateHistory = [];
 
 			// Randomly determine the first turn
 			turn = Math.random() < 0.5 ? 'player' : 'cpu';
@@ -940,6 +957,8 @@
 				// gameState remains 'playing'
 				updateUI(); // Update UI for player's turn
 			}
+			// record initial state
+			stateHistory.push(makeStateKey());
 		}
 
 
