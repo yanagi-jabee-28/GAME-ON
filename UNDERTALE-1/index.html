@@ -16,6 +16,33 @@
 			--font-color: #fff;
 		}
 
+		/* Additional sizing variables for clarity and single source of truth */
+		:root {
+			--game-width: 640px;
+			--game-height: 480px;
+			--battle-size: 250px;
+			/* canvas size & message-window height */
+			--battle-inner-size: 150px;
+			/* playable square inside the canvas */
+			--attack-bar-height: 20px;
+			--player-size: 20px;
+			--hp-bar-width: 120px;
+			--hp-bar-height: 20px;
+			--enemy-hp-width: 300px;
+			--enemy-hp-height: 18px;
+			--attack-button-width: 120px;
+			--attack-button-height: 50px;
+			--enemy-mark-top: 8px;
+			--enemy-mark-size: 40px;
+			--enemy-info-offset: 28px;
+			/* desktop */
+			--enemy-info-offset-mobile: 16px;
+			/* mobile */
+			--message-bottom: 100px;
+			--message-height: var(--battle-inner-size);
+			/* message window equals playable square height */
+		}
+
 		body {
 			background-color: #000;
 			color: var(--font-color);
@@ -31,8 +58,8 @@
 		}
 
 		#game-container {
-			width: 640px;
-			height: 480px;
+			width: var(--game-width);
+			height: var(--game-height);
 			background-color: var(--box-bg-color);
 			border: var(--border-style);
 			display: flex;
@@ -55,6 +82,11 @@
 				padding: 5px;
 				transform: scale(1);
 			}
+
+			/* モバイル時は敵名/HPを少し控えめに下げる */
+			#enemy-info {
+				margin-top: var(--enemy-info-offset-mobile);
+			}
 		}
 
 
@@ -72,7 +104,7 @@
 			gap: 6px;
 			position: relative;
 			z-index: 60;
-			margin-top: 28px;
+			margin-top: var(--enemy-info-offset);
 			/* lower enemy name & HP bar a bit */
 		}
 
@@ -82,8 +114,8 @@
 		}
 
 		#enemy-hp-container {
-			width: 300px;
-			height: 18px;
+			width: var(--enemy-hp-width);
+			height: var(--enemy-hp-height);
 			border: 2px solid #fff;
 			background: #222;
 		}
@@ -104,10 +136,10 @@
 		#enemy-mark {
 			position: absolute;
 			/* 親の #game-container が relative なのでそこに対して配置 */
-			top: 8px;
+			top: var(--enemy-mark-top);
 			left: 50%;
 			transform: translateX(-50%);
-			font-size: 40px;
+			font-size: var(--enemy-mark-size);
 			line-height: 1;
 			z-index: 10;
 			pointer-events: none;
@@ -125,7 +157,7 @@
 			/* 中央寄せに変更 */
 			gap: 20px;
 			font-size: 18px;
-			width: 640px;
+			width: var(--game-width);
 			margin-top: 20px;
 			/* game-containerとの間隔 */
 			margin-bottom: 20px;
@@ -133,8 +165,8 @@
 		}
 
 		#hp-bar-container {
-			width: 120px;
-			height: 20px;
+			width: var(--hp-bar-width);
+			height: var(--hp-bar-height);
 			border: 2px solid #fff;
 		}
 
@@ -148,8 +180,8 @@
 
 
 		#battle-box-container {
-			width: 250px;
-			height: 250px;
+			width: var(--battle-size);
+			height: var(--battle-size);
 			display: flex;
 			justify-content: center;
 			align-items: center;
@@ -166,7 +198,7 @@
 			display: grid;
 			grid-template-columns: repeat(2, 1fr);
 			gap: 20px;
-			width: 640px;
+			width: var(--game-width);
 		}
 
 		@media (max-width: 640px) {
@@ -263,8 +295,8 @@
 			bottom: 40px;
 			left: 50%;
 			transform: translateX(-50%);
-			width: 120px;
-			height: 50px;
+			width: var(--attack-button-width);
+			height: var(--attack-button-height);
 			background-color: #ff0;
 			color: #000;
 			border: 2px solid #fff;
@@ -288,11 +320,11 @@
 		/* メッセージウィンドウ */
 		#message-window {
 			position: absolute;
-			bottom: 100px;
+			bottom: var(--message-bottom);
 			left: 50%;
 			transform: translateX(-50%);
 			width: calc(100% - 40px);
-			height: 200px;
+			height: var(--battle-inner-size);
 			background: rgba(0, 0, 0, 0.9);
 			border: var(--border-style);
 			padding: 10px 12px;
@@ -364,18 +396,47 @@
 		const canvas = document.getElementById('battle-canvas');
 		const ctx = canvas.getContext('2d');
 
+		// Read CSS dimension variables and convert to numbers
+		const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+		const toPx = (v) => Number(String(v).replace('px', '').trim());
+
+		const CANVAS_SIZE = toPx(cssVar('--battle-size'));
+		const BATTLE_BOX_SIZE = toPx(cssVar('--battle-inner-size'));
+		const ATTACK_BAR_HEIGHT = toPx(cssVar('--attack-bar-height'));
+		const PLAYER_SIZE = toPx(cssVar('--player-size'));
+
+		// Gameplay sizing/speed constants (single source of truth)
+		const BATTLE_BOX_BORDER = 4; // canvas stroke width for battle box
+		const ATTACK_TARGET_ZONE_WIDTH = 10;
+		const PLAYER_SPEED = 3;
+		const ATTACK_MARKER_SPEED = 4;
+		const INVINCIBILITY_FRAMES = 30;
+		const BULLET_RADIUS = 5;
+		const BULLET_SPEED = 2;
+		const HOMING_BULLET_SPEED = 1.5;
+		const HOMING_TURN_RATE = 0.025;
+		const BULLET_FADEOUT_FRAMES = 60;
+		const BULLET_LIFETIME = 300; // frames for homing bullets
+		const BULLET_OFFSCREEN_MARGIN = 20;
+		const BULLET_SPAWN_INTERVAL_MS = 700;
+		const ENEMY_TURN_DURATION_MS = 10000;
+
+		// Ensure canvas drawing size follows CSS variable
+		canvas.width = CANVAS_SIZE;
+		canvas.height = CANVAS_SIZE;
+
 		// --- Game State Management ---
 		let gameState = null; // Initial state set to null to fix bug
 		let enemyTurnTimer;
 
 		const battleBox = {
-			width: 150, height: 150,
-			x: (canvas.width - 150) / 2, y: (canvas.height - 150) / 2,
+			width: BATTLE_BOX_SIZE, height: BATTLE_BOX_SIZE,
+			x: (canvas.width - BATTLE_BOX_SIZE) / 2, y: (canvas.height - BATTLE_BOX_SIZE) / 2,
 		};
 
 		const player = {
 			x: canvas.width / 2, y: canvas.height / 2,
-			width: 20, height: 20, speed: 3,
+			width: PLAYER_SIZE, height: PLAYER_SIZE, speed: PLAYER_SPEED,
 			isInvincible: false, invincibleTimer: 0,
 			maxHp: 20, hp: 20,
 		};
@@ -386,9 +447,9 @@
 		let framesSinceLastHoming = 0;
 
 		const attackBar = {
-			x: battleBox.x, y: battleBox.y + battleBox.height / 2 - 10,
-			width: battleBox.width, height: 20,
-			markerX: battleBox.x, markerSpeed: 4, moving: false,
+			x: battleBox.x, y: battleBox.y + battleBox.height / 2 - (ATTACK_BAR_HEIGHT / 2),
+			width: battleBox.width, height: ATTACK_BAR_HEIGHT,
+			markerX: battleBox.x, markerSpeed: ATTACK_MARKER_SPEED, moving: false,
 		};
 
 		const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
@@ -437,7 +498,7 @@
 		function drawPlayer() {
 			if (player.isInvincible && Math.floor(player.invincibleTimer / 6) % 2 === 0) return;
 			ctx.fillStyle = '#ff0000';
-			ctx.font = "20px sans-serif";
+			ctx.font = `${PLAYER_SIZE}px sans-serif`;
 			ctx.textAlign = "center";
 			ctx.textBaseline = "middle";
 			ctx.fillText('❤️', player.x, player.y);
@@ -477,14 +538,14 @@
 			let startX, startY;
 			if (bulletSpawnMode === 'top') {
 				startX = Math.random() * canvas.width;
-				startY = -10;
+				startY = -BULLET_OFFSCREEN_MARGIN / 2;
 			} else {
 				const side = Math.floor(Math.random() * 4);
 				switch (side) {
-					case 0: startX = Math.random() * canvas.width; startY = -10; break;
-					case 1: startX = canvas.width + 10; startY = Math.random() * canvas.height; break;
-					case 2: startX = Math.random() * canvas.width; startY = canvas.height + 10; break;
-					case 3: startX = -10; startY = Math.random() * canvas.height; break;
+					case 0: startX = Math.random() * canvas.width; startY = -BULLET_OFFSCREEN_MARGIN / 2; break;
+					case 1: startX = canvas.width + BULLET_OFFSCREEN_MARGIN / 2; startY = Math.random() * canvas.height; break;
+					case 2: startX = Math.random() * canvas.width; startY = canvas.height + BULLET_OFFSCREEN_MARGIN / 2; break;
+					case 3: startX = -BULLET_OFFSCREEN_MARGIN / 2; startY = Math.random() * canvas.height; break;
 				}
 			}
 			let isHoming = false;
@@ -496,11 +557,11 @@
 			}
 			if (isHoming) framesSinceLastHoming = 0;
 			const angle = Math.atan2(player.y - startY, player.x - startX);
-			const speed = isHoming ? 1.5 : 2;
+			const speed = isHoming ? HOMING_BULLET_SPEED : BULLET_SPEED;
 			bullets.push({
-				x: startX, y: startY, radius: 5, speedX: Math.cos(angle) * speed, speedY: Math.sin(angle) * speed,
-				color: isHoming ? '#ff3333' : '#fff', isHoming: isHoming, lifetime: isHoming ? 300 : null,
-				originalSpeed: speed, hasEnteredBox: false, isFadingOut: false, fadeOutTimer: 60
+				x: startX, y: startY, radius: BULLET_RADIUS, speedX: Math.cos(angle) * speed, speedY: Math.sin(angle) * speed,
+				color: isHoming ? '#ff3333' : '#fff', isHoming: isHoming, lifetime: isHoming ? BULLET_LIFETIME : null,
+				originalSpeed: speed, hasEnteredBox: false, isFadingOut: false, fadeOutTimer: BULLET_FADEOUT_FRAMES
 			});
 		}
 
@@ -520,7 +581,7 @@
 			for (let i = bullets.length - 1; i >= 0; i--) {
 				const bullet = bullets[i];
 				if (bullet.isHoming && !bullet.isFadingOut) {
-					const turnRate = 0.025;
+					const turnRate = HOMING_TURN_RATE;
 					const targetAngle = Math.atan2(player.y - bullet.y, player.x - bullet.x);
 					const currentAngle = Math.atan2(bullet.speedY, bullet.speedX);
 					let angleDiff = targetAngle - currentAngle;
@@ -541,8 +602,7 @@
 					bullet.fadeOutTimer--;
 					if (bullet.fadeOutTimer <= 0) { bullets.splice(i, 1); continue; }
 				}
-				const margin = 20;
-				if (!bullet.hasEnteredBox && (bullet.x < -margin || bullet.x > canvas.width + margin || bullet.y < -margin || bullet.y > canvas.height + margin)) {
+				if (!bullet.hasEnteredBox && (bullet.x < -BULLET_OFFSCREEN_MARGIN || bullet.x > canvas.width + BULLET_OFFSCREEN_MARGIN || bullet.y < -BULLET_OFFSCREEN_MARGIN || bullet.y > canvas.height + BULLET_OFFSCREEN_MARGIN)) {
 					bullets.splice(i, 1);
 					continue;
 				}
@@ -560,7 +620,7 @@
 					if (player.hp < 0) player.hp = 0;
 					updateHPDisplay();
 					player.isInvincible = true;
-					player.invincibleTimer = 30;
+					player.invincibleTimer = INVINCIBILITY_FRAMES;
 					if (player.hp <= 0) setGameState('GAME_OVER');
 					break;
 				}
@@ -575,7 +635,7 @@
 
 		function drawBattleBox() {
 			ctx.strokeStyle = '#fff';
-			ctx.lineWidth = 4;
+			ctx.lineWidth = BATTLE_BOX_BORDER;
 			ctx.strokeRect(battleBox.x, battleBox.y, battleBox.width, battleBox.height);
 		}
 
@@ -584,7 +644,7 @@
 			ctx.fillRect(attackBar.x, attackBar.y, attackBar.width, attackBar.height);
 			ctx.strokeStyle = '#fff';
 			ctx.strokeRect(attackBar.x, attackBar.y, attackBar.width, attackBar.height);
-			const targetZoneWidth = 10;
+			const targetZoneWidth = ATTACK_TARGET_ZONE_WIDTH;
 			const targetZoneX = battleBox.x + (battleBox.width / 2) - (targetZoneWidth / 2);
 			ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
 			ctx.fillRect(targetZoneX, attackBar.y, targetZoneWidth, attackBar.height);
@@ -648,12 +708,12 @@
 			if (gameState === 'ENEMY_TURN') {
 				bullets.length = 0;
 				framesSinceLastHoming = 0;
-				bulletSpawnInterval = setInterval(createBullet, 700);
+				bulletSpawnInterval = setInterval(createBullet, BULLET_SPAWN_INTERVAL_MS);
 				enemyTurnTimer = setTimeout(() => {
 					if (gameState !== 'GAME_OVER') {
 						setGameState('PLAYER_TURN');
 					}
-				}, 10000); // 10 seconds
+				}, ENEMY_TURN_DURATION_MS); // 10 seconds
 			} else if (gameState === 'PLAYER_TURN') {
 				// ENEMY_TURN から PLAYER_TURN に戻った時は順にメッセージを表示
 				if (previousState === 'ENEMY_TURN') {
