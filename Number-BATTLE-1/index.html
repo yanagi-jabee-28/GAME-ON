@@ -180,6 +180,8 @@
 			<div id="start-cpu-mode-selector" class="flex justify-center gap-4">
 				<button data-mode="normal"
 					class="cpu-mode-btn-start text-lg bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg">普通</button>
+				<button data-mode="hard"
+					class="cpu-mode-btn-start text-lg bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg">強い</button>
 				<button data-mode="strong"
 					class="cpu-mode-btn-start text-lg bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg">最強</button>
 			</div>
@@ -254,6 +256,8 @@
 				<div id="game-over-cpu-mode-selector" class="flex justify-center gap-4">
 					<button data-mode="normal"
 						class="cpu-mode-btn-game-over text-lg bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">普通</button>
+					<button data-mode="hard"
+						class="cpu-mode-btn-game-over text-lg bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">強い</button>
 					<button data-mode="strong"
 						class="cpu-mode-btn-game-over text-lg bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">最強</button>
 				</div>
@@ -281,6 +285,17 @@
 			player: [document.getElementById('player-hand-left'), document.getElementById('player-hand-right')],
 			cpu: [document.getElementById('cpu-hand-left'), document.getElementById('cpu-hand-right')]
 		};
+
+		const CPU_MODE_SEQUENCE = ['normal', 'hard', 'strong'];
+		const CPU_MODE_LABELS = {
+			normal: '普通',
+			hard: '強い',
+			strong: '最強'
+		};
+
+		function getCpuModeLabel(mode) {
+			return CPU_MODE_LABELS[mode] || CPU_MODE_LABELS.normal;
+		}
 
 		// --- Game State ---
 		let hands = { player: [1, 1], cpu: [1, 1] };
@@ -332,40 +347,38 @@
 		}
 
 		cpuModeToggle?.addEventListener('click', () => {
-			CPU_MODE = CPU_MODE === 'normal' ? 'strong' : 'normal';
-			cpuModeToggle.textContent = `CPU: ${CPU_MODE === 'strong' ? '最強' : '普通'}`;
+			const currentIndex = CPU_MODE_SEQUENCE.indexOf(CPU_MODE);
+			const nextIndex = (currentIndex + 1) % CPU_MODE_SEQUENCE.length;
+			CPU_MODE = CPU_MODE_SEQUENCE[nextIndex];
+			cpuModeToggle.textContent = `CPU: ${getCpuModeLabel(CPU_MODE)}`;
+			syncCpuModeButtons();
+			updateUI();
 		});
 
 		// --- Game Logic ---
 
 		// Helper to sync CPU mode buttons' visuals on start and game-over screens
 		function syncCpuModeButtons() {
-			// Start screen buttons
-			document.querySelectorAll('.cpu-mode-btn-start').forEach(b => {
-				b.classList.remove('bg-blue-600', 'bg-gray-700');
-				if (b.dataset.mode === CPU_MODE) {
-					b.classList.add('bg-blue-600');
-				} else {
-					b.classList.add('bg-gray-700');
-				}
-			});
+			const updateGroup = (selector) => {
+				document.querySelectorAll(selector).forEach(b => {
+					b.classList.remove('bg-blue-600', 'bg-gray-700');
+					if (b.dataset.mode === CPU_MODE) {
+						b.classList.add('bg-blue-600');
+					} else {
+						b.classList.add('bg-gray-700');
+					}
+				});
+			};
 
-			// Game-over buttons
-			document.querySelectorAll('.cpu-mode-btn-game-over').forEach(b => {
-				b.classList.remove('bg-blue-600', 'bg-gray-700');
-				if (b.dataset.mode === CPU_MODE) {
-					b.classList.add('bg-blue-600');
-				} else {
-					b.classList.add('bg-gray-700');
-				}
-			});
-			// reflect in header display
-			if (cpuModeDisplay) cpuModeDisplay.textContent = CPU_MODE === 'strong' ? '最強' : '普通';
+			updateGroup('.cpu-mode-btn-start');
+			updateGroup('.cpu-mode-btn-game-over');
+
+			if (cpuModeDisplay) cpuModeDisplay.textContent = getCpuModeLabel(CPU_MODE);
 		}
 
 		function updateUI() {
 			// Update CPU mode display
-			cpuModeDisplay.textContent = CPU_MODE === 'strong' ? '最強' : '普通';
+			if (cpuModeDisplay) cpuModeDisplay.textContent = getCpuModeLabel(CPU_MODE);
 
 			// Update finger counts and dead status
 			['player', 'cpu'].forEach(owner => {
@@ -738,37 +751,36 @@
 			return bestMove;
 		}
 
-		function chooseCpuMoveStrong() {
+		function chooseCpuMoveWithDepth(searchDepth, { avoidRepeatsFirst = false, repeatPenalty = 0 } = {}) {
 			const { attacks, splits } = enumerateMoves('cpu');
 			let candidates = [...attacks, ...splits];
 			if (candidates.length === 0) return null;
 
-			// Prefer moves that do NOT recreate a recent state to avoid cycles.
-			const nonRepeating = [];
-			for (const move of candidates) {
-				const snapshot = cloneState();
-				applyMove('cpu', move);
-				const key = JSON.stringify({ player: hands.player, cpu: hands.cpu, turn: 'player' });
-				restoreState(snapshot);
-				if (!stateHistory.includes(key)) nonRepeating.push(move);
+			if (avoidRepeatsFirst) {
+				const nonRepeating = [];
+				for (const move of candidates) {
+					const snapshot = cloneState();
+					applyMove('cpu', move);
+					const key = JSON.stringify({ player: hands.player, cpu: hands.cpu, turn: 'player' });
+					restoreState(snapshot);
+					if (!stateHistory.includes(key)) nonRepeating.push(move);
+				}
+				if (nonRepeating.length > 0) {
+					candidates = nonRepeating;
+				}
 			}
-
-			if (nonRepeating.length > 0) candidates = nonRepeating;
 
 			let bestMove = candidates[0] || null;
 			let bestValue = -Infinity;
-			// Increased search depth for a stronger AI to find winning moves reliably.
-			const searchDepth = 12;
-
 			for (const move of candidates) {
 				const snapshot = cloneState();
 				applyMove('cpu', move);
-				// It's now player's turn (minimizing player)
 				let value = minimax(searchDepth - 1, false, -Infinity, Infinity);
-				// If we had to fall back to repeating moves, apply a heavy penalty
-				const key = JSON.stringify({ player: hands.player, cpu: hands.cpu, turn: 'player' });
-				const recentCount = stateHistory.filter(s => s === key).length;
-				if (recentCount > 0) value -= recentCount * 1000; // very strong penalty to avoid cycles
+				if (repeatPenalty > 0) {
+					const key = JSON.stringify({ player: hands.player, cpu: hands.cpu, turn: 'player' });
+					const recentCount = stateHistory.filter(s => s === key).length;
+					if (recentCount > 0) value -= recentCount * repeatPenalty;
+				}
 				restoreState(snapshot);
 
 				if (value > bestValue) {
@@ -779,9 +791,24 @@
 			return bestMove;
 		}
 
+		function chooseCpuMoveHard() {
+			return chooseCpuMoveWithDepth(6, { avoidRepeatsFirst: true, repeatPenalty: 800 });
+		}
+
+		function chooseCpuMoveStrong() {
+			return chooseCpuMoveWithDepth(12, { avoidRepeatsFirst: true, repeatPenalty: 1000 });
+		}
+
 		function chooseCpuMoveRandom() {
 			const { attacks, splits } = enumerateMoves('cpu');
-			const candidates = [...attacks, ...splits];
+			const candidates = [...attacks, ...splits].filter(move => {
+				const snapshot = cloneState();
+				applyMove('cpu', move);
+				const changed = hands.player.some((v, i) => v !== snapshot.player[i]) ||
+					hands.cpu.some((v, i) => v !== snapshot.cpu[i]);
+				restoreState(snapshot);
+				return changed;
+			});
 			if (candidates.length === 0) return null;
 			const randomIndex = Math.floor(Math.random() * candidates.length);
 			return candidates[randomIndex];
@@ -895,14 +922,21 @@
 			let move;
 			if (CPU_MODE === 'strong') {
 				move = chooseCpuMoveStrong();
+			} else if (CPU_MODE === 'hard') {
+				const roll = Math.random();
+				if (roll < 0.1) {
+					move = chooseCpuMoveRandom();
+				} else {
+					move = chooseCpuMoveHard();
+				}
 			} else {
 				const roll = Math.random();
-				if (roll < 0.6) {
-					move = chooseCpuMoveStrong();
-				} else if (roll < 0.8) {
+				if (roll < 0.2) {
+					move = chooseCpuMoveRandom();
+				} else if (roll < 0.5) {
 					move = chooseCpuMoveNormal();
 				} else {
-					move = chooseCpuMoveRandom();
+					move = chooseCpuMoveHard();
 				}
 			}
 			applyCpuMove(move);
@@ -920,25 +954,7 @@
 		});
 		restartButton.addEventListener('click', initializeGame);
 
-		// Game-over CPU mode selector: ensure selection is visible and mode actually changes
 		const gameOverCpuBtns = document.querySelectorAll('.cpu-mode-btn-game-over');
-		gameOverCpuBtns.forEach(btn => {
-			btn.addEventListener('click', () => {
-				CPU_MODE = btn.dataset.mode;
-				// update visual state
-				document.querySelectorAll('.cpu-mode-btn-game-over').forEach(b => b.classList.remove('bg-blue-600', 'bg-gray-700'));
-				// reapply background class matching the selected mode
-				if (CPU_MODE === 'strong') {
-					document.querySelector('.cpu-mode-btn-game-over[data-mode="strong"]').classList.add('bg-blue-600');
-					document.querySelector('.cpu-mode-btn-game-over[data-mode="normal"]').classList.add('bg-gray-700');
-				} else {
-					document.querySelector('.cpu-mode-btn-game-over[data-mode="normal"]').classList.add('bg-blue-600');
-					document.querySelector('.cpu-mode-btn-game-over[data-mode="strong"]').classList.add('bg-gray-700');
-				}
-				// reflect immediately in UI (e.g., cpuModeDisplay)
-				updateUI();
-			});
-		});
 
 		// Start screen events
 		startButton.addEventListener('click', () => {
@@ -956,7 +972,7 @@
 		});
 
 		// Ensure game-over buttons also update the CPU mode (syncCpuModeButtons added earlier)
-		document.querySelectorAll('.cpu-mode-btn-game-over').forEach(btn => {
+		gameOverCpuBtns.forEach(btn => {
 			btn.addEventListener('click', () => {
 				CPU_MODE = btn.dataset.mode;
 				syncCpuModeButtons();
