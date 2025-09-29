@@ -24,10 +24,10 @@ h1 {
 }
 
 .game-links {
-	display: flex;
-	gap: 2rem;
-	flex-wrap: wrap;
-	justify-content: center;
+	/* Use a responsive grid so cards keep a uniform size */
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 1.5rem;
 	padding: 1rem;
 	width: 100%;
 	box-sizing: border-box;
@@ -37,14 +37,14 @@ h1 {
 .game-card {
 	background: var(--card-bg);
 	border-radius: 1rem;
-	padding: 2rem 3rem;
+	padding: 1.25rem;
 	text-align: center;
 	transition: transform 0.2s, box-shadow 0.2s;
-	flex: 1 1 220px;
-	max-width: 320px;
-	min-width: 200px;
-	min-height: 72px;
+	height: 220px;
+	/* unified height */
+	min-height: 180px;
 	display: flex;
+	flex-direction: column;
 	align-items: center;
 	justify-content: center;
 	box-sizing: border-box;
@@ -56,16 +56,17 @@ h1 {
 }
 
 .game-card img {
-	width: 100px;
-	height: 100px;
+	width: 72px;
+	height: 72px;
 	object-fit: contain;
 	margin-bottom: 0.5rem;
 }
 
-.game-card a,
-.game-card {
+.game-card,
+.game-card a {
 	/* ensure anchor-based cards occupy full area */
 	display: flex;
+	flex-direction: column;
 	align-items: center;
 	justify-content: center;
 	text-decoration: none;
@@ -73,14 +74,21 @@ h1 {
 }
 
 .game-card .card-title {
-	font-size: 1.4rem;
+	font-size: 1.15rem;
 	font-weight: 700;
+	line-height: 1.2;
+	text-align: center;
 }
 
 .card-sub {
 	margin-top: 0.5rem;
-	font-size: 0.95rem;
+	font-size: 0.9rem;
 	color: var(--muted);
+	max-width: 100%;
+	text-align: center;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: normal;
 }
 
 .game-card a:focus,
@@ -96,7 +104,7 @@ h1 {
 	color: var(--muted);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 900px) {
 	h1 {
 		font-size: 1.5rem;
 		margin-bottom: 1rem;
@@ -108,10 +116,9 @@ h1 {
 	}
 
 	.game-card {
-		padding: 1.25rem;
-		border-radius: 0.75rem;
-		max-width: 90vw;
-		min-width: unset;
+		padding: 1rem;
+		height: auto;
+		min-height: 140px;
 	}
 
 	.game-card a {
