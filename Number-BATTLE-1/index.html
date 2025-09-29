@@ -779,6 +779,14 @@
 			return bestMove;
 		}
 
+		function chooseCpuMoveRandom() {
+			const { attacks, splits } = enumerateMoves('cpu');
+			const candidates = [...attacks, ...splits];
+			if (candidates.length === 0) return null;
+			const randomIndex = Math.floor(Math.random() * candidates.length);
+			return candidates[randomIndex];
+		}
+
 		function minimax(depth, isMaximizingPlayer, alpha, beta) {
 			const term = isTerminalEval();
 			if (term !== null) {
@@ -885,11 +893,12 @@
 
 		function cpuTurn() {
 			let move;
-			// In normal mode, act strong for the first 10 turns.
-			if (CPU_MODE === 'strong' || (CPU_MODE === 'normal' && turnCount < 10)) {
+			if (CPU_MODE === 'strong') {
 				move = chooseCpuMoveStrong();
 			} else {
-				move = chooseCpuMoveNormal();
+				const strategies = [chooseCpuMoveStrong, chooseCpuMoveNormal, chooseCpuMoveRandom];
+				const choice = strategies[Math.floor(Math.random() * strategies.length)];
+				move = choice();
 			}
 			applyCpuMove(move);
 		}
