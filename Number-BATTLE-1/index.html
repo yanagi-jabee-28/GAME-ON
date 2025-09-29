@@ -133,6 +133,41 @@
 		.modal.hidden {
 			display: none;
 		}
+
+		/* CPU thinking spinner */
+		#cpu-thinking-indicator {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 28px;
+			height: 28px;
+			border-radius: 9999px;
+			background: rgba(255, 255, 255, 0.06);
+		}
+
+		#cpu-thinking-indicator.hidden {
+			display: none !important;
+		}
+
+		.spinner {
+			width: 18px;
+			height: 18px;
+			border: 3px solid rgba(255, 255, 255, 0.12);
+			border-top-color: #f59e0b;
+			/* amber for visibility */
+			border-radius: 50%;
+			animation: spin 1s linear infinite;
+		}
+
+		@keyframes spin {
+			from {
+				transform: rotate(0deg);
+			}
+
+			to {
+				transform: rotate(360deg);
+			}
+		}
 	</style>
 </head>
 
@@ -173,6 +208,11 @@
 		<div id="info-area" class="h-16 flex items-center justify-center gap-3">
 			<p id="turn-indicator" class="text-3xl text-yellow-300">あなたのターン</p>
 			<div id="turn-counter" class="text-sm text-gray-300 ml-4">経過ターン: 0</div>
+			<div id="game-timer" class="text-sm text-gray-300 ml-4">時間: 00:00</div>
+			<!-- CPU thinking indicator -->
+			<div id="cpu-thinking-indicator" class="hidden ml-4" title="CPU 思考中">
+				<div class="spinner" aria-hidden="true"></div>
+			</div>
 		</div>
 
 		<!-- プレイヤーエリア -->
@@ -236,6 +276,7 @@
 		const startScreen = document.getElementById('start-screen');
 		const startButton = document.getElementById('start-button');
 		const cpuModeDisplay = document.getElementById('cpu-mode-display');
+		const cpuThinkingIndicator = document.getElementById('cpu-thinking-indicator');
 		const handElements = {
 			player: [document.getElementById('player-hand-left'), document.getElementById('player-hand-right')],
 			cpu: [document.getElementById('cpu-hand-left'), document.getElementById('cpu-hand-right')]
@@ -254,6 +295,40 @@
 		function makeStateKey() {
 			// include turn to consider player to move as part of state
 			return JSON.stringify({ player: hands.player, cpu: hands.cpu, turn });
+		}
+
+		// --- Timer ---
+		let timerInterval = null;
+		let timerSeconds = 0;
+
+		function formatTime(sec) {
+			const m = Math.floor(sec / 60).toString().padStart(2, '0');
+			const s = (sec % 60).toString().padStart(2, '0');
+			return `${m}:${s}`;
+		}
+
+		function startTimer() {
+			stopTimer();
+			// start from current timerSeconds
+			timerInterval = setInterval(() => {
+				timerSeconds++;
+				const el = document.getElementById('game-timer');
+				if (el) el.textContent = `時間: ${formatTime(timerSeconds)}`;
+			}, 1000);
+		}
+
+		function stopTimer() {
+			if (timerInterval) {
+				clearInterval(timerInterval);
+				timerInterval = null;
+			}
+		}
+
+		function resetTimer() {
+			stopTimer();
+			timerSeconds = 0;
+			const el = document.getElementById('game-timer');
+			if (el) el.textContent = `時間: ${formatTime(timerSeconds)}`;
 		}
 
 		cpuModeToggle?.addEventListener('click', () => {
@@ -328,9 +403,14 @@
 				} else {
 					turnIndicator.textContent = "自分の手をえらんで";
 				}
+				// Ensure spinner is hidden during player turn
+				showCpuThinking(false);
 			} else if (turn === 'cpu') {
 				turnIndicator.textContent = "CPUのターン...";
 			}
+
+			// Update CPU thinking indicator - only show when CPU is actually thinking
+			showCpuThinking(gameState === 'cpu_thinking');
 
 			// Update split buttons
 			// Update turn counter display
@@ -358,6 +438,9 @@
 			const index = parseInt(target.dataset.index);
 
 			if (turn === 'player') {
+				// Ensure spinner is hidden during player interactions
+				showCpuThinking(false);
+
 				if (owner === 'player') {
 					// toggle selection when clicking the same hand
 					if (selectedHand && selectedHand.owner === owner && selectedHand.index === index) {
@@ -412,9 +495,16 @@
 			turn = turn === 'player' ? 'cpu' : 'player';
 			if (turn === 'cpu') {
 				gameState = 'cpu_thinking';
-				setTimeout(cpuTurn, 500);
+				// allow UI to update before heavy CPU work
+				showCpuThinking(true);
+				setTimeout(() => {
+					// small delay to let spinner render
+					cpuTurn();
+				}, 80);
 			} else {
 				gameState = 'playing';
+				// Hide spinner when switching to player turn
+				showCpuThinking(false);
 			}
 			// record state to history and cap length
 			stateHistory.push(makeStateKey());
@@ -451,6 +541,25 @@
 				}
 			}
 			gameOverScreen.classList.remove('hidden');
+			// stop timer when game ends
+			stopTimer();
+			// ensure thinking indicator hidden
+			showCpuThinking(false);
+		}
+
+		function showCpuThinking(show) {
+			if (!cpuThinkingIndicator) return;
+
+			// Never show spinner during player turn or when game is over
+			if (turn === 'player' || gameState === 'gameover') {
+				show = false;
+			}
+
+			if (show) {
+				cpuThinkingIndicator.classList.remove('hidden');
+			} else {
+				cpuThinkingIndicator.classList.add('hidden');
+			}
 		}
 
 		// --- CPU AI ---
@@ -631,22 +740,35 @@
 
 		function chooseCpuMoveStrong() {
 			const { attacks, splits } = enumerateMoves('cpu');
-			const candidates = [...attacks, ...splits];
+			let candidates = [...attacks, ...splits];
 			if (candidates.length === 0) return null;
+
+			// Prefer moves that do NOT recreate a recent state to avoid cycles.
+			const nonRepeating = [];
+			for (const move of candidates) {
+				const snapshot = cloneState();
+				applyMove('cpu', move);
+				const key = JSON.stringify({ player: hands.player, cpu: hands.cpu, turn: 'player' });
+				restoreState(snapshot);
+				if (!stateHistory.includes(key)) nonRepeating.push(move);
+			}
+
+			if (nonRepeating.length > 0) candidates = nonRepeating;
 
 			let bestMove = candidates[0] || null;
 			let bestValue = -Infinity;
 			// Increased search depth for a stronger AI to find winning moves reliably.
-			const searchDepth = 6;
+			const searchDepth = 12;
 
 			for (const move of candidates) {
 				const snapshot = cloneState();
 				applyMove('cpu', move);
 				// It's now player's turn (minimizing player)
 				let value = minimax(searchDepth - 1, false, -Infinity, Infinity);
+				// If we had to fall back to repeating moves, apply a heavy penalty
 				const key = JSON.stringify({ player: hands.player, cpu: hands.cpu, turn: 'player' });
 				const recentCount = stateHistory.filter(s => s === key).length;
-				if (recentCount > 0) value -= recentCount * 100; // stronger penalty for strong mode
+				if (recentCount > 0) value -= recentCount * 1000; // very strong penalty to avoid cycles
 				restoreState(snapshot);
 
 				if (value > bestValue) {
@@ -756,6 +878,9 @@
 				}
 				updateUI();
 			}
+
+			// CPU finished thinking -> hide indicator and ensure state
+			showCpuThinking(false);
 		}
 
 		function cpuTurn() {
@@ -830,6 +955,10 @@
 			const active = [0, 1].filter(i => hands.player[i] !== 5 && hands.player[i] !== 0);
 			const sum = active.reduce((s, i) => s + hands.player[i], 0);
 			if (sum < 2 || gameState !== 'playing' || turn !== 'player') return;
+
+			// Ensure spinner is hidden when opening split modal
+			showCpuThinking(false);
+
 			splitOptionsContainer.innerHTML = '';
 			// Header with current distribution and note about excluded 5s
 			const header = document.createElement('div');
@@ -948,6 +1077,9 @@
 			// Randomly determine the first turn
 			turn = Math.random() < 0.5 ? 'player' : 'cpu';
 
+			// Ensure spinner is hidden initially
+			showCpuThinking(false);
+
 			// If CPU starts, it needs to think
 			if (turn === 'cpu') {
 				gameState = 'cpu_thinking';
@@ -959,6 +1091,9 @@
 			}
 			// record initial state
 			stateHistory.push(makeStateKey());
+			// start timer for this game
+			resetTimer();
+			startTimer();
 		}
 
 
