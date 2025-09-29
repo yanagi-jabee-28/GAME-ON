@@ -137,11 +137,28 @@
 </head>
 
 <body class="bg-gray-800 text-white flex items-center justify-center min-h-screen">
-	<div id="game-container" class="w-full max-w-lg mx-auto p-4 text-center">
+	<!-- スタート画面 -->
+	<div id="start-screen" class="w-full max-w-lg mx-auto p-4 text-center">
+		<h1 class="text-5xl font-bold mb-8" style="font-family: 'Mochiy Pop One', sans-serif;">ナンバーバトル</h1>
+		<div class="mb-8">
+			<h2 class="text-2xl mb-4">CPUの強さをえらんでね</h2>
+			<div id="start-cpu-mode-selector" class="flex justify-center gap-4">
+				<button data-mode="normal"
+					class="cpu-mode-btn-start text-lg bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg">普通</button>
+				<button data-mode="strong"
+					class="cpu-mode-btn-start text-lg bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg">最強</button>
+			</div>
+		</div>
+		<button id="start-button"
+			class="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-lg text-3xl">ゲーム開始！</button>
+	</div>
+
+	<!-- ゲーム画面 (最初は非表示) -->
+	<div id="game-container" class="hidden w-full max-w-lg mx-auto p-4 text-center">
 
 		<!-- CPUエリア -->
 		<div id="cpu-area" class="bg-red-900/50 p-4 rounded-lg mb-4">
-			<h2 class="text-2xl mb-2">CPU</h2>
+			<h2 class="text-2xl mb-2">CPU (<span id="cpu-mode-display"></span>)</h2>
 			<div id="cpu-hands" class="flex justify-center items-center space-x-4">
 				<div id="cpu-hand-left" class="hand-container" data-owner="cpu" data-index="0">
 					<span class="finger-count">1</span>
@@ -155,9 +172,6 @@
 		<!-- ターン/情報エリア -->
 		<div id="info-area" class="h-16 flex items-center justify-center gap-3">
 			<p id="turn-indicator" class="text-3xl text-yellow-300">あなたのターン</p>
-			<button id="cpu-mode-toggle" class="text-sm bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">
-				CPU: 最強
-			</button>
 		</div>
 
 		<!-- プレイヤーエリア -->
@@ -193,6 +207,15 @@
 		<div id="game-over-screen"
 			class="hidden fixed inset-0 bg-black/70 flex flex-col items-center justify-center z-10">
 			<h2 id="game-over-text" class="text-5xl text-yellow-300 mb-8"></h2>
+			<div class="mb-6">
+				<h3 class="text-xl mb-3">次のゲームの強さ</h3>
+				<div id="game-over-cpu-mode-selector" class="flex justify-center gap-4">
+					<button data-mode="normal"
+						class="cpu-mode-btn-game-over text-lg bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">普通</button>
+					<button data-mode="strong"
+						class="cpu-mode-btn-game-over text-lg bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">最強</button>
+				</div>
+			</div>
 			<button id="restart-button"
 				class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-2xl">もう一度遊ぶ</button>
 		</div>
@@ -208,6 +231,9 @@
 		const gameOverText = document.getElementById('game-over-text');
 		const restartButton = document.getElementById('restart-button');
 		const cpuModeToggle = document.getElementById('cpu-mode-toggle');
+		const startScreen = document.getElementById('start-screen');
+		const startButton = document.getElementById('start-button');
+		const cpuModeDisplay = document.getElementById('cpu-mode-display');
 		const handElements = {
 			player: [document.getElementById('player-hand-left'), document.getElementById('player-hand-right')],
 			cpu: [document.getElementById('cpu-hand-left'), document.getElementById('cpu-hand-right')]
@@ -218,6 +244,7 @@
 		let turn = 'player';
 		let gameState = 'playing'; // 'playing', 'cpu_thinking', 'gameover'
 		let selectedHand = null; // { owner: 'player', index: 0 }
+		let turnCount = 0; // To track the number of turns
 		let CPU_MODE = 'strong'; // 'normal' | 'strong'
 
 		cpuModeToggle?.addEventListener('click', () => {
@@ -226,7 +253,36 @@
 		});
 
 		// --- Game Logic ---
+
+		// Helper to sync CPU mode buttons' visuals on start and game-over screens
+		function syncCpuModeButtons() {
+			// Start screen buttons
+			document.querySelectorAll('.cpu-mode-btn-start').forEach(b => {
+				b.classList.remove('bg-blue-600', 'bg-gray-700');
+				if (b.dataset.mode === CPU_MODE) {
+					b.classList.add('bg-blue-600');
+				} else {
+					b.classList.add('bg-gray-700');
+				}
+			});
+
+			// Game-over buttons
+			document.querySelectorAll('.cpu-mode-btn-game-over').forEach(b => {
+				b.classList.remove('bg-blue-600', 'bg-gray-700');
+				if (b.dataset.mode === CPU_MODE) {
+					b.classList.add('bg-blue-600');
+				} else {
+					b.classList.add('bg-gray-700');
+				}
+			});
+			// reflect in header display
+			if (cpuModeDisplay) cpuModeDisplay.textContent = CPU_MODE === 'strong' ? '最強' : '普通';
+		}
+
 		function updateUI() {
+			// Update CPU mode display
+			cpuModeDisplay.textContent = CPU_MODE === 'strong' ? '最強' : '普通';
+
 			// Update finger counts and dead status
 			['player', 'cpu'].forEach(owner => {
 				hands[owner].forEach((count, index) => {
@@ -340,6 +396,7 @@
 		}
 
 		function switchTurn() {
+			turnCount++; // Increment turn counter
 			turn = turn === 'player' ? 'cpu' : 'player';
 			if (turn === 'cpu') {
 				gameState = 'cpu_thinking';
@@ -403,11 +460,15 @@
 				}
 			}
 
-			const currentDistribution = `${hands[owner][0]},${hands[owner][1]}`;
-			const swappedDistribution = `${hands[owner][1]},${hands[owner][0]}`;
+			// Normalize 5 -> 0 for comparison so dead hands are treated uniformly
+			const curL = hands[owner][0] === 5 ? 0 : hands[owner][0];
+			const curR = hands[owner][1] === 5 ? 0 : hands[owner][1];
+			const currentDistribution = `${curL},${curR}`;
+			const swappedDistribution = `${curR},${curL}`;
 
 			return Array.from(patterns)
 				// Don't suggest the current distribution or just a swap
+				// Filter out distributions that are numerically identical to current (including swapped)
 				.filter(p => p !== currentDistribution && p !== swappedDistribution)
 				.map(s => {
 					const [l, r] = s.split(',').map(Number);
@@ -513,8 +574,8 @@
 
 			let bestMove = candidates[0] || null;
 			let bestValue = -Infinity;
-			// A moderate search depth for the 'normal' AI, reading about 3 moves ahead.
-			const searchDepth = 3;
+			// A shallow search depth for an easier 'normal' AI, reading 1 move ahead.
+			const searchDepth = 1;
 
 			for (const move of candidates) {
 				const snapshot = cloneState();
@@ -608,9 +669,19 @@
 		}
 		function applyCpuMove(move) {
 			if (!move) {
-				switchTurn();
-				updateUI();
-				return;
+				// If AI returned null, try to pick any available move deterministically
+				const { attacks, splits } = enumerateMoves('cpu');
+				if (attacks.length > 0) {
+					// prefer first attack
+					move = attacks[0];
+				} else if (splits.length > 0) {
+					move = splits[0];
+				} else {
+					// no moves available: fall back to switching turn
+					switchTurn();
+					updateUI();
+					return;
+				}
 			}
 
 			if (move.type === 'attack') {
@@ -628,8 +699,13 @@
 		}
 
 		function cpuTurn() {
-			// choose by mode
-			const move = CPU_MODE === 'strong' ? chooseCpuMoveStrong() : chooseCpuMoveNormal();
+			let move;
+			// In normal mode, act strong for the first 10 turns.
+			if (CPU_MODE === 'strong' || (CPU_MODE === 'normal' && turnCount < 10)) {
+				move = chooseCpuMoveStrong();
+			} else {
+				move = chooseCpuMoveNormal();
+			}
 			applyCpuMove(move);
 		}
 
@@ -644,6 +720,50 @@
 			splitModalBackdrop.classList.add('hidden');
 		});
 		restartButton.addEventListener('click', initializeGame);
+
+		// Game-over CPU mode selector: ensure selection is visible and mode actually changes
+		const gameOverCpuBtns = document.querySelectorAll('.cpu-mode-btn-game-over');
+		gameOverCpuBtns.forEach(btn => {
+			btn.addEventListener('click', () => {
+				CPU_MODE = btn.dataset.mode;
+				// update visual state
+				document.querySelectorAll('.cpu-mode-btn-game-over').forEach(b => b.classList.remove('bg-blue-600', 'bg-gray-700'));
+				// reapply background class matching the selected mode
+				if (CPU_MODE === 'strong') {
+					document.querySelector('.cpu-mode-btn-game-over[data-mode="strong"]').classList.add('bg-blue-600');
+					document.querySelector('.cpu-mode-btn-game-over[data-mode="normal"]').classList.add('bg-gray-700');
+				} else {
+					document.querySelector('.cpu-mode-btn-game-over[data-mode="normal"]').classList.add('bg-blue-600');
+					document.querySelector('.cpu-mode-btn-game-over[data-mode="strong"]').classList.add('bg-gray-700');
+				}
+				// reflect immediately in UI (e.g., cpuModeDisplay)
+				updateUI();
+			});
+		});
+
+		// Start screen events
+		startButton.addEventListener('click', () => {
+			startScreen.classList.add('hidden');
+			gameContainer.classList.remove('hidden');
+			initializeGame();
+		});
+
+		document.querySelectorAll('.cpu-mode-btn-start').forEach(btn => {
+			btn.addEventListener('click', () => {
+				CPU_MODE = btn.dataset.mode;
+				syncCpuModeButtons();
+				updateUI();
+			});
+		});
+
+		// Ensure game-over buttons also update the CPU mode (syncCpuModeButtons added earlier)
+		document.querySelectorAll('.cpu-mode-btn-game-over').forEach(btn => {
+			btn.addEventListener('click', () => {
+				CPU_MODE = btn.dataset.mode;
+				syncCpuModeButtons();
+				updateUI();
+			});
+		});
 
 		// Helper: open split modal for the sum of both player hands
 		function openSplitModalSum() {
@@ -664,13 +784,18 @@
 			if (active.length === 2) {
 				const currentLeft = hands.player[0];
 				const currentRight = hands.player[1];
+				// Normalize 5 (dead) to 0 for comparison so that distributions that
+				// are numerically identical after treating dead hands as 0 are excluded.
+				const normLeft = currentLeft === 5 ? 0 : currentLeft;
+				const normRight = currentRight === 5 ? 0 : currentRight;
 				for (let a = 0; a <= sum; a++) {
 					const b = sum - a;
 					// only allow values within 0..5
 					if (a > 5 || b > 5) continue;
 
-					// Rule: Do not allow splitting to the same distribution (including swapped)
-					if ((a === currentLeft && b === currentRight) || (a === currentRight && b === currentLeft)) {
+					// Rule: Do not allow splitting to the same numeric distribution (including swapped)
+					// Compare with normalized values so that e.g. 5 is treated as 0.
+					if ((a === normLeft && b === normRight) || (a === normRight && b === normLeft)) {
 						continue;
 					}
 
@@ -699,13 +824,15 @@
 
 				const currentLeft = hands.player[0];
 				const currentRight = hands.player[1];
+				const normLeft = currentLeft === 5 ? 0 : currentLeft;
+				const normRight = currentRight === 5 ? 0 : currentRight;
 
 				for (let a = 0; a <= sum; a++) {
 					const b = sum - a;
 					if (a > 5 || b > 5) continue;
 
-					// Rule: Do not allow splitting to the same distribution (including swapped)
-					if ((a === currentLeft && b === currentRight) || (a === currentRight && b === currentLeft)) {
+					// Rule: Do not allow splitting to the same numeric distribution (including swapped)
+					if ((a === normLeft && b === normRight) || (a === normRight && b === normLeft)) {
 						continue;
 					}
 
@@ -746,6 +873,7 @@
 
 		function initializeGame() {
 			hands = { player: [1, 1], cpu: [1, 1] };
+			turnCount = 0; // Reset turn counter
 			selectedHand = null;
 			gameState = 'playing';
 			gameOverScreen.classList.add('hidden');
@@ -766,7 +894,10 @@
 
 
 		// --- Initial Render ---
-		initializeGame();
+		// Ensure CPU mode buttons reflect current mode on initial load
+		syncCpuModeButtons();
+
+		// Game starts when start button is clicked
 	</script>
 </body>
 
