@@ -404,10 +404,11 @@
 			}
 
 			const currentDistribution = `${hands[owner][0]},${hands[owner][1]}`;
+			const swappedDistribution = `${hands[owner][1]},${hands[owner][0]}`;
 
 			return Array.from(patterns)
-				// Don't suggest the current distribution
-				.filter(p => p !== currentDistribution)
+				// Don't suggest the current distribution or just a swap
+				.filter(p => p !== currentDistribution && p !== swappedDistribution)
 				.map(s => {
 					const [l, r] = s.split(',').map(Number);
 					// Don't suggest a move that leads to immediate loss
@@ -560,81 +561,81 @@
 			return bestMove;
 		}
 
-		        function chooseCpuMoveStrong() {
-		            const { attacks, splits } = enumerateMoves('cpu');
-		            const candidates = [...attacks, ...splits];
-		            if (candidates.length === 0) return null;
-		
-		            let bestMove = candidates[0] || null;
-		            let bestValue = -Infinity;
-		            // Increased search depth for a stronger AI to find winning moves reliably.
-		            const searchDepth = 6;
-		
-		            for (const move of candidates) {
-		                const snapshot = cloneState();
-		                applyMove('cpu', move);
-		                // It's now player's turn (minimizing player)
-		                const value = minimax(searchDepth - 1, false, -Infinity, Infinity);
-		                restoreState(snapshot);
-		
-		                if (value > bestValue) {
-		                    bestValue = value;
-		                    bestMove = move;
-		                }
-		            }
-		            return bestMove;
-		        }
-		
-		        function minimax(depth, isMaximizingPlayer, alpha, beta) {
-		            const term = isTerminalEval();
-		            if (term !== null) {
-		                // The evaluation functions (isTerminalEval, heuristicEval) are from the CPU's perspective.
-		                // We scale by depth to prioritize faster wins.
-		                return term * (depth + 1);
-		            }
-		            if (depth === 0) {
-		                return heuristicEval();
-		            }
-		
-		            const owner = isMaximizingPlayer ? 'cpu' : 'player';
-		            const { attacks, splits } = enumerateMoves(owner);
-		            const moves = [...attacks, ...splits];
-		
-		            if (moves.length === 0) {
-		                // No moves available, evaluate current board
-		                return heuristicEval();
-		            }
-		
-		            if (isMaximizingPlayer) {
-		                let maxEval = -Infinity;
-		                for (const move of moves) {
-		                    const snapshot = cloneState();
-		                    applyMove(owner, move);
-		                    const evaluation = minimax(depth - 1, false, alpha, beta);
-		                    restoreState(snapshot);
-		                    maxEval = Math.max(maxEval, evaluation);
-		                    alpha = Math.max(alpha, evaluation);
-		                    if (beta <= alpha) {
-		                        break; // Beta cut-off
-		                    }
-		                }
-		                return maxEval;
-		            } else { // Minimizing player
-		                let minEval = Infinity;
-		                for (const move of moves) {
-		                    const snapshot = cloneState();
-		                    applyMove(owner, move);
-		                    const evaluation = minimax(depth - 1, true, alpha, beta);
-		                    restoreState(snapshot);
-		                    minEval = Math.min(minEval, evaluation);
-		                    beta = Math.min(beta, evaluation);
-		                    if (beta <= alpha) {
-		                        break; // Alpha cut-off
-		                    }
-		                }
-		                return minEval;
-		            }
-		        }
+		function chooseCpuMoveStrong() {
+			const { attacks, splits } = enumerateMoves('cpu');
+			const candidates = [...attacks, ...splits];
+			if (candidates.length === 0) return null;
+
+			let bestMove = candidates[0] || null;
+			let bestValue = -Infinity;
+			// Increased search depth for a stronger AI to find winning moves reliably.
+			const searchDepth = 6;
+
+			for (const move of candidates) {
+				const snapshot = cloneState();
+				applyMove('cpu', move);
+				// It's now player's turn (minimizing player)
+				const value = minimax(searchDepth - 1, false, -Infinity, Infinity);
+				restoreState(snapshot);
+
+				if (value > bestValue) {
+					bestValue = value;
+					bestMove = move;
+				}
+			}
+			return bestMove;
+		}
+
+		function minimax(depth, isMaximizingPlayer, alpha, beta) {
+			const term = isTerminalEval();
+			if (term !== null) {
+				// The evaluation functions (isTerminalEval, heuristicEval) are from the CPU's perspective.
+				// We scale by depth to prioritize faster wins.
+				return term * (depth + 1);
+			}
+			if (depth === 0) {
+				return heuristicEval();
+			}
+
+			const owner = isMaximizingPlayer ? 'cpu' : 'player';
+			const { attacks, splits } = enumerateMoves(owner);
+			const moves = [...attacks, ...splits];
+
+			if (moves.length === 0) {
+				// No moves available, evaluate current board
+				return heuristicEval();
+			}
+
+			if (isMaximizingPlayer) {
+				let maxEval = -Infinity;
+				for (const move of moves) {
+					const snapshot = cloneState();
+					applyMove(owner, move);
+					const evaluation = minimax(depth - 1, false, alpha, beta);
+					restoreState(snapshot);
+					maxEval = Math.max(maxEval, evaluation);
+					alpha = Math.max(alpha, evaluation);
+					if (beta <= alpha) {
+						break; // Beta cut-off
+					}
+				}
+				return maxEval;
+			} else { // Minimizing player
+				let minEval = Infinity;
+				for (const move of moves) {
+					const snapshot = cloneState();
+					applyMove(owner, move);
+					const evaluation = minimax(depth - 1, true, alpha, beta);
+					restoreState(snapshot);
+					minEval = Math.min(minEval, evaluation);
+					beta = Math.min(beta, evaluation);
+					if (beta <= alpha) {
+						break; // Alpha cut-off
+					}
+				}
+				return minEval;
+			}
+		}
 		function applyCpuMove(move) {
 			if (!move) {
 				switchTurn();
@@ -698,10 +699,18 @@
 			}
 			splitOptionsContainer.appendChild(header);
 			if (active.length === 2) {
+				const currentLeft = hands.player[0];
+				const currentRight = hands.player[1];
 				for (let a = 0; a <= sum; a++) {
 					const b = sum - a;
 					// only allow values within 0..5
 					if (a > 5 || b > 5) continue;
+
+					// Rule: Do not allow splitting to the same distribution (including swapped)
+					if ((a === currentLeft && b === currentRight) || (a === currentRight && b === currentLeft)) {
+						continue;
+					}
+
 					const optionEl = document.createElement('div');
 					optionEl.className = 'split-option';
 					const label = document.createElement('div');
