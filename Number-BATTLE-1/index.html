@@ -298,6 +298,8 @@
 		}
 
 		// --- Game State ---
+		const MIN_CPU_THINK_MS = 500;
+
 		let hands = { player: [1, 1], cpu: [1, 1] };
 		let turn = 'player';
 		let gameState = 'playing'; // 'playing', 'cpu_thinking', 'gameover'
@@ -306,6 +308,11 @@
 		let CPU_MODE = 'strong'; // 'normal' | 'strong'
 		let lastResult = null; // 'playerWon' | 'playerLost'
 		let stateHistory = [];
+		let cpuThinkingStartedAt = null;
+
+		function getNowMs() {
+			return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+		}
 
 		function makeStateKey() {
 			// include turn to consider player to move as part of state
@@ -510,6 +517,7 @@
 				gameState = 'cpu_thinking';
 				// allow UI to update before heavy CPU work
 				showCpuThinking(true);
+				cpuThinkingStartedAt = getNowMs();
 				setTimeout(() => {
 					// small delay to let spinner render
 					cpuTurn();
@@ -865,6 +873,7 @@
 			}
 		}
 		function applyCpuMove(move) {
+			cpuThinkingStartedAt = null;
 			if (!move) {
 				// If AI returned null, pick the best available move by short-term evaluation
 				const { attacks, splits } = enumerateMoves('cpu');
@@ -919,6 +928,9 @@
 		}
 
 		function cpuTurn() {
+			if (cpuThinkingStartedAt === null) {
+				cpuThinkingStartedAt = getNowMs();
+			}
 			let move;
 			if (CPU_MODE === 'strong') {
 				move = chooseCpuMoveStrong();
@@ -939,7 +951,14 @@
 					move = chooseCpuMoveHard();
 				}
 			}
-			applyCpuMove(move);
+			const now = getNowMs();
+			const elapsed = cpuThinkingStartedAt !== null ? now - cpuThinkingStartedAt : MIN_CPU_THINK_MS;
+			const remaining = Math.max(MIN_CPU_THINK_MS - elapsed, 0);
+			if (remaining > 0) {
+				setTimeout(() => applyCpuMove(move), remaining);
+			} else {
+				applyCpuMove(move);
+			}
 		}
 
 		// --- Event Listeners ---
@@ -1113,6 +1132,7 @@
 			// If CPU starts, it needs to think
 			if (turn === 'cpu') {
 				gameState = 'cpu_thinking';
+				cpuThinkingStartedAt = getNowMs();
 				updateUI(); // Update UI to show CPU is thinking
 				setTimeout(cpuTurn, 500); // Start CPU turn after a short delay
 			} else {
