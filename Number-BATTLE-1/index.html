@@ -1,333 +1,370 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ナンバーバトル</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Mochiy+Pop+One', sans-serif;
-            touch-action: manipulation;
-        }
-        .hand-container {
-            position: relative;
-            width: 120px;
-            height: 120px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 4px solid transparent;
-            border-radius: 1rem;
-            transition: all 0.2s ease-in-out;
-            cursor: pointer;
-        }
-        .hand-container.dead {
-            background-color: #374151; /* gray-700 */
-            cursor: not-allowed;
-            opacity: 0.6;
-        }
-        .hand-container.selectable {
-             border-color: #f59e0b; /* amber-500 */
-             transform: scale(1.05);
-        }
-         .hand-container.selected {
-             border-color: #22c55e; /* green-500 */
-             transform: scale(1.1);
-             box-shadow: 0 0 20px #22c55e;
-        }
-        .hand-container.targetable {
-             border-color: #ef4444; /* red-500 */
-             transform: scale(1.05);
-        }
-        .finger-count {
-            font-size: 3rem;
-            font-weight: bold;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-        .split-button {
-            transition: all 0.15s ease-out;
-        }
-        .split-button:hover {
-            transform: translateY(-2px) scale(1.05);
-        }
-        .attack-animation {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 0.75rem;
-            animation: attack-flash 0.5s ease-out;
-        }
-        @keyframes attack-flash {
-            0% { background-color: rgba(255, 255, 0, 0); transform: scale(1); }
-            50% { background-color: rgba(255, 255, 0, 0.7); transform: scale(1.2); }
-            100% { background-color: rgba(255, 255, 0, 0); transform: scale(1); }
-        }
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>ナンバーバトル</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap" rel="stylesheet">
+	<style>
+		body {
+			font-family: 'Mochiy+Pop+One', sans-serif;
+			touch-action: manipulation;
+		}
 
-        /* Modal Styles */
-        .modal {
-            display: flex;
-        }
-        .modal.hidden {
-            display: none;
-        }
-    </style>
+		.hand-container {
+			position: relative;
+			width: 120px;
+			height: 120px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			border: 4px solid transparent;
+			border-radius: 1rem;
+			transition: all 0.2s ease-in-out;
+			cursor: pointer;
+		}
+
+		.hand-container.dead {
+			background-color: #374151;
+			/* gray-700 */
+			cursor: not-allowed;
+			opacity: 0.6;
+		}
+
+		.hand-container.selectable {
+			border-color: #f59e0b;
+			/* amber-500 */
+			transform: scale(1.05);
+		}
+
+		.hand-container.selected {
+			border-color: #22c55e;
+			/* green-500 */
+			transform: scale(1.1);
+			box-shadow: 0 0 20px #22c55e;
+		}
+
+		.hand-container.targetable {
+			border-color: #ef4444;
+			/* red-500 */
+			transform: scale(1.05);
+		}
+
+		.finger-count {
+			font-size: 3rem;
+			font-weight: bold;
+			-webkit-user-select: none;
+			user-select: none;
+		}
+
+		.split-button {
+			transition: all 0.15s ease-out;
+		}
+
+		.split-button:hover {
+			transform: translateY(-2px) scale(1.05);
+		}
+
+		.attack-animation {
+			position: absolute;
+			width: 100%;
+			height: 100%;
+			border-radius: 0.75rem;
+			animation: attack-flash 0.5s ease-out;
+		}
+
+		@keyframes attack-flash {
+			0% {
+				background-color: rgba(255, 255, 0, 0);
+				transform: scale(1);
+			}
+
+			50% {
+				background-color: rgba(255, 255, 0, 0.7);
+				transform: scale(1.2);
+			}
+
+			100% {
+				background-color: rgba(255, 255, 0, 0);
+				transform: scale(1);
+			}
+		}
+
+		/* Modal Styles */
+		.modal {
+			display: flex;
+		}
+
+		.modal.hidden {
+			display: none;
+		}
+	</style>
 </head>
+
 <body class="bg-gray-800 text-white flex items-center justify-center min-h-screen">
-    <div id="game-container" class="w-full max-w-lg mx-auto p-4 text-center">
+	<div id="game-container" class="w-full max-w-lg mx-auto p-4 text-center">
 
-        <!-- CPUエリア -->
-        <div id="cpu-area" class="bg-red-900/50 p-4 rounded-lg mb-4">
-            <h2 class="text-2xl mb-2">CPU</h2>
-            <div id="cpu-hands" class="flex justify-center items-center space-x-4">
-                <div id="cpu-hand-left" class="hand-container" data-owner="cpu" data-index="0">
-                    <span class="finger-count">1</span>
-                </div>
-                <div id="cpu-hand-right" class="hand-container" data-owner="cpu" data-index="1">
-                    <span class="finger-count">1</span>
-                </div>
-            </div>
-        </div>
+		<!-- CPUエリア -->
+		<div id="cpu-area" class="bg-red-900/50 p-4 rounded-lg mb-4">
+			<h2 class="text-2xl mb-2">CPU</h2>
+			<div id="cpu-hands" class="flex justify-center items-center space-x-4">
+				<div id="cpu-hand-left" class="hand-container" data-owner="cpu" data-index="0">
+					<span class="finger-count">1</span>
+				</div>
+				<div id="cpu-hand-right" class="hand-container" data-owner="cpu" data-index="1">
+					<span class="finger-count">1</span>
+				</div>
+			</div>
+		</div>
 
-        <!-- ターン/情報エリア -->
-        <div id="info-area" class="h-16 flex items-center justify-center">
-            <p id="turn-indicator" class="text-3xl text-yellow-300">あなたのターン</p>
-        </div>
+		<!-- ターン/情報エリア -->
+		<div id="info-area" class="h-16 flex items-center justify-center">
+			<p id="turn-indicator" class="text-3xl text-yellow-300">あなたのターン</p>
+		</div>
 
-        <!-- プレイヤーエリア -->
-        <div id="player-area" class="bg-cyan-900/50 p-4 rounded-lg mt-4">
-             <div id="player-hands" class="flex justify-center items-center space-x-4">
-                <div id="player-hand-left" class="hand-container" data-owner="player" data-index="0">
-                    <span class="finger-count">1</span>
-                </div>
-                <div id="player-hand-right" class="hand-container" data-owner="player" data-index="1">
-                    <span class="finger-count">1</span>
-                </div>
-            </div>
-             <h2 class="text-2xl mt-2">あなた</h2>
-             <div id="player-actions" class="h-12 mt-2 flex justify-center items-center space-x-4">
-                <!-- Split buttons will be generated here -->
-             </div>
-        </div>
-        
-        <!-- ゲームオーバー画面 -->
-        <div id="game-over-screen" class="hidden fixed inset-0 bg-black/70 flex flex-col items-center justify-center z-10">
-            <h2 id="game-over-text" class="text-5xl text-yellow-300 mb-8"></h2>
-            <button id="restart-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-2xl">もう一度遊ぶ</button>
-        </div>
+		<!-- プレイヤーエリア -->
+		<div id="player-area" class="bg-cyan-900/50 p-4 rounded-lg mt-4">
+			<div id="player-hands" class="flex justify-center items-center space-x-4">
+				<div id="player-hand-left" class="hand-container" data-owner="player" data-index="0">
+					<span class="finger-count">1</span>
+				</div>
+				<div id="player-hand-right" class="hand-container" data-owner="player" data-index="1">
+					<span class="finger-count">1</span>
+				</div>
+			</div>
+			<h2 class="text-2xl mt-2">あなた</h2>
+			<div id="player-actions" class="h-12 mt-2 flex justify-center items-center space-x-4">
+				<!-- Split buttons will be generated here -->
+			</div>
+		</div>
 
-    </div>
+		<!-- ゲームオーバー画面 -->
+		<div id="game-over-screen"
+			class="hidden fixed inset-0 bg-black/70 flex flex-col items-center justify-center z-10">
+			<h2 id="game-over-text" class="text-5xl text-yellow-300 mb-8"></h2>
+			<button id="restart-button"
+				class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-2xl">もう一度遊ぶ</button>
+		</div>
 
-<script>
-// --- DOM Elements ---
-const gameContainer = document.getElementById('game-container');
-const turnIndicator = document.getElementById('turn-indicator');
-const playerActions = document.getElementById('player-actions');
-const gameOverScreen = document.getElementById('game-over-screen');
-const gameOverText = document.getElementById('game-over-text');
-const restartButton = document.getElementById('restart-button');
-const handElements = {
-    player: [document.getElementById('player-hand-left'), document.getElementById('player-hand-right')],
-    cpu: [document.getElementById('cpu-hand-left'), document.getElementById('cpu-hand-right')]
-};
+	</div>
 
-// --- Game State ---
-let hands = { player: [1, 1], cpu: [1, 1] };
-let turn = 'player';
-let gameState = 'playing'; // 'playing', 'cpu_thinking', 'gameover'
-let selectedHand = null; // { owner: 'player', index: 0 }
+	<script>
+		// --- DOM Elements ---
+		const gameContainer = document.getElementById('game-container');
+		const turnIndicator = document.getElementById('turn-indicator');
+		const playerActions = document.getElementById('player-actions');
+		const gameOverScreen = document.getElementById('game-over-screen');
+		const gameOverText = document.getElementById('game-over-text');
+		const restartButton = document.getElementById('restart-button');
+		const handElements = {
+			player: [document.getElementById('player-hand-left'), document.getElementById('player-hand-right')],
+			cpu: [document.getElementById('cpu-hand-left'), document.getElementById('cpu-hand-right')]
+		};
 
-// --- Game Logic ---
-function updateUI() {
-    // Update finger counts and dead status
-    ['player', 'cpu'].forEach(owner => {
-        hands[owner].forEach((count, index) => {
-            const handEl = handElements[owner][index];
-            handEl.querySelector('.finger-count').textContent = count === 5 ? 'X' : count;
-            handEl.classList.toggle('dead', count === 5);
-        });
-    });
+		// --- Game State ---
+		let hands = { player: [1, 1], cpu: [1, 1] };
+		let turn = 'player';
+		let gameState = 'playing'; // 'playing', 'cpu_thinking', 'gameover'
+		let selectedHand = null; // { owner: 'player', index: 0 }
 
-    // Update highlights
-    document.querySelectorAll('.hand-container').forEach(el => {
-        el.classList.remove('selectable', 'selected', 'targetable');
-        if (gameState === 'gameover' || el.classList.contains('dead')) return;
+		// --- Game Logic ---
+		function updateUI() {
+			// Update finger counts and dead status
+			['player', 'cpu'].forEach(owner => {
+				hands[owner].forEach((count, index) => {
+					const handEl = handElements[owner][index];
+					handEl.querySelector('.finger-count').textContent = count === 5 ? 'X' : count;
+					handEl.classList.toggle('dead', count === 5);
+				});
+			});
 
-        const owner = el.dataset.owner;
-        const index = parseInt(el.dataset.index);
+			// Update highlights
+			document.querySelectorAll('.hand-container').forEach(el => {
+				el.classList.remove('selectable', 'selected', 'targetable');
+				if (gameState === 'gameover' || el.classList.contains('dead')) return;
 
-        if (turn === 'player' && owner === 'player') {
-            el.classList.add('selectable');
-        }
-        if (selectedHand && selectedHand.owner === owner && selectedHand.index === index) {
-            el.classList.add('selected');
-        }
-        if (selectedHand && turn === 'player' && owner === 'cpu') {
-            el.classList.add('targetable');
-        }
-    });
+				const owner = el.dataset.owner;
+				const index = parseInt(el.dataset.index);
 
-    // Update turn indicator
-    if (turn === 'player' && gameState === 'playing') {
-        if (selectedHand) {
-            turnIndicator.textContent = "相手の手をタップ！";
-        } else {
-            turnIndicator.textContent = "自分の手をえらんで";
-        }
-    } else if (turn === 'cpu') {
-        turnIndicator.textContent = "CPUのターン...";
-    }
+				if (turn === 'player' && owner === 'player') {
+					el.classList.add('selectable');
+				}
+				if (selectedHand && selectedHand.owner === owner && selectedHand.index === index) {
+					el.classList.add('selected');
+				}
+				if (selectedHand && turn === 'player' && owner === 'cpu') {
+					el.classList.add('targetable');
+				}
+			});
 
-    // Update split buttons
-    playerActions.innerHTML = '';
-    hands.player.forEach((count, index) => {
-        const otherIndex = index === 0 ? 1 : 0;
-        if ((count === 2 || count === 4) && hands.player[otherIndex] === 5) {
-            const splitButton = document.createElement('button');
-            splitButton.textContent = `${count}を${count/2}と${count/2}に分ける`;
-            splitButton.className = 'split-button bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg';
-            splitButton.onclick = () => handleSplit(index);
-            playerActions.appendChild(splitButton);
-        }
-    });
-}
+			// Update turn indicator
+			if (turn === 'player' && gameState === 'playing') {
+				if (selectedHand) {
+					turnIndicator.textContent = "相手の手をタップ！";
+				} else {
+					turnIndicator.textContent = "自分の手をえらんで";
+				}
+			} else if (turn === 'cpu') {
+				turnIndicator.textContent = "CPUのターン...";
+			}
 
-function handleHandClick(e) {
-    if (gameState !== 'playing') return;
-    const target = e.target.closest('.hand-container');
-    if (!target || target.classList.contains('dead')) return;
+			// Update split buttons
+			playerActions.innerHTML = '';
+			hands.player.forEach((count, index) => {
+				const otherIndex = index === 0 ? 1 : 0;
+				if ((count === 2 || count === 4) && hands.player[otherIndex] === 5) {
+					const splitButton = document.createElement('button');
+					splitButton.textContent = `${count}を${count / 2}と${count / 2}に分ける`;
+					splitButton.className = 'split-button bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg';
+					splitButton.onclick = () => handleSplit(index);
+					playerActions.appendChild(splitButton);
+				}
+			});
+		}
 
-    const owner = target.dataset.owner;
-    const index = parseInt(target.dataset.index);
+		function handleHandClick(e) {
+			if (gameState !== 'playing') return;
+			const target = e.target.closest('.hand-container');
+			if (!target || target.classList.contains('dead')) return;
 
-    if (turn === 'player') {
-        if (owner === 'player') {
-            selectedHand = { owner, index };
-        } else if (owner === 'cpu' && selectedHand) {
-            performAttack(selectedHand, { owner, index });
-        }
-    }
-}
+			const owner = target.dataset.owner;
+			const index = parseInt(target.dataset.index);
 
-function performAttack(source, target) {
-    const sourceValue = hands[source.owner][source.index];
-    const targetValue = hands[target.owner][target.index];
+			if (turn === 'player') {
+				if (owner === 'player') {
+					// toggle selection when clicking the same hand
+					if (selectedHand && selectedHand.owner === owner && selectedHand.index === index) {
+						selectedHand = null;
+					} else {
+						selectedHand = { owner, index };
+					}
+					// reflect immediately
+					updateUI();
+				} else if (owner === 'cpu' && selectedHand) {
+					performAttack(selectedHand, { owner, index });
+				}
+			}
+		}
 
-    let newValue = sourceValue + targetValue;
-    if (newValue > 5) {
-        newValue -= 5;
-    }
-    hands[target.owner][target.index] = newValue;
-    
-    // Animation
-    const targetEl = handElements[target.owner][target.index];
-    const flash = document.createElement('div');
-    flash.className = 'attack-animation';
-    targetEl.appendChild(flash);
-    setTimeout(() => flash.remove(), 500);
+		function performAttack(source, target) {
+			const sourceValue = hands[source.owner][source.index];
+			const targetValue = hands[target.owner][target.index];
 
-    selectedHand = null;
+			// Sum and normalize to 1..5 using modulo-like wrapping.
+			// Example: 3 + 4 = 7 -> ((7 - 1) % 5) + 1 = 2
+			let newValue = ((sourceValue + targetValue - 1) % 5) + 1;
+			hands[target.owner][target.index] = newValue;
 
-    if (checkWin()) {
-        endGame();
-    } else {
-        switchTurn();
-    }
-    updateUI();
-}
+			// Animation
+			const targetEl = handElements[target.owner][target.index];
+			const flash = document.createElement('div');
+			flash.className = 'attack-animation';
+			targetEl.appendChild(flash);
+			setTimeout(() => flash.remove(), 500);
 
-function handleSplit(index) {
-    if (turn !== 'player' || gameState !== 'playing') return;
-    const splitValue = hands.player[index] / 2;
-    hands.player = [splitValue, splitValue];
-    switchTurn();
-    updateUI();
-}
+			selectedHand = null;
 
-function switchTurn() {
-    turn = turn === 'player' ? 'cpu' : 'player';
-    if (turn === 'cpu') {
-        gameState = 'cpu_thinking';
-        setTimeout(cpuTurn, 1500);
-    } else {
-         gameState = 'playing';
-    }
-}
+			if (checkWin()) {
+				endGame();
+			} else {
+				switchTurn();
+			}
+			updateUI();
+		}
 
-function checkWin() {
-    const playerLost = hands.player.every(h => h === 5);
-    const cpuLost = hands.cpu.every(h => h === 5);
-    if (playerLost || cpuLost) {
-        gameState = 'gameover';
-        gameOverText.textContent = playerLost ? "あなたの負け..." : "あなたの勝利！";
-        return true;
-    }
-    return false;
-}
+		function handleSplit(index) {
+			if (turn !== 'player' || gameState !== 'playing') return;
+			const splitValue = hands.player[index] / 2;
+			hands.player = [splitValue, splitValue];
+			switchTurn();
+			updateUI();
+		}
 
-function endGame() {
-    gameOverScreen.classList.remove('hidden');
-}
+		function switchTurn() {
+			turn = turn === 'player' ? 'cpu' : 'player';
+			if (turn === 'cpu') {
+				gameState = 'cpu_thinking';
+				setTimeout(cpuTurn, 1500);
+			} else {
+				gameState = 'playing';
+			}
+		}
 
-// --- CPU AI ---
-function cpuTurn() {
-    // 1. Find a winning move
-    for (let i of [0, 1]) { // CPU hand index
-        for (let j of [0, 1]) { // Player hand index
-            if (hands.cpu[i] === 5 || hands.player[j] === 5) continue;
-            let futureValue = hands.cpu[i] + hands.player[j];
-            if (futureValue > 5) futureValue -= 5;
-            if (futureValue === 5) {
-                performAttack({owner: 'cpu', index: i}, {owner: 'player', index: j});
-                return;
-            }
-        }
-    }
+		function checkWin() {
+			const playerLost = hands.player.every(h => h === 5);
+			const cpuLost = hands.cpu.every(h => h === 5);
+			if (playerLost || cpuLost) {
+				gameState = 'gameover';
+				gameOverText.textContent = playerLost ? "あなたの負け..." : "あなたの勝利！";
+				return true;
+			}
+			return false;
+		}
 
-    // 2. Find a split opportunity
-    for (let i of [0, 1]) {
-        const otherI = i === 0 ? 1 : 0;
-        const count = hands.cpu[i];
-        if ((count === 2 || count === 4) && hands.cpu[otherI] === 5) {
-             const splitValue = count / 2;
-             hands.cpu = [splitValue, splitValue];
-             switchTurn();
-             updateUI();
-             return;
-        }
-    }
-    
-    // 3. Otherwise, make a random valid move
-    const validCpuHands = [0, 1].filter(i => hands.cpu[i] !== 5);
-    const validPlayerHands = [0, 1].filter(i => hands.player[i] !== 5);
-    
-    if (validCpuHands.length === 0) { // Should not happen if game logic is correct
-        switchTurn();
-        updateUI();
-        return;
-    }
+		function endGame() {
+			gameOverScreen.classList.remove('hidden');
+		}
 
-    const cpuHandIndex = validCpuHands[Math.floor(Math.random() * validCpuHands.length)];
-    const playerHandIndex = validPlayerHands[Math.floor(Math.random() * validPlayerHands.length)];
+		// --- CPU AI ---
+		function cpuTurn() {
+			// 1. Find a winning move
+			for (let i of [0, 1]) { // CPU hand index
+				for (let j of [0, 1]) { // Player hand index
+					if (hands.cpu[i] === 5 || hands.player[j] === 5) continue;
+					let futureValue = hands.cpu[i] + hands.player[j];
+					if (futureValue > 5) futureValue -= 5;
+					if (futureValue === 5) {
+						performAttack({ owner: 'cpu', index: i }, { owner: 'player', index: j });
+						return;
+					}
+				}
+			}
 
-    performAttack({owner: 'cpu', index: cpuHandIndex}, {owner: 'player', index: playerHandIndex});
-}
+			// 2. Find a split opportunity
+			for (let i of [0, 1]) {
+				const otherI = i === 0 ? 1 : 0;
+				const count = hands.cpu[i];
+				if ((count === 2 || count === 4) && hands.cpu[otherI] === 5) {
+					const splitValue = count / 2;
+					hands.cpu = [splitValue, splitValue];
+					switchTurn();
+					updateUI();
+					return;
+				}
+			}
 
-// --- Event Listeners ---
-gameContainer.addEventListener('click', handleHandClick);
-restartButton.addEventListener('click', () => {
-    hands = { player: [1, 1], cpu: [1, 1] };
-    turn = 'player';
-    gameState = 'playing';
-    selectedHand = null;
-    gameOverScreen.classList.add('hidden');
-    updateUI();
-});
+			// 3. Otherwise, make a random valid move
+			const validCpuHands = [0, 1].filter(i => hands.cpu[i] !== 5);
+			const validPlayerHands = [0, 1].filter(i => hands.player[i] !== 5);
 
-// --- Initial Render ---
-updateUI();
-</script>
+			if (validCpuHands.length === 0) { // Should not happen if game logic is correct
+				switchTurn();
+				updateUI();
+				return;
+			}
+
+			const cpuHandIndex = validCpuHands[Math.floor(Math.random() * validCpuHands.length)];
+			const playerHandIndex = validPlayerHands[Math.floor(Math.random() * validPlayerHands.length)];
+
+			performAttack({ owner: 'cpu', index: cpuHandIndex }, { owner: 'player', index: playerHandIndex });
+		}
+
+		// --- Event Listeners ---
+		gameContainer.addEventListener('click', handleHandClick);
+		restartButton.addEventListener('click', () => {
+			hands = { player: [1, 1], cpu: [1, 1] };
+			turn = 'player';
+			gameState = 'playing';
+			selectedHand = null;
+			gameOverScreen.classList.add('hidden');
+			updateUI();
+		});
+
+		// --- Initial Render ---
+		updateUI();
+	</script>
 </body>
+
 </html>
