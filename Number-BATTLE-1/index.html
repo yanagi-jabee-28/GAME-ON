@@ -104,7 +104,8 @@
 			width: 100%;
 			height: 100%;
 			border-radius: 0.75rem;
-			animation: attack-flash 0.5s ease-out;
+			animation: attack-flash 0.2s ease-out;
+			pointer-events: none;
 		}
 
 		@keyframes attack-flash {
@@ -152,8 +153,11 @@
 		</div>
 
 		<!-- ターン/情報エリア -->
-		<div id="info-area" class="h-16 flex items-center justify-center">
+		<div id="info-area" class="h-16 flex items-center justify-center gap-3">
 			<p id="turn-indicator" class="text-3xl text-yellow-300">あなたのターン</p>
+			<button id="cpu-mode-toggle" class="text-sm bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">
+				CPU: 最強
+			</button>
 		</div>
 
 		<!-- プレイヤーエリア -->
@@ -203,6 +207,7 @@
 		const gameOverScreen = document.getElementById('game-over-screen');
 		const gameOverText = document.getElementById('game-over-text');
 		const restartButton = document.getElementById('restart-button');
+		const cpuModeToggle = document.getElementById('cpu-mode-toggle');
 		const handElements = {
 			player: [document.getElementById('player-hand-left'), document.getElementById('player-hand-right')],
 			cpu: [document.getElementById('cpu-hand-left'), document.getElementById('cpu-hand-right')]
@@ -213,6 +218,12 @@
 		let turn = 'player';
 		let gameState = 'playing'; // 'playing', 'cpu_thinking', 'gameover'
 		let selectedHand = null; // { owner: 'player', index: 0 }
+		let CPU_MODE = 'strong'; // 'normal' | 'strong'
+
+		cpuModeToggle?.addEventListener('click', () => {
+			CPU_MODE = CPU_MODE === 'normal' ? 'strong' : 'normal';
+			cpuModeToggle.textContent = `CPU: ${CPU_MODE === 'strong' ? '最強' : '普通'}`;
+		});
 
 		// --- Game Logic ---
 		function updateUI() {
@@ -220,15 +231,16 @@
 			['player', 'cpu'].forEach(owner => {
 				hands[owner].forEach((count, index) => {
 					const handEl = handElements[owner][index];
-					handEl.querySelector('.finger-count').textContent = count === 5 ? 'X' : count;
-					handEl.classList.toggle('dead', count === 5);
+					const isDead = (count === 5 || count === 0);
+					handEl.querySelector('.finger-count').textContent = isDead ? 'X' : count;
+					handEl.classList.toggle('dead', isDead);
 				});
 			});
 
 			// Update highlights
 			document.querySelectorAll('.hand-container').forEach(el => {
 				el.classList.remove('selectable', 'selected', 'targetable');
-				if (gameState === 'gameover' || el.classList.contains('dead')) return;
+				if (gameState === 'gameover' || el.classList.contains('dead') || hands[el.dataset.owner][el.dataset.index] === 0) return;
 
 				const owner = el.dataset.owner;
 				const index = parseInt(el.dataset.index);
@@ -257,8 +269,8 @@
 
 			// Update split buttons
 			playerActions.innerHTML = '';
-			// Show a single split button based on the sum of non-5 player hands
-			const activeIndices = [0, 1].filter(i => hands.player[i] !== 5);
+			// Show a single split button based on the sum of active (not 0/5) player hands
+			const activeIndices = [0, 1].filter(i => hands.player[i] !== 5 && hands.player[i] !== 0);
 			const playerSumActive = activeIndices.reduce((s, i) => s + hands.player[i], 0);
 			if (playerSumActive >= 2 && gameState === 'playing' && turn === 'player') {
 				const splitButton = document.createElement('button');
@@ -272,7 +284,7 @@
 		function handleHandClick(e) {
 			if (gameState !== 'playing') return;
 			const target = e.target.closest('.hand-container');
-			if (!target || target.classList.contains('dead')) return;
+			if (!target || target.classList.contains('dead') || hands[target.dataset.owner][target.dataset.index] === 0) return;
 
 			const owner = target.dataset.owner;
 			const index = parseInt(target.dataset.index);
@@ -307,7 +319,7 @@
 			const flash = document.createElement('div');
 			flash.className = 'attack-animation';
 			targetEl.appendChild(flash);
-			setTimeout(() => flash.remove(), 500);
+			setTimeout(() => flash.remove(), 200);
 
 			selectedHand = null;
 
@@ -331,15 +343,16 @@
 			turn = turn === 'player' ? 'cpu' : 'player';
 			if (turn === 'cpu') {
 				gameState = 'cpu_thinking';
-				setTimeout(cpuTurn, 1500);
+				setTimeout(cpuTurn, 80);
 			} else {
 				gameState = 'playing';
 			}
 		}
 
 		function checkWin() {
-			const playerLost = hands.player.every(h => h === 5);
-			const cpuLost = hands.cpu.every(h => h === 5);
+			const isDead = (v) => v === 5 || v === 0;
+			const playerLost = hands.player.every(isDead);
+			const cpuLost = hands.cpu.every(isDead);
 			if (playerLost || cpuLost) {
 				gameState = 'gameover';
 				gameOverText.textContent = playerLost ? "あなたの負け..." : "あなたの勝利！";
@@ -353,47 +366,171 @@
 		}
 
 		// --- CPU AI ---
-		function cpuTurn() {
-			// 1. Find a winning move
-			for (let i of [0, 1]) { // CPU hand index
-				for (let j of [0, 1]) { // Player hand index
-					if (hands.cpu[i] === 5 || hands.player[j] === 5) continue;
-					let futureValue = hands.cpu[i] + hands.player[j];
-					if (futureValue > 5) futureValue -= 5;
-					if (futureValue === 5) {
-						performAttack({ owner: 'cpu', index: i }, { owner: 'player', index: j });
-						return;
-					}
-				}
-			}
-
-			// 2. Find a split opportunity
+		// ---- CPU Decision Helpers ----
+		const wrapTo1to5 = (v) => ((v - 1) % 5) + 1; // assumes v>=1
+		function enumerateAttacks(owner, opp) {
+			const moves = [];
 			for (let i of [0, 1]) {
-				const otherI = i === 0 ? 1 : 0;
-				const count = hands.cpu[i];
-				if ((count === 2 || count === 4) && hands.cpu[otherI] === 5) {
-					const splitValue = count / 2;
-					hands.cpu = [splitValue, splitValue];
-					switchTurn();
-					updateUI();
-					return;
+				if (hands[owner][i] === 5 || hands[owner][i] === 0) continue;
+				for (let j of [0, 1]) {
+					if (hands[opp][j] === 5 || hands[opp][j] === 0) continue;
+					const s = hands[owner][i];
+					const t = hands[opp][j];
+					const newT = wrapTo1to5(s + t);
+					moves.push({ type: 'attack', src: i, dst: j, newT });
 				}
 			}
+			return moves;
+		}
 
-			// 3. Otherwise, make a random valid move
-			const validCpuHands = [0, 1].filter(i => hands.cpu[i] !== 5);
-			const validPlayerHands = [0, 1].filter(i => hands.player[i] !== 5);
+		function sumActive(owner) {
+			return [0, 1]
+				.filter(i => hands[owner][i] !== 5 && hands[owner][i] !== 0)
+				.reduce((a, i) => a + hands[owner][i], 0);
+		}
 
-			if (validCpuHands.length === 0) { // Should not happen if game logic is correct
+		function enumerateSplitsForOwner(owner) {
+			const sum = sumActive(owner);
+			if (sum < 2) return [];
+			const patterns = new Set();
+			const add = (a, b) => { if (a <= 5 && b <= 5) patterns.add(`${a},${b}`); };
+			// extremes and balanced
+			add(Math.min(5, sum), 0);
+			add(0, Math.min(5, sum));
+			const a = Math.floor(sum / 2), b = sum - a; add(a, b); add(b, a);
+			// current distribution (skip)
+			const curr = `${hands[owner][0]},${hands[owner][1]}`;
+			return Array.from(patterns).filter(p => p !== curr).map(s => {
+				const [l, r] = s.split(',').map(Number);
+				return { type: 'split', left: l, right: r };
+			});
+		}
+
+		function isTerminalEval() {
+			const dead = (h) => h === 0 || h === 5;
+			const playerLost = hands.player.every(dead);
+			const cpuLost = hands.cpu.every(dead);
+			if (cpuLost) return -1e6; // worst
+			if (playerLost) return 1e6; // best
+			return null;
+		}
+
+		function heuristicEval() {
+			// Favor fewer enemy (player) alive hands and enemy closer to 5
+			const enemyAlive = [0, 1].filter(i => hands.player[i] !== 5 && hands.player[i] !== 0);
+			const selfAlive = [0, 1].filter(i => hands.cpu[i] !== 5 && hands.cpu[i] !== 0);
+			let score = 0;
+			score += (2 - enemyAlive.length) * 200; // kill bonus
+			score -= (2 - selfAlive.length) * 150; // self penalty if dead
+			const enemyDistances = enemyAlive.map(i => 5 - hands.player[i]);
+			if (enemyDistances.length) score += (5 - Math.min(...enemyDistances)) * 30; // prefer making someone 4
+			const selfDistances = selfAlive.map(i => 5 - hands.cpu[i]);
+			if (selfDistances.length) score -= (5 - Math.min(...selfDistances)) * 15; // avoid close to 5
+			return score;
+		}
+
+		function cloneState() {
+			return { player: [...hands.player], cpu: [...hands.cpu] };
+		}
+
+		function restoreState(state) {
+			hands.player = [...state.player];
+			hands.cpu = [...state.cpu];
+		}
+
+		function applyMove(owner, move) {
+			if (move.type === 'attack') {
+				const opp = owner === 'cpu' ? 'player' : 'cpu';
+				const s = hands[owner][move.src];
+				const t = hands[opp][move.dst];
+				hands[opp][move.dst] = wrapTo1to5(s + t);
+			} else if (move.type === 'split') {
+				hands[owner] = [move.left, move.right];
+			}
+		}
+
+		function enumerateMoves(owner) {
+			const opp = owner === 'cpu' ? 'player' : 'cpu';
+			const attacks = enumerateAttacks(owner, opp);
+			const splits = enumerateSplitsForOwner(owner);
+			return { attacks, splits };
+		}
+
+		function chooseCpuMoveNormal() {
+			const { attacks, splits } = enumerateMoves('cpu');
+			// winning attack first
+			for (const m of attacks) if (m.newT === 5) return m;
+			// attack that makes enemy as close to 5 as possible
+			if (attacks.length) {
+				return attacks.reduce((best, cur) => {
+					const curScore = (cur.newT === 5 ? 100 : (cur.newT === 4 ? 10 : (cur.newT === 3 ? 6 : (cur.newT === 2 ? 3 : 0))));
+					const bestScore = best ? (best.newT === 5 ? 100 : (best.newT === 4 ? 10 : (best.newT === 3 ? 6 : (best.newT === 2 ? 3 : 0)))) : -1;
+					return curScore > bestScore ? cur : best;
+				}, null) || attacks[0];
+			}
+			// fallback: one balanced split if any
+			return splits.find(s => Math.abs(s.left - s.right) <= 1) || splits[0] || null;
+		}
+
+		function chooseCpuMoveStrong() {
+			const start = performance.now();
+			const { attacks, splits } = enumerateMoves('cpu');
+			let candidates = [...attacks, ...splits];
+			if (candidates.length === 0) return null;
+			let best = null, bestScore = -Infinity;
+			const timeBudget = 10; // ms
+			for (const mv of candidates) {
+				const snapshot = cloneState();
+				applyMove('cpu', mv);
+				let term = isTerminalEval();
+				let score;
+				if (term !== null) {
+					score = term;
+				} else {
+					// player's best reply (one-ply)
+					const reply = enumerateMoves('player');
+					let worst = Infinity;
+					const replyCandidates = [...reply.attacks, ...reply.splits];
+					if (replyCandidates.length === 0) {
+						worst = -heuristicEval();
+					} else {
+						for (const pm of replyCandidates) {
+							const snap2 = cloneState();
+							applyMove('player', pm);
+							const t2 = isTerminalEval();
+							const sc = t2 !== null ? -t2 : -heuristicEval();
+							restoreState(snap2);
+							if (sc < worst) worst = sc;
+							if (performance.now() - start > timeBudget) break;
+						}
+					}
+					score = worst;
+				}
+				restoreState(snapshot);
+				if (score > bestScore) { bestScore = score; best = mv; }
+				if (performance.now() - start > timeBudget) break;
+			}
+			return best;
+		}
+
+		function applyCpuMove(move) {
+			if (!move) {
+				switchTurn(); updateUI(); return;
+			}
+			if (move.type === 'attack') {
+				performAttack({ owner: 'cpu', index: move.src }, { owner: 'player', index: move.dst });
+			} else if (move.type === 'split') {
+				// apply distribution directly to CPU hands
+				hands.cpu = [move.left, move.right];
 				switchTurn();
 				updateUI();
-				return;
 			}
+		}
 
-			const cpuHandIndex = validCpuHands[Math.floor(Math.random() * validCpuHands.length)];
-			const playerHandIndex = validPlayerHands[Math.floor(Math.random() * validPlayerHands.length)];
-
-			performAttack({ owner: 'cpu', index: cpuHandIndex }, { owner: 'player', index: playerHandIndex });
+		function cpuTurn() {
+			// choose by mode
+			const move = CPU_MODE === 'strong' ? chooseCpuMoveStrong() : chooseCpuMoveNormal();
+			applyCpuMove(move);
 		}
 
 		// --- Event Listeners ---
@@ -417,7 +554,7 @@
 
 		// Helper: open split modal for the sum of both player hands
 		function openSplitModalSum() {
-			const active = [0, 1].filter(i => hands.player[i] !== 5);
+			const active = [0, 1].filter(i => hands.player[i] !== 5 && hands.player[i] !== 0);
 			const sum = active.reduce((s, i) => s + hands.player[i], 0);
 			if (sum < 2 || gameState !== 'playing' || turn !== 'player') return;
 			splitOptionsContainer.innerHTML = '';
@@ -428,7 +565,7 @@
 				header.textContent = `現在: 左 ${hands.player[0]} / 右 ${hands.player[1]} → 合計 ${sum}`;
 			} else {
 				const deadIndex = active.length === 0 ? '両方' : (active[0] === 0 ? '右' : '左');
-				header.textContent = `現在: 左 ${hands.player[0]} / 右 ${hands.player[1]} → 合計 ${sum} （${deadIndex} が 5 のため除外）`;
+				header.textContent = `現在: 左 ${hands.player[0]} / 右 ${hands.player[1]} → 合計 ${sum} （${deadIndex} が 0/5 のため除外）`;
 			}
 			splitOptionsContainer.appendChild(header);
 			if (active.length === 2) {
@@ -452,11 +589,11 @@
 					splitOptionsContainer.appendChild(optionEl);
 				}
 			} else if (active.length === 1) {
-				// One hand is 5 (treated as 0). Allow distributing the total among both hands
-				const deadIndex = (active[0] === 0) ? 1 : 0; // index of the 5-hand
+				// One hand is 0 or 5 (treated as 0). Allow distributing the total among both hands
+				const deadIndex = (active[0] === 0) ? 1 : 0; // index of the dead hand
 				const note = document.createElement('div');
 				note.className = 'mb-2 text-sm text-gray-300';
-				note.textContent = `注: 手が5になっている方は一時的に 0 として扱い、左右へ配分できます（${deadIndex === 0 ? '左' : '右'} が5）。`;
+				note.textContent = `注: 手が 0/5 の方は一時的に 0 として扱い、左右へ配分できます（${deadIndex === 0 ? '左' : '右'} が 0/5）。`;
 				splitOptionsContainer.appendChild(note);
 				for (let a = 0; a <= sum; a++) {
 					const b = sum - a;
