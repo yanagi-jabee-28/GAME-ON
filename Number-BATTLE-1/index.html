@@ -669,13 +669,33 @@
 		}
 		function applyCpuMove(move) {
 			if (!move) {
-				// If AI returned null, try to pick any available move deterministically
+				// If AI returned null, pick the best available move by short-term evaluation
 				const { attacks, splits } = enumerateMoves('cpu');
-				if (attacks.length > 0) {
-					// prefer first attack
-					move = attacks[0];
-				} else if (splits.length > 0) {
-					move = splits[0];
+				let best = null;
+				let bestScore = -Infinity;
+				const snapshot = cloneState();
+				// Evaluate attacks by applying them and checking heuristic
+				for (const a of attacks) {
+					applyMove('cpu', a);
+					const score = heuristicEval();
+					restoreState(snapshot);
+					if (score > bestScore) {
+						bestScore = score;
+						best = a;
+					}
+				}
+				// If no attacks, consider splits
+				for (const s of splits) {
+					applyMove('cpu', s);
+					const score = heuristicEval();
+					restoreState(snapshot);
+					if (score > bestScore) {
+						bestScore = score;
+						best = s;
+					}
+				}
+				if (best) {
+					move = best;
 				} else {
 					// no moves available: fall back to switching turn
 					switchTurn();
