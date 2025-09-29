@@ -343,7 +343,7 @@
 			turn = turn === 'player' ? 'cpu' : 'player';
 			if (turn === 'cpu') {
 				gameState = 'cpu_thinking';
-				setTimeout(cpuTurn, 80);
+				setTimeout(cpuTurn, 500);
 			} else {
 				gameState = 'playing';
 			}
@@ -458,59 +458,131 @@
 
 		function chooseCpuMoveNormal() {
 			const { attacks, splits } = enumerateMoves('cpu');
-			// winning attack first
-			for (const m of attacks) if (m.newT === 5) return m;
-			// attack that makes enemy as close to 5 as possible
-			if (attacks.length) {
-				return attacks.reduce((best, cur) => {
-					const curScore = (cur.newT === 5 ? 100 : (cur.newT === 4 ? 10 : (cur.newT === 3 ? 6 : (cur.newT === 2 ? 3 : 0))));
-					const bestScore = best ? (best.newT === 5 ? 100 : (best.newT === 4 ? 10 : (best.newT === 3 ? 6 : (best.newT === 2 ? 3 : 0)))) : -1;
-					return curScore > bestScore ? cur : best;
-				}, null) || attacks[0];
-			}
-			// fallback: one balanced split if any
-			return splits.find(s => Math.abs(s.left - s.right) <= 1) || splits[0] || null;
-		}
-
-		function chooseCpuMoveStrong() {
-			const start = performance.now();
-			const { attacks, splits } = enumerateMoves('cpu');
 			let candidates = [...attacks, ...splits];
 			if (candidates.length === 0) return null;
-			let best = null, bestScore = -Infinity;
-			const timeBudget = 10; // ms
-			for (const mv of candidates) {
+
+			let bestMove = null;
+			let bestScore = -Infinity;
+
+			for (const cpuMove of candidates) {
 				const snapshot = cloneState();
-				applyMove('cpu', mv);
+				applyMove('cpu', cpuMove);
+
 				let term = isTerminalEval();
 				let score;
 				if (term !== null) {
 					score = term;
 				} else {
-					// player's best reply (one-ply)
-					const reply = enumerateMoves('player');
-					let worst = Infinity;
-					const replyCandidates = [...reply.attacks, ...reply.splits];
+					// Player's best reply (one-ply)
+					const replyMoves = enumerateMoves('player');
+					const replyCandidates = [...replyMoves.attacks, ...replyMoves.splits];
+
 					if (replyCandidates.length === 0) {
-						worst = -heuristicEval();
+						// Player has no moves, this is good for CPU
+						score = heuristicEval();
 					} else {
-						for (const pm of replyCandidates) {
+						let worstReplyScore = Infinity;
+						for (const playerMove of replyCandidates) {
 							const snap2 = cloneState();
-							applyMove('player', pm);
-							const t2 = isTerminalEval();
-							const sc = t2 !== null ? -t2 : -heuristicEval();
+							applyMove('player', playerMove);
+
+							const terminalEval = isTerminalEval();
+							// The score is from the CPU's perspective.
+							// A high negative score for the player is a high positive score for the CPU.
+							const replyScore = terminalEval !== null ? -terminalEval : -heuristicEval();
+
 							restoreState(snap2);
-							if (sc < worst) worst = sc;
-							if (performance.now() - start > timeBudget) break;
+
+							if (replyScore < worstReplyScore) {
+								worstReplyScore = replyScore;
+							}
 						}
+						score = worstReplyScore;
 					}
-					score = worst;
 				}
+
 				restoreState(snapshot);
-				if (score > bestScore) { bestScore = score; best = mv; }
-				if (performance.now() - start > timeBudget) break;
+
+				if (score > bestScore) {
+					bestScore = score;
+					bestMove = cpuMove;
+				}
 			}
-			return best;
+			return bestMove;
+		}
+
+		function minimax(depth, isMaximizingPlayer, alpha, beta) {
+			const term = isTerminalEval();
+			if (term !== null) {
+				// Return a large value for winning/losing, scaled by depth to prioritize faster wins.
+				return (isMaximizingPlayer ? term : -term) * (depth + 1);
+			}
+			if (depth === 0) {
+				return heuristicEval();
+			}
+
+			const owner = isMaximizingPlayer ? 'cpu' : 'player';
+			const { attacks, splits } = enumerateMoves(owner);
+			const moves = [...attacks, ...splits];
+
+			if (moves.length === 0) {
+				// No moves available, evaluate current board
+				return heuristicEval();
+			}
+
+			if (isMaximizingPlayer) {
+				let maxEval = -Infinity;
+				for (const move of moves) {
+					const snapshot = cloneState();
+					applyMove(owner, move);
+					const evaluation = minimax(depth - 1, false, alpha, beta);
+					restoreState(snapshot);
+					maxEval = Math.max(maxEval, evaluation);
+					alpha = Math.max(alpha, evaluation);
+					if (beta <= alpha) {
+						break; // Beta cut-off
+					}
+				}
+				return maxEval;
+			} else { // Minimizing player
+				let minEval = Infinity;
+				for (const move of moves) {
+					const snapshot = cloneState();
+					applyMove(owner, move);
+					const evaluation = minimax(depth - 1, true, alpha, beta);
+					restoreState(snapshot);
+					minEval = Math.min(minEval, evaluation);
+					beta = Math.min(beta, evaluation);
+					if (beta <= alpha) {
+						break; // Alpha cut-off
+					}
+				}
+				return minEval;
+			}
+		}
+
+		function chooseCpuMoveStrong() {
+			const { attacks, splits } = enumerateMoves('cpu');
+			const candidates = [...attacks, ...splits];
+			if (candidates.length === 0) return null;
+
+			let bestMove = candidates[0] || null;
+			let bestValue = -Infinity;
+			const searchDepth = 4; // A deeper search for the 'strong' AI
+
+			for (const move of candidates) {
+				const snapshot = cloneState();
+				applyMove('cpu', move);
+				// It's now player's turn (minimizing player)
+				const value = minimax(searchDepth - 1, false, -Infinity, Infinity);
+				restoreState(snapshot);
+
+				if (value > bestValue) {
+					bestValue = value;
+					bestMove = move;
+				}
+			}
+			return bestMove;
 		}
 
 		function applyCpuMove(move) {
