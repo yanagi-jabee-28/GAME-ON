@@ -257,15 +257,16 @@
 
 			// Update split buttons
 			playerActions.innerHTML = '';
-			hands.player.forEach((count, index) => {
-				if (count >= 2 && gameState === 'playing' && turn === 'player') {
-					const splitButton = document.createElement('button');
-					splitButton.textContent = `分割: ${count}`;
-					splitButton.className = 'split-button bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg';
-					splitButton.onclick = () => openSplitModal(index);
-					playerActions.appendChild(splitButton);
-				}
-			});
+			// Show a single split button based on the sum of non-5 player hands
+			const activeIndices = [0, 1].filter(i => hands.player[i] !== 5);
+			const playerSumActive = activeIndices.reduce((s, i) => s + hands.player[i], 0);
+			if (playerSumActive >= 2 && gameState === 'playing' && turn === 'player') {
+				const splitButton = document.createElement('button');
+				splitButton.textContent = `分割: 合計 ${playerSumActive}`;
+				splitButton.className = 'split-button bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg';
+				splitButton.onclick = () => openSplitModalSum();
+				playerActions.appendChild(splitButton);
+			}
 		}
 
 		function handleHandClick(e) {
@@ -414,44 +415,83 @@
 			updateUI();
 		});
 
-		// Helper: open split modal for a given player hand index
-		function openSplitModal(handIndex) {
-			const value = hands.player[handIndex];
-			if (value < 2 || gameState !== 'playing' || turn !== 'player') return;
+		// Helper: open split modal for the sum of both player hands
+		function openSplitModalSum() {
+			const active = [0, 1].filter(i => hands.player[i] !== 5);
+			const sum = active.reduce((s, i) => s + hands.player[i], 0);
+			if (sum < 2 || gameState !== 'playing' || turn !== 'player') return;
 			splitOptionsContainer.innerHTML = '';
-			// Generate all possible integer splits a+b = value, with a>=0, b>=0
-			for (let a = 0; a <= value; a++) {
-				const b = value - a;
-				// Represent option as [a,b] assigned to left/right depending on selected index
-				const optionEl = document.createElement('div');
-				optionEl.className = 'split-option';
-				const label = document.createElement('div');
-				label.textContent = `${a} / ${b}`;
-				const applyBtn = document.createElement('button');
-				applyBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg';
-				applyBtn.textContent = '選択';
-				applyBtn.onclick = () => {
-					applySplitPattern(handIndex, a, b);
-					splitModalBackdrop.classList.add('hidden');
-				};
-				optionEl.appendChild(label);
-				optionEl.appendChild(applyBtn);
-				splitOptionsContainer.appendChild(optionEl);
+			// Header with current distribution and note about excluded 5s
+			const header = document.createElement('div');
+			header.className = 'mb-2';
+			if (active.length === 2) {
+				header.textContent = `現在: 左 ${hands.player[0]} / 右 ${hands.player[1]} → 合計 ${sum}`;
+			} else {
+				const deadIndex = active.length === 0 ? '両方' : (active[0] === 0 ? '右' : '左');
+				header.textContent = `現在: 左 ${hands.player[0]} / 右 ${hands.player[1]} → 合計 ${sum} （${deadIndex} が 5 のため除外）`;
+			}
+			splitOptionsContainer.appendChild(header);
+			if (active.length === 2) {
+				for (let a = 0; a <= sum; a++) {
+					const b = sum - a;
+					// only allow values within 0..5
+					if (a > 5 || b > 5) continue;
+					const optionEl = document.createElement('div');
+					optionEl.className = 'split-option';
+					const label = document.createElement('div');
+					label.textContent = `左 ${a}  —  右 ${b}`;
+					const applyBtn = document.createElement('button');
+					applyBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg';
+					applyBtn.textContent = '選択';
+					applyBtn.onclick = () => {
+						applySplitDistribution(a, b);
+						splitModalBackdrop.classList.add('hidden');
+					};
+					optionEl.appendChild(label);
+					optionEl.appendChild(applyBtn);
+					splitOptionsContainer.appendChild(optionEl);
+				}
+			} else if (active.length === 1) {
+				// One hand is 5 (treated as 0). Allow distributing the total among both hands
+				const deadIndex = (active[0] === 0) ? 1 : 0; // index of the 5-hand
+				const note = document.createElement('div');
+				note.className = 'mb-2 text-sm text-gray-300';
+				note.textContent = `注: 手が5になっている方は一時的に 0 として扱い、左右へ配分できます（${deadIndex === 0 ? '左' : '右'} が5）。`;
+				splitOptionsContainer.appendChild(note);
+				for (let a = 0; a <= sum; a++) {
+					const b = sum - a;
+					if (a > 5 || b > 5) continue;
+					const optionEl = document.createElement('div');
+					optionEl.className = 'split-option';
+					const label = document.createElement('div');
+					label.textContent = `左 ${a}  —  右 ${b}`;
+					const applyBtn = document.createElement('button');
+					applyBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg';
+					applyBtn.textContent = '選択';
+					applyBtn.onclick = () => {
+						applySplitDistribution(a, b);
+						splitModalBackdrop.classList.add('hidden');
+					};
+					optionEl.appendChild(label);
+					optionEl.appendChild(applyBtn);
+					splitOptionsContainer.appendChild(optionEl);
+				}
 			}
 			splitModalBackdrop.classList.remove('hidden');
 		}
 
-		// Apply the split pattern: assign values to the chosen hand and the other hand
-		function applySplitPattern(chosenIndex, leftValue, rightValue) {
-			const otherIndex = chosenIndex === 0 ? 1 : 0;
-			// If chosenIndex is left (0), assign leftValue to index 0 and rightValue to index1.
-			// If chosenIndex is right (1), we swap so the chosen hand receives leftValue.
-			if (chosenIndex === 0) {
-				hands.player = [leftValue, rightValue];
-			} else {
-				hands.player = [rightValue, leftValue];
-			}
+		function applySplitDistribution(leftValue, rightValue) {
+			// Assign distribution to both hands (treat 5 as replaceable for distribution)
+			hands.player = [leftValue, rightValue];
 			// After applying split, proceed to CPU turn
+			switchTurn();
+			updateUI();
+		}
+
+		function applySplitToSingle(index, value) {
+			// Only set the active hand; leave 5-handed slot unchanged
+			if (hands.player[index] === 5) return;
+			hands.player[index] = value;
 			switchTurn();
 			updateUI();
 		}
