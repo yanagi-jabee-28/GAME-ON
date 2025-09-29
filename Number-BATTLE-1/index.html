@@ -172,6 +172,7 @@
 		<!-- ターン/情報エリア -->
 		<div id="info-area" class="h-16 flex items-center justify-center gap-3">
 			<p id="turn-indicator" class="text-3xl text-yellow-300">あなたのターン</p>
+			<div id="turn-counter" class="text-sm text-gray-300 ml-4">経過ターン: 0</div>
 		</div>
 
 		<!-- プレイヤーエリア -->
@@ -324,6 +325,9 @@
 			}
 
 			// Update split buttons
+			// Update turn counter display
+			const turnCounterEl = document.getElementById('turn-counter');
+			if (turnCounterEl) turnCounterEl.textContent = `経過ターン: ${turnCount}`;
 			playerActions.innerHTML = '';
 			// Show a single split button based on the sum of active (not 0/5) player hands
 			const activeIndices = [0, 1].filter(i => hands.player[i] !== 5 && hands.player[i] !== 0);
@@ -476,6 +480,8 @@
 					if (isDead(l) && isDead(r)) {
 						return null;
 					}
+					// Also disallow splits that create a 0 or 5 on either side
+					if (l === 0 || r === 0 || l === 5 || r === 5) return null;
 					return { type: 'split', left: l, right: r };
 				})
 				.filter(move => move !== null); // Filter out nulls
@@ -813,6 +819,9 @@
 					// only allow values within 0..5
 					if (a > 5 || b > 5) continue;
 
+					// Disallow results that create a 0 or 5 in either hand
+					if (a === 0 || b === 0 || a === 5 || b === 5) continue;
+
 					// Rule: Do not allow splitting to the same numeric distribution (including swapped)
 					// Compare with normalized values so that e.g. 5 is treated as 0.
 					if ((a === normLeft && b === normRight) || (a === normRight && b === normLeft)) {
@@ -850,6 +859,9 @@
 				for (let a = 0; a <= sum; a++) {
 					const b = sum - a;
 					if (a > 5 || b > 5) continue;
+
+					// Disallow results that create a 0 or 5 in either hand
+					if (a === 0 || b === 0 || a === 5 || b === 5) continue;
 
 					// Rule: Do not allow splitting to the same numeric distribution (including swapped)
 					if ((a === normLeft && b === normRight) || (a === normRight && b === normLeft)) {
