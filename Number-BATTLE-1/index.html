@@ -896,9 +896,14 @@
 			if (CPU_MODE === 'strong') {
 				move = chooseCpuMoveStrong();
 			} else {
-				const strategies = [chooseCpuMoveStrong, chooseCpuMoveNormal, chooseCpuMoveRandom];
-				const choice = strategies[Math.floor(Math.random() * strategies.length)];
-				move = choice();
+				const roll = Math.random();
+				if (roll < 0.6) {
+					move = chooseCpuMoveStrong();
+				} else if (roll < 0.8) {
+					move = chooseCpuMoveNormal();
+				} else {
+					move = chooseCpuMoveRandom();
+				}
 			}
 			applyCpuMove(move);
 		}
