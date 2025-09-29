@@ -67,6 +67,38 @@
 			transform: translateY(-2px) scale(1.05);
 		}
 
+		/* Split modal */
+		.split-modal-backdrop {
+			position: fixed;
+			inset: 0;
+			background: rgba(0, 0, 0, 0.6);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			z-index: 50;
+		}
+
+		.split-modal {
+			background: #111827;
+			/* gray-900 */
+			padding: 16px;
+			border-radius: 12px;
+			width: 320px;
+			box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+		}
+
+		.split-option {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 12px;
+			margin-bottom: 8px;
+		}
+
+		.split-option button {
+			flex: 1;
+		}
+
 		.attack-animation {
 			position: absolute;
 			width: 100%;
@@ -137,6 +169,19 @@
 			<h2 class="text-2xl mt-2">あなた</h2>
 			<div id="player-actions" class="h-12 mt-2 flex justify-center items-center space-x-4">
 				<!-- Split buttons will be generated here -->
+			</div>
+		</div>
+		<!-- Split modal (hidden by default) -->
+		<div id="split-modal-backdrop" class="split-modal-backdrop hidden">
+			<div class="split-modal">
+				<h3 class="text-xl mb-3">分割オプション</h3>
+				<div id="split-options">
+					<!-- options inserted here -->
+				</div>
+				<div class="mt-3 text-right">
+					<button id="split-cancel"
+						class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg">キャンセル</button>
+				</div>
 			</div>
 		</div>
 
@@ -213,12 +258,11 @@
 			// Update split buttons
 			playerActions.innerHTML = '';
 			hands.player.forEach((count, index) => {
-				const otherIndex = index === 0 ? 1 : 0;
-				if ((count === 2 || count === 4) && hands.player[otherIndex] === 5) {
+				if (count >= 2 && gameState === 'playing' && turn === 'player') {
 					const splitButton = document.createElement('button');
-					splitButton.textContent = `${count}を${count / 2}と${count / 2}に分ける`;
+					splitButton.textContent = `分割: ${count}`;
 					splitButton.className = 'split-button bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg';
-					splitButton.onclick = () => handleSplit(index);
+					splitButton.onclick = () => openSplitModal(index);
 					playerActions.appendChild(splitButton);
 				}
 			});
@@ -353,6 +397,14 @@
 
 		// --- Event Listeners ---
 		gameContainer.addEventListener('click', handleHandClick);
+		// split modal elements
+		const splitModalBackdrop = document.getElementById('split-modal-backdrop');
+		const splitOptionsContainer = document.getElementById('split-options');
+		const splitCancel = document.getElementById('split-cancel');
+
+		splitCancel.addEventListener('click', () => {
+			splitModalBackdrop.classList.add('hidden');
+		});
 		restartButton.addEventListener('click', () => {
 			hands = { player: [1, 1], cpu: [1, 1] };
 			turn = 'player';
@@ -361,6 +413,49 @@
 			gameOverScreen.classList.add('hidden');
 			updateUI();
 		});
+
+		// Helper: open split modal for a given player hand index
+		function openSplitModal(handIndex) {
+			const value = hands.player[handIndex];
+			if (value < 2 || gameState !== 'playing' || turn !== 'player') return;
+			splitOptionsContainer.innerHTML = '';
+			// Generate all possible integer splits a+b = value, with a>=0, b>=0
+			for (let a = 0; a <= value; a++) {
+				const b = value - a;
+				// Represent option as [a,b] assigned to left/right depending on selected index
+				const optionEl = document.createElement('div');
+				optionEl.className = 'split-option';
+				const label = document.createElement('div');
+				label.textContent = `${a} / ${b}`;
+				const applyBtn = document.createElement('button');
+				applyBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg';
+				applyBtn.textContent = '選択';
+				applyBtn.onclick = () => {
+					applySplitPattern(handIndex, a, b);
+					splitModalBackdrop.classList.add('hidden');
+				};
+				optionEl.appendChild(label);
+				optionEl.appendChild(applyBtn);
+				splitOptionsContainer.appendChild(optionEl);
+			}
+			splitModalBackdrop.classList.remove('hidden');
+		}
+
+		// Apply the split pattern: assign values to the chosen hand and the other hand
+		function applySplitPattern(chosenIndex, leftValue, rightValue) {
+			const otherIndex = chosenIndex === 0 ? 1 : 0;
+			// If chosenIndex is left (0), assign leftValue to index 0 and rightValue to index1.
+			// If chosenIndex is right (1), we swap so the chosen hand receives leftValue.
+			if (chosenIndex === 0) {
+				hands.player = [leftValue, rightValue];
+			} else {
+				hands.player = [rightValue, leftValue];
+			}
+			// After applying split, proceed to CPU turn
+			switchTurn();
+			updateUI();
+		}
+
 
 		// --- Initial Render ---
 		updateUI();
