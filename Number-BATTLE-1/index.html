@@ -508,54 +508,24 @@
 
 		function chooseCpuMoveNormal() {
 			const { attacks, splits } = enumerateMoves('cpu');
-			let candidates = [...attacks, ...splits];
+			const candidates = [...attacks, ...splits];
 			if (candidates.length === 0) return null;
 
-			let bestMove = null;
-			let bestScore = -Infinity;
+			let bestMove = candidates[0] || null;
+			let bestValue = -Infinity;
+			// A moderate search depth for the 'normal' AI, reading about 3 moves ahead.
+			const searchDepth = 3;
 
-			for (const cpuMove of candidates) {
+			for (const move of candidates) {
 				const snapshot = cloneState();
-				applyMove('cpu', cpuMove);
-
-				let term = isTerminalEval();
-				let score;
-				if (term !== null) {
-					score = term;
-				} else {
-					// Player's best reply (one-ply)
-					const replyMoves = enumerateMoves('player');
-					const replyCandidates = [...replyMoves.attacks, ...replyMoves.splits];
-
-					if (replyCandidates.length === 0) {
-						// Player has no moves, this is good for CPU
-						score = heuristicEval();
-					} else {
-						let worstReplyScore = Infinity;
-						for (const playerMove of replyCandidates) {
-							const snap2 = cloneState();
-							applyMove('player', playerMove);
-
-							const terminalEval = isTerminalEval();
-							// The score is from the CPU's perspective.
-							// A high negative score for the player is a high positive score for the CPU.
-							const replyScore = terminalEval !== null ? -terminalEval : -heuristicEval();
-
-							restoreState(snap2);
-
-							if (replyScore < worstReplyScore) {
-								worstReplyScore = replyScore;
-							}
-						}
-						score = worstReplyScore;
-					}
-				}
-
+				applyMove('cpu', move);
+				// It's now player's turn (minimizing player)
+				const value = minimax(searchDepth - 1, false, -Infinity, Infinity);
 				restoreState(snapshot);
 
-				if (score > bestScore) {
-					bestScore = score;
-					bestMove = cpuMove;
+				if (value > bestValue) {
+					bestValue = value;
+					bestMove = move;
 				}
 			}
 			return bestMove;
