@@ -178,6 +178,8 @@
 		<div class="mb-8">
 			<h2 class="text-2xl mb-4">CPUの強さをえらんでね</h2>
 			<div id="start-cpu-mode-selector" class="flex justify-center gap-4">
+				<button data-mode="weakest"
+					class="cpu-mode-btn-start text-lg bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg">最弱</button>
 				<button data-mode="normal"
 					class="cpu-mode-btn-start text-lg bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg">普通</button>
 				<button data-mode="hard"
@@ -254,6 +256,8 @@
 			<div class="mb-6">
 				<h3 class="text-xl mb-3">次のゲームの強さ</h3>
 				<div id="game-over-cpu-mode-selector" class="flex justify-center gap-4">
+					<button data-mode="weakest"
+						class="cpu-mode-btn-game-over text-lg bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">最弱</button>
 					<button data-mode="normal"
 						class="cpu-mode-btn-game-over text-lg bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">普通</button>
 					<button data-mode="hard"
@@ -286,8 +290,9 @@
 			cpu: [document.getElementById('cpu-hand-left'), document.getElementById('cpu-hand-right')]
 		};
 
-		const CPU_MODE_SEQUENCE = ['normal', 'hard', 'strong'];
+		const CPU_MODE_SEQUENCE = ['weakest', 'normal', 'hard', 'strong'];
 		const CPU_MODE_LABELS = {
+			weakest: '最弱',
 			normal: '普通',
 			hard: '強い',
 			strong: '最強'
@@ -759,7 +764,7 @@
 			return bestMove;
 		}
 
-		function chooseCpuMoveWithDepth(searchDepth, { avoidRepeatsFirst = false, repeatPenalty = 0 } = {}) {
+		function chooseCpuMoveWithDepth(searchDepth, { avoidRepeatsFirst = false, repeatPenalty = 0, optimization = 'max' } = {}) {
 			const { attacks, splits } = enumerateMoves('cpu');
 			let candidates = [...attacks, ...splits];
 			if (candidates.length === 0) return null;
@@ -779,7 +784,7 @@
 			}
 
 			let bestMove = candidates[0] || null;
-			let bestValue = -Infinity;
+			let bestValue = optimization === 'min' ? Infinity : -Infinity;
 			for (const move of candidates) {
 				const snapshot = cloneState();
 				applyMove('cpu', move);
@@ -787,11 +792,15 @@
 				if (repeatPenalty > 0) {
 					const key = JSON.stringify({ player: hands.player, cpu: hands.cpu, turn: 'player' });
 					const recentCount = stateHistory.filter(s => s === key).length;
-					if (recentCount > 0) value -= recentCount * repeatPenalty;
+					if (recentCount > 0) {
+						const penalty = recentCount * repeatPenalty;
+						value += optimization === 'min' ? penalty : -penalty;
+					}
 				}
 				restoreState(snapshot);
 
-				if (value > bestValue) {
+				const isBetter = optimization === 'min' ? value < bestValue : value > bestValue;
+				if (isBetter) {
 					bestValue = value;
 					bestMove = move;
 				}
@@ -800,11 +809,15 @@
 		}
 
 		function chooseCpuMoveHard() {
-			return chooseCpuMoveWithDepth(6, { avoidRepeatsFirst: true, repeatPenalty: 800 });
+			return chooseCpuMoveWithDepth(6, { avoidRepeatsFirst: true, repeatPenalty: 800, optimization: 'max' });
 		}
 
 		function chooseCpuMoveStrong() {
-			return chooseCpuMoveWithDepth(12, { avoidRepeatsFirst: true, repeatPenalty: 1000 });
+			return chooseCpuMoveWithDepth(12, { avoidRepeatsFirst: true, repeatPenalty: 1000, optimization: 'max' });
+		}
+
+		function chooseCpuMoveWeakest() {
+			return chooseCpuMoveWithDepth(12, { avoidRepeatsFirst: true, repeatPenalty: 1000, optimization: 'min' });
 		}
 
 		function chooseCpuMoveRandom() {
@@ -878,14 +891,16 @@
 				// If AI returned null, pick the best available move by short-term evaluation
 				const { attacks, splits } = enumerateMoves('cpu');
 				let best = null;
-				let bestScore = -Infinity;
+				const preferLower = CPU_MODE === 'weakest';
+				let bestScore = preferLower ? Infinity : -Infinity;
 				const snapshot = cloneState();
 				// Evaluate attacks by applying them and checking heuristic
 				for (const a of attacks) {
 					applyMove('cpu', a);
 					const score = heuristicEval();
 					restoreState(snapshot);
-					if (score > bestScore) {
+					const isBetter = preferLower ? score < bestScore : score > bestScore;
+					if (isBetter) {
 						bestScore = score;
 						best = a;
 					}
@@ -895,7 +910,8 @@
 					applyMove('cpu', s);
 					const score = heuristicEval();
 					restoreState(snapshot);
-					if (score > bestScore) {
+					const isBetter = preferLower ? score < bestScore : score > bestScore;
+					if (isBetter) {
 						bestScore = score;
 						best = s;
 					}
@@ -934,6 +950,8 @@
 			let move;
 			if (CPU_MODE === 'strong') {
 				move = chooseCpuMoveStrong();
+			} else if (CPU_MODE === 'weakest') {
+				move = chooseCpuMoveWeakest();
 			} else if (CPU_MODE === 'hard') {
 				const roll = Math.random();
 				if (roll < 0.1) {
