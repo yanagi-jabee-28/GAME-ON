@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>指スマ (ターン制)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Mochiy Pop One', sans-serif;
+            touch-action: manipulation;
+        }
+        .hand-container {
+            transition: visibility 0.2s;
+        }
+        .hand-svg {
+            width: 100px;
+            height: 100px;
+            stroke: white;
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+            transition: transform 0.2s ease-in-out;
+        }
+        .hand-svg .thumb {
+            display: none; /* Initially hidden */
+        }
+        .hand-svg.thumb-up .thumb {
+            display: block;
+        }
+        .control-button {
+            transition: all 0.15s ease-out;
+        }
+        .control-button.selected {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            background-color: #f59e0b; /* amber-500 */
+        }
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0) rotate(-2deg); }
+            20%, 80% { transform: translate3d(2px, 0, 0) rotate(2deg); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0) rotate(-4deg); }
+            40%, 60% { transform: translate3d(4px, 0, 0) rotate(4deg); }
+        }
+        .result-reveal {
+            animation: pop-in 0.5s ease-out forwards;
+        }
+        @keyframes pop-in {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-800 text-white flex items-center justify-center min-h-screen">
+    <div id="game-container" class="w-full max-w-lg mx-auto p-4 text-center">
+
+        <!-- スコアボード -->
+        <div class="flex justify-around items-center bg-gray-900 p-2 rounded-lg mb-4">
+            <div>
+                <span class="text-xl">あなた</span>
+                <div id="player-score" class="text-4xl font-bold text-cyan-400">0</div>
+                <div class="text-sm text-gray-400">勝ち抜け</div>
+            </div>
+            <div class="text-2xl text-gray-400">- VS -</div>
+            <div>
+                <span class="text-xl">CPU</span>
+                <div id="cpu-score" class="text-4xl font-bold text-red-400">0</div>
+                 <div class="text-sm text-gray-400">勝ち抜け</div>
+            </div>
+        </div>
+
+        <!-- メインゲームエリア -->
+        <div class="space-y-4">
+            <!-- CPUエリア -->
+            <div id="cpu-area" class="bg-red-900/50 p-4 rounded-lg min-h-[220px]">
+                <h2 class="text-2xl mb-2">CPU</h2>
+                <div class="flex justify-center items-center space-x-4">
+                    <div id="cpu-hand-left" class="hand-container transform -scale-x-100">
+                        <!-- SVG Hand Placeholder -->
+                    </div>
+                    <div id="cpu-hand-right" class="hand-container">
+                        <!-- SVG Hand Placeholder -->
+                    </div>
+                </div>
+                <div id="cpu-info" class="mt-2 h-10">
+                    <p id="cpu-call-text" class="text-xl opacity-0">コール: <span class="text-yellow-300">?</span></p>
+                </div>
+            </div>
+
+            <!-- 結果表示エリア -->
+            <div id="result-area" class="h-20 flex flex-col items-center justify-center">
+                 <p id="turn-indicator" class="text-xl mb-2"></p>
+                 <p id="chant-text" class="text-2xl md:text-3xl text-yellow-300">準備はいい？</p>
+            </div>
+
+            <!-- プレイヤーエリア -->
+            <div id="player-area" class="bg-cyan-900/50 p-4 rounded-lg min-h-[220px]">
+                 <div class="flex justify-center items-center space-x-4">
+                    <div id="player-hand-left" class="hand-container transform -scale-x-100">
+                        <!-- SVG Hand Placeholder -->
+                    </div>
+                    <div id="player-hand-right" class="hand-container">
+                        <!-- SVG Hand Placeholder -->
+                    </div>
+                </div>
+                 <h2 class="text-2xl mt-2">あなた</h2>
+            </div>
+        </div>
+
+        <!-- 操作パネル -->
+        <div id="controls-area" class="mt-4 space-y-4">
+            <div id="thumbs-controls">
+                <p class="mb-2 text-lg">あげる指の数</p>
+                <div class="flex justify-center space-x-2">
+                    <button data-type="thumbs" data-value="0" class="control-button thumbs-btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg">0本</button>
+                    <button data-type="thumbs" data-value="1" class="control-button thumbs-btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg">1本</button>
+                    <button data-type="thumbs" data-value="2" class="control-button thumbs-btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg">2本</button>
+                </div>
+            </div>
+            <div id="call-controls">
+                <p class="mb-2 text-lg">合計数のコール</p>
+                <div class="flex justify-center space-x-2">
+                    <button data-type="call" data-value="0" class="control-button call-btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-5 rounded-lg">0</button>
+                    <button data-type="call" data-value="1" class="control-button call-btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-5 rounded-lg">1</button>
+                    <button data-type="call" data-value="2" class="control-button call-btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-5 rounded-lg">2</button>
+                    <button data-type="call" data-value="3" class="control-button call-btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-5 rounded-lg">3</button>
+                    <button data-type="call" data-value="4" class="control-button call-btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-5 rounded-lg">4</button>
+                </div>
+            </div>
+            <button id="play-button" class="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg text-2xl mt-4">いっせーのーせ！</button>
+        </div>
+        
+        <!-- ゲームオーバー画面 -->
+        <div id="game-over-screen" class="hidden fixed inset-0 bg-black/70 flex flex-col items-center justify-center">
+            <h2 id="game-over-text" class="text-5xl text-yellow-300 mb-8"></h2>
+            <button id="restart-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-2xl">もう一度遊ぶ</button>
+        </div>
+
+    </div>
+
+<script>
+const handSVG = `
+<svg viewBox="0 0 100 100" class="hand-svg">
+    <path d="M73.2,85.2H41.8c-5.5,0-10-4.5-10-10V41.8c0-5.5,4.5-10,10-10h31.5c5.5,0,10,4.5,10,10v33.5C83.2,80.7,78.7,85.2,73.2,85.2z" />
+    <path class="thumb" d="M41.8,31.8v-8.5c0-5.5,4.5-10,10-10h0c5.5,0,10,4.5,10,10v26.5" />
+</svg>`;
+
+// --- DOM Elements ---
+const playerScoreEl = document.getElementById('player-score');
+const cpuScoreEl = document.getElementById('cpu-score');
+const cpuHandLeftEl = document.getElementById('cpu-hand-left');
+const cpuHandRightEl = document.getElementById('cpu-hand-right');
+const playerHandLeftEl = document.getElementById('player-hand-left');
+const playerHandRightEl = document.getElementById('player-hand-right');
+const turnIndicator = document.getElementById('turn-indicator');
+const chantText = document.getElementById('chant-text');
+const cpuCallText = document.getElementById('cpu-call-text');
+const playButton = document.getElementById('play-button');
+const controlsArea = document.getElementById('controls-area');
+const thumbsControls = document.getElementById('thumbs-controls');
+const callControls = document.getElementById('call-controls');
+const gameOverScreen = document.getElementById('game-over-screen');
+const gameOverText = document.getElementById('game-over-text');
+const restartButton = document.getElementById('restart-button');
+const thumbsButtons = document.querySelectorAll('.thumbs-btn');
+const callButtons = document.querySelectorAll('.call-btn');
+
+// --- Game State ---
+let playerScore = 0;
+let cpuScore = 0;
+let playerChoice = { thumbs: null, call: null };
+let gameState = 'playing'; // 'playing', 'revealing', 'gameover'
+let currentTurn = 'player'; // 'player' or 'cpu'
+
+// --- Initialize Game ---
+function init() {
+    playerHandLeftEl.innerHTML = handSVG;
+    playerHandRightEl.innerHTML = handSVG;
+    cpuHandLeftEl.innerHTML = handSVG;
+    cpuHandRightEl.innerHTML = handSVG;
+    resetRound();
+}
+
+// --- Update UI based on current turn and hands ---
+function updateTurnUI() {
+    if (currentTurn === 'player') {
+        turnIndicator.textContent = '【あなたの番】';
+        chantText.textContent = '指をあげて、合計数をコール！';
+    } else { // CPU's turn
+        turnIndicator.textContent = '【CPUの番】';
+        chantText.textContent = '指をあげてください';
+    }
+}
+
+function updateControlsAndHands() {
+    const playerHands = 2 - playerScore;
+    const cpuHands = 2 - cpuScore;
+
+    // Update visible hands
+    playerHandRightEl.style.visibility = playerHands > 1 ? 'visible' : 'hidden';
+    playerHandLeftEl.style.visibility = playerHands > 0 ? 'visible' : 'hidden';
+    cpuHandRightEl.style.visibility = cpuHands > 1 ? 'visible' : 'hidden';
+    cpuHandLeftEl.style.visibility = cpuHands > 0 ? 'visible' : 'hidden';
+
+    // Update controls visibility based on turn
+    if(playerHands > 0) {
+        thumbsControls.style.display = 'block';
+        callControls.style.display = currentTurn === 'player' ? 'block' : 'none';
+    } else {
+        thumbsControls.style.display = 'none';
+        callControls.style.display = 'none';
+    }
+
+    // Update available thumb buttons for player
+    thumbsButtons.forEach(btn => {
+        const value = parseInt(btn.dataset.value);
+        btn.style.display = value > playerHands ? 'none' : 'inline-block';
+    });
+
+    // Update available call buttons
+    const maxTotalThumbs = playerHands + cpuHands;
+    callButtons.forEach(btn => {
+        const value = parseInt(btn.dataset.value);
+        btn.style.display = value > maxTotalThumbs ? 'none' : 'inline-block';
+    });
+}
+
+// --- Reset for New Round ---
+function resetRound() {
+    updateTurnUI();
+    updateControlsAndHands();
+    chantText.classList.remove('result-reveal');
+    cpuCallText.classList.add('opacity-0');
+    
+    // Reset hands to fists
+    document.querySelectorAll('.hand-svg').forEach(hand => {
+        hand.classList.remove('thumb-up', 'shake');
+    });
+
+    playerChoice = { thumbs: null, call: null };
+    thumbsButtons.forEach(btn => btn.classList.remove('selected'));
+    callButtons.forEach(btn => btn.classList.remove('selected'));
+    
+    playButton.disabled = true;
+    controlsArea.style.display = 'block';
+}
+
+// --- Player Input Handlers ---
+thumbsButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        if (gameState !== 'playing') return;
+        playerChoice.thumbs = parseInt(button.dataset.value);
+        thumbsButtons.forEach(btn => btn.classList.remove('selected'));
+        button.classList.add('selected');
+        updatePlayerHands(playerChoice.thumbs);
+        checkCanPlay();
+    });
+});
+
+callButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        if (gameState !== 'playing') return;
+        playerChoice.call = parseInt(button.dataset.value);
+        callButtons.forEach(btn => btn.classList.remove('selected'));
+        button.classList.add('selected');
+        checkCanPlay();
+    });
+});
+
+function checkCanPlay() {
+    const playerHands = 2 - playerScore;
+    if (playerHands <= 0) {
+        playButton.disabled = true;
+        return;
+    }
+
+    if (currentTurn === 'player') {
+        playButton.disabled = playerChoice.thumbs === null || playerChoice.call === null;
+    } else { // CPU's turn
+        playButton.disabled = playerChoice.thumbs === null;
+    }
+}
+
+// --- Update Visual Hands ---
+function updatePlayerHands(count) {
+    playerHandLeftEl.querySelector('.hand-svg').classList.toggle('thumb-up', count >= 1);
+    playerHandRightEl.querySelector('.hand-svg').classList.toggle('thumb-up', count === 2);
+}
+
+function updateCpuHands(count) {
+    cpuHandLeftEl.querySelector('.hand-svg').classList.toggle('thumb-up', count >= 1);
+    cpuHandRightEl.querySelector('.hand-svg').classList.toggle('thumb-up', count === 2);
+}
+
+// --- Main Game Logic ---
+playButton.addEventListener('click', () => {
+    if (gameState !== 'playing' || playButton.disabled) return;
+    gameState = 'revealing';
+    controlsArea.style.display = 'none';
+
+    // Current hand counts
+    const playerHands = 2 - playerScore;
+    const cpuHands = 2 - cpuScore;
+
+    // CPU decides its thumbs
+    const cpuThumbs = Math.floor(Math.random() * (cpuHands + 1));
+    
+    // Calls are decided by the current turn's player
+    let playerCall, cpuCall;
+    if (currentTurn === 'player') {
+        playerCall = playerChoice.call;
+        cpuCall = null;
+    } else { // CPU's turn
+        playerCall = null;
+        // Simple AI for CPU's call
+        let possibleCalls = [0, 1, 2, 3, 4];
+        possibleCalls = possibleCalls.filter(n => n >= cpuThumbs && n <= cpuThumbs + playerHands);
+        cpuCall = possibleCalls[Math.floor(Math.random() * possibleCalls.length)];
+    }
+
+    // Animation sequence
+    turnIndicator.textContent = '';
+    chantText.textContent = 'いっせーのー...';
+    document.querySelectorAll('.hand-svg').forEach(hand => hand.classList.add('shake'));
+    
+    setTimeout(() => {
+        chantText.textContent = 'せ！';
+        document.querySelectorAll('.hand-svg').forEach(hand => hand.classList.remove('shake'));
+        
+        // Reveal thumbs
+        updateCpuHands(cpuThumbs);
+
+        // Reveal calls
+        if (cpuCall !== null) {
+            cpuCallText.querySelector('span').textContent = cpuCall;
+            cpuCallText.classList.remove('opacity-0');
+        }
+        
+        // Calculate result
+        const totalThumbs = playerChoice.thumbs + cpuThumbs;
+        const playerGuessed = playerCall === totalThumbs;
+        const cpuGuessed = cpuCall === totalThumbs;
+
+        // Determine winner
+        let resultMessage = `合計は ${totalThumbs} 本！`;
+        let roundWinner = null;
+
+        if (playerGuessed) {
+            resultMessage += '<br>あなたの勝ち！';
+            roundWinner = 'player';
+        } else if (cpuGuessed) {
+            resultMessage += '<br>CPUの勝ち！';
+            roundWinner = 'cpu';
+        } else {
+            resultMessage += '<br>はずれ！';
+        }
+        
+        chantText.innerHTML = resultMessage;
+        chantText.classList.add('result-reveal');
+
+        // Update score
+        if (roundWinner === 'player') {
+            playerScore++;
+        } else if (roundWinner === 'cpu') {
+            cpuScore++;
+        }
+        playerScoreEl.textContent = playerScore;
+        cpuScoreEl.textContent = cpuScore;
+        
+        setTimeout(() => {
+            if (playerScore >= 2 || cpuScore >= 2) {
+                endGame();
+            } else {
+                // Switch turns
+                currentTurn = (currentTurn === 'player') ? 'cpu' : 'player';
+                gameState = 'playing';
+                resetRound();
+            }
+        }, 2500);
+
+    }, 1000);
+});
+
+// --- End Game ---
+function endGame() {
+    gameState = 'gameover';
+    updateControlsAndHands(); // Hide hands of winner
+    if (playerScore >= 2) {
+        gameOverText.textContent = 'あなたの勝利！';
+    } else {
+        gameOverText.textContent = 'あなたの負け...';
+    }
+    gameOverScreen.classList.remove('hidden');
+}
+
+// --- Restart Game ---
+restartButton.addEventListener('click', () => {
+    playerScore = 0;
+    cpuScore = 0;
+    playerScoreEl.textContent = playerScore;
+    cpuScoreEl.textContent = cpuScore;
+    currentTurn = 'player';
+    gameState = 'playing';
+    resetRound();
+    gameOverScreen.classList.add('hidden');
+});
+
+// --- Start ---
+init();
+</script>
+</body>
+</html>
+
