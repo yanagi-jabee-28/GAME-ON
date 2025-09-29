@@ -208,6 +208,7 @@
 		<div id="game-over-screen"
 			class="hidden fixed inset-0 bg-black/70 flex flex-col items-center justify-center z-10">
 			<h2 id="game-over-text" class="text-5xl text-yellow-300 mb-8"></h2>
+			<p id="game-over-detail" class="text-xl text-gray-200 mb-6"></p>
 			<div class="mb-6">
 				<h3 class="text-xl mb-3">次のゲームの強さ</h3>
 				<div id="game-over-cpu-mode-selector" class="flex justify-center gap-4">
@@ -247,6 +248,7 @@
 		let selectedHand = null; // { owner: 'player', index: 0 }
 		let turnCount = 0; // To track the number of turns
 		let CPU_MODE = 'strong'; // 'normal' | 'strong'
+		let lastResult = null; // 'playerWon' | 'playerLost'
 
 		cpuModeToggle?.addEventListener('click', () => {
 			CPU_MODE = CPU_MODE === 'normal' ? 'strong' : 'normal';
@@ -416,13 +418,29 @@
 			const cpuLost = hands.cpu.every(isDead);
 			if (playerLost || cpuLost) {
 				gameState = 'gameover';
-				gameOverText.textContent = playerLost ? "あなたの負け..." : "あなたの勝利！";
+				if (playerLost) {
+					lastResult = 'playerLost';
+					gameOverText.textContent = "あなたの負け...";
+				} else {
+					lastResult = 'playerWon';
+					gameOverText.textContent = "あなたの勝利！";
+				}
 				return true;
 			}
 			return false;
 		}
 
 		function endGame() {
+			const detailEl = document.getElementById('game-over-detail');
+			if (detailEl) {
+				if (lastResult === 'playerWon') {
+					detailEl.textContent = `あなたは ${turnCount} 手で勝利しました。`;
+				} else if (lastResult === 'playerLost') {
+					detailEl.textContent = `あなたは ${turnCount} 手持ち堪えました。`;
+				} else {
+					detailEl.textContent = `経過ターン: ${turnCount}`;
+				}
+			}
 			gameOverScreen.classList.remove('hidden');
 		}
 
