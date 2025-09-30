@@ -1,4 +1,10 @@
-importScripts('ai-core.js');
+import {
+	cloneStateFrom,
+	hintApplyMove,
+	hintResultValue,
+	hintStateKeyFrom,
+	computeBestMoveForTurn
+} from '../ai-core.js';
 
 let currentJobId = 0;
 let abortRequested = false;
@@ -185,7 +191,7 @@ async function ponderMoves(jobId, payload) {
 	postMessage({ type: 'ponderResult', payload: { jobId, mode, results } });
 }
 
-self.onmessage = (event) => {
+self.addEventListener('message', (event) => {
 	const { type, payload } = event.data || {};
 	if (type === 'computeMove') {
 		abortRequested = false;
@@ -205,4 +211,4 @@ self.onmessage = (event) => {
 		abortRequested = true;
 		currentJobId++;
 	}
-};
+});

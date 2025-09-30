@@ -1,23 +1,23 @@
-const HINT_MAX_DEPTH = 15;
+export const HINT_MAX_DEPTH = 15;
 
-const wrapTo1to5 = (value) => ((value - 1) % 5) + 1;
+export const wrapTo1to5 = (value) => ((value - 1) % 5) + 1;
 
-function cloneStateFrom(state) {
+export function cloneStateFrom(state) {
 	return {
 		player: [state.player[0], state.player[1]],
 		cpu: [state.cpu[0], state.cpu[1]]
 	};
 }
 
-function hintStateKeyFrom(state, turn) {
+export function hintStateKeyFrom(state, turn) {
 	return JSON.stringify({ player: state.player, cpu: state.cpu, turn });
 }
 
-function hintIsDead(value) {
+export function hintIsDead(value) {
 	return value === 0 || value === 5;
 }
 
-function hintEnumerateAttacks(state, owner) {
+export function hintEnumerateAttacks(state, owner) {
 	const opponent = owner === 'player' ? 'cpu' : 'player';
 	const moves = [];
 	for (const i of [0, 1]) {
@@ -32,13 +32,13 @@ function hintEnumerateAttacks(state, owner) {
 	return moves;
 }
 
-function hintSumActive(state, owner) {
+export function hintSumActive(state, owner) {
 	return [0, 1]
 		.filter(index => !hintIsDead(state[owner][index]))
 		.reduce((sum, index) => sum + state[owner][index], 0);
 }
 
-function hintEnumerateSplits(state, owner) {
+export function hintEnumerateSplits(state, owner) {
 	const sum = hintSumActive(state, owner);
 	if (sum < 2) return [];
 	const patterns = new Set();
@@ -63,13 +63,13 @@ function hintEnumerateSplits(state, owner) {
 		.filter(Boolean);
 }
 
-function hintEnumerateMoves(state, owner) {
+export function hintEnumerateMoves(state, owner) {
 	const attacks = hintEnumerateAttacks(state, owner);
 	const splits = hintEnumerateSplits(state, owner);
 	return [...attacks, ...splits];
 }
 
-function hintApplyMove(state, owner, move) {
+export function hintApplyMove(state, owner, move) {
 	const next = cloneStateFrom(state);
 	if (move.type === 'attack') {
 		const opponent = owner === 'player' ? 'cpu' : 'player';
@@ -82,7 +82,7 @@ function hintApplyMove(state, owner, move) {
 	return next;
 }
 
-function heuristicEvalForState(state) {
+export function heuristicEvalForState(state) {
 	const playerAlive = state.player.filter(value => !hintIsDead(value));
 	const cpuAlive = state.cpu.filter(value => !hintIsDead(value));
 	if (cpuAlive.length === 0) return 1e6;
@@ -107,7 +107,7 @@ function heuristicEvalForState(state) {
 	return score;
 }
 
-function hintResultValue(result) {
+export function hintResultValue(result) {
 	if (!result) return -Infinity;
 	const base = {
 		win: 100000,
@@ -127,7 +127,7 @@ function hintResultValue(result) {
 	return value;
 }
 
-function hintSearch(state, depth, turn, rootTurn, pathSet, memo, alpha, beta) {
+export function hintSearch(state, depth, turn, rootTurn, pathSet, memo, alpha, beta) {
 	const memoKey = `${hintStateKeyFrom(state, turn)}|${depth}|${rootTurn}`;
 	if (memo.has(memoKey)) {
 		return memo.get(memoKey);
@@ -218,30 +218,12 @@ function hintSearch(state, depth, turn, rootTurn, pathSet, memo, alpha, beta) {
 	return finalResult;
 }
 
-function computeHintForState(state, maxDepth = HINT_MAX_DEPTH) {
+export function computeHintForState(state, maxDepth = HINT_MAX_DEPTH) {
 	const snapshot = cloneStateFrom(state);
 	return hintSearch(snapshot, maxDepth, 'player', 'player', new Set(), new Map(), -Infinity, Infinity);
 }
 
-function computeBestMoveForTurn(state, { maxDepth = HINT_MAX_DEPTH, turn = 'cpu', memo = new Map() } = {}) {
+export function computeBestMoveForTurn(state, { maxDepth = HINT_MAX_DEPTH, turn = 'cpu', memo = new Map() } = {}) {
 	const snapshot = cloneStateFrom(state);
 	return hintSearch(snapshot, maxDepth, turn, turn, new Set(), memo, -Infinity, Infinity);
-}
-
-if (typeof self !== 'undefined') {
-	self.HINT_MAX_DEPTH = HINT_MAX_DEPTH;
-	self.wrapTo1to5 = wrapTo1to5;
-	self.cloneStateFrom = cloneStateFrom;
-	self.hintStateKeyFrom = hintStateKeyFrom;
-	self.hintIsDead = hintIsDead;
-	self.hintEnumerateAttacks = hintEnumerateAttacks;
-	self.hintSumActive = hintSumActive;
-	self.hintEnumerateSplits = hintEnumerateSplits;
-	self.hintEnumerateMoves = hintEnumerateMoves;
-	self.hintApplyMove = hintApplyMove;
-	self.heuristicEvalForState = heuristicEvalForState;
-	self.hintResultValue = hintResultValue;
-	self.hintSearch = hintSearch;
-	self.computeHintForState = computeHintForState;
-	self.computeBestMoveForTurn = computeBestMoveForTurn;
 }
