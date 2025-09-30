@@ -266,6 +266,22 @@
 						class="cpu-mode-btn-game-over text-lg bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">最強</button>
 				</div>
 			</div>
+			<div id="battle-review"
+				class="hidden w-full max-w-2xl bg-gray-900/80 border border-gray-700 rounded-lg p-5 text-left space-y-3">
+				<h3 class="text-2xl text-yellow-200">戦いの記録</h3>
+				<div id="battle-review-summary" class="text-lg font-semibold"></div>
+				<div id="battle-review-detail" class="text-base text-gray-200"></div>
+				<div id="battle-review-state" class="text-sm text-gray-300"></div>
+				<div class="flex items-center justify-between pt-2">
+					<button id="battle-review-prev"
+						class="bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg">←
+						前の手</button>
+					<span id="battle-review-step" class="text-sm text-gray-300"></span>
+					<button id="battle-review-next"
+						class="bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg">次の手
+						→</button>
+				</div>
+			</div>
 			<button id="restart-button"
 				class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-2xl">もう一度遊ぶ</button>
 		</div>
@@ -289,6 +305,13 @@
 			player: [document.getElementById('player-hand-left'), document.getElementById('player-hand-right')],
 			cpu: [document.getElementById('cpu-hand-left'), document.getElementById('cpu-hand-right')]
 		};
+		const battleReviewContainer = document.getElementById('battle-review');
+		const battleReviewSummary = document.getElementById('battle-review-summary');
+		const battleReviewDetail = document.getElementById('battle-review-detail');
+		const battleReviewState = document.getElementById('battle-review-state');
+		const battleReviewStep = document.getElementById('battle-review-step');
+		const battleReviewPrev = document.getElementById('battle-review-prev');
+		const battleReviewNext = document.getElementById('battle-review-next');
 
 		const CPU_MODE_SEQUENCE = ['weakest', 'normal', 'hard', 'strong'];
 		const CPU_MODE_LABELS = {
@@ -314,6 +337,8 @@
 		let lastResult = null; // 'playerWon' | 'playerLost'
 		let stateHistory = [];
 		let cpuThinkingStartedAt = null;
+		let battleLog = [];
+		let reviewIndex = 0;
 
 		function getNowMs() {
 			return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
@@ -322,6 +347,89 @@
 		function makeStateKey() {
 			// include turn to consider player to move as part of state
 			return JSON.stringify({ player: hands.player, cpu: hands.cpu, turn });
+		}
+
+		const HAND_LABELS = ['左手', '右手'];
+
+		function getActorLabel(actor) {
+			if (actor === 'player') return 'あなた';
+			if (actor === 'cpu') return 'CPU';
+			return '';
+		}
+
+		function formatHandValue(value) {
+			return (value === 0 || value === 5) ? 'X' : value;
+		}
+
+		function formatHandsState(state) {
+			const playerLeft = formatHandValue(state.player[0]);
+			const playerRight = formatHandValue(state.player[1]);
+			const cpuLeft = formatHandValue(state.cpu[0]);
+			const cpuRight = formatHandValue(state.cpu[1]);
+			return `あなた: 左 ${playerLeft} / 右 ${playerRight}　|　CPU: 左 ${cpuLeft} / 右 ${cpuRight}`;
+		}
+
+		function resetBattleLog() {
+			const snapshot = cloneState();
+			battleLog = [{
+				turnNumber: 0,
+				actor: null,
+				action: 'start',
+				summary: 'ゲーム開始',
+				detail: '初期状態',
+				stateBefore: snapshot,
+				stateAfter: snapshot
+			}];
+			reviewIndex = 0;
+			if (battleReviewContainer) {
+				battleReviewContainer.classList.add('hidden');
+			}
+		}
+
+		function pushBattleLog(entry) {
+			battleLog.push(entry);
+		}
+
+		function clampReviewIndex(target) {
+			if (!battleLog.length) {
+				reviewIndex = 0;
+				return;
+			}
+			reviewIndex = Math.max(0, Math.min(target, battleLog.length - 1));
+		}
+
+		function updateBattleReviewUI() {
+			if (!battleReviewContainer) return;
+			if (!battleLog.length) {
+				battleReviewSummary.textContent = '';
+				battleReviewDetail.textContent = '';
+				battleReviewDetail.classList.add('hidden');
+				battleReviewState.textContent = '';
+				battleReviewStep.textContent = '';
+				battleReviewPrev.disabled = true;
+				battleReviewNext.disabled = true;
+				return;
+			}
+			const entry = battleLog[reviewIndex];
+			battleReviewSummary.textContent = entry.summary;
+			if (entry.detail) {
+				battleReviewDetail.textContent = entry.detail;
+				battleReviewDetail.classList.remove('hidden');
+			} else {
+				battleReviewDetail.textContent = '';
+				battleReviewDetail.classList.add('hidden');
+			}
+			battleReviewState.textContent = formatHandsState(entry.stateAfter);
+			battleReviewStep.textContent = `${reviewIndex + 1} / ${battleLog.length}`;
+			battleReviewPrev.disabled = reviewIndex === 0;
+			battleReviewNext.disabled = reviewIndex === battleLog.length - 1;
+		}
+
+		function revealBattleReview() {
+			if (!battleReviewContainer) return;
+			clampReviewIndex(battleLog.length - 1);
+			updateBattleReviewUI();
+			battleReviewContainer.classList.remove('hidden');
 		}
 
 		// --- Timer ---
@@ -482,6 +590,7 @@
 		}
 
 		function performAttack(source, target) {
+			const beforeState = cloneState();
 			const sourceValue = hands[source.owner][source.index];
 			const targetValue = hands[target.owner][target.index];
 
@@ -499,6 +608,24 @@
 
 			selectedHand = null;
 
+			const afterState = cloneState();
+			const turnNumber = turnCount + 1;
+			const actorLabel = getActorLabel(source.owner);
+			const targetLabel = getActorLabel(target.owner);
+			const sourceHandLabel = `${actorLabel}の${HAND_LABELS[source.index]}`;
+			const targetHandLabel = `${targetLabel}の${HAND_LABELS[target.index]}`;
+			const summary = `ターン${turnNumber}: ${actorLabel}の攻撃`;
+			const detail = `${sourceHandLabel}(${formatHandValue(sourceValue)}) → ${targetHandLabel}(${formatHandValue(targetValue)}) = ${formatHandValue(newValue)}`;
+			pushBattleLog({
+				turnNumber,
+				actor: source.owner,
+				action: 'attack',
+				summary,
+				detail,
+				stateBefore: beforeState,
+				stateAfter: afterState
+			});
+
 			if (checkWin()) {
 				endGame();
 			} else {
@@ -510,7 +637,23 @@
 		function handleSplit(index) {
 			if (turn !== 'player' || gameState !== 'playing') return;
 			const splitValue = hands.player[index] / 2;
+			const beforeState = cloneState();
 			hands.player = [splitValue, splitValue];
+			const afterState = cloneState();
+			const turnNumber = turnCount + 1;
+			const previousLeft = formatHandValue(beforeState.player[0]);
+			const previousRight = formatHandValue(beforeState.player[1]);
+			const summary = `ターン${turnNumber}: あなたの分割`;
+			const detail = `左 ${previousLeft} / 右 ${previousRight} → 左 ${formatHandValue(splitValue)} / 右 ${formatHandValue(splitValue)}　(合計 ${splitValue * 2})`;
+			pushBattleLog({
+				turnNumber,
+				actor: 'player',
+				action: 'split',
+				summary,
+				detail,
+				stateBefore: beforeState,
+				stateAfter: afterState
+			});
 			switchTurn();
 			updateUI();
 		}
@@ -566,11 +709,35 @@
 					detailEl.textContent = `経過ターン: ${turnCount}`;
 				}
 			}
+			const finalSnapshot = cloneState();
+			const lastTurnNumber = battleLog.length ? battleLog[battleLog.length - 1].turnNumber : turnCount;
+			let finalSummary = 'ゲーム終了';
+			let finalDetail = '';
+			if (lastResult === 'playerWon') {
+				finalSummary = 'ゲーム終了: あなたの勝利';
+				finalDetail = 'あなたが勝利を収めました。';
+			} else if (lastResult === 'playerLost') {
+				finalSummary = 'ゲーム終了: CPUの勝利';
+				finalDetail = 'CPUが勝利を収めました。';
+			} else {
+				finalSummary = 'ゲーム終了';
+				finalDetail = '引き分けまたは未確定で終了しました。';
+			}
+			pushBattleLog({
+				turnNumber: lastTurnNumber,
+				actor: null,
+				action: 'end',
+				summary: finalSummary,
+				detail: finalDetail,
+				stateBefore: finalSnapshot,
+				stateAfter: finalSnapshot
+			});
 			gameOverScreen.classList.remove('hidden');
 			// stop timer when game ends
 			stopTimer();
 			// ensure thinking indicator hidden
 			showCpuThinking(false);
+			revealBattleReview();
 		}
 
 		function showCpuThinking(show) {
@@ -919,7 +1086,18 @@
 				if (best) {
 					move = best;
 				} else {
-					// no moves available: fall back to switching turn
+					// no moves available: log pass and switch turn
+					const passSnapshot = cloneState();
+					const turnNumber = turnCount + 1;
+					pushBattleLog({
+						turnNumber,
+						actor: 'cpu',
+						action: 'pass',
+						summary: `ターン${turnNumber}: CPUは行動できません`,
+						detail: '有効な行動が無いため、ターンをスキップしました。',
+						stateBefore: passSnapshot,
+						stateAfter: passSnapshot
+					});
 					switchTurn();
 					updateUI();
 					return;
@@ -930,7 +1108,23 @@
 				performAttack({ owner: 'cpu', index: move.src }, { owner: 'player', index: move.dst });
 				// performAttack handles UI updates and turn switching internally
 			} else if (move.type === 'split') {
+				const beforeState = cloneState();
+				const previousLeft = formatHandValue(beforeState.cpu[0]);
+				const previousRight = formatHandValue(beforeState.cpu[1]);
 				hands.cpu = [move.left, move.right];
+				const afterState = cloneState();
+				const turnNumber = turnCount + 1;
+				const summary = `ターン${turnNumber}: CPUの分割`;
+				const detail = `左 ${previousLeft} / 右 ${previousRight} → 左 ${formatHandValue(move.left)} / 右 ${formatHandValue(move.right)}　(合計 ${move.left + move.right})`;
+				pushBattleLog({
+					turnNumber,
+					actor: 'cpu',
+					action: 'split',
+					summary,
+					detail,
+					stateBefore: beforeState,
+					stateAfter: afterState
+				});
 				if (checkWin()) {
 					endGame();
 				} else {
@@ -992,6 +1186,16 @@
 		restartButton.addEventListener('click', initializeGame);
 
 		const gameOverCpuBtns = document.querySelectorAll('.cpu-mode-btn-game-over');
+
+		battleReviewPrev?.addEventListener('click', () => {
+			clampReviewIndex(reviewIndex - 1);
+			updateBattleReviewUI();
+		});
+
+		battleReviewNext?.addEventListener('click', () => {
+			clampReviewIndex(reviewIndex + 1);
+			updateBattleReviewUI();
+		});
 
 		// Start screen events
 		startButton.addEventListener('click', () => {
@@ -1118,8 +1322,24 @@
 		}
 
 		function applySplitDistribution(leftValue, rightValue) {
+			const beforeState = cloneState();
+			const previousLeft = formatHandValue(beforeState.player[0]);
+			const previousRight = formatHandValue(beforeState.player[1]);
 			// Assign distribution to both hands (treat 5 as replaceable for distribution)
 			hands.player = [leftValue, rightValue];
+			const afterState = cloneState();
+			const turnNumber = turnCount + 1;
+			const summary = `ターン${turnNumber}: あなたの分割`;
+			const detail = `左 ${previousLeft} / 右 ${previousRight} → 左 ${formatHandValue(leftValue)} / 右 ${formatHandValue(rightValue)}　(合計 ${leftValue + rightValue})`;
+			pushBattleLog({
+				turnNumber,
+				actor: 'player',
+				action: 'split',
+				summary,
+				detail,
+				stateBefore: beforeState,
+				stateAfter: afterState
+			});
 			// After applying split, proceed to CPU turn
 			switchTurn();
 			updateUI();
@@ -1128,7 +1348,23 @@
 		function applySplitToSingle(index, value) {
 			// Only set the active hand; leave 5-handed slot unchanged
 			if (hands.player[index] === 5) return;
+			const beforeState = cloneState();
 			hands.player[index] = value;
+			const afterState = cloneState();
+			const turnNumber = turnCount + 1;
+			const previousLeft = formatHandValue(beforeState.player[0]);
+			const previousRight = formatHandValue(beforeState.player[1]);
+			const summary = `ターン${turnNumber}: あなたの分配`; // rarely used fallback
+			const detail = `左 ${previousLeft} / 右 ${previousRight} → 左 ${formatHandValue(afterState.player[0])} / 右 ${formatHandValue(afterState.player[1])}`;
+			pushBattleLog({
+				turnNumber,
+				actor: 'player',
+				action: 'split-single',
+				summary,
+				detail,
+				stateBefore: beforeState,
+				stateAfter: afterState
+			});
 			switchTurn();
 			updateUI();
 		}
@@ -1140,6 +1376,8 @@
 			gameState = 'playing';
 			gameOverScreen.classList.add('hidden');
 			stateHistory = [];
+			resetBattleLog();
+			updateBattleReviewUI();
 
 			// Randomly determine the first turn
 			turn = Math.random() < 0.5 ? 'player' : 'cpu';
