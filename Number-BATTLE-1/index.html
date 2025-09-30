@@ -440,6 +440,7 @@
 
 	<div id="attack-animation-layer"></div>
 
+	<script src="ai-core.js"></script>
 	<script>
 		// --- DOM Elements ---
 		const gameContainer = document.getElementById('game-container');
@@ -492,9 +493,20 @@
 			return CPU_MODE_LABELS[mode] || CPU_MODE_LABELS.normal;
 		}
 
+		const CPU_THINK_TIME_PROFILE = {
+			weakest: { min: 220, max: 420 },
+			normal: { min: 280, max: 620 },
+			hard: { min: 420, max: 920 },
+			strong: { min: 600, max: 1500 }
+		};
+
+		const DEFAULT_CPU_THINK_TIME = { min: 320, max: 780 };
+
+		function getCpuThinkTimings(mode) {
+			return CPU_THINK_TIME_PROFILE[mode] || DEFAULT_CPU_THINK_TIME;
+		}
+
 		// --- Game State ---
-		const MIN_CPU_THINK_MS = 500;
-		const HINT_MAX_DEPTH = 15;
 
 		let hands = { player: [1, 1], cpu: [1, 1] };
 		let turn = 'player';
@@ -509,6 +521,9 @@
 		let reviewIndex = 0;
 		let reviewAnimationToken = 0;
 		let isResolvingAction = false;
+		let cpuWorker = null;
+		let cpuWorkerJobCounter = 0;
+		let cpuWorkerPending = null;
 
 		function getNowMs() {
 			return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
@@ -1470,6 +1485,7 @@
 		}
 
 		function endGame() {
+			cancelCpuWorkerJob();
 			hintRequested = false;
 			invalidateHintCache();
 			clearHintUI();
@@ -1529,9 +1545,87 @@
 			}
 		}
 
+		function disposeCpuWorkerPending(reason, { skipReject = false } = {}) {
+			if (!cpuWorkerPending) return;
+			const pending = cpuWorkerPending;
+			clearTimeout(pending.timeout);
+			cpuWorkerPending = null;
+			if (skipReject) return;
+			const error = reason instanceof Error ? reason : new Error(String(reason || 'CPU worker request cancelled'));
+			pending.reject(error);
+		}
+
+		function ensureCpuWorker() {
+			if (cpuWorker) return;
+			try {
+				cpuWorker = new Worker('cpu-worker.js');
+			} catch (err) {
+				console.error('Failed to create CPU worker', err);
+				cpuWorker = null;
+				return;
+			}
+			cpuWorker.onmessage = (event) => {
+				const { type, payload } = event.data || {};
+				if (type === 'result' && payload) {
+					if (!cpuWorkerPending || payload.jobId !== cpuWorkerPending.jobId) return;
+					clearTimeout(cpuWorkerPending.timeout);
+					const { resolve } = cpuWorkerPending;
+					cpuWorkerPending = null;
+					resolve(payload);
+				} else if (type === 'error' && payload) {
+					const message = payload.message || 'CPU worker error';
+					console.error(message);
+					disposeCpuWorkerPending(new Error(message));
+				}
+			};
+			cpuWorker.onerror = (event) => {
+				console.error('CPU worker runtime error', event.message || event);
+				disposeCpuWorkerPending(new Error(event.message || 'CPU worker runtime error'));
+			};
+		}
+
+		function cancelCpuWorkerJob({ terminate = false } = {}) {
+			if (cpuWorkerPending) {
+				cpuWorker?.postMessage({ type: 'cancel' });
+				disposeCpuWorkerPending(new Error('CPU worker job cancelled'));
+			}
+			if (terminate && cpuWorker) {
+				cpuWorker.terminate();
+				cpuWorker = null;
+			}
+		}
+
+		function requestCpuWorkerMove(stateSnapshot) {
+			ensureCpuWorker();
+			if (!cpuWorker) {
+				return Promise.reject(new Error('CPU worker unavailable'));
+			}
+			if (cpuWorkerPending) {
+				cpuWorker.postMessage({ type: 'cancel' });
+				disposeCpuWorkerPending(new Error('CPU worker job superseded'));
+			}
+			const jobId = ++cpuWorkerJobCounter;
+			return new Promise((resolve, reject) => {
+				const timeout = setTimeout(() => {
+					if (!cpuWorkerPending || cpuWorkerPending.jobId !== jobId) return;
+					cpuWorker?.postMessage({ type: 'cancel' });
+					disposeCpuWorkerPending(new Error('CPU worker timeout'));
+				}, 5000);
+				cpuWorkerPending = { jobId, resolve, reject, timeout };
+				const recentHistory = stateHistory.slice(-12);
+				cpuWorker.postMessage({
+					type: 'computeMove',
+					payload: {
+						state: stateSnapshot,
+						mode: CPU_MODE,
+						stateHistoryKeys: recentHistory
+					}
+				});
+			});
+		}
+
 		// --- CPU AI ---
 		// ---- CPU Decision Helpers ----
-		const wrapTo1to5 = (v) => ((v - 1) % 5) + 1; // assumes v>=1
 		function enumerateAttacks(owner, opp) {
 			const moves = [];
 			for (let i of [0, 1]) {
@@ -1676,221 +1770,7 @@
 			return { attacks, splits };
 		}
 
-		function cloneStateFrom(state) {
-			return {
-				player: [state.player[0], state.player[1]],
-				cpu: [state.cpu[0], state.cpu[1]]
-			};
-		}
 
-		function hintStateKeyFrom(state, turn) {
-			return JSON.stringify({ player: state.player, cpu: state.cpu, turn });
-		}
-
-		function hintIsDead(value) {
-			return value === 0 || value === 5;
-		}
-
-		function hintEnumerateAttacks(state, owner) {
-			const opponent = owner === 'player' ? 'cpu' : 'player';
-			const moves = [];
-			for (const i of [0, 1]) {
-				const sourceValue = state[owner][i];
-				if (hintIsDead(sourceValue)) continue;
-				for (const j of [0, 1]) {
-					const targetValue = state[opponent][j];
-					if (hintIsDead(targetValue)) continue;
-					moves.push({ type: 'attack', src: i, dst: j });
-				}
-			}
-			return moves;
-		}
-
-		function hintSumActive(state, owner) {
-			return [0, 1]
-				.filter(i => !hintIsDead(state[owner][i]))
-				.reduce((sum, i) => sum + state[owner][i], 0);
-		}
-
-		function hintEnumerateSplits(state, owner) {
-			const sum = hintSumActive(state, owner);
-			if (sum < 2) return [];
-			const patterns = new Set();
-			for (let i = 0; i <= sum; i++) {
-				const j = sum - i;
-				if (i <= 5 && j <= 5) {
-					patterns.add(`${i},${j}`);
-				}
-			}
-			const normalize = (value) => (value === 5 ? 0 : value);
-			const currentLeft = normalize(state[owner][0]);
-			const currentRight = normalize(state[owner][1]);
-			const current = `${currentLeft},${currentRight}`;
-			const swapped = `${currentRight},${currentLeft}`;
-			return Array.from(patterns)
-				.filter(pattern => pattern !== current && pattern !== swapped)
-				.map(pattern => {
-					const [left, right] = pattern.split(',').map(Number);
-					if (left === 0 || right === 0 || left === 5 || right === 5) return null;
-					return { type: 'split', left, right };
-				})
-				.filter(Boolean);
-		}
-
-		function hintEnumerateMoves(state, owner) {
-			const attacks = hintEnumerateAttacks(state, owner);
-			const splits = hintEnumerateSplits(state, owner);
-			return [...attacks, ...splits];
-		}
-
-		function hintApplyMove(state, owner, move) {
-			const next = cloneStateFrom(state);
-			if (move.type === 'attack') {
-				const opponent = owner === 'player' ? 'cpu' : 'player';
-				const sourceValue = next[owner][move.src];
-				const targetValue = next[opponent][move.dst];
-				next[opponent][move.dst] = wrapTo1to5(sourceValue + targetValue);
-			} else if (move.type === 'split') {
-				next[owner] = [move.left, move.right];
-			}
-			return next;
-		}
-
-		function heuristicEvalForState(state) {
-			const playerAlive = state.player.filter(value => !hintIsDead(value));
-			const cpuAlive = state.cpu.filter(value => !hintIsDead(value));
-			if (cpuAlive.length === 0) return 1e6;
-			if (playerAlive.length === 0) return -1e6;
-			let score = 0;
-			score += (2 - cpuAlive.length) * 1000;
-			score -= (2 - playerAlive.length) * 1000;
-			let cpuHandScore = 0;
-			cpuAlive.forEach(hand => {
-				cpuHandScore += hand === 4 ? 150 : hand * 10;
-			});
-			score -= cpuHandScore;
-			let playerHandScore = 0;
-			playerAlive.forEach(hand => {
-				playerHandScore += hand === 4 ? 120 : hand * 5;
-			});
-			score += playerHandScore;
-			const playerSum = playerAlive.reduce((a, b) => a + b, 0);
-			if (playerSum > 5) {
-				score -= (playerSum - 5) * 20;
-			}
-			return score;
-		}
-
-		function hintResultValue(result) {
-			if (!result) return -Infinity;
-			const base = {
-				win: 100000,
-				draw: 0,
-				loop: -50,
-				lose: -100000
-			}[result.outcome] ?? 0;
-			const steps = Number.isFinite(result.steps) ? result.steps : 0;
-			let value = base;
-			if (result.outcome === 'win') {
-				value -= steps;
-			} else if (result.outcome === 'lose') {
-				value += steps;
-			} else {
-				value += (result.score ?? 0) / 1000;
-			}
-			return value;
-		}
-
-		function hintSearch(state, depth, turn, pathSet, memo, alpha, beta) {
-			const memoKey = `${hintStateKeyFrom(state, turn)}|${depth}`;
-			if (memo.has(memoKey)) {
-				return memo.get(memoKey);
-			}
-
-			const playerLost = state.player.every(hintIsDead);
-			const cpuLost = state.cpu.every(hintIsDead);
-			if (playerLost) {
-				const loseResult = { outcome: 'lose', steps: 0, score: -1e6, firstMove: null };
-				memo.set(memoKey, loseResult);
-				return loseResult;
-			}
-			if (cpuLost) {
-				const winResult = { outcome: 'win', steps: 0, score: 1e6, firstMove: null };
-				memo.set(memoKey, winResult);
-				return winResult;
-			}
-			if (depth === 0) {
-				const cutoffResult = { outcome: 'draw', steps: 0, score: heuristicEvalForState(state), firstMove: null };
-				memo.set(memoKey, cutoffResult);
-				return cutoffResult;
-			}
-
-			const loopKey = hintStateKeyFrom(state, turn);
-			if (pathSet.has(loopKey)) {
-				const loopResult = { outcome: 'loop', steps: 0, score: heuristicEvalForState(state), firstMove: null };
-				memo.set(memoKey, loopResult);
-				return loopResult;
-			}
-
-			pathSet.add(loopKey);
-			const moves = hintEnumerateMoves(state, turn);
-			if (!moves.length) {
-				pathSet.delete(loopKey);
-				const terminalResult = {
-					outcome: turn === 'player' ? 'lose' : 'win',
-					steps: 0,
-					score: turn === 'player' ? -1e6 : 1e6,
-					firstMove: null
-				};
-				memo.set(memoKey, terminalResult);
-				return terminalResult;
-			}
-
-			let bestResult = null;
-			let bestValue = turn === 'player' ? -Infinity : Infinity;
-
-			for (const move of moves) {
-				const nextState = hintApplyMove(state, turn, move);
-				const child = hintSearch(nextState, depth - 1, turn === 'player' ? 'cpu' : 'player', pathSet, memo, alpha, beta);
-				const candidate = {
-					outcome: child.outcome,
-					steps: child.steps + 1,
-					score: child.score,
-					firstMove: turn === 'player' ? move : child.firstMove
-				};
-				const candidateValue = hintResultValue(candidate);
-
-				if (turn === 'player') {
-					if (candidateValue > bestValue) {
-						bestValue = candidateValue;
-						bestResult = candidate;
-					}
-					alpha = Math.max(alpha, candidateValue);
-					if (alpha >= beta) {
-						break;
-					}
-				} else {
-					if (candidateValue < bestValue) {
-						bestValue = candidateValue;
-						bestResult = candidate;
-					}
-					beta = Math.min(beta, candidateValue);
-					if (beta <= alpha) {
-						break;
-					}
-				}
-			}
-
-			pathSet.delete(loopKey);
-			const finalResult = bestResult || { outcome: 'draw', steps: 0, score: heuristicEvalForState(state), firstMove: null };
-			memo.set(memoKey, finalResult);
-			return finalResult;
-		}
-
-		function computeHintForState(state) {
-			const snapshot = cloneStateFrom(state);
-			return hintSearch(snapshot, HINT_MAX_DEPTH, 'player', new Set(), new Map(), -Infinity, Infinity);
-		}
 
 		function chooseCpuMoveNormal() {
 			const { attacks, splits } = enumerateMoves('cpu');
@@ -1990,6 +1870,98 @@
 			if (candidates.length === 0) return null;
 			const randomIndex = Math.floor(Math.random() * candidates.length);
 			return candidates[randomIndex];
+		}
+
+		function computeSynchronousCpuMove() {
+			let move = null;
+			if (CPU_MODE === 'weakest') {
+				move = chooseCpuMoveWeakest();
+			} else if (CPU_MODE === 'hard') {
+				const roll = Math.random();
+				if (roll < 0.1) {
+					move = chooseCpuMoveRandom();
+				} else {
+					move = chooseCpuMoveHard();
+				}
+			} else if (CPU_MODE === 'normal') {
+				const roll = Math.random();
+				if (roll < 0.2) {
+					move = chooseCpuMoveRandom();
+				} else if (roll < 0.5) {
+					move = chooseCpuMoveNormal();
+				} else {
+					move = chooseCpuMoveHard();
+				}
+			} else {
+				move = chooseCpuMoveStrong();
+			}
+			const timings = getCpuThinkTimings(CPU_MODE);
+			return {
+				move,
+				mode: CPU_MODE,
+				result: null,
+				depthUsed: null,
+				elapsedMs: 0,
+				minThinkMs: timings.min,
+				maxThinkMs: timings.max,
+				source: 'sync'
+			};
+		}
+
+		async function finalizeCpuMove(movePromise) {
+			const startedAt = cpuThinkingStartedAt ?? getNowMs();
+			try {
+				const info = await movePromise;
+				if (!info || !info.move) {
+					throw new Error('CPU move not available');
+				}
+				const timings = getCpuThinkTimings(info.mode || CPU_MODE);
+				const minThink = Math.max(info.minThinkMs ?? 0, timings.min ?? 0);
+				const rawMax = info.maxThinkMs ?? timings.max ?? Number.POSITIVE_INFINITY;
+				const maxThink = Number.isFinite(rawMax) ? rawMax : Number.POSITIVE_INFINITY;
+				const elapsed = getNowMs() - startedAt;
+				const minWait = Math.max(0, minThink - elapsed);
+				let waitMs = minWait;
+				if (Number.isFinite(maxThink)) {
+					const remainingMax = Math.max(0, maxThink - elapsed);
+					waitMs = Math.min(waitMs, remainingMax);
+				}
+				const executeMove = () => {
+					applyCpuMove(info.move).catch(err => {
+						console.error('Failed to apply CPU move', err);
+						showCpuThinking(false);
+					});
+				};
+				if (waitMs > 0) {
+					setTimeout(executeMove, waitMs);
+				} else {
+					executeMove();
+				}
+			} catch (err) {
+				console.error('CPU move computation failed', err);
+				const fallbackInfo = computeSynchronousCpuMove();
+				const fallbackMove = fallbackInfo?.move ?? chooseCpuMoveRandom() ?? chooseCpuMoveNormal();
+				if (fallbackMove) {
+					const timings = getCpuThinkTimings(CPU_MODE);
+					const fallbackMin = Math.max(fallbackInfo?.minThinkMs ?? 0, timings.min ?? 0);
+					const elapsed = getNowMs() - startedAt;
+					const waitMs = Math.max(0, fallbackMin - elapsed);
+					const executeFallback = () => {
+						applyCpuMove(fallbackMove).catch(error => {
+							console.error('Fallback CPU move failed', error);
+							showCpuThinking(false);
+						});
+					};
+					if (waitMs > 0) {
+						setTimeout(executeFallback, waitMs);
+					} else {
+						executeFallback();
+					}
+				} else {
+					showCpuThinking(false);
+					switchTurn();
+				}
+			}
 		}
 
 		function minimax(depth, isMaximizingPlayer, alpha, beta) {
@@ -2126,38 +2098,17 @@
 			if (cpuThinkingStartedAt === null) {
 				cpuThinkingStartedAt = getNowMs();
 			}
-			let move;
+			let movePromise;
 			if (CPU_MODE === 'strong') {
-				move = chooseCpuMoveStrong();
-			} else if (CPU_MODE === 'weakest') {
-				move = chooseCpuMoveWeakest();
-			} else if (CPU_MODE === 'hard') {
-				const roll = Math.random();
-				if (roll < 0.1) {
-					move = chooseCpuMoveRandom();
-				} else {
-					move = chooseCpuMoveHard();
-				}
+				const snapshot = cloneState();
+				movePromise = requestCpuWorkerMove(snapshot).then(payload => ({
+					...payload,
+					source: 'worker'
+				}));
 			} else {
-				const roll = Math.random();
-				if (roll < 0.2) {
-					move = chooseCpuMoveRandom();
-				} else if (roll < 0.5) {
-					move = chooseCpuMoveNormal();
-				} else {
-					move = chooseCpuMoveHard();
-				}
+				movePromise = Promise.resolve(computeSynchronousCpuMove());
 			}
-			const now = getNowMs();
-			const elapsed = cpuThinkingStartedAt !== null ? now - cpuThinkingStartedAt : MIN_CPU_THINK_MS;
-			const remaining = Math.max(MIN_CPU_THINK_MS - elapsed, 0);
-			if (remaining > 0) {
-				setTimeout(() => {
-					applyCpuMove(move).catch(() => { /* swallow async errors */ });
-				}, remaining);
-			} else {
-				applyCpuMove(move).catch(() => { /* swallow async errors */ });
-			}
+			finalizeCpuMove(movePromise);
 		}
 
 		// --- Event Listeners ---
@@ -2371,6 +2322,8 @@
 		}
 
 		function initializeGame() {
+			cancelCpuWorkerJob();
+			cpuWorker?.postMessage({ type: 'reset' });
 			hands = { player: [1, 1], cpu: [1, 1] };
 			turnCount = 0; // Reset turn counter
 			selectedHand = null;
