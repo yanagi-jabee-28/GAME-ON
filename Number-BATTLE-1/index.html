@@ -804,7 +804,7 @@
 			centerCard.style.opacity = '0';
 			const centerInner = document.createElement('span');
 			centerInner.className = 'attack-motion-value';
-			centerInner.textContent = '分';
+			centerInner.textContent = formatHandValue(afterLeft + afterRight);
 			centerCard.appendChild(centerInner);
 			attackAnimationLayer.appendChild(centerCard);
 
