@@ -168,6 +168,52 @@
 				transform: rotate(360deg);
 			}
 		}
+
+		#battle-review-board {
+			background: rgba(17, 24, 39, 0.65);
+			/* gray-900/65 */
+			border-radius: 0.75rem;
+			padding: 1rem;
+			border: 1px solid rgba(75, 85, 99, 0.6);
+		}
+
+		#battle-review-board .review-area {
+			padding: 0.75rem;
+			border-radius: 0.75rem;
+		}
+
+		#battle-review-board .review-area.cpu {
+			background: rgba(127, 29, 29, 0.35);
+		}
+
+		#battle-review-board .review-area.player {
+			background: rgba(22, 101, 112, 0.35);
+		}
+
+		.hand-container.review {
+			cursor: default;
+			pointer-events: none;
+			transform: none !important;
+		}
+
+		.hand-container.review .finger-count {
+			font-size: 2.5rem;
+		}
+
+		.review-highlight-source {
+			border-color: #22c55e !important;
+			box-shadow: 0 0 20px rgba(34, 197, 94, 0.65);
+		}
+
+		.review-highlight-target {
+			border-color: #f97316 !important;
+			box-shadow: 0 0 20px rgba(249, 115, 22, 0.65);
+		}
+
+		.review-highlight-result {
+			border-color: #38bdf8 !important;
+			box-shadow: 0 0 20px rgba(56, 189, 248, 0.65);
+		}
 	</style>
 </head>
 
@@ -270,16 +316,54 @@
 				class="hidden w-full max-w-2xl bg-gray-900/80 border border-gray-700 rounded-lg p-5 text-left space-y-3">
 				<h3 class="text-2xl text-yellow-200">戦いの記録</h3>
 				<div id="battle-review-summary" class="text-lg font-semibold"></div>
+				<div id="battle-review-board" class="space-y-4">
+					<div class="review-area cpu text-center">
+						<div class="text-lg font-semibold text-red-200">CPU</div>
+						<div class="flex justify-center gap-4 mt-2">
+							<div id="review-cpu-hand-left" class="hand-container review" data-owner="cpu"
+								data-index="0">
+								<span class="finger-count">1</span>
+							</div>
+							<div id="review-cpu-hand-right" class="hand-container review" data-owner="cpu"
+								data-index="1">
+								<span class="finger-count">1</span>
+							</div>
+						</div>
+					</div>
+					<div class="review-area player text-center">
+						<div class="text-lg font-semibold text-cyan-200">あなた</div>
+						<div class="flex justify-center gap-4 mt-2">
+							<div id="review-player-hand-left" class="hand-container review" data-owner="player"
+								data-index="0">
+								<span class="finger-count">1</span>
+							</div>
+							<div id="review-player-hand-right" class="hand-container review" data-owner="player"
+								data-index="1">
+								<span class="finger-count">1</span>
+							</div>
+						</div>
+					</div>
+				</div>
 				<div id="battle-review-detail" class="text-base text-gray-200"></div>
 				<div id="battle-review-state" class="text-sm text-gray-300"></div>
-				<div class="flex items-center justify-between pt-2">
-					<button id="battle-review-prev"
-						class="bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg">←
-						前の手</button>
+				<div class="flex items-center justify-between flex-wrap gap-2 pt-3">
+					<div class="flex gap-2">
+						<button id="battle-review-first"
+							class="bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg">≪
+							最初へ</button>
+						<button id="battle-review-prev"
+							class="bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg">←
+							前の手</button>
+					</div>
 					<span id="battle-review-step" class="text-sm text-gray-300"></span>
-					<button id="battle-review-next"
-						class="bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg">次の手
-						→</button>
+					<div class="flex gap-2">
+						<button id="battle-review-next"
+							class="bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg">次の手
+							→</button>
+						<button id="battle-review-last"
+							class="bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg">最後へ
+							≫</button>
+					</div>
 				</div>
 			</div>
 			<button id="restart-button"
@@ -312,6 +396,12 @@
 		const battleReviewStep = document.getElementById('battle-review-step');
 		const battleReviewPrev = document.getElementById('battle-review-prev');
 		const battleReviewNext = document.getElementById('battle-review-next');
+		const battleReviewFirst = document.getElementById('battle-review-first');
+		const battleReviewLast = document.getElementById('battle-review-last');
+		const reviewHandElements = {
+			player: [document.getElementById('review-player-hand-left'), document.getElementById('review-player-hand-right')],
+			cpu: [document.getElementById('review-cpu-hand-left'), document.getElementById('review-cpu-hand-right')]
+		};
 
 		const CPU_MODE_SEQUENCE = ['weakest', 'normal', 'hard', 'strong'];
 		const CPU_MODE_LABELS = {
@@ -378,16 +468,20 @@
 				summary: 'ゲーム開始',
 				detail: '初期状態',
 				stateBefore: snapshot,
-				stateAfter: snapshot
+				stateAfter: snapshot,
+				highlight: []
 			}];
 			reviewIndex = 0;
 			if (battleReviewContainer) {
 				battleReviewContainer.classList.add('hidden');
 			}
+			renderBattleReviewHands(snapshot, []);
 		}
 
 		function pushBattleLog(entry) {
-			battleLog.push(entry);
+			const normalized = { ...entry };
+			normalized.highlight = Array.isArray(normalized.highlight) ? normalized.highlight : [];
+			battleLog.push(normalized);
 		}
 
 		function clampReviewIndex(target) {
@@ -396,6 +490,38 @@
 				return;
 			}
 			reviewIndex = Math.max(0, Math.min(target, battleLog.length - 1));
+		}
+
+		function renderBattleReviewHands(state, highlight = []) {
+			if (!reviewHandElements.player[0] || !reviewHandElements.cpu[0]) return;
+			const normalizedState = state || { player: [0, 0], cpu: [0, 0] };
+			const normalizedHighlight = Array.isArray(highlight) ? highlight : [];
+			['player', 'cpu'].forEach(owner => {
+				reviewHandElements[owner].forEach((el, index) => {
+					if (!el) return;
+					el.classList.remove('review-highlight-source', 'review-highlight-target', 'review-highlight-result', 'selectable', 'selected', 'targetable');
+					const ownerState = normalizedState[owner] || [];
+					const value = ownerState[index] ?? 0;
+					const isDead = (value === 0 || value === 5);
+					el.classList.toggle('dead', isDead);
+					const fingerCountEl = el.querySelector('.finger-count');
+					if (fingerCountEl) fingerCountEl.textContent = formatHandValue(value);
+				});
+			});
+			normalizedHighlight.forEach(item => {
+				const el = reviewHandElements[item.owner]?.[item.index];
+				if (!el) return;
+				switch (item.role) {
+					case 'source':
+						el.classList.add('review-highlight-source');
+						break;
+					case 'target':
+						el.classList.add('review-highlight-target');
+						break;
+					default:
+						el.classList.add('review-highlight-result');
+				}
+			});
 		}
 
 		function updateBattleReviewUI() {
@@ -408,6 +534,9 @@
 				battleReviewStep.textContent = '';
 				battleReviewPrev.disabled = true;
 				battleReviewNext.disabled = true;
+				if (battleReviewFirst) battleReviewFirst.disabled = true;
+				if (battleReviewLast) battleReviewLast.disabled = true;
+				renderBattleReviewHands({ player: [1, 1], cpu: [1, 1] }, []);
 				return;
 			}
 			const entry = battleLog[reviewIndex];
@@ -420,9 +549,12 @@
 				battleReviewDetail.classList.add('hidden');
 			}
 			battleReviewState.textContent = formatHandsState(entry.stateAfter);
+			renderBattleReviewHands(entry.stateAfter, entry.highlight);
 			battleReviewStep.textContent = `${reviewIndex + 1} / ${battleLog.length}`;
 			battleReviewPrev.disabled = reviewIndex === 0;
 			battleReviewNext.disabled = reviewIndex === battleLog.length - 1;
+			if (battleReviewFirst) battleReviewFirst.disabled = reviewIndex === 0;
+			if (battleReviewLast) battleReviewLast.disabled = reviewIndex === battleLog.length - 1;
 		}
 
 		function revealBattleReview() {
@@ -623,7 +755,11 @@
 				summary,
 				detail,
 				stateBefore: beforeState,
-				stateAfter: afterState
+				stateAfter: afterState,
+				highlight: [
+					{ owner: source.owner, index: source.index, role: 'source' },
+					{ owner: target.owner, index: target.index, role: 'target' }
+				]
 			});
 
 			if (checkWin()) {
@@ -652,7 +788,11 @@
 				summary,
 				detail,
 				stateBefore: beforeState,
-				stateAfter: afterState
+				stateAfter: afterState,
+				highlight: [
+					{ owner: 'player', index: 0, role: 'result' },
+					{ owner: 'player', index: 1, role: 'result' }
+				]
 			});
 			switchTurn();
 			updateUI();
@@ -1123,7 +1263,11 @@
 					summary,
 					detail,
 					stateBefore: beforeState,
-					stateAfter: afterState
+					stateAfter: afterState,
+					highlight: [
+						{ owner: 'cpu', index: 0, role: 'result' },
+						{ owner: 'cpu', index: 1, role: 'result' }
+					]
 				});
 				if (checkWin()) {
 					endGame();
@@ -1194,6 +1338,16 @@
 
 		battleReviewNext?.addEventListener('click', () => {
 			clampReviewIndex(reviewIndex + 1);
+			updateBattleReviewUI();
+		});
+
+		battleReviewFirst?.addEventListener('click', () => {
+			clampReviewIndex(0);
+			updateBattleReviewUI();
+		});
+
+		battleReviewLast?.addEventListener('click', () => {
+			clampReviewIndex(battleLog.length - 1);
 			updateBattleReviewUI();
 		});
 
@@ -1338,7 +1492,11 @@
 				summary,
 				detail,
 				stateBefore: beforeState,
-				stateAfter: afterState
+				stateAfter: afterState,
+				highlight: [
+					{ owner: 'player', index: 0, role: 'result' },
+					{ owner: 'player', index: 1, role: 'result' }
+				]
 			});
 			// After applying split, proceed to CPU turn
 			switchTurn();
@@ -1363,7 +1521,10 @@
 				summary,
 				detail,
 				stateBefore: beforeState,
-				stateAfter: afterState
+				stateAfter: afterState,
+				highlight: [
+					{ owner: 'player', index, role: 'result' }
+				]
 			});
 			switchTurn();
 			updateUI();
