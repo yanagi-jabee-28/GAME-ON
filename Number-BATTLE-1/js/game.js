@@ -96,7 +96,8 @@ export function createNumberBattleGame(doc = document) {
 			computing: false,
 			cacheKey: null,
 			cacheResult: null,
-			computationId: 0
+			computationId: 0,
+			auto: false
 		},
 		battleLog: [],
 		reviewIndex: 0,
@@ -388,7 +389,9 @@ export function createNumberBattleGame(doc = document) {
 			return;
 		}
 		dom.hintButton.disabled = false;
-		if (state.hint.requested && state.hint.cacheResult) {
+		if (state.hint.auto) {
+			dom.hintButton.textContent = '自動ヒント: ON';
+		} else if (state.hint.requested && state.hint.cacheResult) {
 			dom.hintButton.textContent = 'ヒントを更新';
 		} else {
 			dom.hintButton.textContent = 'ヒントを見る';
@@ -709,6 +712,10 @@ export function createNumberBattleGame(doc = document) {
 		} else {
 			state.status = GAME_STATUS.PLAYING;
 			showCpuThinking(false);
+			if (state.hint.auto) {
+				state.hint.requested = true;
+				refreshHint({ force: false });
+			}
 		}
 		state.historyKeys.push(makeCurrentStateKey());
 		if (state.historyKeys.length > 50) state.historyKeys.shift();
@@ -980,6 +987,7 @@ export function createNumberBattleGame(doc = document) {
 		state.hint.requested = false;
 		resetHintCache();
 		clearHintUI();
+		state.hint.auto = false;
 		state.turn = Math.random() < 0.5 ? 'player' : 'cpu';
 		showCpuThinking(false);
 		if (state.turn === 'cpu') {
@@ -1011,8 +1019,17 @@ export function createNumberBattleGame(doc = document) {
 			dom.hintButton.addEventListener('click', () => {
 				if (state.hint.computing) return;
 				if (state.status !== GAME_STATUS.PLAYING || state.turn !== 'player') return;
-				state.hint.requested = true;
-				refreshHint({ force: false });
+				if (state.hint.auto) {
+					// Turn off auto hint
+					state.hint.auto = false;
+					clearHintUI();
+				} else {
+					// Turn on auto hint or request manual
+					state.hint.auto = true;
+					state.hint.requested = true;
+					refreshHint({ force: false });
+				}
+				updateHintButton();
 			});
 		}
 		if (dom.battleReviewPrev) dom.battleReviewPrev.addEventListener('click', () => {

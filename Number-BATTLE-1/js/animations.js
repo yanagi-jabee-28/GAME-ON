@@ -8,6 +8,7 @@ export function playAttackAnimation(layer, sourceEl, targetEl, { actor, value })
 	const targetRect = targetEl.getBoundingClientRect();
 	const card = document.createElement('div');
 	card.className = `attack-motion ${actor}`;
+	card.style.position = 'absolute';
 	card.style.width = `${sourceRect.width}px`;
 	card.style.height = `${sourceRect.height}px`;
 	const inner = document.createElement('span');
