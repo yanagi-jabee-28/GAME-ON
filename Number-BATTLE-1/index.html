@@ -479,11 +479,14 @@
 		let cpuThinkingStartedAt = null;
 		let battleLog = [];
 		let reviewIndex = 0;
+		let reviewAnimationToken = 0;
 		let isResolvingAction = false;
 
 		function getNowMs() {
 			return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 		}
+
+		const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 		function makeStateKey() {
 			// include turn to consider player to move as part of state
@@ -573,6 +576,53 @@
 						el.classList.add('review-highlight-result');
 				}
 			});
+		}
+
+		async function displayBattleReviewEntry(entry, { animate = true } = {}) {
+			const token = ++reviewAnimationToken;
+			if (!entry) {
+				renderBattleReviewHands({ player: [1, 1], cpu: [1, 1] }, []);
+				return;
+			}
+
+			const actionable = animate && entry.stateBefore && entry.stateAfter && ['attack', 'split', 'split-single'].includes(entry.action);
+			if (!actionable) {
+				renderBattleReviewHands(entry.stateAfter, entry.highlight);
+				return;
+			}
+
+			// Start from the pre-action snapshot
+			renderBattleReviewHands(entry.stateBefore, entry.highlight);
+			await delay(40);
+			if (token !== reviewAnimationToken) return;
+
+			if (entry.action === 'attack') {
+				const sourceInfo = (entry.highlight || []).find(h => h.role === 'source');
+				const targetInfo = (entry.highlight || []).find(h => h.role === 'target');
+				if (sourceInfo && targetInfo) {
+					const sourceEl = reviewHandElements[sourceInfo.owner]?.[sourceInfo.index];
+					const targetEl = reviewHandElements[targetInfo.owner]?.[targetInfo.index];
+					const attackValue = entry.stateBefore?.[sourceInfo.owner]?.[sourceInfo.index];
+					if (sourceEl && targetEl && typeof attackValue === 'number') {
+						await playAttackAnimation(sourceEl, targetEl, {
+							actor: entry.actor || sourceInfo.owner,
+							value: attackValue
+						});
+					} else {
+						await delay(200);
+					}
+				} else {
+					await delay(200);
+				}
+			} else {
+				const owner = entry.actor || (entry.highlight && entry.highlight[0]?.owner) || 'player';
+				const beforeValues = entry.stateBefore?.[owner] || [];
+				const afterValues = entry.stateAfter?.[owner] || [];
+				await playSplitAnimation(owner, beforeValues, afterValues, { handRefs: reviewHandElements[owner] });
+			}
+
+			if (token !== reviewAnimationToken) return;
+			renderBattleReviewHands(entry.stateAfter, entry.highlight);
 		}
 
 		function playAttackAnimation(sourceEl, targetEl, { actor, value }) {
@@ -690,9 +740,9 @@
 			return Promise.all([overlayPromise, sourceMotionPromise]).then(() => { });
 		}
 
-		function playSplitAnimation(owner, beforeValues = [], afterValues = []) {
+		function playSplitAnimation(owner, beforeValues = [], afterValues = [], options = {}) {
 			if (!attackAnimationLayer) return Promise.resolve();
-			const ownerHands = handElements[owner];
+			const ownerHands = options.handRefs || handElements[owner];
 			if (!ownerHands || ownerHands.length < 2) return Promise.resolve();
 			const leftEl = ownerHands[0];
 			const rightEl = ownerHands[1];
@@ -892,12 +942,12 @@
 				battleReviewDetail.classList.add('hidden');
 			}
 			battleReviewState.textContent = formatHandsState(entry.stateAfter);
-			renderBattleReviewHands(entry.stateAfter, entry.highlight);
 			battleReviewStep.textContent = `${reviewIndex + 1} / ${battleLog.length}`;
 			battleReviewPrev.disabled = reviewIndex === 0;
 			battleReviewNext.disabled = reviewIndex === battleLog.length - 1;
 			if (battleReviewFirst) battleReviewFirst.disabled = reviewIndex === 0;
 			if (battleReviewLast) battleReviewLast.disabled = reviewIndex === battleLog.length - 1;
+			displayBattleReviewEntry(entry);
 		}
 
 		function revealBattleReview() {
