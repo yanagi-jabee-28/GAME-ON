@@ -255,6 +255,12 @@
 			line-height: 1;
 			text-shadow: 0 0 10px rgba(15, 23, 42, 0.9);
 		}
+
+		.attack-motion.split-impact {
+			border-style: dashed;
+			background: rgba(71, 85, 105, 0.78);
+			box-shadow: 0 0 28px rgba(191, 219, 254, 0.45);
+		}
 	</style>
 </head>
 
@@ -684,6 +690,183 @@
 			return Promise.all([overlayPromise, sourceMotionPromise]).then(() => { });
 		}
 
+		function playSplitAnimation(owner, beforeValues = [], afterValues = []) {
+			if (!attackAnimationLayer) return Promise.resolve();
+			const ownerHands = handElements[owner];
+			if (!ownerHands || ownerHands.length < 2) return Promise.resolve();
+			const leftEl = ownerHands[0];
+			const rightEl = ownerHands[1];
+			if (!leftEl || !rightEl) return Promise.resolve();
+
+			const leftRect = leftEl.getBoundingClientRect();
+			const rightRect = rightEl.getBoundingClientRect();
+			const leftCenterX = leftRect.left + leftRect.width / 2;
+			const leftCenterY = leftRect.top + leftRect.height / 2;
+			const rightCenterX = rightRect.left + rightRect.width / 2;
+			const rightCenterY = rightRect.top + rightRect.height / 2;
+			const centerX = (leftCenterX + rightCenterX) / 2;
+			const centerY = (leftCenterY + rightCenterY) / 2;
+
+			const coerceValue = (arr, idx, fallback) => {
+				if (!Array.isArray(arr)) return fallback;
+				const val = arr[idx];
+				return typeof val === 'number' ? val : fallback;
+			};
+			const beforeLeft = coerceValue(beforeValues, 0, hands[owner]?.[0] ?? 0);
+			const beforeRight = coerceValue(beforeValues, 1, hands[owner]?.[1] ?? 0);
+			const afterLeft = coerceValue(afterValues, 0, beforeLeft);
+			const afterRight = coerceValue(afterValues, 1, beforeRight);
+
+			const leftTextEl = leftEl.querySelector('.finger-count');
+			const rightTextEl = rightEl.querySelector('.finger-count');
+			const originalLeftOpacity = leftEl.style.opacity;
+			const originalRightOpacity = rightEl.style.opacity;
+			leftEl.style.opacity = '0';
+			rightEl.style.opacity = '0';
+
+			const durations = {
+				approach: 260,
+				hold: 160,
+				retreat: 280,
+				fade: 180
+			};
+
+			const markHandState = () => {
+				const isDead = (v) => v === 0 || v === 5;
+				if (leftTextEl) leftTextEl.textContent = formatHandValue(afterLeft);
+				if (rightTextEl) rightTextEl.textContent = formatHandValue(afterRight);
+				leftEl.classList.toggle('dead', isDead(afterLeft));
+				rightEl.classList.toggle('dead', isDead(afterRight));
+			};
+
+			const createCard = (rect, initialValue) => {
+				const card = document.createElement('div');
+				card.className = `attack-motion ${owner}`;
+				card.style.width = `${rect.width}px`;
+				card.style.height = `${rect.height}px`;
+				card.style.left = `${rect.left + rect.width / 2}px`;
+				card.style.top = `${rect.top + rect.height / 2}px`;
+				card.style.transform = 'translate(-50%, -50%) scale(0.85)';
+				card.style.opacity = '0';
+				const inner = document.createElement('span');
+				inner.className = 'attack-motion-value';
+				inner.textContent = formatHandValue(initialValue);
+				card.appendChild(inner);
+				attackAnimationLayer.appendChild(card);
+				return card;
+			};
+
+			const leftCard = createCard(leftRect, beforeLeft);
+			const rightCard = createCard(rightRect, beforeRight);
+
+			const animateCard = (card, startX, startY, finalX, finalY, nextValue) => {
+				return new Promise(resolve => {
+					let finished = false;
+					const complete = () => {
+						if (finished) return;
+						finished = true;
+						card.remove();
+						resolve();
+					};
+					card.style.left = `${startX}px`;
+					card.style.top = `${startY}px`;
+					requestAnimationFrame(() => {
+						card.style.opacity = '1';
+						card.style.left = `${centerX}px`;
+						card.style.top = `${centerY}px`;
+						card.style.transform = 'translate(-50%, -50%) scale(1.08)';
+						setTimeout(() => {
+							card.querySelector('.attack-motion-value').textContent = formatHandValue(nextValue);
+							card.style.left = `${finalX}px`;
+							card.style.top = `${finalY}px`;
+							card.style.transform = 'translate(-50%, -50%) scale(0.95)';
+							setTimeout(() => {
+								card.style.opacity = '0';
+								card.style.transform = 'translate(-50%, -50%) scale(0.8)';
+								setTimeout(complete, durations.fade);
+							}, durations.retreat);
+						}, durations.approach + durations.hold);
+					});
+					setTimeout(complete, durations.approach + durations.hold + durations.retreat + durations.fade + 160);
+				});
+			};
+
+			const leftPromise = animateCard(leftCard, leftCenterX, leftCenterY, leftCenterX, leftCenterY, afterLeft);
+			const rightPromise = animateCard(rightCard, rightCenterX, rightCenterY, rightCenterX, rightCenterY, afterRight);
+
+			const centerCard = document.createElement('div');
+			centerCard.className = `attack-motion ${owner} split-impact`;
+			centerCard.style.width = `${Math.max(leftRect.width, rightRect.width)}px`;
+			centerCard.style.height = `${Math.max(leftRect.height, rightRect.height)}px`;
+			centerCard.style.left = `${centerX}px`;
+			centerCard.style.top = `${centerY}px`;
+			centerCard.style.transform = 'translate(-50%, -50%) scale(0.4)';
+			centerCard.style.opacity = '0';
+			const centerInner = document.createElement('span');
+			centerInner.className = 'attack-motion-value';
+			centerInner.textContent = '分';
+			centerCard.appendChild(centerInner);
+			attackAnimationLayer.appendChild(centerCard);
+
+			const centerPromise = new Promise(resolve => {
+				let resolved = false;
+				const finish = () => {
+					if (resolved) return;
+					resolved = true;
+					centerCard.remove();
+					resolve();
+				};
+				requestAnimationFrame(() => {
+					centerCard.style.opacity = '1';
+					centerCard.style.transform = 'translate(-50%, -50%) scale(1.05)';
+					setTimeout(() => {
+						centerCard.style.opacity = '0';
+						centerCard.style.transform = 'translate(-50%, -50%) scale(0.6)';
+						setTimeout(finish, durations.fade);
+					}, durations.approach + durations.hold);
+				});
+				setTimeout(finish, durations.approach + durations.hold + durations.fade + 300);
+			});
+
+			const restoreDelay = durations.approach + durations.hold + Math.floor(durations.retreat * 0.6);
+			const restorePromise = new Promise(resolve => {
+				setTimeout(() => {
+					markHandState();
+					leftEl.style.transition = 'opacity 0.24s ease-out';
+					rightEl.style.transition = 'opacity 0.24s ease-out';
+					leftEl.style.opacity = originalLeftOpacity || '1';
+					rightEl.style.opacity = originalRightOpacity || '1';
+					setTimeout(() => {
+						leftEl.style.transition = '';
+						rightEl.style.transition = '';
+						if (originalLeftOpacity === '') leftEl.style.opacity = '';
+						if (originalRightOpacity === '') rightEl.style.opacity = '';
+						resolve();
+					}, 260);
+				}, restoreDelay);
+			});
+
+			return Promise.all([leftPromise, rightPromise, centerPromise, restorePromise])
+				.catch(() => { })
+				.finally(() => {
+					if (leftCard.isConnected) leftCard.remove();
+					if (rightCard.isConnected) rightCard.remove();
+					if (centerCard.isConnected) centerCard.remove();
+					leftEl.style.transition = '';
+					rightEl.style.transition = '';
+					if (originalLeftOpacity === '') {
+						leftEl.style.opacity = '';
+					} else {
+						leftEl.style.opacity = originalLeftOpacity;
+					}
+					if (originalRightOpacity === '') {
+						rightEl.style.opacity = '';
+					} else {
+						rightEl.style.opacity = originalRightOpacity;
+					}
+				});
+		}
+
 		function updateBattleReviewUI() {
 			if (!battleReviewContainer) return;
 			if (!battleLog.length) {
@@ -946,32 +1129,71 @@
 			}
 		}
 
-		function handleSplit(index) {
-			if (turn !== 'player' || gameState !== 'playing') return;
+		async function resolveSplit({ owner, leftValue, rightValue, beforeState, summary, detail, highlight, actor }) {
+			if (isResolvingAction) return;
+			isResolvingAction = true;
+			try {
+				const actorKey = owner === 'player' ? 'player' : 'cpu';
+				const stateBefore = beforeState ? { player: [...beforeState.player], cpu: [...beforeState.cpu] } : cloneState();
+				const priorValues = stateBefore[actorKey] || [0, 0];
+				if (owner === 'player') {
+					selectedHand = null;
+					showCpuThinking(false);
+					updateUI();
+				}
+				await playSplitAnimation(owner, priorValues, [leftValue, rightValue]);
+
+				hands[actorKey] = [leftValue, rightValue];
+				const afterState = cloneState();
+				const turnNumber = turnCount + 1;
+				const defaultSummary = `ターン${turnNumber}: ${getActorLabel(owner)}の分割`;
+				const defaultDetail = `${getActorLabel(owner)}が手を分配しました。`;
+				pushBattleLog({
+					turnNumber,
+					actor: actor ?? owner,
+					action: 'split',
+					summary: summary || defaultSummary,
+					detail: detail || defaultDetail,
+					stateBefore: stateBefore,
+					stateAfter: afterState,
+					highlight: highlight || [
+						{ owner, index: 0, role: 'result' },
+						{ owner, index: 1, role: 'result' }
+					]
+				});
+
+				if (checkWin()) {
+					endGame();
+				} else {
+					switchTurn();
+				}
+				updateUI();
+			} finally {
+				isResolvingAction = false;
+			}
+		}
+
+		async function handleSplit(index) {
+			if (turn !== 'player' || gameState !== 'playing' || isResolvingAction) return;
 			const splitValue = hands.player[index] / 2;
 			const beforeState = cloneState();
-			hands.player = [splitValue, splitValue];
-			const afterState = cloneState();
 			const turnNumber = turnCount + 1;
 			const previousLeft = formatHandValue(beforeState.player[0]);
 			const previousRight = formatHandValue(beforeState.player[1]);
 			const summary = `ターン${turnNumber}: あなたの分割`;
 			const detail = `左 ${previousLeft} / 右 ${previousRight} → 左 ${formatHandValue(splitValue)} / 右 ${formatHandValue(splitValue)}　(合計 ${splitValue * 2})`;
-			pushBattleLog({
-				turnNumber,
-				actor: 'player',
-				action: 'split',
+			await resolveSplit({
+				owner: 'player',
+				leftValue: splitValue,
+				rightValue: splitValue,
+				beforeState,
 				summary,
 				detail,
-				stateBefore: beforeState,
-				stateAfter: afterState,
 				highlight: [
 					{ owner: 'player', index: 0, role: 'result' },
 					{ owner: 'player', index: 1, role: 'result' }
 				]
 			});
-			switchTurn();
-			updateUI();
 		}
 
 		function switchTurn() {
@@ -1426,30 +1648,22 @@
 				const beforeState = cloneState();
 				const previousLeft = formatHandValue(beforeState.cpu[0]);
 				const previousRight = formatHandValue(beforeState.cpu[1]);
-				hands.cpu = [move.left, move.right];
-				const afterState = cloneState();
 				const turnNumber = turnCount + 1;
 				const summary = `ターン${turnNumber}: CPUの分割`;
 				const detail = `左 ${previousLeft} / 右 ${previousRight} → 左 ${formatHandValue(move.left)} / 右 ${formatHandValue(move.right)}　(合計 ${move.left + move.right})`;
-				pushBattleLog({
-					turnNumber,
-					actor: 'cpu',
-					action: 'split',
+				await resolveSplit({
+					owner: 'cpu',
+					leftValue: move.left,
+					rightValue: move.right,
+					beforeState,
 					summary,
 					detail,
-					stateBefore: beforeState,
-					stateAfter: afterState,
+					actor: 'cpu',
 					highlight: [
 						{ owner: 'cpu', index: 0, role: 'result' },
 						{ owner: 'cpu', index: 1, role: 'result' }
 					]
 				});
-				if (checkWin()) {
-					endGame();
-				} else {
-					switchTurn();
-				}
-				updateUI();
 			}
 
 			// CPU finished thinking -> hide indicator and ensure state
@@ -1600,9 +1814,9 @@
 					const applyBtn = document.createElement('button');
 					applyBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg';
 					applyBtn.textContent = '選択';
-					applyBtn.onclick = () => {
-						applySplitDistribution(a, b);
+					applyBtn.onclick = async () => {
 						splitModalBackdrop.classList.add('hidden');
+						await applySplitDistribution(a, b);
 					};
 					optionEl.appendChild(label);
 					optionEl.appendChild(applyBtn);
@@ -1640,9 +1854,9 @@
 					const applyBtn = document.createElement('button');
 					applyBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg';
 					applyBtn.textContent = '選択';
-					applyBtn.onclick = () => {
-						applySplitDistribution(a, b);
+					applyBtn.onclick = async () => {
 						splitModalBackdrop.classList.add('hidden');
+						await applySplitDistribution(a, b);
 					};
 					optionEl.appendChild(label);
 					optionEl.appendChild(applyBtn);
@@ -1652,59 +1866,49 @@
 			splitModalBackdrop.classList.remove('hidden');
 		}
 
-		function applySplitDistribution(leftValue, rightValue) {
+		async function applySplitDistribution(leftValue, rightValue) {
+			if (gameState !== 'playing' || turn !== 'player' || isResolvingAction) return;
 			const beforeState = cloneState();
+			const turnNumber = turnCount + 1;
 			const previousLeft = formatHandValue(beforeState.player[0]);
 			const previousRight = formatHandValue(beforeState.player[1]);
-			// Assign distribution to both hands (treat 5 as replaceable for distribution)
-			hands.player = [leftValue, rightValue];
-			const afterState = cloneState();
-			const turnNumber = turnCount + 1;
 			const summary = `ターン${turnNumber}: あなたの分割`;
 			const detail = `左 ${previousLeft} / 右 ${previousRight} → 左 ${formatHandValue(leftValue)} / 右 ${formatHandValue(rightValue)}　(合計 ${leftValue + rightValue})`;
-			pushBattleLog({
-				turnNumber,
-				actor: 'player',
-				action: 'split',
+			await resolveSplit({
+				owner: 'player',
+				leftValue,
+				rightValue,
+				beforeState,
 				summary,
 				detail,
-				stateBefore: beforeState,
-				stateAfter: afterState,
 				highlight: [
 					{ owner: 'player', index: 0, role: 'result' },
 					{ owner: 'player', index: 1, role: 'result' }
 				]
 			});
-			// After applying split, proceed to CPU turn
-			switchTurn();
-			updateUI();
 		}
 
-		function applySplitToSingle(index, value) {
-			// Only set the active hand; leave 5-handed slot unchanged
-			if (hands.player[index] === 5) return;
+		async function applySplitToSingle(index, value) {
+			if (hands.player[index] === 5 || isResolvingAction) return;
 			const beforeState = cloneState();
-			hands.player[index] = value;
-			const afterState = cloneState();
+			const nextValues = [...hands.player];
+			nextValues[index] = value;
 			const turnNumber = turnCount + 1;
 			const previousLeft = formatHandValue(beforeState.player[0]);
 			const previousRight = formatHandValue(beforeState.player[1]);
-			const summary = `ターン${turnNumber}: あなたの分配`; // rarely used fallback
-			const detail = `左 ${previousLeft} / 右 ${previousRight} → 左 ${formatHandValue(afterState.player[0])} / 右 ${formatHandValue(afterState.player[1])}`;
-			pushBattleLog({
-				turnNumber,
-				actor: 'player',
-				action: 'split-single',
+			const detail = `左 ${previousLeft} / 右 ${previousRight} → 左 ${formatHandValue(nextValues[0])} / 右 ${formatHandValue(nextValues[1])}`;
+			const summary = `ターン${turnNumber}: あなたの分配`;
+			await resolveSplit({
+				owner: 'player',
+				leftValue: nextValues[0],
+				rightValue: nextValues[1],
+				beforeState,
 				summary,
 				detail,
-				stateBefore: beforeState,
-				stateAfter: afterState,
 				highlight: [
 					{ owner: 'player', index, role: 'result' }
 				]
 			});
-			switchTurn();
-			updateUI();
 		}
 
 		function initializeGame() {
