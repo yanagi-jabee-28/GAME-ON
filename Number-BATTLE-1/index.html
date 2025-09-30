@@ -256,7 +256,7 @@
 			text-shadow: 0 0 10px rgba(15, 23, 42, 0.9);
 		}
 
-		hand-container.hint-source {
+		.hand-container.hint-source {
 			border-color: #38bdf8;
 			box-shadow: 0 0 18px rgba(56, 189, 248, 0.75);
 		}
@@ -440,7 +440,1979 @@
 
 	<div id="attack-animation-layer"></div>
 
-	<script type="module" src="js/main.js"></script>
+	<script>
+		// --- DOM Elements ---
+		const gameContainer = document.getElementById('game-container');
+		const turnIndicator = document.getElementById('turn-indicator');
+		const playerActions = document.getElementById('player-actions');
+		const gameOverScreen = document.getElementById('game-over-screen');
+		const gameOverText = document.getElementById('game-over-text');
+		const restartButton = document.getElementById('restart-button');
+		const cpuModeToggle = document.getElementById('cpu-mode-toggle');
+		const startScreen = document.getElementById('start-screen');
+		const startButton = document.getElementById('start-button');
+		const cpuModeDisplay = document.getElementById('cpu-mode-display');
+		const cpuThinkingIndicator = document.getElementById('cpu-thinking-indicator');
+		const handElements = {
+			player: [document.getElementById('player-hand-left'), document.getElementById('player-hand-right')],
+			cpu: [document.getElementById('cpu-hand-left'), document.getElementById('cpu-hand-right')]
+		};
+		const battleReviewContainer = document.getElementById('battle-review');
+		const battleReviewSummary = document.getElementById('battle-review-summary');
+		const battleReviewDetail = document.getElementById('battle-review-detail');
+		const battleReviewState = document.getElementById('battle-review-state');
+		const battleReviewStep = document.getElementById('battle-review-step');
+		const battleReviewPrev = document.getElementById('battle-review-prev');
+		const battleReviewNext = document.getElementById('battle-review-next');
+		const battleReviewFirst = document.getElementById('battle-review-first');
+		const battleReviewLast = document.getElementById('battle-review-last');
+		const reviewHandElements = {
+			player: [document.getElementById('review-player-hand-left'), document.getElementById('review-player-hand-right')],
+			cpu: [document.getElementById('review-cpu-hand-left'), document.getElementById('review-cpu-hand-right')]
+		};
+		const attackAnimationLayer = document.getElementById('attack-animation-layer');
+		const hintButton = document.getElementById('hint-button');
+		const hintMessageEl = document.getElementById('hint-message');
+
+		let hintCacheKey = null;
+		let hintCacheResult = null;
+		let hintComputationId = 0;
+		let hintRequested = false;
+		let hintComputing = false;
+
+		const CPU_MODE_SEQUENCE = ['weakest', 'normal', 'hard', 'strong'];
+		const CPU_MODE_LABELS = {
+			weakest: '最弱',
+			normal: '普通',
+			hard: '強い',
+			strong: '最強'
+		};
+
+		function getCpuModeLabel(mode) {
+			return CPU_MODE_LABELS[mode] || CPU_MODE_LABELS.normal;
+		}
+
+		// --- Game State ---
+		const MIN_CPU_THINK_MS = 500;
+		const HINT_MAX_DEPTH = 15;
+
+		let hands = { player: [1, 1], cpu: [1, 1] };
+		let turn = 'player';
+		let gameState = 'playing'; // 'playing', 'cpu_thinking', 'gameover'
+		let selectedHand = null; // { owner: 'player', index: 0 }
+		let turnCount = 0; // To track the number of turns
+		let CPU_MODE = 'strong'; // 'normal' | 'strong'
+		let lastResult = null; // 'playerWon' | 'playerLost'
+		let stateHistory = [];
+		let cpuThinkingStartedAt = null;
+		let battleLog = [];
+		let reviewIndex = 0;
+		let reviewAnimationToken = 0;
+		let isResolvingAction = false;
+
+		function getNowMs() {
+			return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+		}
+
+		const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+		function makeStateKey() {
+			// include turn to consider player to move as part of state
+			return JSON.stringify({ player: hands.player, cpu: hands.cpu, turn });
+		}
+
+		const HAND_LABELS = ['左手', '右手'];
+
+		function getActorLabel(actor) {
+			if (actor === 'player') return 'あなた';
+			if (actor === 'cpu') return 'CPU';
+			return '';
+		}
+
+		function formatHandValue(value) {
+			return (value === 0 || value === 5) ? 'X' : value;
+		}
+
+		function formatHandsState(state) {
+			const playerLeft = formatHandValue(state.player[0]);
+			const playerRight = formatHandValue(state.player[1]);
+			const cpuLeft = formatHandValue(state.cpu[0]);
+			const cpuRight = formatHandValue(state.cpu[1]);
+			return `あなた: 左 ${playerLeft} / 右 ${playerRight}　|　CPU: 左 ${cpuLeft} / 右 ${cpuRight}`;
+		}
+
+		function resetBattleLog() {
+			const snapshot = cloneState();
+			battleLog = [{
+				turnNumber: 0,
+				actor: null,
+				action: 'start',
+				summary: 'ゲーム開始',
+				detail: '初期状態',
+				stateBefore: snapshot,
+				stateAfter: snapshot,
+				highlight: []
+			}];
+			reviewIndex = 0;
+			if (battleReviewContainer) {
+				battleReviewContainer.classList.add('hidden');
+			}
+			renderBattleReviewHands(snapshot, []);
+		}
+
+		function pushBattleLog(entry) {
+			const normalized = { ...entry };
+			normalized.highlight = Array.isArray(normalized.highlight) ? normalized.highlight : [];
+			battleLog.push(normalized);
+		}
+
+		function clampReviewIndex(target) {
+			if (!battleLog.length) {
+				reviewIndex = 0;
+				return;
+			}
+			reviewIndex = Math.max(0, Math.min(target, battleLog.length - 1));
+		}
+
+		function renderBattleReviewHands(state, highlight = []) {
+			if (!reviewHandElements.player[0] || !reviewHandElements.cpu[0]) return;
+			const normalizedState = state || { player: [0, 0], cpu: [0, 0] };
+			const normalizedHighlight = Array.isArray(highlight) ? highlight : [];
+			['player', 'cpu'].forEach(owner => {
+				reviewHandElements[owner].forEach((el, index) => {
+					if (!el) return;
+					el.classList.remove('review-highlight-source', 'review-highlight-target', 'review-highlight-result', 'selectable', 'selected', 'targetable');
+					const ownerState = normalizedState[owner] || [];
+					const value = ownerState[index] ?? 0;
+					const isDead = (value === 0 || value === 5);
+					el.classList.toggle('dead', isDead);
+					const fingerCountEl = el.querySelector('.finger-count');
+					if (fingerCountEl) fingerCountEl.textContent = formatHandValue(value);
+				});
+			});
+			normalizedHighlight.forEach(item => {
+				const el = reviewHandElements[item.owner]?.[item.index];
+				if (!el) return;
+				switch (item.role) {
+					case 'source':
+						el.classList.add('review-highlight-source');
+						break;
+					case 'target':
+						el.classList.add('review-highlight-target');
+						break;
+					default:
+						el.classList.add('review-highlight-result');
+				}
+			});
+		}
+
+		async function displayBattleReviewEntry(entry, { animate = true } = {}) {
+			const token = ++reviewAnimationToken;
+			if (!entry) {
+				renderBattleReviewHands({ player: [1, 1], cpu: [1, 1] }, []);
+				return;
+			}
+
+			const actionable = animate && entry.stateBefore && entry.stateAfter && ['attack', 'split', 'split-single'].includes(entry.action);
+			if (!actionable) {
+				renderBattleReviewHands(entry.stateAfter, entry.highlight);
+				return;
+			}
+
+			// Start from the pre-action snapshot
+			renderBattleReviewHands(entry.stateBefore, entry.highlight);
+			await delay(40);
+			if (token !== reviewAnimationToken) return;
+
+			if (entry.action === 'attack') {
+				const sourceInfo = (entry.highlight || []).find(h => h.role === 'source');
+				const targetInfo = (entry.highlight || []).find(h => h.role === 'target');
+				if (sourceInfo && targetInfo) {
+					const sourceEl = reviewHandElements[sourceInfo.owner]?.[sourceInfo.index];
+					const targetEl = reviewHandElements[targetInfo.owner]?.[targetInfo.index];
+					const attackValue = entry.stateBefore?.[sourceInfo.owner]?.[sourceInfo.index];
+					if (sourceEl && targetEl && typeof attackValue === 'number') {
+						await playAttackAnimation(sourceEl, targetEl, {
+							actor: entry.actor || sourceInfo.owner,
+							value: attackValue
+						});
+					} else {
+						await delay(200);
+					}
+				} else {
+					await delay(200);
+				}
+			} else {
+				const owner = entry.actor || (entry.highlight && entry.highlight[0]?.owner) || 'player';
+				const beforeValues = entry.stateBefore?.[owner] || [];
+				const afterValues = entry.stateAfter?.[owner] || [];
+				await playSplitAnimation(owner, beforeValues, afterValues, { handRefs: reviewHandElements[owner] });
+			}
+
+			if (token !== reviewAnimationToken) return;
+			renderBattleReviewHands(entry.stateAfter, entry.highlight);
+		}
+
+		function playAttackAnimation(sourceEl, targetEl, { actor, value }) {
+			if (!attackAnimationLayer || !sourceEl || !targetEl) return Promise.resolve();
+			const sourceRect = sourceEl.getBoundingClientRect();
+			const targetRect = targetEl.getBoundingClientRect();
+			const card = document.createElement('div');
+			card.className = `attack-motion ${actor}`;
+			card.style.width = `${sourceRect.width}px`;
+			card.style.height = `${sourceRect.height}px`;
+			const inner = document.createElement('span');
+			inner.className = 'attack-motion-value';
+			inner.textContent = formatHandValue(value);
+			card.appendChild(inner);
+			attackAnimationLayer.appendChild(card);
+			const startX = sourceRect.left + sourceRect.width / 2;
+			const startY = sourceRect.top + sourceRect.height / 2;
+			const targetX = targetRect.left + targetRect.width / 2;
+			const targetY = targetRect.top + targetRect.height / 2;
+			card.style.left = `${startX}px`;
+			card.style.top = `${startY}px`;
+			card.style.transform = 'translate(-50%, -50%) scale(0.85)';
+			card.style.opacity = '0';
+			const deltaX = targetX - startX;
+			const deltaY = targetY - startY;
+			const sourceTravelX = deltaX * 0.3;
+			const sourceTravelY = deltaY * 0.3;
+			const initialInlineTransform = sourceEl.style.transform;
+
+			let sourceMotionPromise = null;
+			if (typeof sourceEl.animate === 'function') {
+				try {
+					const sourceAnim = sourceEl.animate([
+						{ transform: 'translate(0px, 0px)' },
+						{ transform: `translate(${sourceTravelX}px, ${sourceTravelY}px)` },
+						{ transform: 'translate(0px, 0px)' }
+					], {
+						duration: 560,
+						easing: 'cubic-bezier(0.4, 0, 0.2, 1)'
+					});
+					sourceMotionPromise = sourceAnim.finished.catch(() => {
+						// animation cancelled: ensure transform reset
+						sourceEl.style.transform = '';
+					});
+				} catch (err) {
+					sourceMotionPromise = null;
+				}
+			}
+			if (!sourceMotionPromise) {
+				// fallback using transitions for browsers without Web Animations API
+				sourceMotionPromise = new Promise(resolve => {
+					let done = false;
+					const finish = () => {
+						if (done) return;
+						done = true;
+						resolve();
+					};
+					sourceEl.style.transition = 'transform 0.34s cubic-bezier(0.4, 0, 0.2, 1)';
+					sourceEl.style.transform = `translate(${sourceTravelX}px, ${sourceTravelY}px)`;
+					setTimeout(() => {
+						sourceEl.style.transition = 'transform 0.22s ease-out';
+						sourceEl.style.transform = initialInlineTransform;
+						setTimeout(() => {
+							sourceEl.style.transition = '';
+							finish();
+						}, 220);
+					}, 340);
+					setTimeout(finish, 900);
+				});
+			}
+			// ensure transform cleared after animation completes (both native and fallback)
+			sourceMotionPromise = sourceMotionPromise.finally(() => {
+				sourceEl.style.transition = '';
+				sourceEl.style.transform = initialInlineTransform;
+			});
+
+			if (typeof targetEl.animate === 'function') {
+				try {
+					targetEl.animate([
+						{ transform: 'scale(1)' },
+						{ transform: 'scale(1.1)' },
+						{ transform: 'scale(1)' }
+					], {
+						duration: 320,
+						delay: 340,
+						easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)'
+					});
+				} catch (err) {
+					/* ignore */
+				}
+			}
+
+			const overlayPromise = new Promise(resolve => {
+				let finished = false;
+				const complete = () => {
+					if (finished) return;
+					finished = true;
+					card.remove();
+					resolve();
+				};
+				requestAnimationFrame(() => {
+					card.style.opacity = '1';
+					card.style.left = `${targetX}px`;
+					card.style.top = `${targetY}px`;
+					card.style.transform = 'translate(-50%, -50%) scale(1.12)';
+					setTimeout(() => {
+						card.style.opacity = '0';
+						card.style.transform = 'translate(-50%, -50%) scale(0.65)';
+						setTimeout(complete, 220);
+					}, 340);
+				});
+				setTimeout(complete, 900);
+			});
+
+			return Promise.all([overlayPromise, sourceMotionPromise]).then(() => { });
+		}
+
+		function playSplitAnimation(owner, beforeValues = [], afterValues = [], options = {}) {
+			if (!attackAnimationLayer) return Promise.resolve();
+			const ownerHands = options.handRefs || handElements[owner];
+			if (!ownerHands || ownerHands.length < 2) return Promise.resolve();
+			const leftEl = ownerHands[0];
+			const rightEl = ownerHands[1];
+			if (!leftEl || !rightEl) return Promise.resolve();
+
+			const leftRect = leftEl.getBoundingClientRect();
+			const rightRect = rightEl.getBoundingClientRect();
+			const leftCenterX = leftRect.left + leftRect.width / 2;
+			const leftCenterY = leftRect.top + leftRect.height / 2;
+			const rightCenterX = rightRect.left + rightRect.width / 2;
+			const rightCenterY = rightRect.top + rightRect.height / 2;
+			const centerX = (leftCenterX + rightCenterX) / 2;
+			const centerY = (leftCenterY + rightCenterY) / 2;
+
+			const coerceValue = (arr, idx, fallback) => {
+				if (!Array.isArray(arr)) return fallback;
+				const val = arr[idx];
+				return typeof val === 'number' ? val : fallback;
+			};
+			const beforeLeft = coerceValue(beforeValues, 0, hands[owner]?.[0] ?? 0);
+			const beforeRight = coerceValue(beforeValues, 1, hands[owner]?.[1] ?? 0);
+			const afterLeft = coerceValue(afterValues, 0, beforeLeft);
+			const afterRight = coerceValue(afterValues, 1, beforeRight);
+
+			const leftTextEl = leftEl.querySelector('.finger-count');
+			const rightTextEl = rightEl.querySelector('.finger-count');
+			const originalLeftOpacity = leftEl.style.opacity;
+			const originalRightOpacity = rightEl.style.opacity;
+			leftEl.style.opacity = '0';
+			rightEl.style.opacity = '0';
+
+			const durations = {
+				approach: 260,
+				hold: 160,
+				retreat: 280,
+				fade: 180
+			};
+
+			const markHandState = () => {
+				const isDead = (v) => v === 0 || v === 5;
+				if (leftTextEl) leftTextEl.textContent = formatHandValue(afterLeft);
+				if (rightTextEl) rightTextEl.textContent = formatHandValue(afterRight);
+				leftEl.classList.toggle('dead', isDead(afterLeft));
+				rightEl.classList.toggle('dead', isDead(afterRight));
+			};
+
+			const createCard = (rect, initialValue) => {
+				const card = document.createElement('div');
+				card.className = `attack-motion ${owner}`;
+				card.style.width = `${rect.width}px`;
+				card.style.height = `${rect.height}px`;
+				card.style.left = `${rect.left + rect.width / 2}px`;
+				card.style.top = `${rect.top + rect.height / 2}px`;
+				card.style.transform = 'translate(-50%, -50%) scale(0.85)';
+				card.style.opacity = '0';
+				const inner = document.createElement('span');
+				inner.className = 'attack-motion-value';
+				inner.textContent = formatHandValue(initialValue);
+				card.appendChild(inner);
+				attackAnimationLayer.appendChild(card);
+				return card;
+			};
+
+			const leftCard = createCard(leftRect, beforeLeft);
+			const rightCard = createCard(rightRect, beforeRight);
+
+			const animateCard = (card, startX, startY, finalX, finalY, nextValue) => {
+				return new Promise(resolve => {
+					let finished = false;
+					const complete = () => {
+						if (finished) return;
+						finished = true;
+						card.remove();
+						resolve();
+					};
+					card.style.left = `${startX}px`;
+					card.style.top = `${startY}px`;
+					requestAnimationFrame(() => {
+						card.style.opacity = '1';
+						card.style.left = `${centerX}px`;
+						card.style.top = `${centerY}px`;
+						card.style.transform = 'translate(-50%, -50%) scale(1.08)';
+						setTimeout(() => {
+							card.querySelector('.attack-motion-value').textContent = formatHandValue(nextValue);
+							card.style.left = `${finalX}px`;
+							card.style.top = `${finalY}px`;
+							card.style.transform = 'translate(-50%, -50%) scale(0.95)';
+							setTimeout(() => {
+								card.style.opacity = '0';
+								card.style.transform = 'translate(-50%, -50%) scale(0.8)';
+								setTimeout(complete, durations.fade);
+							}, durations.retreat);
+						}, durations.approach + durations.hold);
+					});
+					setTimeout(complete, durations.approach + durations.hold + durations.retreat + durations.fade + 160);
+				});
+			};
+
+			const leftPromise = animateCard(leftCard, leftCenterX, leftCenterY, leftCenterX, leftCenterY, afterLeft);
+			const rightPromise = animateCard(rightCard, rightCenterX, rightCenterY, rightCenterX, rightCenterY, afterRight);
+
+			const centerCard = document.createElement('div');
+			centerCard.className = `attack-motion ${owner} split-impact`;
+			centerCard.style.width = `${Math.max(leftRect.width, rightRect.width)}px`;
+			centerCard.style.height = `${Math.max(leftRect.height, rightRect.height)}px`;
+			centerCard.style.left = `${centerX}px`;
+			centerCard.style.top = `${centerY}px`;
+			centerCard.style.transform = 'translate(-50%, -50%) scale(0.4)';
+			centerCard.style.opacity = '0';
+			const centerInner = document.createElement('span');
+			centerInner.className = 'attack-motion-value';
+			centerInner.textContent = formatHandValue(afterLeft + afterRight);
+			centerCard.appendChild(centerInner);
+			attackAnimationLayer.appendChild(centerCard);
+
+			const centerPromise = new Promise(resolve => {
+				let resolved = false;
+				const finish = () => {
+					if (resolved) return;
+					resolved = true;
+					centerCard.remove();
+					resolve();
+				};
+				requestAnimationFrame(() => {
+					centerCard.style.opacity = '1';
+					centerCard.style.transform = 'translate(-50%, -50%) scale(1.05)';
+					setTimeout(() => {
+						centerCard.style.opacity = '0';
+						centerCard.style.transform = 'translate(-50%, -50%) scale(0.6)';
+						setTimeout(finish, durations.fade);
+					}, durations.approach + durations.hold);
+				});
+				setTimeout(finish, durations.approach + durations.hold + durations.fade + 300);
+			});
+
+			const restoreDelay = durations.approach + durations.hold + Math.floor(durations.retreat * 0.6);
+			const restorePromise = new Promise(resolve => {
+				setTimeout(() => {
+					markHandState();
+					leftEl.style.transition = 'opacity 0.24s ease-out';
+					rightEl.style.transition = 'opacity 0.24s ease-out';
+					leftEl.style.opacity = originalLeftOpacity || '1';
+					rightEl.style.opacity = originalRightOpacity || '1';
+					setTimeout(() => {
+						leftEl.style.transition = '';
+						rightEl.style.transition = '';
+						if (originalLeftOpacity === '') leftEl.style.opacity = '';
+						if (originalRightOpacity === '') rightEl.style.opacity = '';
+						resolve();
+					}, 260);
+				}, restoreDelay);
+			});
+
+			return Promise.all([leftPromise, rightPromise, centerPromise, restorePromise])
+				.catch(() => { })
+				.finally(() => {
+					if (leftCard.isConnected) leftCard.remove();
+					if (rightCard.isConnected) rightCard.remove();
+					if (centerCard.isConnected) centerCard.remove();
+					leftEl.style.transition = '';
+					rightEl.style.transition = '';
+					if (originalLeftOpacity === '') {
+						leftEl.style.opacity = '';
+					} else {
+						leftEl.style.opacity = originalLeftOpacity;
+					}
+					if (originalRightOpacity === '') {
+						rightEl.style.opacity = '';
+					} else {
+						rightEl.style.opacity = originalRightOpacity;
+					}
+				});
+		}
+
+		function updateBattleReviewUI() {
+			if (!battleReviewContainer) return;
+			if (!battleLog.length) {
+				battleReviewSummary.textContent = '';
+				battleReviewDetail.textContent = '';
+				battleReviewDetail.classList.add('hidden');
+				battleReviewState.textContent = '';
+				battleReviewStep.textContent = '';
+				battleReviewPrev.disabled = true;
+				battleReviewNext.disabled = true;
+				if (battleReviewFirst) battleReviewFirst.disabled = true;
+				if (battleReviewLast) battleReviewLast.disabled = true;
+				renderBattleReviewHands({ player: [1, 1], cpu: [1, 1] }, []);
+				return;
+			}
+			const entry = battleLog[reviewIndex];
+			battleReviewSummary.textContent = entry.summary;
+			if (entry.detail) {
+				battleReviewDetail.textContent = entry.detail;
+				battleReviewDetail.classList.remove('hidden');
+			} else {
+				battleReviewDetail.textContent = '';
+				battleReviewDetail.classList.add('hidden');
+			}
+			battleReviewState.textContent = formatHandsState(entry.stateAfter);
+			battleReviewStep.textContent = `${reviewIndex + 1} / ${battleLog.length}`;
+			battleReviewPrev.disabled = reviewIndex === 0;
+			battleReviewNext.disabled = reviewIndex === battleLog.length - 1;
+			if (battleReviewFirst) battleReviewFirst.disabled = reviewIndex === 0;
+			if (battleReviewLast) battleReviewLast.disabled = reviewIndex === battleLog.length - 1;
+			displayBattleReviewEntry(entry);
+		}
+
+		function revealBattleReview() {
+			if (!battleReviewContainer) return;
+			clampReviewIndex(battleLog.length - 1);
+			updateBattleReviewUI();
+			battleReviewContainer.classList.remove('hidden');
+		}
+
+		// --- Timer ---
+		let timerInterval = null;
+		let timerSeconds = 0;
+
+		function formatTime(sec) {
+			const m = Math.floor(sec / 60).toString().padStart(2, '0');
+			const s = (sec % 60).toString().padStart(2, '0');
+			return `${m}:${s}`;
+		}
+
+		function startTimer() {
+			stopTimer();
+			// start from current timerSeconds
+			timerInterval = setInterval(() => {
+				timerSeconds++;
+				const el = document.getElementById('game-timer');
+				if (el) el.textContent = `時間: ${formatTime(timerSeconds)}`;
+			}, 1000);
+		}
+
+		function stopTimer() {
+			if (timerInterval) {
+				clearInterval(timerInterval);
+				timerInterval = null;
+			}
+		}
+
+		function resetTimer() {
+			stopTimer();
+			timerSeconds = 0;
+			const el = document.getElementById('game-timer');
+			if (el) el.textContent = `時間: ${formatTime(timerSeconds)}`;
+		}
+
+		cpuModeToggle?.addEventListener('click', () => {
+			const currentIndex = CPU_MODE_SEQUENCE.indexOf(CPU_MODE);
+			const nextIndex = (currentIndex + 1) % CPU_MODE_SEQUENCE.length;
+			CPU_MODE = CPU_MODE_SEQUENCE[nextIndex];
+			cpuModeToggle.textContent = `CPU: ${getCpuModeLabel(CPU_MODE)}`;
+			syncCpuModeButtons();
+			updateUI();
+		});
+
+		// --- Game Logic ---
+
+		// Helper to sync CPU mode buttons' visuals on start and game-over screens
+		function syncCpuModeButtons() {
+			const updateGroup = (selector) => {
+				document.querySelectorAll(selector).forEach(b => {
+					b.classList.remove('bg-blue-600', 'bg-gray-700');
+					if (b.dataset.mode === CPU_MODE) {
+						b.classList.add('bg-blue-600');
+					} else {
+						b.classList.add('bg-gray-700');
+					}
+				});
+			};
+
+			updateGroup('.cpu-mode-btn-start');
+			updateGroup('.cpu-mode-btn-game-over');
+
+			if (cpuModeDisplay) cpuModeDisplay.textContent = getCpuModeLabel(CPU_MODE);
+		}
+
+		function updateUI() {
+			// Update CPU mode display
+			if (cpuModeDisplay) cpuModeDisplay.textContent = getCpuModeLabel(CPU_MODE);
+
+			// Update finger counts and dead status
+			['player', 'cpu'].forEach(owner => {
+				hands[owner].forEach((count, index) => {
+					const handEl = handElements[owner][index];
+					const isDead = (count === 5 || count === 0);
+					handEl.querySelector('.finger-count').textContent = isDead ? 'X' : count;
+					handEl.classList.toggle('dead', isDead);
+				});
+			});
+
+			// Update highlights
+			document.querySelectorAll('.hand-container').forEach(el => {
+				el.classList.remove('selectable', 'selected', 'targetable');
+				if (gameState === 'gameover' || el.classList.contains('dead') || hands[el.dataset.owner][el.dataset.index] === 0) return;
+
+				const owner = el.dataset.owner;
+				const index = parseInt(el.dataset.index);
+
+				if (turn === 'player' && owner === 'player') {
+					el.classList.add('selectable');
+				}
+				if (selectedHand && selectedHand.owner === owner && selectedHand.index === index) {
+					el.classList.add('selected');
+				}
+				if (selectedHand && turn === 'player' && owner === 'cpu') {
+					el.classList.add('targetable');
+				}
+			});
+
+			// Update turn indicator
+			if (turn === 'player' && gameState === 'playing') {
+				if (selectedHand) {
+					turnIndicator.textContent = "相手の手をタップ！";
+				} else {
+					turnIndicator.textContent = "自分の手をえらんで";
+				}
+				// Ensure spinner is hidden during player turn
+				showCpuThinking(false);
+			} else if (turn === 'cpu') {
+				turnIndicator.textContent = "CPUのターン...";
+			}
+
+			// Update CPU thinking indicator - only show when CPU is actually thinking
+			showCpuThinking(gameState === 'cpu_thinking');
+
+			// Update split buttons
+			// Update turn counter display
+			const turnCounterEl = document.getElementById('turn-counter');
+			if (turnCounterEl) turnCounterEl.textContent = `経過ターン: ${turnCount}`;
+			playerActions.innerHTML = '';
+			// Show a single split button based on the sum of active (not 0/5) player hands
+			const activeIndices = [0, 1].filter(i => hands.player[i] !== 5 && hands.player[i] !== 0);
+			const playerSumActive = activeIndices.reduce((s, i) => s + hands.player[i], 0);
+			if (playerSumActive >= 2 && gameState === 'playing' && turn === 'player') {
+				const splitButton = document.createElement('button');
+				splitButton.textContent = `分割: 合計 ${playerSumActive}`;
+				splitButton.className = 'split-button bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg';
+				splitButton.onclick = () => openSplitModalSum();
+				playerActions.appendChild(splitButton);
+			}
+			updateHintButton();
+		}
+
+		function clearHintHighlights() {
+			['player', 'cpu'].forEach(owner => {
+				handElements[owner].forEach(el => {
+					if (!el) return;
+					el.classList.remove('hint-source', 'hint-target');
+				});
+			});
+		}
+
+		function setHintMessage(message) {
+			if (!hintMessageEl) return;
+			hintMessageEl.textContent = message || '';
+		}
+
+		function invalidateHintCache() {
+			hintComputationId++;
+			hintCacheKey = null;
+			hintCacheResult = null;
+			hintComputing = false;
+		}
+
+		function updateHintButton() {
+			if (!hintButton) return;
+			if (gameState !== 'playing' || turn !== 'player') {
+				hintButton.disabled = true;
+				hintButton.textContent = 'ヒント（あなたのターンで利用可）';
+				return;
+			}
+			if (hintComputing) {
+				hintButton.disabled = true;
+				hintButton.textContent = 'ヒント計算中...';
+				return;
+			}
+			hintButton.disabled = false;
+			if (hintRequested && hintCacheResult) {
+				hintButton.textContent = 'ヒントを更新';
+			} else {
+				hintButton.textContent = 'ヒントを見る';
+			}
+		}
+
+		function clearHintUI() {
+			clearHintHighlights();
+			setHintMessage('');
+			updateHintButton();
+		}
+
+		function describeHintMove(move) {
+			if (!move) return '行動候補が見つかりません。';
+			if (move.type === 'attack') {
+				const srcLabel = HAND_LABELS[move.src] || `手${move.src + 1}`;
+				const dstLabel = HAND_LABELS[move.dst] || `手${move.dst + 1}`;
+				const sourceValueRaw = hands.player?.[move.src];
+				const targetValueRaw = hands.cpu?.[move.dst];
+				const srcValue = typeof sourceValueRaw === 'number' ? formatHandValue(sourceValueRaw) : '?';
+				const dstValue = typeof targetValueRaw === 'number' ? formatHandValue(targetValueRaw) : '?';
+				let resultValue = '?';
+				if (typeof sourceValueRaw === 'number' && typeof targetValueRaw === 'number') {
+					resultValue = formatHandValue(wrapTo1to5(sourceValueRaw + targetValueRaw));
+				}
+				return `あなたの${srcLabel} (${srcValue}) → CPUの${dstLabel} (${dstValue}) = ${resultValue}`;
+			}
+			if (move.type === 'split') {
+				return `あなたの手を ${move.left} と ${move.right} に分ける`;
+			}
+			return '行動候補が見つかりません。';
+		}
+
+		function buildHintMessage(result) {
+			if (!result || !result.firstMove) {
+				return '有効なヒントが見つかりません。';
+			}
+			const moveText = describeHintMove(result.firstMove);
+			const steps = Number.isFinite(result.steps) ? Math.max(1, Math.ceil(result.steps / 2)) : null;
+			switch (result.outcome) {
+				case 'win':
+					return steps ? `勝ち筋 (${steps}手以内): ${moveText}` : `勝ち筋: ${moveText}`;
+				case 'draw':
+					return `安全策: ${moveText}（引き分け以上を確保）`;
+				case 'loop':
+					return `ループ維持: ${moveText}（同じ局面で粘ります）`;
+				case 'lose':
+					return steps ? `苦しい展開: ${moveText}（約${steps}手で敗北見込み、遅延推奨）` : `苦しい展開: ${moveText}（敗北を先延ばし）`;
+				default:
+					return moveText;
+			}
+		}
+
+		function applyHintResult(result) {
+			if (turn !== 'player' || gameState !== 'playing') {
+				clearHintUI();
+				return;
+			}
+			if (!result || !result.firstMove) {
+				clearHintHighlights();
+				setHintMessage('有効なヒントが見つかりません。');
+				updateHintButton();
+				return;
+			}
+			clearHintHighlights();
+			const move = result.firstMove;
+			if (move.type === 'attack') {
+				handElements.player[move.src]?.classList.add('hint-source');
+				handElements.cpu[move.dst]?.classList.add('hint-target');
+			} else if (move.type === 'split') {
+				handElements.player[0]?.classList.add('hint-source');
+				handElements.player[1]?.classList.add('hint-source');
+			}
+			setHintMessage(buildHintMessage(result));
+			updateHintButton();
+		}
+
+		function refreshHint({ force = false } = {}) {
+			const shouldCompute = hintRequested && gameState === 'playing' && turn === 'player';
+			if (!shouldCompute) {
+				clearHintUI();
+				return;
+			}
+			const stateKey = makeStateKey();
+			if (!force && hintCacheKey === stateKey && hintCacheResult) {
+				applyHintResult(hintCacheResult);
+				return;
+			}
+			hintComputing = true;
+			updateHintButton();
+			clearHintHighlights();
+			setHintMessage('ヒント計算中...');
+			const computationId = ++hintComputationId;
+			const snapshot = cloneState();
+			setTimeout(() => {
+				let hint = null;
+				try {
+					hint = computeHintForState(snapshot);
+				} catch (err) {
+					console.error('Hint computation failed', err);
+					if (hintComputationId === computationId) {
+						hintComputing = false;
+						setHintMessage('ヒント計算に失敗しました');
+						updateHintButton();
+					}
+					return;
+				}
+				if (hintComputationId !== computationId) return;
+				hintComputing = false;
+				hintCacheKey = stateKey;
+				hintCacheResult = hint;
+				updateHintButton();
+				applyHintResult(hint);
+			}, 0);
+		}
+
+		async function handleHandClick(e) {
+			if (gameState !== 'playing' || isResolvingAction) return;
+			const target = e.target.closest('.hand-container');
+			if (!target || target.classList.contains('dead') || hands[target.dataset.owner][target.dataset.index] === 0) return;
+
+			const owner = target.dataset.owner;
+			const index = parseInt(target.dataset.index);
+
+			if (turn === 'player') {
+				// Ensure spinner is hidden during player interactions
+				showCpuThinking(false);
+
+				if (owner === 'player') {
+					// toggle selection when clicking the same hand
+					if (selectedHand && selectedHand.owner === owner && selectedHand.index === index) {
+						selectedHand = null;
+					} else {
+						selectedHand = { owner, index };
+					}
+					// reflect immediately
+					updateUI();
+				} else if (owner === 'cpu' && selectedHand) {
+					await performAttack(selectedHand, { owner, index });
+				}
+			}
+		}
+
+		async function performAttack(source, target) {
+			if (isResolvingAction) return;
+			isResolvingAction = true;
+			try {
+				const beforeState = cloneState();
+				const sourceValue = hands[source.owner][source.index];
+				const targetValue = hands[target.owner][target.index];
+				const sourceEl = handElements[source.owner][source.index];
+				const targetEl = handElements[target.owner][target.index];
+				const animationPromise = playAttackAnimation(sourceEl, targetEl, {
+					actor: source.owner,
+					value: sourceValue
+				});
+
+				selectedHand = null;
+				updateUI();
+
+				// Sum and normalize to 1..5 using modulo-like wrapping.
+				// Example: 3 + 4 = 7 -> ((7 - 1) % 5) + 1 = 2
+				const newValue = ((sourceValue + targetValue - 1) % 5) + 1;
+
+				await animationPromise;
+
+				hands[target.owner][target.index] = newValue;
+
+				if (targetEl) {
+					const flash = document.createElement('div');
+					flash.className = 'attack-animation';
+					targetEl.appendChild(flash);
+					setTimeout(() => flash.remove(), 200);
+				}
+
+				const afterState = cloneState();
+				const turnNumber = turnCount + 1;
+				const actorLabel = getActorLabel(source.owner);
+				const targetLabel = getActorLabel(target.owner);
+				const sourceHandLabel = `${actorLabel}の${HAND_LABELS[source.index]}`;
+				const targetHandLabel = `${targetLabel}の${HAND_LABELS[target.index]}`;
+				const summary = `ターン${turnNumber}: ${actorLabel}の攻撃`;
+				const detail = `${sourceHandLabel}(${formatHandValue(sourceValue)}) → ${targetHandLabel}(${formatHandValue(targetValue)}) = ${formatHandValue(newValue)}`;
+				pushBattleLog({
+					turnNumber,
+					actor: source.owner,
+					action: 'attack',
+					summary,
+					detail,
+					stateBefore: beforeState,
+					stateAfter: afterState,
+					highlight: [
+						{ owner: source.owner, index: source.index, role: 'source' },
+						{ owner: target.owner, index: target.index, role: 'target' }
+					]
+				});
+
+				if (checkWin()) {
+					endGame();
+				} else {
+					switchTurn();
+				}
+				updateUI();
+			} finally {
+				isResolvingAction = false;
+			}
+		}
+
+		async function resolveSplit({ owner, leftValue, rightValue, beforeState, summary, detail, highlight, actor }) {
+			if (isResolvingAction) return;
+			isResolvingAction = true;
+			try {
+				const actorKey = owner === 'player' ? 'player' : 'cpu';
+				const stateBefore = beforeState ? { player: [...beforeState.player], cpu: [...beforeState.cpu] } : cloneState();
+				const priorValues = stateBefore[actorKey] || [0, 0];
+				if (owner === 'player') {
+					selectedHand = null;
+					showCpuThinking(false);
+					updateUI();
+				}
+				await playSplitAnimation(owner, priorValues, [leftValue, rightValue]);
+
+				hands[actorKey] = [leftValue, rightValue];
+				const afterState = cloneState();
+				const turnNumber = turnCount + 1;
+				const defaultSummary = `ターン${turnNumber}: ${getActorLabel(owner)}の分割`;
+				const defaultDetail = `${getActorLabel(owner)}が手を分配しました。`;
+				pushBattleLog({
+					turnNumber,
+					actor: actor ?? owner,
+					action: 'split',
+					summary: summary || defaultSummary,
+					detail: detail || defaultDetail,
+					stateBefore: stateBefore,
+					stateAfter: afterState,
+					highlight: highlight || [
+						{ owner, index: 0, role: 'result' },
+						{ owner, index: 1, role: 'result' }
+					]
+				});
+
+				if (checkWin()) {
+					endGame();
+				} else {
+					switchTurn();
+				}
+				updateUI();
+			} finally {
+				isResolvingAction = false;
+			}
+		}
+
+		async function handleSplit(index) {
+			if (turn !== 'player' || gameState !== 'playing' || isResolvingAction) return;
+			const splitValue = hands.player[index] / 2;
+			const beforeState = cloneState();
+			const turnNumber = turnCount + 1;
+			const previousLeft = formatHandValue(beforeState.player[0]);
+			const previousRight = formatHandValue(beforeState.player[1]);
+			const summary = `ターン${turnNumber}: あなたの分割`;
+			const detail = `左 ${previousLeft} / 右 ${previousRight} → 左 ${formatHandValue(splitValue)} / 右 ${formatHandValue(splitValue)}　(合計 ${splitValue * 2})`;
+			await resolveSplit({
+				owner: 'player',
+				leftValue: splitValue,
+				rightValue: splitValue,
+				beforeState,
+				summary,
+				detail,
+				highlight: [
+					{ owner: 'player', index: 0, role: 'result' },
+					{ owner: 'player', index: 1, role: 'result' }
+				]
+			});
+		}
+
+		function switchTurn() {
+			turnCount++; // Increment turn counter
+			turn = turn === 'player' ? 'cpu' : 'player';
+			hintRequested = false;
+			invalidateHintCache();
+			clearHintUI();
+			if (turn === 'cpu') {
+				gameState = 'cpu_thinking';
+				// allow UI to update before heavy CPU work
+				showCpuThinking(true);
+				cpuThinkingStartedAt = getNowMs();
+				setTimeout(() => {
+					// small delay to let spinner render
+					cpuTurn();
+				}, 80);
+			} else {
+				gameState = 'playing';
+				// Hide spinner when switching to player turn
+				showCpuThinking(false);
+			}
+			// record state to history and cap length
+			stateHistory.push(makeStateKey());
+			if (stateHistory.length > 50) stateHistory.shift();
+		}
+
+		function checkWin() {
+			const isDead = (v) => v === 5 || v === 0;
+			const playerLost = hands.player.every(isDead);
+			const cpuLost = hands.cpu.every(isDead);
+			if (playerLost || cpuLost) {
+				gameState = 'gameover';
+				if (playerLost) {
+					lastResult = 'playerLost';
+					gameOverText.textContent = "あなたの負け...";
+				} else {
+					lastResult = 'playerWon';
+					gameOverText.textContent = "あなたの勝利！";
+				}
+				return true;
+			}
+			return false;
+		}
+
+		function endGame() {
+			hintRequested = false;
+			invalidateHintCache();
+			clearHintUI();
+			const detailEl = document.getElementById('game-over-detail');
+			if (detailEl) {
+				if (lastResult === 'playerWon') {
+					detailEl.textContent = `あなたは ${turnCount} 手で勝利しました。`;
+				} else if (lastResult === 'playerLost') {
+					detailEl.textContent = `あなたは ${turnCount} 手持ち堪えました。`;
+				} else {
+					detailEl.textContent = `経過ターン: ${turnCount}`;
+				}
+			}
+			const finalSnapshot = cloneState();
+			const lastTurnNumber = battleLog.length ? battleLog[battleLog.length - 1].turnNumber : turnCount;
+			let finalSummary = 'ゲーム終了';
+			let finalDetail = '';
+			if (lastResult === 'playerWon') {
+				finalSummary = 'ゲーム終了: あなたの勝利';
+				finalDetail = 'あなたが勝利を収めました。';
+			} else if (lastResult === 'playerLost') {
+				finalSummary = 'ゲーム終了: CPUの勝利';
+				finalDetail = 'CPUが勝利を収めました。';
+			} else {
+				finalSummary = 'ゲーム終了';
+				finalDetail = '引き分けまたは未確定で終了しました。';
+			}
+			pushBattleLog({
+				turnNumber: lastTurnNumber,
+				actor: null,
+				action: 'end',
+				summary: finalSummary,
+				detail: finalDetail,
+				stateBefore: finalSnapshot,
+				stateAfter: finalSnapshot
+			});
+			gameOverScreen.classList.remove('hidden');
+			// stop timer when game ends
+			stopTimer();
+			// ensure thinking indicator hidden
+			showCpuThinking(false);
+			revealBattleReview();
+		}
+
+		function showCpuThinking(show) {
+			if (!cpuThinkingIndicator) return;
+
+			// Never show spinner during player turn or when game is over
+			if (turn === 'player' || gameState === 'gameover') {
+				show = false;
+			}
+
+			if (show) {
+				cpuThinkingIndicator.classList.remove('hidden');
+			} else {
+				cpuThinkingIndicator.classList.add('hidden');
+			}
+		}
+
+		// --- CPU AI ---
+		// ---- CPU Decision Helpers ----
+		const wrapTo1to5 = (v) => ((v - 1) % 5) + 1; // assumes v>=1
+		function enumerateAttacks(owner, opp) {
+			const moves = [];
+			for (let i of [0, 1]) {
+				if (hands[owner][i] === 5 || hands[owner][i] === 0) continue;
+				for (let j of [0, 1]) {
+					if (hands[opp][j] === 5 || hands[opp][j] === 0) continue;
+					const s = hands[owner][i];
+					const t = hands[opp][j];
+					const newT = wrapTo1to5(s + t);
+					moves.push({ type: 'attack', src: i, dst: j, newT });
+				}
+			}
+			return moves;
+		}
+
+		function sumActive(owner) {
+			return [0, 1]
+				.filter(i => hands[owner][i] !== 5 && hands[owner][i] !== 0)
+				.reduce((a, i) => a + hands[owner][i], 0);
+		}
+
+		function enumerateSplitsForOwner(owner) {
+			const sum = sumActive(owner);
+			if (sum < 2) return [];
+			const patterns = new Set();
+			const isDead = v => v === 0 || v === 5;
+
+			// Generate all possible splits
+			for (let i = 0; i <= sum; i++) {
+				const j = sum - i;
+				if (i <= 5 && j <= 5) {
+					patterns.add(`${i},${j}`);
+				}
+			}
+
+			// Normalize 5 -> 0 for comparison so dead hands are treated uniformly
+			const curL = hands[owner][0] === 5 ? 0 : hands[owner][0];
+			const curR = hands[owner][1] === 5 ? 0 : hands[owner][1];
+			const currentDistribution = `${curL},${curR}`;
+			const swappedDistribution = `${curR},${curL}`;
+
+			return Array.from(patterns)
+				// Don't suggest the current distribution or just a swap
+				// Filter out distributions that are numerically identical to current (including swapped)
+				.filter(p => p !== currentDistribution && p !== swappedDistribution)
+				.map(s => {
+					const [l, r] = s.split(',').map(Number);
+					// Don't suggest a move that leads to immediate loss
+					if (isDead(l) && isDead(r)) {
+						return null;
+					}
+					// Also disallow splits that create a 0 or 5 on either side
+					if (l === 0 || r === 0 || l === 5 || r === 5) return null;
+					return { type: 'split', left: l, right: r };
+				})
+				.filter(move => move !== null); // Filter out nulls
+		}
+
+		function isTerminalEval() {
+			const dead = (h) => h === 0 || h === 5;
+			const playerLost = hands.player.every(dead);
+			const cpuLost = hands.cpu.every(dead);
+			if (cpuLost) return -1e6; // worst
+			if (playerLost) return 1e6; // best
+			return null;
+		}
+
+		function heuristicEval() {
+			const isDead = (v) => v === 5 || v === 0;
+			const enemyAlive = hands.player.filter(h => !isDead(h));
+			const selfAlive = hands.cpu.filter(h => !isDead(h));
+
+			// Terminal states are handled by isTerminalEval, but as a fallback:
+			if (enemyAlive.length === 0) return 1e6; // CPU wins
+			if (selfAlive.length === 0) return -1e6; // CPU loses
+
+			let score = 0;
+
+			// Prioritize reducing the number of opponent's hands. This is a huge advantage.
+			score += (2 - enemyAlive.length) * 1000;
+
+			// Penalize losing own hands.
+			score -= (2 - selfAlive.length) * 1000;
+
+			// Evaluate hand positions for finer-grained decisions.
+			let enemyHandScore = 0;
+			enemyAlive.forEach(hand => {
+				// Pushing enemy hands towards 5 is good. A hand of 4 is a prime target.
+				if (hand === 4) {
+					enemyHandScore += 150;
+				} else {
+					enemyHandScore += hand * 10;
+				}
+			});
+			score += enemyHandScore;
+
+			let selfHandScore = 0;
+			selfAlive.forEach(hand => {
+				// Having own hands close to 5 is risky. A hand of 4 is very dangerous.
+				if (hand === 4) {
+					selfHandScore += 120;
+				} else {
+					selfHandScore += hand * 5;
+				}
+			});
+			score -= selfHandScore;
+
+			// Consider the total sum of own hands. A lower sum offers more flexibility
+			// and less risk of being forced into a bad split.
+			const selfSum = selfAlive.reduce((a, b) => a + b, 0);
+			if (selfSum > 5) {
+				score -= (selfSum - 5) * 20;
+			}
+
+			return score;
+		}
+
+		function cloneState() {
+			return { player: [...hands.player], cpu: [...hands.cpu] };
+		}
+
+		function restoreState(state) {
+			hands.player = [...state.player];
+			hands.cpu = [...state.cpu];
+		}
+
+		function applyMove(owner, move) {
+			if (move.type === 'attack') {
+				const opp = owner === 'cpu' ? 'player' : 'cpu';
+				const s = hands[owner][move.src];
+				const t = hands[opp][move.dst];
+				hands[opp][move.dst] = wrapTo1to5(s + t);
+			} else if (move.type === 'split') {
+				hands[owner] = [move.left, move.right];
+			}
+		}
+
+		function enumerateMoves(owner) {
+			const opp = owner === 'cpu' ? 'player' : 'cpu';
+			const attacks = enumerateAttacks(owner, opp);
+			const splits = enumerateSplitsForOwner(owner);
+			return { attacks, splits };
+		}
+
+		function cloneStateFrom(state) {
+			return {
+				player: [state.player[0], state.player[1]],
+				cpu: [state.cpu[0], state.cpu[1]]
+			};
+		}
+
+		function hintStateKeyFrom(state, turn) {
+			return JSON.stringify({ player: state.player, cpu: state.cpu, turn });
+		}
+
+		function hintIsDead(value) {
+			return value === 0 || value === 5;
+		}
+
+		function hintEnumerateAttacks(state, owner) {
+			const opponent = owner === 'player' ? 'cpu' : 'player';
+			const moves = [];
+			for (const i of [0, 1]) {
+				const sourceValue = state[owner][i];
+				if (hintIsDead(sourceValue)) continue;
+				for (const j of [0, 1]) {
+					const targetValue = state[opponent][j];
+					if (hintIsDead(targetValue)) continue;
+					moves.push({ type: 'attack', src: i, dst: j });
+				}
+			}
+			return moves;
+		}
+
+		function hintSumActive(state, owner) {
+			return [0, 1]
+				.filter(i => !hintIsDead(state[owner][i]))
+				.reduce((sum, i) => sum + state[owner][i], 0);
+		}
+
+		function hintEnumerateSplits(state, owner) {
+			const sum = hintSumActive(state, owner);
+			if (sum < 2) return [];
+			const patterns = new Set();
+			for (let i = 0; i <= sum; i++) {
+				const j = sum - i;
+				if (i <= 5 && j <= 5) {
+					patterns.add(`${i},${j}`);
+				}
+			}
+			const normalize = (value) => (value === 5 ? 0 : value);
+			const currentLeft = normalize(state[owner][0]);
+			const currentRight = normalize(state[owner][1]);
+			const current = `${currentLeft},${currentRight}`;
+			const swapped = `${currentRight},${currentLeft}`;
+			return Array.from(patterns)
+				.filter(pattern => pattern !== current && pattern !== swapped)
+				.map(pattern => {
+					const [left, right] = pattern.split(',').map(Number);
+					if (left === 0 || right === 0 || left === 5 || right === 5) return null;
+					return { type: 'split', left, right };
+				})
+				.filter(Boolean);
+		}
+
+		function hintEnumerateMoves(state, owner) {
+			const attacks = hintEnumerateAttacks(state, owner);
+			const splits = hintEnumerateSplits(state, owner);
+			return [...attacks, ...splits];
+		}
+
+		function hintApplyMove(state, owner, move) {
+			const next = cloneStateFrom(state);
+			if (move.type === 'attack') {
+				const opponent = owner === 'player' ? 'cpu' : 'player';
+				const sourceValue = next[owner][move.src];
+				const targetValue = next[opponent][move.dst];
+				next[opponent][move.dst] = wrapTo1to5(sourceValue + targetValue);
+			} else if (move.type === 'split') {
+				next[owner] = [move.left, move.right];
+			}
+			return next;
+		}
+
+		function heuristicEvalForState(state) {
+			const playerAlive = state.player.filter(value => !hintIsDead(value));
+			const cpuAlive = state.cpu.filter(value => !hintIsDead(value));
+			if (cpuAlive.length === 0) return 1e6;
+			if (playerAlive.length === 0) return -1e6;
+			let score = 0;
+			score += (2 - cpuAlive.length) * 1000;
+			score -= (2 - playerAlive.length) * 1000;
+			let cpuHandScore = 0;
+			cpuAlive.forEach(hand => {
+				cpuHandScore += hand === 4 ? 150 : hand * 10;
+			});
+			score -= cpuHandScore;
+			let playerHandScore = 0;
+			playerAlive.forEach(hand => {
+				playerHandScore += hand === 4 ? 120 : hand * 5;
+			});
+			score += playerHandScore;
+			const playerSum = playerAlive.reduce((a, b) => a + b, 0);
+			if (playerSum > 5) {
+				score -= (playerSum - 5) * 20;
+			}
+			return score;
+		}
+
+		function hintResultValue(result) {
+			if (!result) return -Infinity;
+			const base = {
+				win: 100000,
+				draw: 0,
+				loop: -50,
+				lose: -100000
+			}[result.outcome] ?? 0;
+			const steps = Number.isFinite(result.steps) ? result.steps : 0;
+			let value = base;
+			if (result.outcome === 'win') {
+				value -= steps;
+			} else if (result.outcome === 'lose') {
+				value += steps;
+			} else {
+				value += (result.score ?? 0) / 1000;
+			}
+			return value;
+		}
+
+		function hintSearch(state, depth, turn, pathSet, memo, alpha, beta) {
+			const memoKey = `${hintStateKeyFrom(state, turn)}|${depth}`;
+			if (memo.has(memoKey)) {
+				return memo.get(memoKey);
+			}
+
+			const playerLost = state.player.every(hintIsDead);
+			const cpuLost = state.cpu.every(hintIsDead);
+			if (playerLost) {
+				const loseResult = { outcome: 'lose', steps: 0, score: -1e6, firstMove: null };
+				memo.set(memoKey, loseResult);
+				return loseResult;
+			}
+			if (cpuLost) {
+				const winResult = { outcome: 'win', steps: 0, score: 1e6, firstMove: null };
+				memo.set(memoKey, winResult);
+				return winResult;
+			}
+			if (depth === 0) {
+				const cutoffResult = { outcome: 'draw', steps: 0, score: heuristicEvalForState(state), firstMove: null };
+				memo.set(memoKey, cutoffResult);
+				return cutoffResult;
+			}
+
+			const loopKey = hintStateKeyFrom(state, turn);
+			if (pathSet.has(loopKey)) {
+				const loopResult = { outcome: 'loop', steps: 0, score: heuristicEvalForState(state), firstMove: null };
+				memo.set(memoKey, loopResult);
+				return loopResult;
+			}
+
+			pathSet.add(loopKey);
+			const moves = hintEnumerateMoves(state, turn);
+			if (!moves.length) {
+				pathSet.delete(loopKey);
+				const terminalResult = {
+					outcome: turn === 'player' ? 'lose' : 'win',
+					steps: 0,
+					score: turn === 'player' ? -1e6 : 1e6,
+					firstMove: null
+				};
+				memo.set(memoKey, terminalResult);
+				return terminalResult;
+			}
+
+			let bestResult = null;
+			let bestValue = turn === 'player' ? -Infinity : Infinity;
+
+			for (const move of moves) {
+				const nextState = hintApplyMove(state, turn, move);
+				const child = hintSearch(nextState, depth - 1, turn === 'player' ? 'cpu' : 'player', pathSet, memo, alpha, beta);
+				const candidate = {
+					outcome: child.outcome,
+					steps: child.steps + 1,
+					score: child.score,
+					firstMove: turn === 'player' ? move : child.firstMove
+				};
+				const candidateValue = hintResultValue(candidate);
+
+				if (turn === 'player') {
+					if (candidateValue > bestValue) {
+						bestValue = candidateValue;
+						bestResult = candidate;
+					}
+					alpha = Math.max(alpha, candidateValue);
+					if (alpha >= beta) {
+						break;
+					}
+				} else {
+					if (candidateValue < bestValue) {
+						bestValue = candidateValue;
+						bestResult = candidate;
+					}
+					beta = Math.min(beta, candidateValue);
+					if (beta <= alpha) {
+						break;
+					}
+				}
+			}
+
+			pathSet.delete(loopKey);
+			const finalResult = bestResult || { outcome: 'draw', steps: 0, score: heuristicEvalForState(state), firstMove: null };
+			memo.set(memoKey, finalResult);
+			return finalResult;
+		}
+
+		function computeHintForState(state) {
+			const snapshot = cloneStateFrom(state);
+			return hintSearch(snapshot, HINT_MAX_DEPTH, 'player', new Set(), new Map(), -Infinity, Infinity);
+		}
+
+		function chooseCpuMoveNormal() {
+			const { attacks, splits } = enumerateMoves('cpu');
+			const candidates = [...attacks, ...splits];
+			if (candidates.length === 0) return null;
+
+			let bestMove = candidates[0] || null;
+			let bestValue = -Infinity;
+			// A shallow search depth for an easier 'normal' AI, reading 1 move ahead.
+			const searchDepth = 1;
+
+			for (const move of candidates) {
+				const snapshot = cloneState();
+				applyMove('cpu', move);
+				// It's now player's turn (minimizing player)
+				let value = minimax(searchDepth - 1, false, -Infinity, Infinity);
+				// Penalize moves that recreate a recent state (to avoid cycles)
+				const key = JSON.stringify({ player: hands.player, cpu: hands.cpu, turn: 'player' });
+				const recentCount = stateHistory.filter(s => s === key).length;
+				if (recentCount > 0) value -= recentCount * 50; // penalty per repetition
+				restoreState(snapshot);
+
+				if (value > bestValue) {
+					bestValue = value;
+					bestMove = move;
+				}
+			}
+			return bestMove;
+		}
+
+		function chooseCpuMoveWithDepth(searchDepth, { avoidRepeatsFirst = false, repeatPenalty = 0, optimization = 'max' } = {}) {
+			const { attacks, splits } = enumerateMoves('cpu');
+			let candidates = [...attacks, ...splits];
+			if (candidates.length === 0) return null;
+
+			if (avoidRepeatsFirst) {
+				const nonRepeating = [];
+				for (const move of candidates) {
+					const snapshot = cloneState();
+					applyMove('cpu', move);
+					const key = JSON.stringify({ player: hands.player, cpu: hands.cpu, turn: 'player' });
+					restoreState(snapshot);
+					if (!stateHistory.includes(key)) nonRepeating.push(move);
+				}
+				if (nonRepeating.length > 0) {
+					candidates = nonRepeating;
+				}
+			}
+
+			let bestMove = candidates[0] || null;
+			let bestValue = optimization === 'min' ? Infinity : -Infinity;
+			for (const move of candidates) {
+				const snapshot = cloneState();
+				applyMove('cpu', move);
+				let value = minimax(searchDepth - 1, false, -Infinity, Infinity);
+				if (repeatPenalty > 0) {
+					const key = JSON.stringify({ player: hands.player, cpu: hands.cpu, turn: 'player' });
+					const recentCount = stateHistory.filter(s => s === key).length;
+					if (recentCount > 0) {
+						const penalty = recentCount * repeatPenalty;
+						value += optimization === 'min' ? penalty : -penalty;
+					}
+				}
+				restoreState(snapshot);
+
+				const isBetter = optimization === 'min' ? value < bestValue : value > bestValue;
+				if (isBetter) {
+					bestValue = value;
+					bestMove = move;
+				}
+			}
+			return bestMove;
+		}
+
+		function chooseCpuMoveHard() {
+			return chooseCpuMoveWithDepth(6, { avoidRepeatsFirst: true, repeatPenalty: 800, optimization: 'max' });
+		}
+
+		function chooseCpuMoveStrong() {
+			return chooseCpuMoveWithDepth(12, { avoidRepeatsFirst: true, repeatPenalty: 1000, optimization: 'max' });
+		}
+
+		function chooseCpuMoveWeakest() {
+			return chooseCpuMoveWithDepth(12, { avoidRepeatsFirst: true, repeatPenalty: 1000, optimization: 'min' });
+		}
+
+		function chooseCpuMoveRandom() {
+			const { attacks, splits } = enumerateMoves('cpu');
+			const candidates = [...attacks, ...splits].filter(move => {
+				const snapshot = cloneState();
+				applyMove('cpu', move);
+				const changed = hands.player.some((v, i) => v !== snapshot.player[i]) ||
+					hands.cpu.some((v, i) => v !== snapshot.cpu[i]);
+				restoreState(snapshot);
+				return changed;
+			});
+			if (candidates.length === 0) return null;
+			const randomIndex = Math.floor(Math.random() * candidates.length);
+			return candidates[randomIndex];
+		}
+
+		function minimax(depth, isMaximizingPlayer, alpha, beta) {
+			const term = isTerminalEval();
+			if (term !== null) {
+				// The evaluation functions (isTerminalEval, heuristicEval) are from the CPU's perspective.
+				// We scale by depth to prioritize faster wins.
+				return term * (depth + 1);
+			}
+			if (depth === 0) {
+				return heuristicEval();
+			}
+
+			const owner = isMaximizingPlayer ? 'cpu' : 'player';
+			const { attacks, splits } = enumerateMoves(owner);
+			const moves = [...attacks, ...splits];
+
+			if (moves.length === 0) {
+				// No moves available, evaluate current board
+				return heuristicEval();
+			}
+
+			if (isMaximizingPlayer) {
+				let maxEval = -Infinity;
+				for (const move of moves) {
+					const snapshot = cloneState();
+					applyMove(owner, move);
+					const evaluation = minimax(depth - 1, false, alpha, beta);
+					restoreState(snapshot);
+					maxEval = Math.max(maxEval, evaluation);
+					alpha = Math.max(alpha, evaluation);
+					if (beta <= alpha) {
+						break; // Beta cut-off
+					}
+				}
+				return maxEval;
+			} else { // Minimizing player
+				let minEval = Infinity;
+				for (const move of moves) {
+					const snapshot = cloneState();
+					applyMove(owner, move);
+					const evaluation = minimax(depth - 1, true, alpha, beta);
+					restoreState(snapshot);
+					minEval = Math.min(minEval, evaluation);
+					beta = Math.min(beta, evaluation);
+					if (beta <= alpha) {
+						break; // Alpha cut-off
+					}
+				}
+				return minEval;
+			}
+		}
+		async function applyCpuMove(move) {
+			cpuThinkingStartedAt = null;
+			if (!move) {
+				// If AI returned null, pick the best available move by short-term evaluation
+				const { attacks, splits } = enumerateMoves('cpu');
+				let best = null;
+				const preferLower = CPU_MODE === 'weakest';
+				let bestScore = preferLower ? Infinity : -Infinity;
+				const snapshot = cloneState();
+				// Evaluate attacks by applying them and checking heuristic
+				for (const a of attacks) {
+					applyMove('cpu', a);
+					const score = heuristicEval();
+					restoreState(snapshot);
+					const isBetter = preferLower ? score < bestScore : score > bestScore;
+					if (isBetter) {
+						bestScore = score;
+						best = a;
+					}
+				}
+				// If no attacks, consider splits
+				for (const s of splits) {
+					applyMove('cpu', s);
+					const score = heuristicEval();
+					restoreState(snapshot);
+					const isBetter = preferLower ? score < bestScore : score > bestScore;
+					if (isBetter) {
+						bestScore = score;
+						best = s;
+					}
+				}
+				if (best) {
+					move = best;
+				} else {
+					// no moves available: log pass and switch turn
+					const passSnapshot = cloneState();
+					const turnNumber = turnCount + 1;
+					pushBattleLog({
+						turnNumber,
+						actor: 'cpu',
+						action: 'pass',
+						summary: `ターン${turnNumber}: CPUは行動できません`,
+						detail: '有効な行動が無いため、ターンをスキップしました。',
+						stateBefore: passSnapshot,
+						stateAfter: passSnapshot
+					});
+					switchTurn();
+					updateUI();
+					return;
+				}
+			}
+
+			if (move.type === 'attack') {
+				await performAttack({ owner: 'cpu', index: move.src }, { owner: 'player', index: move.dst });
+			} else if (move.type === 'split') {
+				const beforeState = cloneState();
+				const previousLeft = formatHandValue(beforeState.cpu[0]);
+				const previousRight = formatHandValue(beforeState.cpu[1]);
+				const turnNumber = turnCount + 1;
+				const summary = `ターン${turnNumber}: CPUの分割`;
+				const detail = `左 ${previousLeft} / 右 ${previousRight} → 左 ${formatHandValue(move.left)} / 右 ${formatHandValue(move.right)}　(合計 ${move.left + move.right})`;
+				await resolveSplit({
+					owner: 'cpu',
+					leftValue: move.left,
+					rightValue: move.right,
+					beforeState,
+					summary,
+					detail,
+					actor: 'cpu',
+					highlight: [
+						{ owner: 'cpu', index: 0, role: 'result' },
+						{ owner: 'cpu', index: 1, role: 'result' }
+					]
+				});
+			}
+
+			// CPU finished thinking -> hide indicator and ensure state
+			showCpuThinking(false);
+		}
+
+		function cpuTurn() {
+			if (cpuThinkingStartedAt === null) {
+				cpuThinkingStartedAt = getNowMs();
+			}
+			let move;
+			if (CPU_MODE === 'strong') {
+				move = chooseCpuMoveStrong();
+			} else if (CPU_MODE === 'weakest') {
+				move = chooseCpuMoveWeakest();
+			} else if (CPU_MODE === 'hard') {
+				const roll = Math.random();
+				if (roll < 0.1) {
+					move = chooseCpuMoveRandom();
+				} else {
+					move = chooseCpuMoveHard();
+				}
+			} else {
+				const roll = Math.random();
+				if (roll < 0.2) {
+					move = chooseCpuMoveRandom();
+				} else if (roll < 0.5) {
+					move = chooseCpuMoveNormal();
+				} else {
+					move = chooseCpuMoveHard();
+				}
+			}
+			const now = getNowMs();
+			const elapsed = cpuThinkingStartedAt !== null ? now - cpuThinkingStartedAt : MIN_CPU_THINK_MS;
+			const remaining = Math.max(MIN_CPU_THINK_MS - elapsed, 0);
+			if (remaining > 0) {
+				setTimeout(() => {
+					applyCpuMove(move).catch(() => { /* swallow async errors */ });
+				}, remaining);
+			} else {
+				applyCpuMove(move).catch(() => { /* swallow async errors */ });
+			}
+		}
+
+		// --- Event Listeners ---
+		gameContainer.addEventListener('click', handleHandClick);
+		// split modal elements
+		const splitModalBackdrop = document.getElementById('split-modal-backdrop');
+		const splitOptionsContainer = document.getElementById('split-options');
+		const splitCancel = document.getElementById('split-cancel');
+
+		splitCancel.addEventListener('click', () => {
+			splitModalBackdrop.classList.add('hidden');
+		});
+		restartButton.addEventListener('click', initializeGame);
+
+		const gameOverCpuBtns = document.querySelectorAll('.cpu-mode-btn-game-over');
+
+		hintButton?.addEventListener('click', () => {
+			if (hintComputing) return;
+			if (gameState !== 'playing' || turn !== 'player') return;
+			hintRequested = true;
+			refreshHint({ force: false });
+		});
+
+		battleReviewPrev?.addEventListener('click', () => {
+			clampReviewIndex(reviewIndex - 1);
+			updateBattleReviewUI();
+		});
+
+		battleReviewNext?.addEventListener('click', () => {
+			clampReviewIndex(reviewIndex + 1);
+			updateBattleReviewUI();
+		});
+
+		battleReviewFirst?.addEventListener('click', () => {
+			clampReviewIndex(0);
+			updateBattleReviewUI();
+		});
+
+		battleReviewLast?.addEventListener('click', () => {
+			clampReviewIndex(battleLog.length - 1);
+			updateBattleReviewUI();
+		});
+
+		// Start screen events
+		startButton.addEventListener('click', () => {
+			startScreen.classList.add('hidden');
+			gameContainer.classList.remove('hidden');
+			initializeGame();
+		});
+
+		document.querySelectorAll('.cpu-mode-btn-start').forEach(btn => {
+			btn.addEventListener('click', () => {
+				CPU_MODE = btn.dataset.mode;
+				syncCpuModeButtons();
+				updateUI();
+			});
+		});
+
+		// Ensure game-over buttons also update the CPU mode (syncCpuModeButtons added earlier)
+		gameOverCpuBtns.forEach(btn => {
+			btn.addEventListener('click', () => {
+				CPU_MODE = btn.dataset.mode;
+				syncCpuModeButtons();
+				updateUI();
+			});
+		});
+
+		// Helper: open split modal for the sum of both player hands
+		function openSplitModalSum() {
+			const active = [0, 1].filter(i => hands.player[i] !== 5 && hands.player[i] !== 0);
+			const sum = active.reduce((s, i) => s + hands.player[i], 0);
+			if (sum < 2 || gameState !== 'playing' || turn !== 'player') return;
+
+			// Ensure spinner is hidden when opening split modal
+			showCpuThinking(false);
+
+			splitOptionsContainer.innerHTML = '';
+			// Header with current distribution and note about excluded 5s
+			const header = document.createElement('div');
+			header.className = 'mb-2';
+			if (active.length === 2) {
+				header.textContent = `現在: 左 ${hands.player[0]} / 右 ${hands.player[1]} → 合計 ${sum}`;
+			} else {
+				const deadIndex = active.length === 0 ? '両方' : (active[0] === 0 ? '右' : '左');
+				header.textContent = `現在: 左 ${hands.player[0]} / 右 ${hands.player[1]} → 合計 ${sum} （${deadIndex} が 0/5 のため除外）`;
+			}
+			splitOptionsContainer.appendChild(header);
+			if (active.length === 2) {
+				const currentLeft = hands.player[0];
+				const currentRight = hands.player[1];
+				// Normalize 5 (dead) to 0 for comparison so that distributions that
+				// are numerically identical after treating dead hands as 0 are excluded.
+				const normLeft = currentLeft === 5 ? 0 : currentLeft;
+				const normRight = currentRight === 5 ? 0 : currentRight;
+				for (let a = 0; a <= sum; a++) {
+					const b = sum - a;
+					// only allow values within 0..5
+					if (a > 5 || b > 5) continue;
+
+					// Disallow results that create a 0 or 5 in either hand
+					if (a === 0 || b === 0 || a === 5 || b === 5) continue;
+
+					// Rule: Do not allow splitting to the same numeric distribution (including swapped)
+					// Compare with normalized values so that e.g. 5 is treated as 0.
+					if ((a === normLeft && b === normRight) || (a === normRight && b === normLeft)) {
+						continue;
+					}
+
+					const optionEl = document.createElement('div');
+					optionEl.className = 'split-option';
+					const label = document.createElement('div');
+					label.textContent = `左 ${a}  —  右 ${b}`;
+					const applyBtn = document.createElement('button');
+					applyBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg';
+					applyBtn.textContent = '選択';
+					applyBtn.onclick = async () => {
+						splitModalBackdrop.classList.add('hidden');
+						await applySplitDistribution(a, b);
+					};
+					optionEl.appendChild(label);
+					optionEl.appendChild(applyBtn);
+					splitOptionsContainer.appendChild(optionEl);
+				}
+			} else if (active.length === 1) {
+				// One hand is 0 or 5 (treated as 0). Allow distributing the total among both hands
+				const deadIndex = (active[0] === 0) ? 1 : 0; // index of the dead hand
+				const note = document.createElement('div');
+				note.className = 'mb-2 text-sm text-gray-300';
+				note.textContent = `注: 手が 0/5 の方は一時的に 0 として扱い、左右へ配分できます（${deadIndex === 0 ? '左' : '右'} が 0/5）。`;
+				splitOptionsContainer.appendChild(note);
+
+				const currentLeft = hands.player[0];
+				const currentRight = hands.player[1];
+				const normLeft = currentLeft === 5 ? 0 : currentLeft;
+				const normRight = currentRight === 5 ? 0 : currentRight;
+
+				for (let a = 0; a <= sum; a++) {
+					const b = sum - a;
+					if (a > 5 || b > 5) continue;
+
+					// Disallow results that create a 0 or 5 in either hand
+					if (a === 0 || b === 0 || a === 5 || b === 5) continue;
+
+					// Rule: Do not allow splitting to the same numeric distribution (including swapped)
+					if ((a === normLeft && b === normRight) || (a === normRight && b === normLeft)) {
+						continue;
+					}
+
+					const optionEl = document.createElement('div');
+					optionEl.className = 'split-option';
+					const label = document.createElement('div');
+					label.textContent = `左 ${a}  —  右 ${b}`;
+					const applyBtn = document.createElement('button');
+					applyBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg';
+					applyBtn.textContent = '選択';
+					applyBtn.onclick = async () => {
+						splitModalBackdrop.classList.add('hidden');
+						await applySplitDistribution(a, b);
+					};
+					optionEl.appendChild(label);
+					optionEl.appendChild(applyBtn);
+					splitOptionsContainer.appendChild(optionEl);
+				}
+			}
+			splitModalBackdrop.classList.remove('hidden');
+		}
+
+		async function applySplitDistribution(leftValue, rightValue) {
+			if (gameState !== 'playing' || turn !== 'player' || isResolvingAction) return;
+			const beforeState = cloneState();
+			const turnNumber = turnCount + 1;
+			const previousLeft = formatHandValue(beforeState.player[0]);
+			const previousRight = formatHandValue(beforeState.player[1]);
+			const summary = `ターン${turnNumber}: あなたの分割`;
+			const detail = `左 ${previousLeft} / 右 ${previousRight} → 左 ${formatHandValue(leftValue)} / 右 ${formatHandValue(rightValue)}　(合計 ${leftValue + rightValue})`;
+			await resolveSplit({
+				owner: 'player',
+				leftValue,
+				rightValue,
+				beforeState,
+				summary,
+				detail,
+				highlight: [
+					{ owner: 'player', index: 0, role: 'result' },
+					{ owner: 'player', index: 1, role: 'result' }
+				]
+			});
+		}
+
+		async function applySplitToSingle(index, value) {
+			if (hands.player[index] === 5 || isResolvingAction) return;
+			const beforeState = cloneState();
+			const nextValues = [...hands.player];
+			nextValues[index] = value;
+			const turnNumber = turnCount + 1;
+			const previousLeft = formatHandValue(beforeState.player[0]);
+			const previousRight = formatHandValue(beforeState.player[1]);
+			const detail = `左 ${previousLeft} / 右 ${previousRight} → 左 ${formatHandValue(nextValues[0])} / 右 ${formatHandValue(nextValues[1])}`;
+			const summary = `ターン${turnNumber}: あなたの分配`;
+			await resolveSplit({
+				owner: 'player',
+				leftValue: nextValues[0],
+				rightValue: nextValues[1],
+				beforeState,
+				summary,
+				detail,
+				highlight: [
+					{ owner: 'player', index, role: 'result' }
+				]
+			});
+		}
+
+		function initializeGame() {
+			hands = { player: [1, 1], cpu: [1, 1] };
+			turnCount = 0; // Reset turn counter
+			selectedHand = null;
+			gameState = 'playing';
+			gameOverScreen.classList.add('hidden');
+			stateHistory = [];
+			resetBattleLog();
+			updateBattleReviewUI();
+			hintRequested = false;
+			invalidateHintCache();
+			clearHintUI();
+
+			// Randomly determine the first turn
+			turn = Math.random() < 0.5 ? 'player' : 'cpu';
+
+			// Ensure spinner is hidden initially
+			showCpuThinking(false);
+
+			// If CPU starts, it needs to think
+			if (turn === 'cpu') {
+				gameState = 'cpu_thinking';
+				cpuThinkingStartedAt = getNowMs();
+				updateUI(); // Update UI to show CPU is thinking
+				setTimeout(cpuTurn, 500); // Start CPU turn after a short delay
+			} else {
+				// gameState remains 'playing'
+				updateUI(); // Update UI for player's turn
+			}
+			// record initial state
+			stateHistory.push(makeStateKey());
+			// start timer for this game
+			resetTimer();
+			startTimer();
+		}
+
+
+		// --- Initial Render ---
+		// Ensure CPU mode buttons reflect current mode on initial load
+		syncCpuModeButtons();
+
+		// Game starts when start button is clicked
+	</script>
 </body>
 
 </html>

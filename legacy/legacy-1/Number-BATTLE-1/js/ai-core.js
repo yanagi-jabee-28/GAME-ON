@@ -1,6 +1,9 @@
 export const HINT_MAX_DEPTH = 15;
 
-export const wrapTo1to5 = (value) => ((value - 1) % 5) + 1;
+export const wrapTo1to5 = (value) => {
+	const normalized = ((value % 5) + 5) % 5;
+	return normalized === 0 ? 0 : normalized;
+};
 
 export function cloneStateFrom(state) {
 	return {
@@ -48,7 +51,7 @@ export function hintEnumerateSplits(state, owner) {
 			patterns.add(`${left},${right}`);
 		}
 	}
-	const normalize = (value) => (value === 5 ? 0 : value);
+	const normalize = (value) => (value === 0 || value === 5 ? 0 : value);
 	const currentLeft = normalize(state[owner][0]);
 	const currentRight = normalize(state[owner][1]);
 	const current = `${currentLeft},${currentRight}`;
@@ -82,29 +85,104 @@ export function hintApplyMove(state, owner, move) {
 	return next;
 }
 
+const OWNER_CPU = 'cpu';
+const OWNER_PLAYER = 'player';
+
+function normalizedHandValue(value) {
+	return hintIsDead(value) ? 0 : value;
+}
+
+function aliveHandIndices(state, owner) {
+	return [0, 1].filter(index => !hintIsDead(state[owner][index]));
+}
+
+function countAliveHands(state, owner) {
+	return aliveHandIndices(state, owner).length;
+}
+
+function totalActiveValue(state, owner) {
+	return aliveHandIndices(state, owner)
+		.reduce((sum, index) => sum + normalizedHandValue(state[owner][index]), 0);
+}
+
+function countHighRiskHands(state, owner) {
+	return aliveHandIndices(state, owner)
+		.reduce((sum, index) => sum + (normalizedHandValue(state[owner][index]) === 4 ? 1 : 0), 0);
+}
+
+function countKillOpportunities(state, attacker, defender) {
+	let kills = 0;
+	aliveHandIndices(state, attacker).forEach(srcIndex => {
+		const sourceValue = state[attacker][srcIndex];
+		aliveHandIndices(state, defender).forEach(dstIndex => {
+			const targetValue = state[defender][dstIndex];
+			if (wrapTo1to5(sourceValue + targetValue) === 0) {
+				kills += 1;
+			}
+		});
+	});
+	return kills;
+}
+
+function countNearKillOpportunities(state, attacker, defender) {
+	let threats = 0;
+	aliveHandIndices(state, attacker).forEach(srcIndex => {
+		const sourceValue = state[attacker][srcIndex];
+		aliveHandIndices(state, defender).forEach(dstIndex => {
+			const targetValue = state[defender][dstIndex];
+			if (wrapTo1to5(sourceValue + targetValue) === 4) {
+				threats += 1;
+			}
+		});
+	});
+	return threats;
+}
+
+function splitFlexibility(state, owner) {
+	return hintEnumerateSplits(state, owner).length;
+}
+
 export function heuristicEvalForState(state) {
-	const playerAlive = state.player.filter(value => !hintIsDead(value));
-	const cpuAlive = state.cpu.filter(value => !hintIsDead(value));
-	if (cpuAlive.length === 0) return 1e6;
-	if (playerAlive.length === 0) return -1e6;
+	if (countAliveHands(state, OWNER_CPU) === 0) return -1e6;
+	if (countAliveHands(state, OWNER_PLAYER) === 0) return 1e6;
+
+	const cpuAlive = countAliveHands(state, OWNER_CPU);
+	const playerAlive = countAliveHands(state, OWNER_PLAYER);
+	const cpuSum = totalActiveValue(state, OWNER_CPU);
+	const playerSum = totalActiveValue(state, OWNER_PLAYER);
+	const cpuKills = countKillOpportunities(state, OWNER_CPU, OWNER_PLAYER);
+	const playerKills = countKillOpportunities(state, OWNER_PLAYER, OWNER_CPU);
+	const cpuNearKills = countNearKillOpportunities(state, OWNER_CPU, OWNER_PLAYER);
+	const playerNearKills = countNearKillOpportunities(state, OWNER_PLAYER, OWNER_CPU);
+	const cpuHighRisk = countHighRiskHands(state, OWNER_CPU);
+	const playerHighRisk = countHighRiskHands(state, OWNER_PLAYER);
+	const cpuFlex = splitFlexibility(state, OWNER_CPU);
+	const playerFlex = splitFlexibility(state, OWNER_PLAYER);
+
 	let score = 0;
-	score += (2 - cpuAlive.length) * 1000;
-	score -= (2 - playerAlive.length) * 1000;
-	let cpuHandScore = 0;
-	cpuAlive.forEach(hand => {
-		cpuHandScore += hand === 4 ? 150 : hand * 10;
-	});
-	score -= cpuHandScore;
-	let playerHandScore = 0;
-	playerAlive.forEach(hand => {
-		playerHandScore += hand === 4 ? 120 : hand * 5;
-	});
-	score += playerHandScore;
-	const playerSum = playerAlive.reduce((a, b) => a + b, 0);
-	if (playerSum > 5) {
-		score -= (playerSum - 5) * 20;
-	}
+	score += (cpuAlive - playerAlive) * 1400;
+	score += (playerSum - cpuSum) * 90;
+	score += (cpuKills - playerKills) * 520;
+	score += (cpuNearKills - playerNearKills) * 260;
+	score += (cpuFlex - playerFlex) * 110;
+	score += (playerHighRisk - cpuHighRisk) * 180;
+
 	return score;
+}
+
+function orderMoves(state, moves, turn) {
+	if (moves.length <= 1) return moves;
+	return moves
+		.map(move => {
+			const nextState = hintApplyMove(state, turn, move);
+			const priority = heuristicEvalForState(nextState);
+			return {
+				move,
+				priority: turn === OWNER_CPU ? priority : -priority
+			};
+		})
+		.sort((a, b) => b.priority - a.priority)
+		.map(entry => entry.move);
 }
 
 export function hintResultValue(result) {
@@ -175,8 +253,9 @@ export function hintSearch(state, depth, turn, rootTurn, pathSet, memo, alpha, b
 
 	let bestResult = null;
 	let bestValue = turn === rootTurn ? -Infinity : Infinity;
+	const orderedMoves = orderMoves(state, moves, turn);
 
-	for (const move of moves) {
+	for (const move of orderedMoves) {
 		const nextState = hintApplyMove(state, turn, move);
 		const child = hintSearch(nextState, depth - 1, turn === 'player' ? 'cpu' : 'player', rootTurn, pathSet, memo, alpha, beta);
 		const candidate = {

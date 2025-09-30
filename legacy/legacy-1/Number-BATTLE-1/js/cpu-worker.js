@@ -3,7 +3,8 @@ import {
 	hintApplyMove,
 	hintResultValue,
 	hintStateKeyFrom,
-	computeBestMoveForTurn
+	computeBestMoveForTurn,
+	hintEnumerateMoves
 } from './ai-core.js';
 
 let currentJobId = 0;
@@ -11,36 +12,36 @@ let abortRequested = false;
 
 const MODE_CONFIG = {
 	strong: {
-		minDepth: 8,
+		minDepth: 10,
 		depthStep: 2,
-		maxDepth: 32,
-		minThinkMs: 800,
-		maxThinkMs: 2200
+		maxDepth: 40,
+		minThinkMs: 900,
+		maxThinkMs: 2600
 	},
 	hard: {
-		minDepth: 4,
+		minDepth: 6,
 		depthStep: 2,
-		maxDepth: 16,
-		minThinkMs: 400,
-		maxThinkMs: 900
+		maxDepth: 20,
+		minThinkMs: 500,
+		maxThinkMs: 1200
 	},
 	normal: {
-		minDepth: 2,
+		minDepth: 3,
 		depthStep: 2,
-		maxDepth: 10,
-		minThinkMs: 250,
-		maxThinkMs: 600
+		maxDepth: 12,
+		minThinkMs: 280,
+		maxThinkMs: 650
 	},
 	weakest: {
 		minDepth: 2,
 		depthStep: 2,
-		maxDepth: 6,
+		maxDepth: 8,
 		minThinkMs: 200,
-		maxThinkMs: 400
+		maxThinkMs: 420
 	}
 };
 
-const PONDER_MAX_EXTRA_DEPTH = 8;
+const PONDER_MAX_EXTRA_DEPTH = 12;
 
 function clamp(value, min, max) {
 	return Math.max(min, Math.min(max, value));
@@ -58,7 +59,7 @@ function penaltyForRepeat(state, move, historyKeys) {
 	for (const key of historyKeys) {
 		if (key === nextKey) repeatCount++;
 	}
-	return repeatCount * 500;
+	return repeatCount * 700;
 }
 
 function chooseBestResultForCpu(currentBest, currentValue, currentDepthUsed, candidate, candidateValue, depth) {
@@ -128,10 +129,17 @@ async function computeMove(jobId, payload) {
 	if (!search) {
 		return;
 	}
+	let selectedMove = search.result?.firstMove || null;
+	if (!selectedMove) {
+		const legal = hintEnumerateMoves(state, 'cpu');
+		if (legal.length) {
+			selectedMove = legal[0];
+		}
+	}
 	const response = {
 		jobId,
 		mode,
-		move: search.result?.firstMove || null,
+		move: selectedMove,
 		result: search.result,
 		depthUsed: search.depthUsed,
 		elapsedMs: search.elapsedMs,
@@ -159,7 +167,7 @@ async function ponderMoves(jobId, payload) {
 	const maxDepthOverride = clamp(config.maxDepth + depthOffset, config.maxDepth, config.maxDepth + PONDER_MAX_EXTRA_DEPTH);
 	const minDepthOverride = clamp(config.minDepth + Math.floor(depthOffset / 2), config.minDepth, maxDepthOverride);
 	const results = [];
-	const perMoveBudget = Math.max(200, Math.floor((timeBudgetMs || 0) / playerMoves.length));
+	const perMoveBudget = Math.max(250, Math.floor((timeBudgetMs || 0) / playerMoves.length));
 
 	for (const move of playerMoves) {
 		if (abortRequested || jobId !== currentJobId) {

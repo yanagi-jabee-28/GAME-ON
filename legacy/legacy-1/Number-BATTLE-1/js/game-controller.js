@@ -24,7 +24,7 @@ import { AnimationController } from './animations.js';
 import { BattleLogManager } from './battle-log.js';
 import { BattleHistoryManager } from './history-manager.js';
 import { HintManager } from './hint-manager.js';
-import { wrapTo1to5, cloneStateFrom } from './ai-core.js';
+import { wrapTo1to5, cloneStateFrom, hintEnumerateMoves } from './ai-core.js';
 
 const HAND_LABELS = ['左手', '右手'];
 
@@ -270,6 +270,53 @@ export class NumberBattleGame {
 		return { player: [...this.hands.player], cpu: [...this.hands.cpu] };
 	}
 
+	isHandValueAlive(value) {
+		return value !== 0 && value !== 5;
+	}
+
+	normalizeHandValue(value) {
+		return (value === 0 || value === 5) ? 0 : value;
+	}
+
+	isHandAlive(owner, index) {
+		const handArray = this.hands[owner];
+		if (!handArray) return false;
+		return this.isHandValueAlive(handArray[index]);
+	}
+
+	isCpuMoveLegal(move) {
+		if (!move || typeof move !== 'object') return false;
+		if (move.type === 'attack') {
+			return this.isHandAlive('cpu', move.src) && this.isHandAlive('player', move.dst);
+		}
+		if (move.type === 'split') {
+			const sum = this.hands.cpu.reduce((total, value) => total + this.normalizeHandValue(value), 0);
+			if (sum < 2) return false;
+			const { left, right } = move;
+			if (![left, right].every(v => Number.isFinite(v))) return false;
+			if (left <= 0 || right <= 0 || left >= 5 || right >= 5) return false;
+			if (left + right !== sum) return false;
+			return true;
+		}
+		return false;
+	}
+
+	getLegalCpuMoves() {
+		const state = this.cloneState();
+		return hintEnumerateMoves(state, 'cpu').filter(move => this.isCpuMoveLegal(move));
+	}
+
+	movesAreEquivalent(a, b) {
+		if (!a || !b || a.type !== b.type) return false;
+		if (a.type === 'attack') {
+			return a.src === b.src && a.dst === b.dst;
+		}
+		if (a.type === 'split') {
+			return a.left === b.left && a.right === b.right;
+		}
+		return false;
+	}
+
 	makeStateKey() {
 		return JSON.stringify({ player: this.hands.player, cpu: this.hands.cpu, turn: this.turn });
 	}
@@ -406,7 +453,7 @@ export class NumberBattleGame {
 			splitOptionsContainer.appendChild(optionEl);
 		};
 
-		const normalized = (value) => (value === 5 ? 0 : value);
+		const normalized = (value) => (value === 0 || value === 5 ? 0 : value);
 		const currentLeft = normalized(this.hands.player[0]);
 		const currentRight = normalized(this.hands.player[1]);
 
@@ -513,6 +560,12 @@ export class NumberBattleGame {
 			const beforeState = this.cloneState();
 			const sourceValue = this.hands[source.owner][source.index];
 			const targetValue = this.hands[target.owner][target.index];
+			if (!this.isHandValueAlive(sourceValue) || !this.isHandValueAlive(targetValue)) {
+				console.warn('Illegal attack prevented', { source, target, sourceValue, targetValue });
+				this.selectedHand = null;
+				this.updateUI();
+				return;
+			}
 			const sourceEl = this.dom.handElements[source.owner][source.index];
 			const targetEl = this.dom.handElements[target.owner][target.index];
 			const animationPromise = this.animationController.playAttackAnimation(sourceEl, targetEl, {
@@ -865,7 +918,7 @@ export class NumberBattleGame {
 					patterns.add(`${left},${right}`);
 				}
 			}
-			const normalize = (value) => (value === 5 ? 0 : value);
+			const normalize = (value) => (value === 0 || value === 5 ? 0 : value);
 			const currentLeft = normalize(this.hands.player[0]);
 			const currentRight = normalize(this.hands.player[1]);
 			const current = `${currentLeft},${currentRight}`;
@@ -1086,8 +1139,7 @@ export class NumberBattleGame {
 	}
 
 	computeSynchronousCpuMove() {
-		// Placeholder fallback for non-worker modes (keeping behavior simple)
-		const moves = this.enumeratePlayerMoves();
+		const moves = this.getLegalCpuMoves();
 		const timings = this.getCpuThinkTimings(this.CPU_MODE);
 		return {
 			move: moves[0] || null,
@@ -1156,11 +1208,23 @@ export class NumberBattleGame {
 		});
 	}
 
-	async applyCpuMove(move) {
+	async applyCpuMove(move, attempt = 0) {
 		this.cpuThinkingStartedAt = null;
 		if (!move) {
 			this.switchTurn();
 			this.updateUI();
+			return;
+		}
+		if (!this.isCpuMoveLegal(move)) {
+			console.warn('CPU generated illegal move. Retrying with safe fallback.', move, this.cloneState());
+			const fallbackMoves = this.getLegalCpuMoves().filter(candidate => !this.movesAreEquivalent(candidate, move));
+			if (!fallbackMoves.length || attempt >= 2) {
+				this.showCpuThinking(false);
+				this.switchTurn();
+				this.updateUI();
+				return;
+			}
+			await this.applyCpuMove(fallbackMoves[0], attempt + 1);
 			return;
 		}
 		if (move.type === 'attack') {
