@@ -4,7 +4,7 @@ import {
 	hintResultValue,
 	hintStateKeyFrom,
 	computeBestMoveForTurn
-} from '../ai-core.js';
+} from './ai-core.js';
 
 let currentJobId = 0;
 let abortRequested = false;

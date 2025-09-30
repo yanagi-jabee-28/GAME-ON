@@ -24,7 +24,7 @@ import { AnimationController } from './animations.js';
 import { BattleLogManager } from './battle-log.js';
 import { BattleHistoryManager } from './history-manager.js';
 import { HintManager } from './hint-manager.js';
-import { wrapTo1to5, cloneStateFrom } from '../ai-core.js';
+import { wrapTo1to5, cloneStateFrom } from './ai-core.js';
 
 const HAND_LABELS = ['左手', '右手'];
 

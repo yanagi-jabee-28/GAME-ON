@@ -1,5 +1,5 @@
 import { HAND_LABELS, formatHandValue } from './utils.js';
-import { wrapTo1to5, computeHintForState } from '../ai-core.js';
+import { wrapTo1to5, computeHintForState } from './ai-core.js';
 
 export class HintManager {
 	constructor({
