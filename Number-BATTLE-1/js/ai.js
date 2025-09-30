@@ -111,7 +111,7 @@ function terminalEval(snapshot) {
 function minimax(snapshot, depth, isMaximizingPlayer, alpha, beta) {
 	const terminal = terminalEval(snapshot);
 	if (terminal !== null) {
-		return terminal * (depth + 1);
+		return terminal - depth;
 	}
 	if (depth === 0) {
 		return heuristicEval(snapshot);

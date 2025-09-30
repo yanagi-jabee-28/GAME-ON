@@ -735,18 +735,18 @@ export function createNumberBattleGame(doc = document) {
 		state.hint.requested = false;
 		resetHintCache();
 		clearHintUI();
+		const finalSnapshot = cloneState();
+		const lastTurnNumber = state.battleLog.length ? state.battleLog[state.battleLog.length - 1].turnNumber : state.turnCount;
 		const detailEl = doc.getElementById('game-over-detail');
 		if (detailEl) {
 			if (state.lastResult === 'playerWon') {
-				detailEl.textContent = `あなたは ${state.turnCount} 手で勝利しました。`;
+				detailEl.textContent = `あなたは ${lastTurnNumber} 手で勝利しました。`;
 			} else if (state.lastResult === 'playerLost') {
-				detailEl.textContent = `あなたは ${state.turnCount} 手持ち堪えました。`;
+				detailEl.textContent = `あなたは ${lastTurnNumber} 手持ち堪えました。`;
 			} else {
-				detailEl.textContent = `経過ターン: ${state.turnCount}`;
+				detailEl.textContent = `経過ターン: ${lastTurnNumber}`;
 			}
 		}
-		const finalSnapshot = cloneState();
-		const lastTurnNumber = state.battleLog.length ? state.battleLog[state.battleLog.length - 1].turnNumber : state.turnCount;
 		let finalSummary = 'ゲーム終了';
 		let finalDetail = '';
 		if (state.lastResult === 'playerWon') {
