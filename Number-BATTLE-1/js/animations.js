@@ -129,6 +129,8 @@ export function playSplitAnimation({
 	const rightEl = ownerHands[1];
 	if (!leftEl || !rightEl) return Promise.resolve();
 
+	const formatForAnimation = (value) => (value === 0 ? 'X' : value.toString());
+
 	const leftRect = leftEl.getBoundingClientRect();
 	const rightRect = rightEl.getBoundingClientRect();
 	const leftCenterX = leftRect.left + leftRect.width / 2;
@@ -181,7 +183,7 @@ export function playSplitAnimation({
 		card.style.opacity = '0';
 		const inner = document.createElement('span');
 		inner.className = 'attack-motion-value';
-		inner.textContent = formatHandValue(initialValue);
+		inner.textContent = formatForAnimation(initialValue);
 		card.appendChild(inner);
 		layer.appendChild(card);
 		return card;
@@ -207,7 +209,7 @@ export function playSplitAnimation({
 				card.style.top = `${centerY}px`;
 				card.style.transform = 'translate(-50%, -50%) scale(1.08)';
 				setTimeout(() => {
-					card.querySelector('.attack-motion-value').textContent = formatHandValue(nextValue);
+					card.querySelector('.attack-motion-value').textContent = formatForAnimation(nextValue);
 					card.style.left = `${finalX}px`;
 					card.style.top = `${finalY}px`;
 					card.style.transform = 'translate(-50%, -50%) scale(0.95)';
@@ -235,7 +237,7 @@ export function playSplitAnimation({
 	centerCard.style.opacity = '0';
 	const centerInner = document.createElement('span');
 	centerInner.className = 'attack-motion-value';
-	centerInner.textContent = formatHandValue(afterLeft + afterRight);
+	centerInner.textContent = formatForAnimation(afterLeft + afterRight);
 	centerCard.appendChild(centerInner);
 	layer.appendChild(centerCard);
 
