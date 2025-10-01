@@ -3,6 +3,26 @@ import { formatHandValue } from './utils.js';
 // motion element pool to avoid frequent create/remove overhead
 const _motionPool = [];
 
+// Centralized animation timing configuration (milliseconds)
+export const ANIM_TIMINGS = {
+	attack: {
+		sourceDuration: 560,
+		sourcePhase1: 340,
+		sourcePhase2: 220,
+		target: { duration: 320, delay: 340 },
+		overlayApproach: 340,
+		overlayExit: 220,
+		overlaySafety: 900
+	},
+	split: {
+		// tuned to match attack animation total (~560ms)
+		approach: 120,
+		hold: 60,
+		retreat: 120,
+		fade: 40
+	}
+};
+
 function _acquireMotionCard(owner) {
 	const card = _motionPool.pop() || document.createElement('div');
 	card.className = `attack-motion ${owner}`;
@@ -65,7 +85,7 @@ export function playAttackAnimation(layer, sourceEl, targetEl, { actor, value })
 				{ transform: `translate(${sourceTravelX}px, ${sourceTravelY}px)` },
 				{ transform: 'translate(0px, 0px)' }
 			], {
-				duration: 560,
+				duration: ANIM_TIMINGS.attack.sourceDuration,
 				easing: 'cubic-bezier(0.4, 0, 0.2, 1)'
 			});
 			sourceMotionPromise = sourceAnim.finished.catch(() => {
@@ -83,17 +103,17 @@ export function playAttackAnimation(layer, sourceEl, targetEl, { actor, value })
 				done = true;
 				resolve();
 			};
-			sourceEl.style.transition = 'transform 0.34s cubic-bezier(0.4, 0, 0.2, 1)';
+			sourceEl.style.transition = `transform ${ANIM_TIMINGS.attack.sourcePhase1 / 1000}s cubic-bezier(0.4, 0, 0.2, 1)`;
 			sourceEl.style.transform = `translate(${sourceTravelX}px, ${sourceTravelY}px)`;
 			setTimeout(() => {
-				sourceEl.style.transition = 'transform 0.22s ease-out';
+				sourceEl.style.transition = `transform ${ANIM_TIMINGS.attack.sourcePhase2 / 1000}s ease-out`;
 				sourceEl.style.transform = initialInlineTransform;
 				setTimeout(() => {
 					sourceEl.style.transition = '';
 					finish();
-				}, 220);
-			}, 340);
-			setTimeout(finish, 900);
+				}, ANIM_TIMINGS.attack.sourcePhase2);
+			}, ANIM_TIMINGS.attack.sourcePhase1);
+			setTimeout(finish, ANIM_TIMINGS.attack.overlaySafety);
 		});
 	}
 	sourceMotionPromise = sourceMotionPromise.finally(() => {
@@ -140,10 +160,11 @@ export function playAttackAnimation(layer, sourceEl, targetEl, { actor, value })
 				// exit animation
 				card.classList.remove('motion-visible');
 				card.classList.add('motion-exit');
-				setTimeout(complete, 220);
-			}, 340);
+				setTimeout(complete, ANIM_TIMINGS.attack.overlayExit);
+			}, ANIM_TIMINGS.attack.overlayApproach);
 		});
-		setTimeout(complete, 900);
+		// safety fallback: ensure completion after a maximum time
+		setTimeout(complete, ANIM_TIMINGS.attack.overlaySafety);
 	});
 
 	return Promise.all([overlayPromise, sourceMotionPromise]).then(() => { });
@@ -196,12 +217,7 @@ export function playSplitAnimation({
 	leftEl.style.visibility = 'hidden';
 	rightEl.style.visibility = 'hidden';
 
-	const durations = {
-		approach: 260,
-		hold: 160,
-		retreat: 280,
-		fade: 180
-	};
+	const durations = ANIM_TIMINGS.split;
 
 	const markHandState = (lVal, rVal) => {
 		if (leftTextEl) {
