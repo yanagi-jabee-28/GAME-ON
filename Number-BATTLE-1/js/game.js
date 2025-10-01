@@ -926,8 +926,10 @@ export function createNumberBattleGame(doc = document) {
 		const normRight = currentRight === 5 ? 0 : currentRight;
 
 		const allowDistribution = (a, b) => {
+			// allow 0 as a valid split result (creates a dead hand)
 			if (a > 5 || b > 5) return false;
-			if (a === 0 || b === 0 || a === 5 || b === 5) return false;
+			// 5 is not a valid hand value for split results (5 represents death in normal flow)
+			if (a === 5 || b === 5) return false;
 			if ((a === normLeft && b === normRight) || (a === normRight && b === normLeft)) return false;
 			return true;
 		};

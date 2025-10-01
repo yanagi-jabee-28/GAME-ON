@@ -43,7 +43,8 @@ function enumerateSplits(snapshot, owner) {
 		.filter((pattern) => pattern !== current && pattern !== swapped)
 		.map((pattern) => {
 			const [left, right] = pattern.split(',').map(Number);
-			if (left === 0 || right === 0 || left === 5 || right === 5) return null;
+			// allow 0 as a split result (creates a dead hand), but disallow 5 as a split result
+			if (left === 5 || right === 5) return null;
 			return { type: 'split', left, right };
 		})
 		.filter(Boolean);
