@@ -117,53 +117,7 @@ export function playAttackAnimation(layer, sourceEl, targetEl, { actor, value })
 		}
 	}
 
-	// Use playAttackAnimation to move left/right into a temporary center target,
-	// then show the combined value, then use playAttackAnimation to split back out.
-	const seqPromise = (async () => {
-		// create a dummy target element at center for playAttackAnimation
-		const dummy = document.createElement('div');
-		dummy.className = `attack-motion ${owner} split-dummy`;
-		dummy.style.position = 'absolute';
-		dummy.style.width = `${Math.max(leftRect.width, rightRect.width)}px`;
-		dummy.style.height = `${Math.max(leftRect.height, rightRect.height)}px`;
-		dummy.style.left = `${centerX}px`;
-		dummy.style.top = `${centerY}px`;
-		dummy.style.transform = 'translate(-50%, -50%)';
-		layer.appendChild(dummy);
-
-
-		// move both into center using attack animation (this creates pooled motion cards)
-		await Promise.all([
-			playAttackAnimation(layer, leftEl, dummy, { actor: owner, value: beforeLeft }),
-			playAttackAnimation(layer, rightEl, dummy, { actor: owner, value: beforeRight })
-		]).catch(() => { /* ignore individual animation errors */ });
-
-		// ensure animations finished and layout settled before showing center card
-		await new Promise((r) => setTimeout(r, 50));
-
-		// now show a center card with the sum (no scale change so size remains constant)
-		const centerCard = _acquireMotionCard(owner);
-		centerCard._inner.textContent = formatForAnimation(afterLeft + afterRight);
-		centerCard.style.width = `${Math.max(leftRect.width, rightRect.width)}px`;
-		centerCard.style.height = `${Math.max(leftRect.height, rightRect.height)}px`;
-		centerCard.style.left = `${centerX}px`;
-		centerCard.style.top = `${centerY}px`;
-		centerCard.style.transform = 'translate(-50%, -50%)';
-		layer.appendChild(centerCard);
-
-		// small hold for the merged card
-		await new Promise((res) => setTimeout(res, durations.approach + durations.hold));
-
-		// split back out using attack animation from dummy center to left/right
-		await Promise.all([
-			playAttackAnimation(layer, dummy, leftEl, { actor: owner, value: afterLeft }),
-			playAttackAnimation(layer, dummy, rightEl, { actor: owner, value: afterRight })
-		]).catch(() => { /* ignore */ });
-
-		// cleanup
-		_releaseMotionCard(centerCard);
-		if (dummy.isConnected) dummy.remove();
-	})();
+	// (sequence logic for split animations is handled in playSplitAnimation)
 
 
 	const overlayPromise = new Promise((resolve) => {

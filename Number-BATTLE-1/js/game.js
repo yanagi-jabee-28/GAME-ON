@@ -500,10 +500,22 @@ export function createNumberBattleGame(doc = document) {
 		setHintMessage('ヒント計算中...');
 		const computationId = ++state.hint.computationId;
 		const snapshot = cloneState();
-		setTimeout(() => {
+		// show a quick shallow hint immediately for responsiveness
+		try {
+			const quick = ai.peekHint ? ai.peekHint(snapshot) : null;
+			if (state.hint.computationId === computationId && quick) {
+				state.hint.cacheResult = quick;
+				state.hint.cacheKey = stateKey;
+				applyHintResult(quick);
+			}
+		} catch (e) {
+			// ignore quick hint failures
+		}
+
+		setTimeout(async () => {
 			let hint = null;
 			try {
-				hint = ai.computeHint(snapshot);
+				hint = await ai.computeHint(snapshot);
 			} catch (error) {
 				console.error('Hint computation failed', error);
 				if (state.hint.computationId === computationId) {

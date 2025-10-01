@@ -482,6 +482,8 @@ export function createAiEngine({ hintDepth = HINT_MAX_DEPTH } = {}) {
 			const { id, result, error } = e.data || {};
 			const resolver = _pendingHints.get(id);
 			if (!resolver) return;
+			// clear timeout if set
+			if (resolver.timeoutId) clearTimeout(resolver.timeoutId);
 			_pendingHints.delete(id);
 			if (error) resolver.reject(new Error(error));
 			else resolver.resolve(result);
@@ -503,15 +505,32 @@ export function createAiEngine({ hintDepth = HINT_MAX_DEPTH } = {}) {
 		const id = ++_hintRequestId;
 		const payload = { state: snapshotClone, depth: hintDepth, turn: 'player' };
 		const promise = new Promise((resolve, reject) => {
-			_pendingHints.set(id, { resolve, reject });
-			_hintWorker.postMessage({ id, action: 'hintSearch', payload });
-			// timeout safety
-			setTimeout(() => {
+			const timeoutId = setTimeout(() => {
 				if (_pendingHints.has(id)) {
 					_pendingHints.delete(id);
-					reject(new Error('hint timeout'));
+					// fallback: run local hintSearch to provide a best-effort result
+					try {
+						const fallback = hintSearch(snapshotClone, hintDepth, 'player', new Set(), new Map(), -Infinity, Infinity);
+						resolve(fallback);
+					} catch (err) {
+						reject(new Error('hint timeout'));
+					}
 				}
 			}, 8000);
+			_pendingHints.set(id, { resolve, reject, timeoutId });
+			try {
+				_hintWorker.postMessage({ id, action: 'hintSearch', payload });
+			} catch (err) {
+				// if postMessage fails, clear pending and fallback immediately
+				clearTimeout(timeoutId);
+				_pendingHints.delete(id);
+				try {
+					const fallback = hintSearch(snapshotClone, hintDepth, 'player', new Set(), new Map(), -Infinity, Infinity);
+					resolve(fallback);
+				} catch (inner) {
+					reject(inner);
+				}
+			}
 		});
 		return promise;
 	}
@@ -519,6 +538,15 @@ export function createAiEngine({ hintDepth = HINT_MAX_DEPTH } = {}) {
 	return {
 		chooseCpuMove,
 		computeHint,
+		// quick shallow hint for immediate UI feedback
+		peekHint: (snapshot) => {
+			try {
+				// very shallow depth for responsiveness
+				return hintSearch(cloneSnapshot(snapshot), Math.min(2, hintDepth), 'player', new Set(), new Map(), -Infinity, Infinity);
+			} catch (e) {
+				return null;
+			}
+		},
 		cloneSnapshot,
 		applyMove,
 		enumerateMoves
