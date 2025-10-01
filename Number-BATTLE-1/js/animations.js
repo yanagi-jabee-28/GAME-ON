@@ -16,10 +16,10 @@ export const ANIM_TIMINGS = {
 	},
 	split: {
 		// tuned to match attack animation total (~560ms)
-		approach: 120,
-		hold: 60,
-		retreat: 120,
-		fade: 40
+		approach: 200,
+		hold: 25,
+		retreat: 200,
+		fade: 50
 	}
 };
 
@@ -268,9 +268,10 @@ export function playSplitAnimation({
 				void card.offsetWidth;
 				card.style.left = `${centerX}px`;
 				card.style.top = `${centerY}px`;
+				// movement completes after the approach duration; keep hold handling in showCenter
 				setTimeout(() => {
 					checkDone();
-				}, durations.approach + durations.hold);
+				}, durations.approach);
 			});
 		});
 	});

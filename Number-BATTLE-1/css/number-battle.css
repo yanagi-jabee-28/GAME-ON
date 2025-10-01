@@ -223,12 +223,14 @@ body {
 	background: rgba(17, 24, 39, 0.78);
 	box-shadow: 0 0 25px rgba(248, 250, 252, 0.35);
 	color: #f9fafb;
-	transform: translate(-50%, -50%);
-	/* keep initial hidden via transform scale only; no opacity transitions */
+	transform: translate(-50%, -50%) scale(1);
+	/* allow opacity + transform transitions for smoother fades */
 	opacity: 1;
-	/* don't fade by default */
-	transition: left 0.38s cubic-bezier(0.4, 0, 0.2, 1), top 0.38s cubic-bezier(0.4, 0, 0.2, 1), transform 0.38s cubic-bezier(0.4, 0, 0.2, 1);
-	will-change: left, top, transform;
+	transition: left 0.38s cubic-bezier(0.4, 0, 0.2, 1), top 0.38s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease-out, background-color 0.22s ease;
+	will-change: left, top, transform, opacity;
+	-webkit-backface-visibility: hidden;
+	backface-visibility: hidden;
+	transform-origin: center center;
 }
 
 .attack-motion.player {
@@ -268,23 +270,31 @@ body {
 	border-style: dashed;
 	background: rgba(71, 85, 105, 0.78);
 	box-shadow: 0 0 28px rgba(191, 219, 254, 0.45);
+	/* allow split impact to animate color and opacity */
+	transition: background-color 0.22s ease, box-shadow 0.22s ease, opacity 0.22s ease;
 }
 
 /* Motion classes for JS-driven position + CSS transitions */
 /* Motion classes for JS-driven position + CSS transitions */
 .motion-enter {
-	transform: translate(-50%, -50%);
-	transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+	/* entering: start slightly smaller and transparent */
+	transform: translate(-50%, -50%) scale(0.96);
+	opacity: 0;
+	transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease-out;
 }
 
 .motion-visible {
-	transform: translate(-50%, -50%);
-	transition: left 0.38s cubic-bezier(0.4, 0, 0.2, 1), top 0.38s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-	will-change: left, top, transform;
+	/* visible: full size and opaque; left/top transitions handle movement */
+	transform: translate(-50%, -50%) scale(1);
+	opacity: 1;
+	transition: left 0.38s cubic-bezier(0.4, 0, 0.2, 1), top 0.38s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease-out;
+	will-change: left, top, transform, opacity;
 	/* when visible, leave left/top set by JS; CSS handles interpolation */
 }
 
 .motion-exit {
-	transform: translate(-50%, -50%);
-	transition: transform 0.22s ease-out;
+	/* exiting: shrink slightly and fade */
+	transform: translate(-50%, -50%) scale(0.96);
+	opacity: 0;
+	transition: transform 0.22s ease-out, opacity 0.18s ease-out;
 }
