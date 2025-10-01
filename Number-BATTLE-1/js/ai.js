@@ -3,8 +3,18 @@ import { cloneSnapshot, isHandDead, makeStateKey, wrapTo1to5 } from './utils.js'
 
 const HAND_INDEXES = [0, 1];
 
+// simple array pools to reduce short-lived allocations
+const _movesPool = [];
+function _acquireMovesArray() {
+	return _movesPool.pop() || [];
+}
+function _releaseMovesArray(arr) {
+	arr.length = 0;
+	_movesPool.push(arr);
+}
+
 function enumerateAttacks(snapshot, owner, opponent) {
-	const moves = [];
+	const moves = _acquireMovesArray();
 	for (const i of HAND_INDEXES) {
 		const sourceValue = snapshot[owner][i];
 		if (isHandDead(sourceValue)) continue;
@@ -39,15 +49,14 @@ function enumerateSplits(snapshot, owner) {
 	const current = `${currentLeft},${currentRight}`;
 	const swapped = `${currentRight},${currentLeft}`;
 
-	return Array.from(patterns)
-		.filter((pattern) => pattern !== current && pattern !== swapped)
-		.map((pattern) => {
-			const [left, right] = pattern.split(',').map(Number);
-			// allow 0 as a split result (creates a dead hand), but disallow 5 as a split result
-			if (left === 5 || right === 5) return null;
-			return { type: 'split', left, right };
-		})
-		.filter(Boolean);
+	const out = _acquireMovesArray();
+	for (const pattern of patterns) {
+		if (pattern === current || pattern === swapped) continue;
+		const [left, right] = pattern.split(',').map(Number);
+		if (left === 5 || right === 5) continue;
+		out.push({ type: 'split', left, right });
+	}
+	return out;
 }
 
 function enumerateMoves(snapshot, owner) {
@@ -109,6 +118,47 @@ function terminalEval(snapshot) {
 	return null;
 }
 
+// Pattern-based bonus to encourage creation of known strong/forcing shapes.
+function patternBonus(snapshot) {
+	// positive means good for CPU
+	const cpu = snapshot.cpu;
+	const player = snapshot.player;
+	const cpuAlive = cpu.filter((v) => !isHandDead(v));
+	const playerAlive = player.filter((v) => !isHandDead(v));
+	let bonus = 0;
+
+	// If CPU has 4 on one hand and player has a 1 on any hand -> near immediate winning potential
+	if ((cpu[0] === 4 || cpu[1] === 4) && (player.includes(1))) {
+		bonus += 20000;
+	}
+
+	// If CPU has symmetric flexible shapes (2,2) or (3,3) give modest bonus
+	if ((cpu[0] === 2 && cpu[1] === 2) || (cpu[0] === 3 && cpu[1] === 3)) {
+		bonus += 300;
+	}
+
+	// If CPU has one dead hand (0) but the other is >=3, it's often strong (can force splits)
+	if ((cpu[0] === 0 && cpu[1] >= 3) || (cpu[1] === 0 && cpu[0] >= 3)) {
+		bonus += 800;
+	}
+
+	// Penalize CPU states where both hands are weak
+	if (cpuAlive.length === 2 && cpu[0] + cpu[1] <= 3) bonus -= 200;
+
+	return bonus;
+}
+
+// quick forced-win detection using hintSearch (shallow). returns true if `owner` can force win within depth plies
+function isForcedWin(snapshot, owner, depth) {
+	try {
+		const buf = { player: [0, 0], cpu: [0, 0] };
+		const res = hintSearch(cloneSnapshot(snapshot, buf), depth, owner, new Set(), new Map(), -Infinity, Infinity);
+		return res && res.outcome === 'win';
+	} catch (e) {
+		return false;
+	}
+}
+
 function minimax(snapshot, depth, isMaximizingPlayer, alpha, beta) {
 	const terminal = terminalEval(snapshot);
 	if (terminal !== null) {
@@ -120,7 +170,7 @@ function minimax(snapshot, depth, isMaximizingPlayer, alpha, beta) {
 
 	const owner = isMaximizingPlayer ? 'cpu' : 'player';
 	const { attacks, splits } = enumerateMoves(snapshot, owner);
-	const moves = [...attacks, ...splits];
+	const moves = attacks.concat(splits);
 
 	if (moves.length === 0) {
 		return heuristicEval(snapshot);
@@ -135,6 +185,9 @@ function minimax(snapshot, depth, isMaximizingPlayer, alpha, beta) {
 			alpha = Math.max(alpha, evaluation);
 			if (beta <= alpha) break;
 		}
+		// release temporary arrays
+		_releaseMovesArray(attacks);
+		_releaseMovesArray(splits);
 		return maxEval;
 	}
 
@@ -146,13 +199,15 @@ function minimax(snapshot, depth, isMaximizingPlayer, alpha, beta) {
 		beta = Math.min(beta, evaluation);
 		if (beta <= alpha) break;
 	}
+	_releaseMovesArray(attacks);
+	_releaseMovesArray(splits);
 	return minEval;
 }
 
 function chooseCpuMoveWithDepth(snapshot, depth, options, historyKeys) {
 	const { avoidRepeatsFirst = false, repeatPenalty = 0, optimization = 'max' } = options || {};
 	let { attacks, splits } = enumerateMoves(snapshot, 'cpu');
-	let candidates = [...attacks, ...splits];
+	let candidates = attacks.concat(splits);
 	if (candidates.length === 0) return null;
 
 	if (avoidRepeatsFirst) {
@@ -172,9 +227,31 @@ function chooseCpuMoveWithDepth(snapshot, depth, options, historyKeys) {
 	let bestMove = candidates[0] || null;
 	let bestValue = optimization === 'min' ? Infinity : -Infinity;
 
+	const tempBuf = { player: [0, 0], cpu: [0, 0] };
 	for (const move of candidates) {
-		const nextSnapshot = applyMove(snapshot, 'cpu', move);
+		// produce nextSnapshot into tempBuf to avoid allocation
+		tempBuf.player[0] = snapshot.player[0];
+		tempBuf.player[1] = snapshot.player[1];
+		tempBuf.cpu[0] = snapshot.cpu[0];
+		tempBuf.cpu[1] = snapshot.cpu[1];
+		if (move.type === 'attack') {
+			const opponent = 'player';
+			tempBuf[opponent][move.dst] = wrapTo1to5(tempBuf['cpu'][move.src] + tempBuf[opponent][move.dst]);
+		} else if (move.type === 'split') {
+			tempBuf['cpu'][0] = move.left;
+			tempBuf['cpu'][1] = move.right;
+		}
+		const nextSnapshot = tempBuf;
+		// If this move immediately makes the player lose, take it right away.
+		const terminal = terminalEval(nextSnapshot);
+		if (terminal === 1e6) {
+			return move;
+		}
+		// If this move forces a win within a few plies, prefer it immediately
+		if (isForcedWin(nextSnapshot, 'cpu', 4)) return move;
 		let value = minimax(nextSnapshot, depth - 1, false, -Infinity, Infinity);
+		// apply pattern bonus to candidate evaluation
+		value += patternBonus(nextSnapshot);
 		if (repeatPenalty > 0) {
 			const key = makeStateKey(nextSnapshot, 'player');
 			const recentCount = historyKeys.filter((stateKey) => stateKey === key).length;
@@ -195,19 +272,21 @@ function chooseCpuMoveWithDepth(snapshot, depth, options, historyKeys) {
 
 function chooseCpuMoveRandom(snapshot) {
 	const { attacks, splits } = enumerateMoves(snapshot, 'cpu');
-	const candidates = [...attacks, ...splits].filter((move) => {
+	const candidates = attacks.concat(splits).filter((move) => {
 		const next = applyMove(snapshot, 'cpu', move);
 		return next.player.some((value, index) => value !== snapshot.player[index]) ||
 			next.cpu.some((value, index) => value !== snapshot.cpu[index]);
 	});
 	if (candidates.length === 0) return null;
 	const randomIndex = Math.floor(Math.random() * candidates.length);
+	_releaseMovesArray(attacks);
+	_releaseMovesArray(splits);
 	return candidates[randomIndex];
 }
 
 function chooseCpuMoveNormal(snapshot, historyKeys) {
 	const { attacks, splits } = enumerateMoves(snapshot, 'cpu');
-	const candidates = [...attacks, ...splits];
+	const candidates = attacks.concat(splits);
 	if (candidates.length === 0) return null;
 
 	let bestMove = candidates[0] || null;
@@ -216,7 +295,11 @@ function chooseCpuMoveNormal(snapshot, historyKeys) {
 
 	for (const move of candidates) {
 		const next = applyMove(snapshot, 'cpu', move);
+		// immediate win shortcut
+		if (terminalEval(next) === 1e6) return move;
+		if (isForcedWin(next, 'cpu', 3)) return move;
 		let value = minimax(next, depth - 1, false, -Infinity, Infinity);
+		value += patternBonus(next);
 		const key = makeStateKey(next, 'player');
 		const recentCount = historyKeys.filter((s) => s === key).length;
 		if (recentCount > 0) value -= recentCount * 50;
@@ -225,6 +308,8 @@ function chooseCpuMoveNormal(snapshot, historyKeys) {
 			bestMove = move;
 		}
 	}
+	_releaseMovesArray(attacks);
+	_releaseMovesArray(splits);
 	return bestMove;
 }
 
@@ -305,7 +390,7 @@ function hintSearch(state, depth, turn, pathSet, memo, alpha, beta) {
 
 	pathSet.add(loopKey);
 	const { attacks, splits } = enumerateMoves(state, turn);
-	const moves = [...attacks, ...splits];
+	const moves = attacks.concat(splits);
 	if (!moves.length) {
 		pathSet.delete(loopKey);
 		const terminalResult = {
@@ -315,6 +400,8 @@ function hintSearch(state, depth, turn, pathSet, memo, alpha, beta) {
 			firstMove: null
 		};
 		memo.set(memoKey, terminalResult);
+		_releaseMovesArray(attacks);
+		_releaseMovesArray(splits);
 		return terminalResult;
 	}
 
@@ -352,6 +439,11 @@ function hintSearch(state, depth, turn, pathSet, memo, alpha, beta) {
 	pathSet.delete(loopKey);
 	const finalResult = bestResult || { outcome: 'draw', steps: 0, score: heuristicEvalForState(state), firstMove: null };
 	memo.set(memoKey, finalResult);
+
+	// release pooled arrays used for enumeration
+	_releaseMovesArray(attacks);
+	_releaseMovesArray(splits);
+
 	return finalResult;
 }
 
@@ -379,9 +471,49 @@ export function createAiEngine({ hintDepth = HINT_MAX_DEPTH } = {}) {
 		}
 	}
 
-	function computeHint(snapshot) {
+	// Worker-backed hint computation
+	let _hintWorker = null;
+	let _hintRequestId = 0;
+	const _pendingHints = new Map();
+
+	try {
+		_hintWorker = new Worker(new URL('./ai-worker.js', import.meta.url), { type: 'module' });
+		_hintWorker.onmessage = (e) => {
+			const { id, result, error } = e.data || {};
+			const resolver = _pendingHints.get(id);
+			if (!resolver) return;
+			_pendingHints.delete(id);
+			if (error) resolver.reject(new Error(error));
+			else resolver.resolve(result);
+		};
+	} catch (e) {
+		_hintWorker = null;
+	}
+
+	async function computeHint(snapshot) {
 		const snapshotClone = cloneSnapshot(snapshot);
-		return hintSearch(snapshotClone, hintDepth, 'player', new Set(), new Map(), -Infinity, Infinity);
+		// quick local forced-win check to avoid worker roundtrip
+		if (isForcedWin(snapshotClone, 'player', Math.min(6, hintDepth))) {
+			// do a shallow local check and return quickly
+			return hintSearch(snapshotClone, hintDepth, 'player', new Set(), new Map(), -Infinity, Infinity);
+		}
+		if (!_hintWorker) {
+			return hintSearch(snapshotClone, hintDepth, 'player', new Set(), new Map(), -Infinity, Infinity);
+		}
+		const id = ++_hintRequestId;
+		const payload = { state: snapshotClone, depth: hintDepth, turn: 'player' };
+		const promise = new Promise((resolve, reject) => {
+			_pendingHints.set(id, { resolve, reject });
+			_hintWorker.postMessage({ id, action: 'hintSearch', payload });
+			// timeout safety
+			setTimeout(() => {
+				if (_pendingHints.has(id)) {
+					_pendingHints.delete(id);
+					reject(new Error('hint timeout'));
+				}
+			}, 8000);
+		});
+		return promise;
 	}
 
 	return {

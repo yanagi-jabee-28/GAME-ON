@@ -1,29 +1,56 @@
 import { formatHandValue } from './utils.js';
 
+// motion element pool to avoid frequent create/remove overhead
+const _motionPool = [];
+
+function _acquireMotionCard(owner) {
+	const card = _motionPool.pop() || document.createElement('div');
+	card.className = `attack-motion ${owner}`;
+	card.style.position = 'absolute';
+	if (!card._inner) {
+		const existing = card.querySelector && card.querySelector('.attack-motion-value');
+		if (existing) {
+			card._inner = existing;
+		} else {
+			const inner = document.createElement('span');
+			inner.className = 'attack-motion-value';
+			card.appendChild(inner);
+			card._inner = inner;
+		}
+	}
+	return card;
+}
+
+function _releaseMotionCard(card) {
+	if (!card) return;
+	card.style.transition = '';
+	card.style.transform = '';
+	card.style.left = '';
+	card.style.top = '';
+	if (card.isConnected) card.remove();
+	_motionPool.push(card);
+}
+
 export function playAttackAnimation(layer, sourceEl, targetEl, { actor, value }) {
 	if (!layer || !sourceEl || !targetEl) {
 		return Promise.resolve();
 	}
+	// cache rects once to avoid repeated layout reads
 	const sourceRect = sourceEl.getBoundingClientRect();
 	const targetRect = targetEl.getBoundingClientRect();
-	const card = document.createElement('div');
-	card.className = `attack-motion ${actor}`;
-	card.style.position = 'absolute';
+	const card = _acquireMotionCard(actor);
+	card._inner.textContent = formatHandValue(value);
+	layer.appendChild(card);
+	// set size and initial position, then use CSS classes to drive transitions
 	card.style.width = `${sourceRect.width}px`;
 	card.style.height = `${sourceRect.height}px`;
-	const inner = document.createElement('span');
-	inner.className = 'attack-motion-value';
-	inner.textContent = formatHandValue(value);
-	card.appendChild(inner);
-	layer.appendChild(card);
 	const startX = sourceRect.left + sourceRect.width / 2;
 	const startY = sourceRect.top + sourceRect.height / 2;
 	const targetX = targetRect.left + targetRect.width / 2;
 	const targetY = targetRect.top + targetRect.height / 2;
 	card.style.left = `${startX}px`;
 	card.style.top = `${startY}px`;
-	card.style.transform = 'translate(-50%, -50%) scale(0.85)';
-	card.style.opacity = '0';
+	card.classList.add('motion-enter');
 	const deltaX = targetX - startX;
 	const deltaY = targetY - startY;
 	const sourceTravelX = deltaX * 0.3;
@@ -90,22 +117,75 @@ export function playAttackAnimation(layer, sourceEl, targetEl, { actor, value })
 		}
 	}
 
+	// Use playAttackAnimation to move left/right into a temporary center target,
+	// then show the combined value, then use playAttackAnimation to split back out.
+	const seqPromise = (async () => {
+		// create a dummy target element at center for playAttackAnimation
+		const dummy = document.createElement('div');
+		dummy.className = `attack-motion ${owner} split-dummy`;
+		dummy.style.position = 'absolute';
+		dummy.style.width = `${Math.max(leftRect.width, rightRect.width)}px`;
+		dummy.style.height = `${Math.max(leftRect.height, rightRect.height)}px`;
+		dummy.style.left = `${centerX}px`;
+		dummy.style.top = `${centerY}px`;
+		dummy.style.transform = 'translate(-50%, -50%)';
+		layer.appendChild(dummy);
+
+
+		// move both into center using attack animation (this creates pooled motion cards)
+		await Promise.all([
+			playAttackAnimation(layer, leftEl, dummy, { actor: owner, value: beforeLeft }),
+			playAttackAnimation(layer, rightEl, dummy, { actor: owner, value: beforeRight })
+		]).catch(() => { /* ignore individual animation errors */ });
+
+		// ensure animations finished and layout settled before showing center card
+		await new Promise((r) => setTimeout(r, 50));
+
+		// now show a center card with the sum (no scale change so size remains constant)
+		const centerCard = _acquireMotionCard(owner);
+		centerCard._inner.textContent = formatForAnimation(afterLeft + afterRight);
+		centerCard.style.width = `${Math.max(leftRect.width, rightRect.width)}px`;
+		centerCard.style.height = `${Math.max(leftRect.height, rightRect.height)}px`;
+		centerCard.style.left = `${centerX}px`;
+		centerCard.style.top = `${centerY}px`;
+		centerCard.style.transform = 'translate(-50%, -50%)';
+		layer.appendChild(centerCard);
+
+		// small hold for the merged card
+		await new Promise((res) => setTimeout(res, durations.approach + durations.hold));
+
+		// split back out using attack animation from dummy center to left/right
+		await Promise.all([
+			playAttackAnimation(layer, dummy, leftEl, { actor: owner, value: afterLeft }),
+			playAttackAnimation(layer, dummy, rightEl, { actor: owner, value: afterRight })
+		]).catch(() => { /* ignore */ });
+
+		// cleanup
+		_releaseMotionCard(centerCard);
+		if (dummy.isConnected) dummy.remove();
+	})();
+
+
 	const overlayPromise = new Promise((resolve) => {
 		let finished = false;
 		const complete = () => {
 			if (finished) return;
 			finished = true;
-			card.remove();
+			_releaseMotionCard(card);
 			resolve();
 		};
 		requestAnimationFrame(() => {
-			card.style.opacity = '1';
+			// make visible and move to target; CSS transitions handle interpolation
+			card.classList.remove('motion-enter');
+			card.classList.add('motion-visible');
+			// force style/layout flush so the transition will pick up the subsequent left/top change
+			void card.offsetWidth;
 			card.style.left = `${targetX}px`;
 			card.style.top = `${targetY}px`;
-			card.style.transform = 'translate(-50%, -50%) scale(1.12)';
 			setTimeout(() => {
-				card.style.opacity = '0';
-				card.style.transform = 'translate(-50%, -50%) scale(0.65)';
+				// exit animation
+				card.classList.remove('motion-visible');
+				card.classList.add('motion-exit');
 				setTimeout(complete, 220);
 			}, 340);
 		});
@@ -113,6 +193,7 @@ export function playAttackAnimation(layer, sourceEl, targetEl, { actor, value })
 	});
 
 	return Promise.all([overlayPromise, sourceMotionPromise]).then(() => { });
+
 }
 
 export function playSplitAnimation({
@@ -152,12 +233,14 @@ export function playSplitAnimation({
 	const afterLeft = coerceValue(afterValues, 0, beforeLeft);
 	const afterRight = coerceValue(afterValues, 1, beforeRight);
 
-	const leftTextEl = leftEl.querySelector('.finger-count');
-	const rightTextEl = rightEl.querySelector('.finger-count');
-	const originalLeftOpacity = leftEl.style.opacity;
-	const originalRightOpacity = rightEl.style.opacity;
-	leftEl.style.opacity = '0';
-	rightEl.style.opacity = '0';
+	// use cached child refs if available to avoid repeated querySelector calls
+	const leftTextEl = leftEl._fingerCountEl || leftEl.querySelector('.finger-count');
+	const rightTextEl = rightEl._fingerCountEl || rightEl.querySelector('.finger-count');
+	const originalLeftVisibility = leftEl.style.visibility || '';
+	const originalRightVisibility = rightEl.style.visibility || '';
+	// hide originals while motion cards are animating
+	leftEl.style.visibility = 'hidden';
+	rightEl.style.visibility = 'hidden';
 
 	const durations = {
 		approach: 260,
@@ -166,26 +249,27 @@ export function playSplitAnimation({
 		fade: 180
 	};
 
-	const markHandState = () => {
-		if (leftTextEl) leftTextEl.textContent = formatHandValue(afterLeft);
-		if (rightTextEl) rightTextEl.textContent = formatHandValue(afterRight);
-		leftEl.classList.toggle('dead', afterLeft === 0 || afterLeft === 5);
-		rightEl.classList.toggle('dead', afterRight === 0 || afterRight === 5);
+	const markHandState = (lVal, rVal) => {
+		if (leftTextEl) {
+			const newLeft = formatHandValue(lVal);
+			if (leftTextEl.textContent !== newLeft) leftTextEl.textContent = newLeft;
+		}
+		if (rightTextEl) {
+			const newRight = formatHandValue(rVal);
+			if (rightTextEl.textContent !== newRight) rightTextEl.textContent = newRight;
+		}
+		leftEl.classList.toggle('dead', (lVal === 0 || lVal === 5));
+		rightEl.classList.toggle('dead', (rVal === 0 || rVal === 5));
 	};
 
 	const createCard = (rect, initialValue) => {
-		const card = document.createElement('div');
-		card.className = `attack-motion ${owner}`;
+		const card = _acquireMotionCard(owner);
 		card.style.width = `${rect.width}px`;
 		card.style.height = `${rect.height}px`;
 		card.style.left = `${rect.left + rect.width / 2}px`;
 		card.style.top = `${rect.top + rect.height / 2}px`;
-		card.style.transform = 'translate(-50%, -50%) scale(0.85)';
-		card.style.opacity = '0';
-		const inner = document.createElement('span');
-		inner.className = 'attack-motion-value';
-		inner.textContent = formatForAnimation(initialValue);
-		card.appendChild(inner);
+		card.style.transform = 'translate(-50%, -50%)';
+		card._inner.textContent = formatForAnimation(initialValue);
 		layer.appendChild(card);
 		return card;
 	};
@@ -193,110 +277,144 @@ export function playSplitAnimation({
 	const leftCard = createCard(leftRect, beforeLeft);
 	const rightCard = createCard(rightRect, beforeRight);
 
-	const animateCard = (card, startX, startY, finalX, finalY, nextValue) => {
-		return new Promise((resolve) => {
-			let finished = false;
-			const complete = () => {
-				if (finished) return;
-				finished = true;
-				card.remove();
-				resolve();
-			};
+	// Phase 1: move left/right to center
+	const moveToCenter = () => new Promise((resolve) => {
+		let done = 0;
+		const checkDone = () => {
+			done++;
+			if (done >= 2) resolve();
+		};
+
+		[leftCard, rightCard].forEach((card, idx) => {
+			const startX = idx === 0 ? leftCenterX : rightCenterX;
+			const startY = idx === 0 ? leftCenterY : rightCenterY;
 			card.style.left = `${startX}px`;
 			card.style.top = `${startY}px`;
+			card.classList.add('motion-enter');
 			requestAnimationFrame(() => {
-				card.style.opacity = '1';
+				card.classList.remove('motion-enter');
+				card.classList.add('motion-visible');
+				// flush
+				void card.offsetWidth;
 				card.style.left = `${centerX}px`;
 				card.style.top = `${centerY}px`;
-				card.style.transform = 'translate(-50%, -50%) scale(1.08)';
 				setTimeout(() => {
-					card.querySelector('.attack-motion-value').textContent = formatForAnimation(nextValue);
-					card.style.left = `${finalX}px`;
-					card.style.top = `${finalY}px`;
-					card.style.transform = 'translate(-50%, -50%) scale(0.95)';
-					setTimeout(() => {
-						card.style.opacity = '0';
-						card.style.transform = 'translate(-50%, -50%) scale(0.8)';
-						setTimeout(complete, durations.fade);
-					}, durations.retreat);
+					checkDone();
 				}, durations.approach + durations.hold);
 			});
-			setTimeout(complete, durations.approach + durations.hold + durations.retreat + durations.fade + 160);
 		});
-	};
-
-	const leftPromise = animateCard(leftCard, leftCenterX, leftCenterY, leftCenterX, leftCenterY, afterLeft);
-	const rightPromise = animateCard(rightCard, rightCenterX, rightCenterY, rightCenterX, rightCenterY, afterRight);
-
-	const centerCard = document.createElement('div');
-	centerCard.className = `attack-motion ${owner} split-impact`;
-	centerCard.style.width = `${Math.max(leftRect.width, rightRect.width)}px`;
-	centerCard.style.height = `${Math.max(leftRect.height, rightRect.height)}px`;
-	centerCard.style.left = `${centerX}px`;
-	centerCard.style.top = `${centerY}px`;
-	centerCard.style.transform = 'translate(-50%, -50%) scale(0.4)';
-	centerCard.style.opacity = '0';
-	const centerInner = document.createElement('span');
-	centerInner.className = 'attack-motion-value';
-	centerInner.textContent = formatForAnimation(afterLeft + afterRight);
-	centerCard.appendChild(centerInner);
-	layer.appendChild(centerCard);
-
-	const centerPromise = new Promise((resolve) => {
-		let resolved = false;
-		const finish = () => {
-			if (resolved) return;
-			resolved = true;
-			centerCard.remove();
-			resolve();
-		};
-		requestAnimationFrame(() => {
-			centerCard.style.opacity = '1';
-			centerCard.style.transform = 'translate(-50%, -50%) scale(1.05)';
-			setTimeout(() => {
-				centerCard.style.opacity = '0';
-				centerCard.style.transform = 'translate(-50%, -50%) scale(0.6)';
-				setTimeout(finish, durations.fade);
-			}, durations.approach + durations.hold);
-		});
-		setTimeout(finish, durations.approach + durations.hold + durations.fade + 300);
 	});
+
+	// Phase 2: show center combined card
+	const showCenter = () => new Promise((resolve) => {
+		const centerCard = _acquireMotionCard(owner);
+		centerCard.classList.add('split-impact');
+		centerCard.style.width = `${Math.max(leftRect.width, rightRect.width)}px`;
+		centerCard.style.height = `${Math.max(leftRect.height, rightRect.height)}px`;
+		centerCard.style.left = `${centerX}px`;
+		centerCard.style.top = `${centerY}px`;
+		centerCard.style.transform = 'translate(-50%, -50%)';
+		centerCard._inner.textContent = formatForAnimation(afterLeft + afterRight);
+		layer.appendChild(centerCard);
+
+		// At merge: update visible numbers to merged value (originals are hidden, but keep state consistent)
+		markHandState(afterLeft + afterRight, afterLeft + afterRight);
+
+		requestAnimationFrame(() => {
+			centerCard.classList.add('motion-enter');
+			requestAnimationFrame(() => {
+				centerCard.classList.remove('motion-enter');
+				centerCard.classList.add('motion-visible');
+				void centerCard.offsetWidth;
+				setTimeout(() => {
+					centerCard.classList.remove('motion-visible');
+					centerCard.classList.add('motion-exit');
+					setTimeout(() => {
+						_releaseMotionCard(centerCard);
+						resolve();
+					}, durations.fade);
+				}, durations.approach + durations.hold);
+			});
+		});
+	});
+
+	// Phase 3: spawn result cards at center and animate outwards to final positions
+	const spawnResults = () => new Promise((resolve) => {
+		const resLeft = _acquireMotionCard(owner);
+		const resRight = _acquireMotionCard(owner);
+
+		resLeft._inner.textContent = formatForAnimation(afterLeft);
+		resRight._inner.textContent = formatForAnimation(afterRight);
+
+		resLeft.style.left = `${centerX}px`;
+		resLeft.style.top = `${centerY}px`;
+		resRight.style.left = `${centerX}px`;
+		resRight.style.top = `${centerY}px`;
+
+		layer.appendChild(resLeft);
+		layer.appendChild(resRight);
+
+		[resLeft, resRight].forEach((card) => {
+			card.classList.add('motion-enter');
+		});
+		requestAnimationFrame(() => {
+			[resLeft, resRight].forEach((card) => {
+				card.classList.remove('motion-enter');
+				card.classList.add('motion-visible');
+				void card.offsetWidth;
+			});
+			// before splitting outward, update original hand numbers to the split results
+			markHandState(afterLeft, afterRight);
+
+			// move them outwards
+			resLeft.style.left = `${leftCenterX}px`;
+			resLeft.style.top = `${leftCenterY}px`;
+			resRight.style.left = `${rightCenterX}px`;
+			resRight.style.top = `${rightCenterY}px`;
+
+			setTimeout(() => {
+				// exit
+				resLeft.classList.remove('motion-visible');
+				resLeft.classList.add('motion-exit');
+				resRight.classList.remove('motion-visible');
+				resRight.classList.add('motion-exit');
+				setTimeout(() => {
+					_releaseMotionCard(resLeft);
+					_releaseMotionCard(resRight);
+					resolve();
+				}, durations.fade);
+			}, durations.retreat + durations.fade);
+		});
+	});
+
+	const seqPromise = moveToCenter()
+		.then(() => {
+			// when both cards have reached center, hide the originals
+			leftCard.classList.remove('motion-visible');
+			leftCard.classList.add('motion-exit');
+			rightCard.classList.remove('motion-visible');
+			rightCard.classList.add('motion-exit');
+			_releaseMotionCard(leftCard);
+			_releaseMotionCard(rightCard);
+			return showCenter();
+		})
+		.then(() => spawnResults());
 
 	const restoreDelay = durations.approach + durations.hold + Math.floor(durations.retreat * 0.6);
 	const restorePromise = new Promise((resolve) => {
 		setTimeout(() => {
-			markHandState();
-			leftEl.style.transition = 'opacity 0.24s ease-out';
-			rightEl.style.transition = 'opacity 0.24s ease-out';
-			leftEl.style.opacity = originalLeftOpacity || '1';
-			rightEl.style.opacity = originalRightOpacity || '1';
-			setTimeout(() => {
-				leftEl.style.transition = '';
-				rightEl.style.transition = '';
-				if (originalLeftOpacity === '') leftEl.style.opacity = '';
-				if (originalRightOpacity === '') rightEl.style.opacity = '';
-				resolve();
-			}, 260);
+			// do not change numbers here; numbers updated at merge and split
+			resolve();
 		}, restoreDelay);
 	});
 
-	return Promise.all([leftPromise, rightPromise, centerPromise, restorePromise])
+	return Promise.all([seqPromise, restorePromise])
 		.catch(() => { })
 		.finally(() => {
-			if (leftCard.isConnected) leftCard.remove();
-			if (rightCard.isConnected) rightCard.remove();
-			if (centerCard.isConnected) centerCard.remove();
+			// restore hand styles and visibility
 			leftEl.style.transition = '';
 			rightEl.style.transition = '';
-			if (originalLeftOpacity === '') {
-				leftEl.style.opacity = '';
-			} else {
-				leftEl.style.opacity = originalLeftOpacity;
-			}
-			if (originalRightOpacity === '') {
-				rightEl.style.opacity = '';
-			} else {
-				rightEl.style.opacity = originalRightOpacity;
-			}
+			leftEl.style.visibility = originalLeftVisibility;
+			rightEl.style.visibility = originalRightVisibility;
 		});
 }

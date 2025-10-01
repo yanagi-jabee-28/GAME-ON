@@ -223,10 +223,12 @@ body {
 	background: rgba(17, 24, 39, 0.78);
 	box-shadow: 0 0 25px rgba(248, 250, 252, 0.35);
 	color: #f9fafb;
-	transform: translate(-50%, -50%) scale(0.85);
-	opacity: 0;
-	transition: left 0.38s cubic-bezier(0.4, 0, 0.2, 1), top 0.38s cubic-bezier(0.4, 0, 0.2, 1), transform 0.38s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s ease-out;
-	will-change: left, top, transform, opacity;
+	transform: translate(-50%, -50%);
+	/* keep initial hidden via transform scale only; no opacity transitions */
+	opacity: 1;
+	/* don't fade by default */
+	transition: left 0.38s cubic-bezier(0.4, 0, 0.2, 1), top 0.38s cubic-bezier(0.4, 0, 0.2, 1), transform 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+	will-change: left, top, transform;
 }
 
 .attack-motion.player {
@@ -266,4 +268,23 @@ body {
 	border-style: dashed;
 	background: rgba(71, 85, 105, 0.78);
 	box-shadow: 0 0 28px rgba(191, 219, 254, 0.45);
+}
+
+/* Motion classes for JS-driven position + CSS transitions */
+/* Motion classes for JS-driven position + CSS transitions */
+.motion-enter {
+	transform: translate(-50%, -50%);
+	transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.motion-visible {
+	transform: translate(-50%, -50%);
+	transition: left 0.38s cubic-bezier(0.4, 0, 0.2, 1), top 0.38s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+	will-change: left, top, transform;
+	/* when visible, leave left/top set by JS; CSS handles interpolation */
+}
+
+.motion-exit {
+	transform: translate(-50%, -50%);
+	transition: transform 0.22s ease-out;
 }

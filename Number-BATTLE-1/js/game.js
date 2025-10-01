@@ -76,6 +76,17 @@ export function createNumberBattleGame(doc = document) {
 		}
 	};
 
+	// Cache frequently accessed child elements (avoid querySelector on every render)
+	[dom.handElements, dom.reviewHandElements].forEach((group) => {
+		Object.keys(group).forEach((owner) => {
+			group[owner].forEach((el) => {
+				if (!el) return;
+				// cache .finger-count element reference on the element itself to minimize lookups
+				if (!el._fingerCountEl) el._fingerCountEl = el.querySelector('.finger-count');
+			});
+		});
+	});
+
 	const ai = createAiEngine({ hintDepth: HINT_MAX_DEPTH });
 
 	const state = {
@@ -208,8 +219,11 @@ export function createNumberBattleGame(doc = document) {
 				const value = ownerState[index] ?? 0;
 				const dead = isHandDead(value);
 				el.classList.toggle('dead', dead);
-				const fingerCountEl = el.querySelector('.finger-count');
-				if (fingerCountEl) fingerCountEl.textContent = formatHandValue(value);
+				const fingerCountEl = el._fingerCountEl;
+				if (fingerCountEl) {
+					const newText = formatHandValue(value);
+					if (fingerCountEl.textContent !== newText) fingerCountEl.textContent = newText;
+				}
 			});
 		});
 		normalizedHighlight.forEach((item) => {
