@@ -2,8 +2,31 @@
 // このモジュールは AI のターンの振る舞いを決定し、アニメーション完了後に
 // ゲーム状態を更新してターンを切り替える役割を持ちます。外部からは
 // aiTurnWrapper(getState) を呼ぶことで Promise ベースで AI の処理が完了するのを待てます。
-import { aiHands, playerHands, applyAttack, applySplit, switchTurnTo, isAnimating as animFlag } from './game.js';
+import { aiHands, playerHands, applyAttack, applySplit, switchTurnTo } from './game.js';
 import { performAiAttackAnim, performAiSplitAnim } from './ui.js';
+
+function randomChoice(arr) {
+	return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function getAvailableHands(hands) {
+	const res = [];
+	if (hands[0] > 0) res.push(0);
+	if (hands[1] > 0) res.push(1);
+	return res;
+}
+
+function computePossibleSplits(total, current) {
+	const out = [];
+	for (let si = 0; si <= total / 2; si++) {
+		const sj = total - si;
+		if (sj > 4) continue;
+		const isSameAsCurrent = (si === current[0] && sj === current[1]);
+		const isSameAsReversed = (si === current[1] && sj === current[0]);
+		if (!isSameAsCurrent && !isSameAsReversed) out.push([si, sj]);
+	}
+	return out;
+}
 
 /**
  * aiTurnWrapper
@@ -17,21 +40,20 @@ import { performAiAttackAnim, performAiSplitAnim } from './ui.js';
 export function aiTurnWrapper(getState) {
 	return new Promise((resolve) => {
 		const state = getState();
-		if (state.gameOver) return resolve(); // ゲーム終了なら何もしないで解決
+		if (state.gameOver) return resolve();
 
-		// 1. 勝利できる攻撃があれば実行（アニメ→状態反映の順）
+		// 1) 勝利できる攻撃を探す
 		for (let i = 0; i < 2; i++) {
-			if (state.aiHands[i] === 0) continue; // 空の手は使用不可
+			if (state.aiHands[i] === 0) continue;
 			for (let j = 0; j < 2; j++) {
 				if (state.playerHands[j] === 0) continue;
-				const futurePlayerHand = (state.aiHands[i] + state.playerHands[j]) % 5; // 攻撃後の値
-				const otherPlayerHand = state.playerHands[1 - j];
-				if (futurePlayerHand === 0 && otherPlayerHand === 0) {
-					// 攻撃 - アニメーション後に状態を変更
+				const future = (state.aiHands[i] + state.playerHands[j]) % 5;
+				const other = state.playerHands[1 - j];
+				if (future === 0 && other === 0) {
 					performAiAttackAnim(i, j, () => {
 						applyAttack('ai', i, 'player', j);
 						const res = getState().checkWin();
-						if (!res.gameOver) switchTurnTo('player'); // 勝敗がなければプレイヤーへターンを戻す
+						if (!res.gameOver) switchTurnTo('player');
 						return resolve();
 					});
 					return;
@@ -39,129 +61,104 @@ export function aiTurnWrapper(getState) {
 			}
 		}
 
-		// 2. 攻撃または分割を選択
-		const availableAiHands = [];
-		if (state.aiHands[0] > 0) availableAiHands.push(0);
-		if (state.aiHands[1] > 0) availableAiHands.push(1);
+		const availableAiHands = getAvailableHands(state.aiHands);
+		const availablePlayerHands = getAvailableHands(state.playerHands);
+		const canAttack = availableAiHands.length > 0 && availablePlayerHands.length > 0;
+		const total = state.aiHands[0] + state.aiHands[1];
+		const canSplit = total > 0;
 
-		const availablePlayerHands = [];
-		if (state.playerHands[0] > 0) availablePlayerHands.push(0);
-		if (state.playerHands[1] > 0) availablePlayerHands.push(1);
-
-		const canAttack = availableAiHands.length > 0 && availablePlayerHands.length > 0; // 攻撃可能か
-		const canSplit = state.aiHands[0] + state.aiHands[1] > 0; // 分割可能か（合計が 0 以外）
-
+		// 決定ロジックをまとめる
 		if (canAttack && canSplit) {
 			if (Math.random() < 0.5) {
-				// ランダムに攻撃を選ぶ
-				const aiHandIndex = availableAiHands[Math.floor(Math.random() * availableAiHands.length)];
-				const playerHandIndex = availablePlayerHands[Math.floor(Math.random() * availablePlayerHands.length)];
-				// animate first, then apply
-				performAiAttackAnim(aiHandIndex, playerHandIndex, () => {
-					applyAttack('ai', aiHandIndex, 'player', playerHandIndex);
+				const aiIndex = randomChoice(availableAiHands);
+				const playerIndex = randomChoice(availablePlayerHands);
+				performAiAttackAnim(aiIndex, playerIndex, () => {
+					applyAttack('ai', aiIndex, 'player', playerIndex);
 					const res = getState().checkWin();
 					if (!res.gameOver) switchTurnTo('player');
 					return resolve();
 				});
-			} else {
-				// 分割を選ぶ場合
-				{
-					const total = state.aiHands[0] + state.aiHands[1];
-					const possibleSplits = [];
-					for (let si = 0; si <= total / 2; si++) {
-						const sj = total - si;
-						if (sj > 4) continue; // 4 を超える組み合わせは無効
-						const isSameAsCurrent = (si === state.aiHands[0] && sj === state.aiHands[1]);
-						const isSameAsReversed = (si === state.aiHands[1] && sj === state.aiHands[0]);
-						if (!isSameAsCurrent && !isSameAsReversed) possibleSplits.push([si, sj]);
-					}
-					if (possibleSplits.length > 0) {
-						const selected = possibleSplits[Math.floor(Math.random() * possibleSplits.length)];
-						performAiSplitAnim(() => {
-							applySplit('ai', selected[0], selected[1]);
-							const res = getState().checkWin();
-							if (!res.gameOver) switchTurnTo('player');
-							return resolve();
-						});
-					} else {
-						// 分割候補が無ければ、まず攻撃で状態を変えられないか試みる
-						if (availableAiHands.length > 0 && availablePlayerHands.length > 0) {
-							const aiHandIndex = availableAiHands[Math.floor(Math.random() * availableAiHands.length)];
-							const playerHandIndex = availablePlayerHands[Math.floor(Math.random() * availablePlayerHands.length)];
-							performAiAttackAnim(aiHandIndex, playerHandIndex, () => {
-								applyAttack('ai', aiHandIndex, 'player', playerHandIndex);
-								const res = getState().checkWin();
-								if (!res.gameOver) switchTurnTo('player');
-								return resolve();
-							});
-						} else {
-							// それでも行動できない場合は最小の視覚フィードバックを行いターンを返す
-							performAiSplitAnim(() => {
-								switchTurnTo('player');
-								return resolve();
-							});
-						}
-					}
-				}
+				return;
 			}
-		} else if (canAttack) {
-			// 攻撃のみ可能な場合
-			const aiHandIndex = availableAiHands[Math.floor(Math.random() * availableAiHands.length)];
-			const playerHandIndex = availablePlayerHands[Math.floor(Math.random() * availablePlayerHands.length)];
-			// animate then apply
-			performAiAttackAnim(aiHandIndex, playerHandIndex, () => {
-				applyAttack('ai', aiHandIndex, 'player', playerHandIndex);
-				const res = getState().checkWin();
-				if (!res.gameOver) switchTurnTo('player');
-				return resolve();
-			});
-		} else if (canSplit) {
-			// 分割のみ可能な場合
-			{
-				const total = state.aiHands[0] + state.aiHands[1];
-				const possibleSplits = [];
-				for (let si = 0; si <= total / 2; si++) {
-					const sj = total - si;
-					if (sj > 4) continue;
-					const isSameAsCurrent = (si === state.aiHands[0] && sj === state.aiHands[1]);
-					const isSameAsReversed = (si === state.aiHands[1] && sj === state.aiHands[0]);
-					if (!isSameAsCurrent && !isSameAsReversed) possibleSplits.push([si, sj]);
-				}
-				if (possibleSplits.length > 0) {
-					const selected = possibleSplits[Math.floor(Math.random() * possibleSplits.length)];
-					performAiSplitAnim(() => {
-						applySplit('ai', selected[0], selected[1]);
-						const res = getState().checkWin();
-						if (!res.gameOver) switchTurnTo('player');
-						return resolve();
-					});
-				} else {
-					// フォールバック: まず攻撃で状態を変えられないか試みる
-					if (availableAiHands.length > 0 && availablePlayerHands.length > 0) {
-						const aiHandIndex = availableAiHands[Math.floor(Math.random() * availableAiHands.length)];
-						const playerHandIndex = availablePlayerHands[Math.floor(Math.random() * availablePlayerHands.length)];
-						performAiAttackAnim(aiHandIndex, playerHandIndex, () => {
-							applyAttack('ai', aiHandIndex, 'player', playerHandIndex);
-							const res = getState().checkWin();
-							if (!res.gameOver) switchTurnTo('player');
-							return resolve();
-						});
-					} else {
-						// 最終フォールバック: アニメーションを見せてからターンを返す
-						performAiSplitAnim(() => {
-							switchTurnTo('player');
-							return resolve();
-						});
-					}
-				}
+			// else: try split
+			const possibleSplits = computePossibleSplits(total, state.aiHands);
+			if (possibleSplits.length > 0) {
+				const selected = randomChoice(possibleSplits);
+				performAiSplitAnim(() => {
+					applySplit('ai', selected[0], selected[1]);
+					const res = getState().checkWin();
+					if (!res.gameOver) switchTurnTo('player');
+					return resolve();
+				});
+				return;
 			}
-		} else {
-			// どちらも出来ない場合: ここに来るのは稀（既に敗北/勝利は上で判定されているはず）。
-			// それでも到達した場合は最終フォールバックでアニメーションを行いターンを返す。
+			// fallback: attack if possible
+			if (canAttack) {
+				const aiIndex = randomChoice(availableAiHands);
+				const playerIndex = randomChoice(availablePlayerHands);
+				performAiAttackAnim(aiIndex, playerIndex, () => {
+					applyAttack('ai', aiIndex, 'player', playerIndex);
+					const res = getState().checkWin();
+					if (!res.gameOver) switchTurnTo('player');
+					return resolve();
+				});
+				return;
+			}
+			// 最終フォールバック
 			performAiSplitAnim(() => {
 				switchTurnTo('player');
 				return resolve();
 			});
+			return;
 		}
+
+		if (canAttack) {
+			const aiIndex = randomChoice(availableAiHands);
+			const playerIndex = randomChoice(availablePlayerHands);
+			performAiAttackAnim(aiIndex, playerIndex, () => {
+				applyAttack('ai', aiIndex, 'player', playerIndex);
+				const res = getState().checkWin();
+				if (!res.gameOver) switchTurnTo('player');
+				return resolve();
+			});
+			return;
+		}
+
+		if (canSplit) {
+			const possibleSplits = computePossibleSplits(total, state.aiHands);
+			if (possibleSplits.length > 0) {
+				const selected = randomChoice(possibleSplits);
+				performAiSplitAnim(() => {
+					applySplit('ai', selected[0], selected[1]);
+					const res = getState().checkWin();
+					if (!res.gameOver) switchTurnTo('player');
+					return resolve();
+				});
+				return;
+			}
+			// fallback to attack
+			if (canAttack) {
+				const aiIndex = randomChoice(availableAiHands);
+				const playerIndex = randomChoice(availablePlayerHands);
+				performAiAttackAnim(aiIndex, playerIndex, () => {
+					applyAttack('ai', aiIndex, 'player', playerIndex);
+					const res = getState().checkWin();
+					if (!res.gameOver) switchTurnTo('player');
+					return resolve();
+				});
+				return;
+			}
+			performAiSplitAnim(() => {
+				switchTurnTo('player');
+				return resolve();
+			});
+			return;
+		}
+
+		// 最終フォールバック
+		performAiSplitAnim(() => {
+			switchTurnTo('player');
+			return resolve();
+		});
 	});
 }

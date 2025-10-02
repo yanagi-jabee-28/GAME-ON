@@ -12,12 +12,13 @@ import * as UI from './ui.js';
  * 依存関係を明示的にできます（将来的に getter に変更しやすくするため）。
  */
 function getStateAccessor() {
+	// 軽量なスナップショットを返す。必要なのは配列と checkWin の参照のみ。
 	return {
-		playerHands: Game.playerHands, // プレイヤーの手（配列）
-		aiHands: Game.aiHands,         // CPU の手（配列）
-		currentPlayer: Game.currentPlayer, // 現在の手番 ('player'|'ai')
-		gameOver: Game.gameOver,       // 終了フラグ
-		checkWin: Game.checkWin        // 勝利判定関数への参照
+		playerHands: Game.playerHands,
+		aiHands: Game.aiHands,
+		currentPlayer: Game.currentPlayer,
+		gameOver: Game.gameOver,
+		checkWin: Game.checkWin
 	};
 }
 
@@ -113,12 +114,12 @@ function setupEventDelegation() {
 				Game.switchTurnTo('ai'); // ターンを CPU に移す
 				// call AI turn after a short delay (0.5s) to leave a pause after player's attack animation
 				setTimeout(() => {
-					AI.aiTurnWrapper(() => ({ playerHands: Game.playerHands, aiHands: Game.aiHands, currentPlayer: Game.currentPlayer, gameOver: Game.gameOver, checkWin: Game.checkWin }))
+					AI.aiTurnWrapper(getStateAccessor)
 						.then(() => {
 							UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands }); // AI の行動後に再描画
 							applyPostWinEffects(); // AI の行動で勝敗が決まっていれば反映
 						});
-				}, 500); // 500ms の遅延（行末コメント: CPU 行動に入るまでのポーズ）
+				}, 500); // 500ms の遅延（行動コメント: CPU 行動に入るまでのポーズ）
 			});
 		}
 	});
@@ -134,12 +135,12 @@ function setupEventDelegation() {
 				Game.switchTurnTo('ai'); // CPU ターンへ
 				// delay AI action slightly so player can see split result
 				setTimeout(() => {
-					AI.aiTurnWrapper(() => ({ playerHands: Game.playerHands, aiHands: Game.aiHands, currentPlayer: Game.currentPlayer, gameOver: Game.gameOver, checkWin: Game.checkWin }))
+					AI.aiTurnWrapper(getStateAccessor)
 						.then(() => {
 							UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands }); // AI 後の再描画
 							applyPostWinEffects(); // 勝敗反映
 						});
-				}, 500); // 500ms の遅延（行末コメント: 分割後の視認性確保）
+				}, 500); // 500ms の遅延（行動コメント: 分割後の視認性確保）
 			});
 		});
 	});

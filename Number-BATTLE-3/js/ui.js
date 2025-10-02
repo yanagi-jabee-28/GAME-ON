@@ -90,19 +90,20 @@ export function closeSplitModal() {
 export function animateMove(element, targetX, targetY, callback) {
 	// 要素を現在位置から targetX/targetY へ移動させる（CSS トランジション利用）
 	const rect = element.getBoundingClientRect();
-	const deltaX = targetX - rect.left; // 移動量 X
-	const deltaY = targetY - rect.top;  // 移動量 Y
+	const deltaX = targetX - rect.left;
+	const deltaY = targetY - rect.top;
 
-	element.style.transform = `translate(${deltaX}px, ${deltaY}px)`; // translate により移動
-	element.classList.add('move-to-target'); // CSS で transition を効かせるためのクラス
+	element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+	element.classList.add('move-to-target');
 
-	// transitionend を待ってクリーンアップ＆コールバック
-	element.addEventListener('transitionend', function handler() {
-		element.classList.remove('move-to-target'); // クラスを戻す
-		element.style.transform = ''; // transform をクリア
-		element.removeEventListener('transitionend', handler); // イベントリスナを解除
-		if (typeof callback === 'function') callback(); // 完了通知コールバック
-	});
+	function handler() {
+		element.classList.remove('move-to-target');
+		element.style.transform = '';
+		element.removeEventListener('transitionend', handler);
+		if (typeof callback === 'function') callback();
+	}
+
+	element.addEventListener('transitionend', handler);
 }
 
 export function performPlayerAttackAnim(attackerIndex, targetIndex, onComplete) {
@@ -110,8 +111,8 @@ export function performPlayerAttackAnim(attackerIndex, targetIndex, onComplete) 
 	const attackerEl = playerHandElements[attackerIndex];
 	const targetEl = aiHandElements[targetIndex];
 	const targetRect = targetEl.getBoundingClientRect();
-	const attackerClone = attackerEl.cloneNode(true); // クローンを作成
-	document.body.appendChild(attackerClone); // body に追加して絶対配置可能にする
+	const attackerClone = attackerEl.cloneNode(true);
+	document.body.appendChild(attackerClone);
 	const attackerRect = attackerEl.getBoundingClientRect();
 	attackerClone.style.position = 'absolute';
 	attackerClone.style.left = `${attackerRect.left}px`;
@@ -119,8 +120,8 @@ export function performPlayerAttackAnim(attackerIndex, targetIndex, onComplete) 
 	attackerClone.style.width = `${attackerRect.width}px`;
 	attackerClone.style.height = `${attackerRect.height}px`;
 	animateMove(attackerClone, targetRect.left, targetRect.top, () => {
-		document.body.removeChild(attackerClone); // アニメ完了後クローンを削除
-		if (onComplete) onComplete(); // 呼び出し元へ完了通知
+		document.body.removeChild(attackerClone);
+		if (onComplete) onComplete();
 	});
 }
 
@@ -168,7 +169,7 @@ export function performAiSplitAnim(onComplete) {
 	animateMove(leftClone, leftTargetX, centerY, () => { document.body.removeChild(leftClone); });
 	animateMove(rightClone, rightTargetX, centerY, () => {
 		document.body.removeChild(rightClone);
-		if (onComplete) onComplete(); // 呼び出し元に完了通知
+		if (onComplete) onComplete();
 	});
 }
 
@@ -199,6 +200,6 @@ export function performPlayerSplitAnim(val0, val1, onComplete) {
 	animateMove(rightClone, rightTargetX, centerY, () => {
 		document.body.removeChild(rightClone);
 		// Do NOT mutate game state here; delegate to caller via onComplete
-		if (onComplete) onComplete(); // 行末コメント: 呼び出し元（main.js）が状態反映を行う
+		if (onComplete) onComplete();
 	});
 }
