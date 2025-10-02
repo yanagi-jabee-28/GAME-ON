@@ -113,9 +113,13 @@ function heuristicEval(snapshot) {
 function terminalEval(snapshot) {
 	const playerLost = snapshot.player.every(isHandDead);
 	const cpuLost = snapshot.cpu.every(isHandDead);
-	if (cpuLost) return -1e6;
-	if (playerLost) return 1e6;
-	return null;
+	const playerScore = snapshot.player.reduce((sum, hand) => sum + (isHandDead(hand) ? 0 : hand), 0);
+	const cpuScore = snapshot.cpu.reduce((sum, hand) => sum + (isHandDead(hand) ? 0 : hand), 0);
+
+	if (cpuLost) return -1e6 + playerScore - cpuScore; // 勝利スコアに差分を加味
+	if (playerLost) return 1e6 + cpuScore - playerScore; // 敗北スコアに差分を加味
+
+	return cpuScore - playerScore; // 中間スコアを返却
 }
 
 // Pattern-based bonus to encourage creation of known strong/forcing shapes.
@@ -129,7 +133,7 @@ function patternBonus(snapshot) {
 
 	// If CPU has 4 on one hand and player has a 1 on any hand -> near immediate winning potential
 	if ((cpu[0] === 4 || cpu[1] === 4) && (player.includes(1))) {
-		bonus += 20000;
+		bonus += 10000; // Reduced from 20000 to balance other factors
 	}
 
 	// If CPU has symmetric flexible shapes (2,2) or (3,3) give modest bonus
@@ -143,7 +147,12 @@ function patternBonus(snapshot) {
 	}
 
 	// Penalize CPU states where both hands are weak
-	if (cpuAlive.length === 2 && cpu[0] + cpu[1] <= 3) bonus -= 200;
+	if (cpuAlive.length === 2 && cpu[0] + cpu[1] <= 3) bonus -= 500; // Increased penalty for weak states
+
+	// Add penalty for predictable patterns
+	if (playerAlive.length === 2 && player[0] === player[1]) {
+		bonus -= 300; // Penalize symmetric player hands
+	}
 
 	return bonus;
 }
@@ -252,16 +261,47 @@ function chooseCpuMoveWithDepth(snapshot, depth, options, historyKeys) {
 		let value = minimax(nextSnapshot, depth - 1, false, -Infinity, Infinity);
 		// apply pattern bonus to candidate evaluation
 		value += patternBonus(nextSnapshot);
-		if (repeatPenalty > 0) {
-			const key = makeStateKey(nextSnapshot, 'player');
-			const recentCount = historyKeys.filter((stateKey) => stateKey === key).length;
-			if (recentCount > 0) {
-				const penalty = recentCount * repeatPenalty;
-				value += optimization === 'min' ? penalty : -penalty;
-			}
+
+		// Adjust attack value to prevent over-prioritization
+		if (move.type === 'attack') {
+			value = value / 2; // Reduce attack value to balance with splits
 		}
-		const isBetter = optimization === 'min' ? value < bestValue : value > bestValue;
-		if (isBetter) {
+
+		// Define splitBonus to avoid ReferenceError
+		const splitBonus = (move.left === move.right) ? 1000 : 800; // Higher bonus for symmetric splits
+		// Increase split value for better balance
+		if (move.type === 'split') {
+			value += splitBonus;
+		}
+
+		// Normalize split and attack values to prevent extreme differences
+		if (move.type === 'split') {
+			const earlyGamePenalty = (snapshot.cpu[0] + snapshot.cpu[1] <= 3) ? 800 : 0; // Penalize early splits more
+			value = Math.min(value, 1200) - earlyGamePenalty; // Reduce max split value
+		}
+
+		if (move.type === 'attack') {
+			const attackBonus = (move.newValue >= 3) ? 300 : 0; // Reward attacks that create strong positions
+			value = Math.min(value, 1800) + attackBonus; // Increase max attack value
+		}
+
+		// Debugging logs for move evaluation
+		console.log(`Evaluating move:`, move);
+		console.log(`Move type: ${move.type}, Value: ${value}`);
+		console.log(`Current best move: ${bestMove}, Best value: ${bestValue}`);
+
+		// Prioritize winning moves
+		if (terminalEval(nextSnapshot) === 1e6) {
+			value += 5000; // Assign a high value to winning moves
+		}
+
+		// Avoid losing moves
+		if (terminalEval(nextSnapshot) === -1e6) {
+			value -= 5000; // Assign a low value to losing moves
+		}
+
+		// Compare attack and split values
+		if (value > bestValue) {
 			bestValue = value;
 			bestMove = move;
 		}
@@ -447,6 +487,87 @@ function hintSearch(state, depth, turn, pathSet, memo, alpha, beta) {
 	return finalResult;
 }
 
+function analyzeWinningMoves(snapshot, depth, isCpuTurn) {
+	if (depth === 0) return null;
+
+	const terminalScore = terminalEval(snapshot);
+	if (terminalScore !== null) return { score: terminalScore, move: null };
+
+	const owner = isCpuTurn ? 'cpu' : 'player';
+	const moves = enumerateMoves(snapshot, owner);
+	let bestMove = null;
+	let bestScore = isCpuTurn ? -Infinity : Infinity;
+
+	for (const moveType in moves) {
+		for (const move of moves[moveType]) {
+			const nextSnapshot = applyMove(snapshot, owner, move);
+			const result = analyzeWinningMoves(nextSnapshot, depth - 1, !isCpuTurn);
+			const score = result ? result.score : heuristicEval(nextSnapshot);
+
+			if (isCpuTurn ? score > bestScore : score < bestScore) {
+				bestScore = score;
+				bestMove = move;
+			}
+		}
+	}
+
+	return { score: bestScore, move: bestMove };
+}
+
+function findBestMove(snapshot) {
+	const depth = 10; // 最大10手先まで分析
+	const result = analyzeWinningMoves(snapshot, depth, true);
+	return result ? result.move : null;
+}
+
+function findWinningMoveWithinDepth(snapshot, maxDepth) {
+	function recursiveSearch(snapshot, depth, isCpuTurn) {
+		if (depth === 0) return null;
+
+		const terminalScore = terminalEval(snapshot);
+		if (terminalScore !== null) {
+			return terminalScore > 0 ? { score: terminalScore, move: null } : null;
+		}
+
+		const owner = isCpuTurn ? 'cpu' : 'player';
+		const moves = enumerateMoves(snapshot, owner);
+		for (const moveType in moves) {
+			for (const move of moves[moveType]) {
+				const nextSnapshot = applyMove(snapshot, owner, move);
+				const result = recursiveSearch(nextSnapshot, depth - 1, !isCpuTurn);
+				if (isCpuTurn && result && result.score > 0) {
+					return { score: result.score, move };
+				}
+			}
+		}
+		return null;
+	}
+
+	return recursiveSearch(snapshot, maxDepth, true);
+}
+
+function avoidLosingMoves(snapshot) {
+	const moves = enumerateMoves(snapshot, 'cpu');
+	let safeMove = null;
+
+	for (const moveType in moves) {
+		for (const move of moves[moveType]) {
+			const nextSnapshot = applyMove(snapshot, 'cpu', move);
+			const result = terminalEval(nextSnapshot);
+			if (result === -1e6) continue; // 負ける手をスキップ
+			safeMove = move; // 安全な手を記録
+		}
+	}
+	return safeMove;
+}
+
+function findOptimalMove(snapshot) {
+	const winningMove = findWinningMoveWithinDepth(snapshot, 3);
+	if (winningMove) return winningMove.move;
+
+	return avoidLosingMoves(snapshot);
+}
+
 export function createAiEngine({ hintDepth = HINT_MAX_DEPTH } = {}) {
 	function chooseCpuMove(snapshot, mode, historyKeys) {
 		switch (mode) {
@@ -551,4 +672,206 @@ export function createAiEngine({ hintDepth = HINT_MAX_DEPTH } = {}) {
 		applyMove,
 		enumerateMoves
 	};
+}
+
+function findWinningMoveOnMistake(snapshot) {
+	const moves = enumerateMoves(snapshot, 'cpu');
+	for (const moveType in moves) {
+		for (const move of moves[moveType]) {
+			const nextSnapshot = applyMove(snapshot, 'cpu', move);
+			if (terminalEval(nextSnapshot) === 1e6) {
+				return move; // 勝利を確定させる手を返す
+			}
+		}
+	}
+	return null; // 勝利を確定させる手がない場合
+}
+
+function provideHint(snapshot) {
+	let bestHint = findBestMove(snapshot);
+	console.log("Initial Hint:", bestHint);
+
+	// 非同期でより良いヒントを探索
+	setTimeout(() => {
+		const detailedHint = findOptimalMove(snapshot);
+		if (detailedHint && detailedHint !== bestHint) {
+			bestHint = detailedHint;
+			console.log("Updated Hint:", bestHint);
+		}
+	}, 1000);
+
+	return bestHint;
+}
+
+function enhancedHeuristicEval(snapshot) {
+	const baseScore = heuristicEval(snapshot);
+
+	// 分配アクションの制約条件を考慮した評価
+	const playerHands = snapshot.player;
+	const cpuHands = snapshot.cpu;
+
+	// 相手を不利な数値状態に追い込むボーナス
+	let strategicBonus = 0;
+	if (cpuHands.includes(4) && playerHands.includes(1)) {
+		strategicBonus += 5000; // 即勝利に近い状態
+	}
+
+	// 自明な分配の禁止を考慮したペナルティ
+	if (cpuHands[0] === cpuHands[1] && cpuHands[0] !== 0) {
+		strategicBonus -= 100; // 対称状態は避ける
+	}
+
+	return baseScore + strategicBonus;
+}
+
+function evaluateCriticalStates(snapshot) {
+	const playerHands = snapshot.player;
+	const cpuHands = snapshot.cpu;
+
+	// 必敗形を避けるロジック
+	if (cpuHands.includes(4) && playerHands.some((hand) => hand > 0)) {
+		return { avoid: true, reason: 'Avoid critical state: 〈4, X〉' };
+	}
+	if (cpuHands[0] === 1 && cpuHands[1] === 0) {
+		return { avoid: true, reason: 'Avoid critical state: 〈1, 0〉' };
+	}
+
+	// 相手を詰み状態に誘導するロジック
+	if (playerHands[0] === 4 || playerHands[1] === 4) {
+		return { induce: true, reason: 'Induce critical state: 〈4, X〉' };
+	}
+
+	return { avoid: false, induce: false };
+}
+
+function findStrategicMove(snapshot) {
+	const moves = enumerateMoves(snapshot, 'cpu');
+	let bestMove = null;
+	let bestEvaluation = -Infinity;
+
+	for (const moveType in moves) {
+		for (const move of moves[moveType]) {
+			const nextSnapshot = applyMove(snapshot, 'cpu', move);
+			const evaluation = evaluateCriticalStates(nextSnapshot);
+
+			if (evaluation.avoid) continue; // 必敗形を避ける
+			if (evaluation.induce) return move; // 詰み状態に誘導する手を即選択
+
+			const score = heuristicEval(nextSnapshot);
+			if (score > bestEvaluation) {
+				bestEvaluation = score;
+				bestMove = move;
+			}
+		}
+	}
+
+	return bestMove;
+}
+
+function provideAdvancedHint(snapshot) {
+	let bestHint = null;
+	let bestScore = -Infinity;
+
+	const moves = enumerateMoves(snapshot, 'cpu');
+	for (const moveType in moves) {
+		for (const move of moves[moveType]) {
+			const nextSnapshot = applyMove(snapshot, 'cpu', move);
+			const score = minimax(nextSnapshot, 3, false, -Infinity, Infinity);
+
+			if (score > bestScore) {
+				bestScore = score;
+				bestHint = move;
+			}
+		}
+	}
+
+	console.log("Advanced Hint:", bestHint);
+	return bestHint;
+}
+
+function detectLosingPattern(snapshot) {
+	// 負けパターンの例: 0,1 の状態
+	const playerHands = snapshot.player;
+	if ((playerHands[0] === 0 && playerHands[1] === 1) || (playerHands[0] === 1 && playerHands[1] === 0)) {
+		return true;
+	}
+	return false;
+}
+
+function chooseCpuMoveAvoidingLoss(snapshot, historyKeys) {
+	const { attacks, splits } = enumerateMoves(snapshot, 'cpu');
+	const candidates = attacks.concat(splits);
+	if (candidates.length === 0) return null;
+
+	let bestMove = null;
+	let bestValue = -Infinity;
+
+	for (const move of candidates) {
+		const next = applyMove(snapshot, 'cpu', move);
+		if (detectLosingPattern(next)) {
+			continue; // 負けパターンに繋がる手をスキップ
+		}
+
+		const value = minimax(next, 2, false, -Infinity, Infinity);
+		if (value > bestValue) {
+			bestValue = value;
+			bestMove = move;
+		}
+	}
+
+	return bestMove;
+}
+
+function provideHintImproved(snapshot, historyKeys) {
+	const hint = chooseCpuMoveAvoidingLoss(snapshot, historyKeys);
+	console.log("Improved Hint:", hint);
+	return hint;
+}
+
+function preventCriticalState(snapshot) {
+	const cpuHands = snapshot.cpu;
+	const playerHands = snapshot.player;
+
+	// CPUが「4」の手を作るのを防ぐ
+	if (cpuHands.includes(4)) {
+		return { prevent: true, reason: 'Prevent CPU from creating a critical hand with value 4' };
+	}
+
+	// プレイヤーが「X」の手に追い込まれるのを防ぐ
+	if (playerHands.includes(1) && cpuHands.includes(4)) {
+		return { prevent: true, reason: 'Avoid player hand being eliminated by CPU hand with value 4' };
+	}
+
+	return { prevent: false };
+}
+
+function chooseCpuMoveWithPrevention(snapshot, historyKeys) {
+	const { attacks, splits } = enumerateMoves(snapshot, 'cpu');
+	const candidates = attacks.concat(splits);
+	if (candidates.length === 0) return null;
+
+	let bestMove = null;
+	let bestValue = -Infinity;
+
+	for (const move of candidates) {
+		const next = applyMove(snapshot, 'cpu', move);
+		const prevention = preventCriticalState(next);
+		if (prevention.prevent) {
+			continue; // クリティカルな状態を防ぐため、この手をスキップ
+		}
+
+		const value = minimax(next, 2, false, -Infinity, Infinity);
+		if (value > bestValue) {
+			bestValue = value;
+			bestMove = move;
+		}
+	}
+
+	return bestMove;
+}
+
+function provideHintWithPrevention(snapshot, historyKeys) {
+	const hint = chooseCpuMoveWithPrevention(snapshot, historyKeys);
+	console.log("Hint with Prevention:", hint);
+	return hint;
 }

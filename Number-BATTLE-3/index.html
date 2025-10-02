@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>指ゲーム (Chopsticks)</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
+	<style>
+		body {
+			font-family: 'M PLUS Rounded 1c', sans-serif;
+			touch-action: manipulation;
+		}
+
+		.hand {
+			width: 120px;
+			height: 120px;
+			border: 4px solid transparent;
+			border-radius: 1.5rem;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			font-size: 5rem;
+			font-weight: bold;
+			cursor: pointer;
+			transition: all 0.2s ease;
+			user-select: none;
+			box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+		}
+
+		.hand.selected {
+			border-color: #f59e0b;
+			/* amber-500 */
+			box-shadow: 0 8px 12px rgba(245, 158, 11, 0.3);
+		}
+
+		.hand.disabled {
+			cursor: not-allowed;
+			background-color: #f3f4f6;
+			/* gray-100 */
+			color: #9ca3af;
+			/* gray-400 */
+		}
+
+		.hand.ai-hand:hover {
+			background-color: #fee2e2;
+			/* red-100 */
+		}
+
+		.hand.player-hand:not(.disabled):hover {
+			background-color: #dbeafe;
+			/* blue-100 */
+		}
+
+		.btn {
+			transition: all 0.2s ease;
+		}
+
+		.btn:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+		}
+
+		.btn:active {
+			transform: translateY(0);
+			box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+		}
+
+		#split-modal {
+			background-color: rgba(0, 0, 0, 0.5);
+		}
+
+		/* アニメーション用のスタイル */
+		.move-to-target {
+			position: absolute;
+			transition: transform 0.5s ease, opacity 0.5s ease;
+			z-index: 10;
+		}
+
+		.fade-out {
+			opacity: 0;
+			transition: opacity 0.5s ease;
+		}
+	</style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 flex flex-col items-center justify-center min-h-screen p-4">
+
+	<div id="game-container" class="w-full max-w-md mx-auto bg-white rounded-3xl shadow-2xl p-6 space-y-6">
+		<h1 class="text-3xl font-bold text-center text-gray-700">指ゲーム</h1>
+
+		<!-- AI (相手) のエリア -->
+		<div id="ai-area" class="space-y-3">
+			<p class="text-center font-semibold text-red-600">相手</p>
+			<div class="flex justify-center gap-6">
+				<div id="ai-hand-0" class="hand ai-hand bg-red-50 text-red-600" onclick="handleHandClick('ai', 0)">1
+				</div>
+				<div id="ai-hand-1" class="hand ai-hand bg-red-50 text-red-600" onclick="handleHandClick('ai', 1)">1
+				</div>
+			</div>
+		</div>
+
+		<!-- メッセージエリア -->
+		<div id="message-area"
+			class="text-center font-semibold text-lg h-12 flex items-center justify-center bg-gray-100 rounded-lg">
+			<p id="message">ゲーム開始！</p>
+		</div>
+
+		<!-- Player (あなた) のエリア -->
+		<div id="player-area" class="space-y-3">
+			<div class="flex justify-center gap-6">
+				<div id="player-hand-0" class="hand player-hand bg-blue-50 text-blue-600"
+					onclick="handleHandClick('player', 0)">1</div>
+				<div id="player-hand-1" class="hand player-hand bg-blue-50 text-blue-600"
+					onclick="handleHandClick('player', 1)">1</div>
+			</div>
+			<p class="text-center font-semibold text-blue-600">あなた</p>
+		</div>
+
+		<!-- アクションボタン -->
+		<div class="flex justify-center gap-4 pt-4">
+			<button id="split-btn" onclick="openSplitModal()"
+				class="btn py-3 px-6 bg-green-500 text-white font-bold rounded-full shadow-lg">分配 (スプリット)</button>
+			<button id="restart-btn" onclick="initGame()"
+				class="btn py-3 px-6 bg-gray-500 text-white font-bold rounded-full shadow-lg hidden">リスタート</button>
+		</div>
+	</div>
+
+	<!-- 分配モーダル -->
+	<div id="split-modal" class="fixed inset-0 flex items-center justify-center hidden">
+		<div class="bg-white rounded-2xl shadow-xl p-8 w-11/12 max-w-sm mx-auto space-y-4 text-center">
+			<h2 class="text-2xl font-bold">分配</h2>
+			<p>合計値「<span id="split-total"></span>」を維持するパターンを選んでください。</p>
+			<div id="split-options" class="grid grid-cols-2 gap-4 py-4">
+				<!-- 分配パターンがここに動的に生成されます -->
+			</div>
+			<button onclick="closeSplitModal()"
+				class="btn py-2 px-6 bg-gray-400 text-white font-bold rounded-full">キャンセル</button>
+		</div>
+	</div>
+
+	<script>
+		// --- ゲーム状態管理 ---
+		let playerHands = [1, 1];
+		let aiHands = [1, 1];
+		let currentPlayer = 'player';
+		let selectedHand = { owner: null, index: null };
+		let gameOver = false;
+
+		// --- DOM要素 ---
+		const playerHandElements = [document.getElementById('player-hand-0'), document.getElementById('player-hand-1')];
+		const aiHandElements = [document.getElementById('ai-hand-0'), document.getElementById('ai-hand-1')];
+		const messageEl = document.getElementById('message');
+		const splitBtn = document.getElementById('split-btn');
+		const restartBtn = document.getElementById('restart-btn');
+		const splitModal = document.getElementById('split-modal');
+		const splitTotalEl = document.getElementById('split-total');
+		const splitOptionsContainer = document.getElementById('split-options');
+
+
+		// --- ゲーム初期化 ---
+		function initGame() {
+			playerHands = [1, 1];
+			aiHands = [1, 1];
+			currentPlayer = 'player';
+			selectedHand = { owner: null, index: null };
+			gameOver = false;
+
+			restartBtn.classList.add('hidden');
+			splitBtn.classList.remove('hidden');
+			splitBtn.disabled = false;
+
+			updateDisplay();
+			updateMessage("あなたの番です。攻撃する手を選んでください。");
+		}
+
+		// --- 表示更新 ---
+		function updateDisplay() {
+			// プレイヤーの手
+			playerHandElements.forEach((el, i) => {
+				el.textContent = playerHands[i];
+				el.classList.toggle('disabled', playerHands[i] === 0);
+				el.classList.remove('selected');
+			});
+			// AIの手
+			aiHandElements.forEach((el, i) => {
+				el.textContent = aiHands[i];
+				el.classList.toggle('disabled', aiHands[i] === 0);
+				el.classList.remove('selected');
+			});
+		}
+
+		function updateMessage(msg) {
+			messageEl.textContent = msg;
+		}
+
+		// --- 手のクリック処理 ---
+		function handleHandClick(owner, index) {
+			if (gameOver || currentPlayer !== 'player') return;
+
+			// 1. 攻撃する自分の手を選ぶ
+			if (selectedHand.owner === null) {
+				if (owner === 'player' && playerHands[index] > 0) {
+					selectedHand = { owner, index };
+					playerHandElements[index].classList.add('selected');
+					updateMessage("相手の手を選んで攻撃してください。");
+				}
+				// 2. 選択をキャンセルする
+			} else if (selectedHand.owner === 'player' && owner === 'player' && selectedHand.index === index) {
+				selectedHand = { owner: null, index: null };
+				playerHandElements[index].classList.remove('selected');
+				updateMessage("あなたの番です。攻撃する手を選んでください。");
+				// 3. 攻撃対象の相手の手を選ぶ
+			} else if (selectedHand.owner === 'player' && owner === 'ai') {
+				if (aiHands[index] === 0) return; // 0の手は攻撃できない
+				performAttack(selectedHand.index, index);
+			}
+		}
+
+		// --- アニメーション中のフリーズ防止 ---
+		let isAnimating = false;
+
+		function performAttack(attackerIndex, targetIndex) {
+			if (isAnimating) return;
+			isAnimating = true;
+
+			const attackerEl = playerHandElements[attackerIndex];
+			const targetEl = aiHandElements[targetIndex];
+
+			const targetRect = targetEl.getBoundingClientRect();
+			const attackerClone = attackerEl.cloneNode(true);
+			document.body.appendChild(attackerClone);
+
+			const attackerRect = attackerEl.getBoundingClientRect();
+			attackerClone.style.position = 'absolute';
+			attackerClone.style.left = `${attackerRect.left}px`;
+			attackerClone.style.top = `${attackerRect.top}px`;
+			attackerClone.style.width = `${attackerRect.width}px`;
+			attackerClone.style.height = `${attackerRect.height}px`;
+
+			animateMove(attackerClone, targetRect.left, targetRect.top, () => {
+				document.body.removeChild(attackerClone);
+				const attackerValue = playerHands[attackerIndex];
+				const targetValue = aiHands[targetIndex];
+
+				aiHands[targetIndex] = (attackerValue + targetValue) % 5;
+
+				selectedHand = { owner: null, index: null };
+				updateDisplay();
+
+				if (checkWin()) {
+					isAnimating = false;
+					return;
+				}
+
+				isAnimating = false;
+				switchTurn('ai');
+			});
+		}
+
+		// --- ターン切り替え ---
+		function switchTurn(nextPlayer) {
+			currentPlayer = nextPlayer;
+			if (nextPlayer === 'ai') {
+				splitBtn.disabled = true;
+				updateMessage("相手の番です...");
+				setTimeout(aiTurn, 1000);
+			} else {
+				splitBtn.disabled = false;
+				updateMessage("あなたの番です。攻撃する手を選んでください。");
+			}
+		}
+
+		// --- AIの思考ロジック ---
+		function aiTurn() {
+			if (gameOver) return;
+
+			// 1. 勝利できる攻撃があれば実行
+			for (let i = 0; i < 2; i++) {
+				if (aiHands[i] === 0) continue;
+				for (let j = 0; j < 2; j++) {
+					if (playerHands[j] === 0) continue;
+					const futurePlayerHand = (aiHands[i] + playerHands[j]) % 5;
+					const otherPlayerHand = playerHands[1 - j];
+					if (futurePlayerHand === 0 && otherPlayerHand === 0) {
+						performAiAttack(i, j);
+						return;
+					}
+				}
+			}
+
+			// 2. 簡易的な危険回避の分配 (片方が0になりそうな場合)
+			// TBD: より高度なロジックを実装可能
+
+			// 3. ランダムな有効な攻撃
+			const availableAiHands = [];
+			if (aiHands[0] > 0) availableAiHands.push(0);
+			if (aiHands[1] > 0) availableAiHands.push(1);
+
+			const availablePlayerHands = [];
+			if (playerHands[0] > 0) availablePlayerHands.push(0);
+			if (playerHands[1] > 0) availablePlayerHands.push(1);
+
+			if (availableAiHands.length > 0 && availablePlayerHands.length > 0) {
+				const aiHandIndex = availableAiHands[Math.floor(Math.random() * availableAiHands.length)];
+				const playerHandIndex = availablePlayerHands[Math.floor(Math.random() * availablePlayerHands.length)];
+				performAiAttack(aiHandIndex, playerHandIndex);
+			} else {
+				// 攻撃できる手がない場合 (通常は発生しない)
+				switchTurn('player');
+			}
+		}
+
+		function performAiAttack(attackerIndex, targetIndex) {
+			if (isAnimating) return;
+			isAnimating = true;
+
+			const attackerEl = aiHandElements[attackerIndex];
+			const targetEl = playerHandElements[targetIndex];
+
+			const targetRect = targetEl.getBoundingClientRect();
+			const attackerClone = attackerEl.cloneNode(true);
+			document.body.appendChild(attackerClone);
+
+			const attackerRect = attackerEl.getBoundingClientRect();
+			attackerClone.style.position = 'absolute';
+			attackerClone.style.left = `${attackerRect.left}px`;
+			attackerClone.style.top = `${attackerRect.top}px`;
+			attackerClone.style.width = `${attackerRect.width}px`;
+			attackerClone.style.height = `${attackerRect.height}px`;
+
+			animateMove(attackerClone, targetRect.left, targetRect.top, () => {
+				document.body.removeChild(attackerClone);
+				const attackerValue = aiHands[attackerIndex];
+				const targetValue = playerHands[targetIndex];
+
+				playerHands[targetIndex] = (attackerValue + targetValue) % 5;
+
+				selectedHand = { owner: null, index: null };
+				updateDisplay();
+
+				if (checkWin()) {
+					isAnimating = false;
+					return;
+				}
+
+				isAnimating = false;
+				switchTurn('player');
+			});
+		}
+
+
+		// --- 勝利判定 ---
+		function checkWin() {
+			const playerLost = playerHands[0] === 0 && playerHands[1] === 0;
+			const aiLost = aiHands[0] === 0 && aiHands[1] === 0;
+
+			if (playerLost || aiLost) {
+				gameOver = true;
+				if (playerLost) {
+					updateMessage("あなたの負けです...");
+				} else {
+					updateMessage("あなたの勝ちです！🎉");
+				}
+				splitBtn.classList.add('hidden');
+				restartBtn.classList.remove('hidden');
+				return true;
+			}
+			return false;
+		}
+
+		// --- 分配（スプリット）関連 ---
+		function openSplitModal() {
+			if (gameOver || currentPlayer !== 'player') return;
+
+			const total = playerHands[0] + playerHands[1];
+			splitTotalEl.textContent = total;
+			splitOptionsContainer.innerHTML = ''; // 既存のオプションをクリア
+
+			if (total === 0) {
+				splitOptionsContainer.innerHTML = '<p class="col-span-2 text-gray-500">分配できる指がありません。</p>';
+				splitModal.classList.remove('hidden');
+				return;
+			}
+
+			const possibleSplits = [];
+			for (let i = 0; i <= total / 2; i++) {
+				const j = total - i;
+				if (j > 4) continue; // 片方の指は4本まで
+
+				// 元の状態と同じ、または左右を入れ替えただけの場合は除外
+				const isSameAsCurrent = (i === playerHands[0] && j === playerHands[1]);
+				const isSameAsReversed = (i === playerHands[1] && j === playerHands[0]);
+
+				if (!isSameAsCurrent && !isSameAsReversed) {
+					possibleSplits.push([i, j]);
+				}
+			}
+
+			if (possibleSplits.length === 0) {
+				splitOptionsContainer.innerHTML = '<p class="col-span-2 text-gray-500">有効な分配パターンがありません。</p>';
+			} else {
+				possibleSplits.forEach(split => {
+					const button = document.createElement('button');
+					button.textContent = `${split[0]} と ${split[1]}`;
+					button.className = 'btn py-3 px-4 bg-green-500 text-white font-bold rounded-lg shadow-md w-full';
+					button.onclick = () => applySplit(split[0], split[1]);
+					splitOptionsContainer.appendChild(button);
+				});
+			}
+
+			splitModal.classList.remove('hidden');
+		}
+
+		// --- 分配アニメーション ---
+		function applySplit(val0, val1) {
+			if (isAnimating) return;
+			isAnimating = true;
+
+			const leftHandEl = playerHandElements[0];
+			const rightHandEl = playerHandElements[1];
+
+			const leftCenterX = leftHandEl.getBoundingClientRect().left + leftHandEl.getBoundingClientRect().width / 2;
+			const rightCenterX = rightHandEl.getBoundingClientRect().left + rightHandEl.getBoundingClientRect().width / 2;
+			const centerX = (leftCenterX + rightCenterX) / 2;
+			const centerY = leftHandEl.getBoundingClientRect().top;
+
+			const leftClone = leftHandEl.cloneNode(true);
+			const rightClone = rightHandEl.cloneNode(true);
+			document.body.appendChild(leftClone);
+			document.body.appendChild(rightClone);
+
+			leftClone.style.position = 'absolute';
+			rightClone.style.position = 'absolute';
+
+			const leftRect = leftHandEl.getBoundingClientRect();
+			const rightRect = rightHandEl.getBoundingClientRect();
+
+			leftClone.style.left = `${leftRect.left}px`;
+			leftClone.style.top = `${leftRect.top}px`;
+			rightClone.style.left = `${rightRect.left}px`;
+			rightClone.style.top = `${rightRect.top}px`;
+
+			const leftTargetX = centerX - (leftClone.offsetWidth / 2);
+			const rightTargetX = centerX - (rightClone.offsetWidth / 2);
+
+			animateMove(leftClone, leftTargetX, centerY, () => {
+				document.body.removeChild(leftClone);
+			});
+			animateMove(rightClone, rightTargetX, centerY, () => {
+				document.body.removeChild(rightClone);
+
+				playerHands[0] = val0;
+				playerHands[1] = val1;
+
+				updateDisplay();
+
+				if (checkWin()) {
+					isAnimating = false;
+					return;
+				}
+
+				isAnimating = false;
+				switchTurn('ai');
+			});
+
+			closeSplitModal();
+		}
+
+
+		function closeSplitModal() {
+			splitModal.classList.add('hidden');
+		}
+
+		// --- アニメーション用のヘルパー関数 ---
+		function animateMove(element, targetX, targetY, callback) {
+			const rect = element.getBoundingClientRect();
+			const deltaX = targetX - rect.left;
+			const deltaY = targetY - rect.top;
+
+			element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+			element.classList.add('move-to-target');
+
+			element.addEventListener('transitionend', () => {
+				element.classList.remove('move-to-target');
+				element.style.transform = '';
+				if (typeof callback === 'function') callback();
+			});
+		}
+	</script>
+</body>
+
+</html>

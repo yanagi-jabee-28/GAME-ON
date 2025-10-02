@@ -115,6 +115,9 @@ export function createNumberBattleGame(doc = document) {
 		reviewAnimationToken: 0
 	};
 
+	// Expose state to the global window object
+	window.gameState = state;
+
 	function cloneState() {
 		return {
 			player: [...state.hands.player],
