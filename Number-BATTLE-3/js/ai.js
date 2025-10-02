@@ -84,9 +84,23 @@ export function aiTurnWrapper(getState) {
 							return resolve();
 						});
 					} else {
-						// 分割候補が無ければターンを返す
-						switchTurnTo('player');
-						return resolve();
+						// 分割候補が無ければ、まず攻撃で状態を変えられないか試みる
+						if (availableAiHands.length > 0 && availablePlayerHands.length > 0) {
+							const aiHandIndex = availableAiHands[Math.floor(Math.random() * availableAiHands.length)];
+							const playerHandIndex = availablePlayerHands[Math.floor(Math.random() * availablePlayerHands.length)];
+							performAiAttackAnim(aiHandIndex, playerHandIndex, () => {
+								applyAttack('ai', aiHandIndex, 'player', playerHandIndex);
+								const res = getState().checkWin();
+								if (!res.gameOver) switchTurnTo('player');
+								return resolve();
+							});
+						} else {
+							// それでも行動できない場合は最小の視覚フィードバックを行いターンを返す
+							performAiSplitAnim(() => {
+								switchTurnTo('player');
+								return resolve();
+							});
+						}
 					}
 				}
 			}
@@ -122,14 +136,32 @@ export function aiTurnWrapper(getState) {
 						return resolve();
 					});
 				} else {
-					switchTurnTo('player');
-					return resolve();
+					// フォールバック: まず攻撃で状態を変えられないか試みる
+					if (availableAiHands.length > 0 && availablePlayerHands.length > 0) {
+						const aiHandIndex = availableAiHands[Math.floor(Math.random() * availableAiHands.length)];
+						const playerHandIndex = availablePlayerHands[Math.floor(Math.random() * availablePlayerHands.length)];
+						performAiAttackAnim(aiHandIndex, playerHandIndex, () => {
+							applyAttack('ai', aiHandIndex, 'player', playerHandIndex);
+							const res = getState().checkWin();
+							if (!res.gameOver) switchTurnTo('player');
+							return resolve();
+						});
+					} else {
+						// 最終フォールバック: アニメーションを見せてからターンを返す
+						performAiSplitAnim(() => {
+							switchTurnTo('player');
+							return resolve();
+						});
+					}
 				}
 			}
 		} else {
-			// どちらも出来ない場合はターンを返す
-			switchTurnTo('player');
-			return resolve();
+			// どちらも出来ない場合: ここに来るのは稀（既に敗北/勝利は上で判定されているはず）。
+			// それでも到達した場合は最終フォールバックでアニメーションを行いターンを返す。
+			performAiSplitAnim(() => {
+				switchTurnTo('player');
+				return resolve();
+			});
 		}
 	});
 }
