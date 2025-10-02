@@ -1,0 +1,71 @@
+/* Extracted styles from index.html - Number-BATTLE-3 */
+@import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap');
+
+body {
+	font-family: 'M PLUS Rounded 1c', sans-serif;
+	touch-action: manipulation;
+}
+
+.hand {
+	width: 120px;
+	height: 120px;
+	border: 4px solid transparent;
+	border-radius: 1.5rem;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	font-size: 5rem;
+	font-weight: bold;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	user-select: none;
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.hand.selected {
+	border-color: #f59e0b;
+	box-shadow: 0 8px 12px rgba(245, 158, 11, 0.3);
+}
+
+.hand.disabled {
+	cursor: not-allowed;
+	background-color: #f3f4f6;
+	color: #9ca3af;
+}
+
+.hand.ai-hand:hover {
+	background-color: #fee2e2;
+}
+
+.hand.player-hand:not(.disabled):hover {
+	background-color: #dbeafe;
+}
+
+.btn {
+	transition: all 0.2s ease;
+}
+
+.btn:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+}
+
+.btn:active {
+	transform: translateY(0);
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+#split-modal {
+	background-color: rgba(0, 0, 0, 0.5);
+}
+
+.move-to-target {
+	position: absolute;
+	transition: transform 0.5s ease, opacity 0.5s ease;
+	z-index: 10;
+}
+
+.fade-out {
+	opacity: 0;
+	transition: opacity 0.5s ease;
+}
