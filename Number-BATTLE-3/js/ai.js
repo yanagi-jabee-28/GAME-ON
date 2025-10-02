@@ -118,34 +118,55 @@ function generateMovesFor(owner, state) {
 	return moves;
 }
 
-function minimax(state, depth, maximizingPlayer) {
+// Alpha-Beta pruning with move ordering
+function alphaBeta(state, depth, alpha, beta, maximizingPlayer) {
 	const win = checkWinState(state);
 	if (win.gameOver || depth === 0) return evaluateState(state);
 
 	if (maximizingPlayer) {
-		let best = -Infinity;
-		const moves = generateMovesFor('ai', state);
+		let value = -Infinity;
+		let moves = generateMovesFor('ai', state);
 		if (moves.length === 0) return evaluateState(state);
+
+		// Move ordering: sort by quick heuristic of resulting state (descending)
+		moves.sort((a, b) => {
+			const as = (a.type === 'attack') ? simulateAttack(state, 'ai', a.aiIndex, 'player', a.playerIndex) : simulateSplit(state, 'ai', a.val0, a.val1);
+			const bs = (b.type === 'attack') ? simulateAttack(state, 'ai', b.aiIndex, 'player', b.playerIndex) : simulateSplit(state, 'ai', b.val0, b.val1);
+			return evaluateState(bs) - evaluateState(as);
+		});
+
 		for (const m of moves) {
 			let ns;
 			if (m.type === 'attack') ns = simulateAttack(state, 'ai', m.aiIndex, 'player', m.playerIndex);
 			else ns = simulateSplit(state, 'ai', m.val0, m.val1);
-			const val = minimax(ns, depth - 1, false);
-			if (val > best) best = val;
+			const val = alphaBeta(ns, depth - 1, alpha, beta, false);
+			value = Math.max(value, val);
+			alpha = Math.max(alpha, value);
+			if (alpha >= beta) break; // beta cutoff
 		}
-		return best;
+		return value;
 	} else {
-		let best = Infinity;
-		const moves = generateMovesFor('player', state);
+		let value = Infinity;
+		let moves = generateMovesFor('player', state);
 		if (moves.length === 0) return evaluateState(state);
+
+		// Move ordering for opponent: assume opponent will try to minimize our score
+		moves.sort((a, b) => {
+			const as = (a.type === 'attack') ? simulateAttack(state, 'player', a.playerIndex, 'ai', a.aiIndex) : simulateSplit(state, 'player', a.val0, a.val1);
+			const bs = (b.type === 'attack') ? simulateAttack(state, 'player', b.playerIndex, 'ai', b.aiIndex) : simulateSplit(state, 'player', b.val0, b.val1);
+			return evaluateState(as) - evaluateState(bs);
+		});
+
 		for (const m of moves) {
 			let ns;
 			if (m.type === 'attack') ns = simulateAttack(state, 'player', m.playerIndex, 'ai', m.aiIndex);
 			else ns = simulateSplit(state, 'player', m.val0, m.val1);
-			const val = minimax(ns, depth - 1, true);
-			if (val < best) best = val;
+			const val = alphaBeta(ns, depth - 1, alpha, beta, true);
+			value = Math.min(value, val);
+			beta = Math.min(beta, value);
+			if (beta <= alpha) break; // alpha cutoff
 		}
-		return best;
+		return value;
 	}
 }
 
@@ -163,7 +184,7 @@ export function aiTurnWrapper(getState) {
 		const state = getState();
 		if (state.gameOver) return resolve();
 
-		// Use minimax to choose best move (depth 2)
+		// Prepare root state for search
 		const rootState = { playerHands: state.playerHands, aiHands: state.aiHands };
 		const moves = generateMovesFor('ai', rootState);
 		if (moves.length === 0) {
@@ -171,28 +192,56 @@ export function aiTurnWrapper(getState) {
 			return;
 		}
 
+		// Fast check: if any attack immediately wins, do it (highest priority)
+		for (const m of moves) {
+			if (m.type === 'attack') {
+				const ns = simulateAttack(rootState, 'ai', m.aiIndex, 'player', m.playerIndex);
+				const w = checkWinState(ns);
+				if (w.playerLost && !w.aiLost) {
+					// execute winning attack
+					performAiAttackAnim(m.aiIndex, m.playerIndex, () => {
+						applyAttack('ai', m.aiIndex, 'player', m.playerIndex);
+						const res = getState().checkWin();
+						if (!res.gameOver) switchTurnTo('player');
+						return resolve();
+					});
+					return;
+				}
+			}
+		}
+
+		// Use alpha-beta search to a modest depth (iterative deepening could be added)
+		const SEARCH_DEPTH = 4; // increased depth to look for forcing lines
 		let bestVal = -Infinity;
 		let bestMoves = [];
 		for (const m of moves) {
 			let ns;
 			if (m.type === 'attack') ns = simulateAttack(rootState, 'ai', m.aiIndex, 'player', m.playerIndex);
 			else ns = simulateSplit(rootState, 'ai', m.val0, m.val1);
-			const val = minimax(ns, 1, false); // one less depth because we've applied m
+			const val = alphaBeta(ns, SEARCH_DEPTH - 1, -Infinity, Infinity, false);
 			if (val > bestVal) { bestVal = val; bestMoves = [m]; }
 			else if (val === bestVal) bestMoves.push(m);
 		}
 
-		// break ties by preferring winning attacks, then attacks, then splits
-		let chosen = null;
-		// prefer direct winning attack
-		for (const m of bestMoves) {
+		// tie-break: prefer moves that are attacks (more forcing), prefer moves that create a 4, and prefer splits that produce balanced high options
+		function movePriority(m) {
+			let p = 0;
+			if (m.type === 'attack') p += 1000;
 			if (m.type === 'attack') {
 				const ns = simulateAttack(rootState, 'ai', m.aiIndex, 'player', m.playerIndex);
-				const w = checkWinState(ns);
-				if (w.aiLost === false && w.playerLost === true) { chosen = m; break; }
+				const win = checkWinState(ns);
+				if (win.playerLost && !win.aiLost) p += 100000; // immediate win
+				// bonus for creating a 4 in any hand
+				if (ns.aiHands[0] === 4 || ns.aiHands[1] === 4) p += 200;
+			} else if (m.type === 'split') {
+				if (m.val0 === 4 || m.val1 === 4) p += 150;
+				p += 10 - Math.abs(m.val0 - m.val1); // prefer balanced
 			}
+			return p;
 		}
-		if (!chosen) chosen = randomChoice(bestMoves);
+
+		bestMoves.sort((a, b) => movePriority(b) - movePriority(a));
+		const chosen = bestMoves[0];
 
 		// execute chosen move with animations and actual state updates
 		if (chosen.type === 'attack') {
