@@ -1,16 +1,22 @@
 // ui.js - DOM/アニメーション/表示更新
+// UI の役割:
+//  - DOM 要素のキャッシュ
+//  - 盤面の描画更新（数値・disabled 表示など）
+//  - アニメーションの補助（攻撃エフェクト、分割エフェクト）
+// 注意: UI はゲーム状態を直接変更しない（状態変更は `game.js` が担当）。
 import { playerHands, aiHands, initState, applyAttack, applySplit, checkWin, switchTurnTo } from './game.js';
 
-let playerHandElements;
-let aiHandElements;
-let messageEl;
-let splitBtnEl;
-let restartBtnEl;
-let splitModalEl;
-let splitTotalEl;
-let splitOptionsContainer;
+let playerHandElements; // プレイヤーの手を表す DOM 要素配列
+let aiHandElements;     // AI の手を表す DOM 要素配列
+let messageEl;          // メッセージ表示要素
+let splitBtnEl;         // 分割ボタン要素
+let restartBtnEl;       // 再スタートボタン要素
+let splitModalEl;       // 分割モーダル要素
+let splitTotalEl;       // モーダル内の合計表示要素
+let splitOptionsContainer; // 分割候補ボタンを入れるコンテナ
 
 export function cacheDom() {
+	// DOM 要素を一度だけ取得してキャッシュする（頻繁な DOM アクセスを避けるため）
 	playerHandElements = [document.getElementById('player-hand-0'), document.getElementById('player-hand-1')];
 	aiHandElements = [document.getElementById('ai-hand-0'), document.getElementById('ai-hand-1')];
 	messageEl = document.getElementById('message');
@@ -22,9 +28,10 @@ export function cacheDom() {
 }
 
 export function updateDisplay(state) {
+	// プレイヤー/AI の数値と disabled 表示を更新する
 	playerHandElements.forEach((el, i) => {
-		el.textContent = state.playerHands[i];
-		el.classList.toggle('disabled', state.playerHands[i] === 0);
+		el.textContent = state.playerHands[i]; // 行末コメント: 数値を描画
+		el.classList.toggle('disabled', state.playerHands[i] === 0); // 行末コメント: 0 の手を無効表示
 	});
 	aiHandElements.forEach((el, i) => {
 		el.textContent = state.aiHands[i];
@@ -33,15 +40,18 @@ export function updateDisplay(state) {
 }
 
 export function updateMessage(msg) {
-	messageEl.textContent = msg;
+	// ゲームの案内メッセージを更新する
+	messageEl.textContent = msg; // 行末コメント: プレイヤーに現在の状態/次のアクションを示す
 }
 
 export function openSplitModal(state, onSelect) {
-	if (state.gameOver || state.currentPlayer !== 'player') return;
-	const total = state.playerHands[0] + state.playerHands[1];
-	splitTotalEl.textContent = total;
-	splitOptionsContainer.innerHTML = '';
+	// 分割モーダルを開く。プレイヤーのターンかつゲーム中であることを前提とする
+	if (state.gameOver || state.currentPlayer !== 'player') return; // 条件満たさない場合は無視
+	const total = state.playerHands[0] + state.playerHands[1]; // 合計本数
+	splitTotalEl.textContent = total; // 合計表示を更新
+	splitOptionsContainer.innerHTML = ''; // 前回の候補をクリア
 	if (total === 0) {
+		// 分割できる指が無い場合の案内
 		splitOptionsContainer.innerHTML = '<p class="col-span-2 text-gray-500">分配できる指がありません。</p>';
 		splitModalEl.classList.remove('hidden');
 		return;
@@ -49,55 +59,59 @@ export function openSplitModal(state, onSelect) {
 	const possibleSplits = [];
 	for (let i = 0; i <= total / 2; i++) {
 		const j = total - i;
-		if (j > 4) continue;
+		if (j > 4) continue; // 右手が 4 を超える分割は無効
 		const isSameAsCurrent = (i === state.playerHands[0] && j === state.playerHands[1]);
 		const isSameAsReversed = (i === state.playerHands[1] && j === state.playerHands[0]);
-		if (!isSameAsCurrent && !isSameAsReversed) possibleSplits.push([i, j]);
+		if (!isSameAsCurrent && !isSameAsReversed) possibleSplits.push([i, j]); // 重複パターンを除外
 	}
 	if (possibleSplits.length === 0) {
 		splitOptionsContainer.innerHTML = '<p class="col-span-2 text-gray-500">有効な分配パターンがありません。</p>';
 	} else {
 		possibleSplits.forEach(split => {
 			const button = document.createElement('button');
-			button.textContent = `${split[0]} と ${split[1]}`;
+			button.textContent = `${split[0]} と ${split[1]}`; // ボタンに候補数値を表示
 			button.className = 'btn py-3 px-4 bg-green-500 text-white font-bold rounded-lg shadow-md w-full';
 			button.onclick = () => {
 				// Delegate the actual split action to the caller via callback
-				if (typeof onSelect === 'function') onSelect(split[0], split[1]);
-				splitModalEl.classList.add('hidden');
+				if (typeof onSelect === 'function') onSelect(split[0], split[1]); // 行末コメント: 選択後に呼び出し側が状態を更新
+				splitModalEl.classList.add('hidden'); // モーダルを閉じる
 			};
 			splitOptionsContainer.appendChild(button);
 		});
 	}
-	splitModalEl.classList.remove('hidden');
+	splitModalEl.classList.remove('hidden'); // モーダル表示
 }
 
 export function closeSplitModal() {
+	// モーダルを閉じるユーティリティ
 	splitModalEl.classList.add('hidden');
 }
 
 export function animateMove(element, targetX, targetY, callback) {
+	// 要素を現在位置から targetX/targetY へ移動させる（CSS トランジション利用）
 	const rect = element.getBoundingClientRect();
-	const deltaX = targetX - rect.left;
-	const deltaY = targetY - rect.top;
+	const deltaX = targetX - rect.left; // 移動量 X
+	const deltaY = targetY - rect.top;  // 移動量 Y
 
-	element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-	element.classList.add('move-to-target');
+	element.style.transform = `translate(${deltaX}px, ${deltaY}px)`; // translate により移動
+	element.classList.add('move-to-target'); // CSS で transition を効かせるためのクラス
 
+	// transitionend を待ってクリーンアップ＆コールバック
 	element.addEventListener('transitionend', function handler() {
-		element.classList.remove('move-to-target');
-		element.style.transform = '';
-		element.removeEventListener('transitionend', handler);
-		if (typeof callback === 'function') callback();
+		element.classList.remove('move-to-target'); // クラスを戻す
+		element.style.transform = ''; // transform をクリア
+		element.removeEventListener('transitionend', handler); // イベントリスナを解除
+		if (typeof callback === 'function') callback(); // 完了通知コールバック
 	});
 }
 
 export function performPlayerAttackAnim(attackerIndex, targetIndex, onComplete) {
+	// プレイヤーの攻撃アニメーション: 手のクローンを作ってターゲットまで移動させる
 	const attackerEl = playerHandElements[attackerIndex];
 	const targetEl = aiHandElements[targetIndex];
 	const targetRect = targetEl.getBoundingClientRect();
-	const attackerClone = attackerEl.cloneNode(true);
-	document.body.appendChild(attackerClone);
+	const attackerClone = attackerEl.cloneNode(true); // クローンを作成
+	document.body.appendChild(attackerClone); // body に追加して絶対配置可能にする
 	const attackerRect = attackerEl.getBoundingClientRect();
 	attackerClone.style.position = 'absolute';
 	attackerClone.style.left = `${attackerRect.left}px`;
@@ -105,12 +119,13 @@ export function performPlayerAttackAnim(attackerIndex, targetIndex, onComplete) 
 	attackerClone.style.width = `${attackerRect.width}px`;
 	attackerClone.style.height = `${attackerRect.height}px`;
 	animateMove(attackerClone, targetRect.left, targetRect.top, () => {
-		document.body.removeChild(attackerClone);
-		if (onComplete) onComplete();
+		document.body.removeChild(attackerClone); // アニメ完了後クローンを削除
+		if (onComplete) onComplete(); // 呼び出し元へ完了通知
 	});
 }
 
 export function performAiAttackAnim(attackerIndex, targetIndex, onComplete) {
+	// AI の攻撃アニメーション（プレイヤー攻撃と逆方向）
 	const attackerEl = aiHandElements[attackerIndex];
 	const targetEl = playerHandElements[targetIndex];
 	const targetRect = targetEl.getBoundingClientRect();
@@ -129,12 +144,13 @@ export function performAiAttackAnim(attackerIndex, targetIndex, onComplete) {
 }
 
 export function performAiSplitAnim(onComplete) {
+	// AI の分割アニメーション: 左右の手を中央へ寄せる表現
 	const leftHandEl = aiHandElements[0];
 	const rightHandEl = aiHandElements[1];
 	const leftCenterX = leftHandEl.getBoundingClientRect().left + leftHandEl.getBoundingClientRect().width / 2;
 	const rightCenterX = rightHandEl.getBoundingClientRect().left + rightHandEl.getBoundingClientRect().width / 2;
-	const centerX = (leftCenterX + rightCenterX) / 2;
-	const centerY = leftHandEl.getBoundingClientRect().top;
+	const centerX = (leftCenterX + rightCenterX) / 2; // 中央 x 座標
+	const centerY = leftHandEl.getBoundingClientRect().top; // y 座標は左右同じ想定
 	const leftClone = leftHandEl.cloneNode(true);
 	const rightClone = rightHandEl.cloneNode(true);
 	document.body.appendChild(leftClone);
@@ -152,11 +168,13 @@ export function performAiSplitAnim(onComplete) {
 	animateMove(leftClone, leftTargetX, centerY, () => { document.body.removeChild(leftClone); });
 	animateMove(rightClone, rightTargetX, centerY, () => {
 		document.body.removeChild(rightClone);
-		if (onComplete) onComplete();
+		if (onComplete) onComplete(); // 呼び出し元に完了通知
 	});
 }
 
 export function performPlayerSplitAnim(val0, val1, onComplete) {
+	// プレイヤーの分割アニメーション: 左右の手を中央へ寄せる表現
+	// 注意: 状態変更はここでは行わず、onComplete で呼び出し元に通知するだけ
 	const leftHandEl = playerHandElements[0];
 	const rightHandEl = playerHandElements[1];
 	const leftCenterX = leftHandEl.getBoundingClientRect().left + leftHandEl.getBoundingClientRect().width / 2;
@@ -181,6 +199,6 @@ export function performPlayerSplitAnim(val0, val1, onComplete) {
 	animateMove(rightClone, rightTargetX, centerY, () => {
 		document.body.removeChild(rightClone);
 		// Do NOT mutate game state here; delegate to caller via onComplete
-		if (onComplete) onComplete();
+		if (onComplete) onComplete(); // 行末コメント: 呼び出し元（main.js）が状態反映を行う
 	});
 }
