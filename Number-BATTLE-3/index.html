@@ -290,10 +290,7 @@
 				}
 			}
 
-			// 2. 簡易的な危険回避の分配 (片方が0になりそうな場合)
-			// TBD: より高度なロジックを実装可能
-
-			// 3. ランダムな有効な攻撃
+			// 2. 攻撃または分割を選択
 			const availableAiHands = [];
 			if (aiHands[0] > 0) availableAiHands.push(0);
 			if (aiHands[1] > 0) availableAiHands.push(1);
@@ -302,12 +299,26 @@
 			if (playerHands[0] > 0) availablePlayerHands.push(0);
 			if (playerHands[1] > 0) availablePlayerHands.push(1);
 
-			if (availableAiHands.length > 0 && availablePlayerHands.length > 0) {
+			const canAttack = availableAiHands.length > 0 && availablePlayerHands.length > 0;
+			const canSplit = aiHands[0] + aiHands[1] > 0;
+
+			if (canAttack && canSplit) {
+				// 攻撃と分割をランダムに選択 (例: 50%ずつ)
+				if (Math.random() < 0.5) {
+					const aiHandIndex = availableAiHands[Math.floor(Math.random() * availableAiHands.length)];
+					const playerHandIndex = availablePlayerHands[Math.floor(Math.random() * availablePlayerHands.length)];
+					performAiAttack(aiHandIndex, playerHandIndex);
+				} else {
+					performAiSplit();
+				}
+			} else if (canAttack) {
 				const aiHandIndex = availableAiHands[Math.floor(Math.random() * availableAiHands.length)];
 				const playerHandIndex = availablePlayerHands[Math.floor(Math.random() * availablePlayerHands.length)];
 				performAiAttack(aiHandIndex, playerHandIndex);
+			} else if (canSplit) {
+				performAiSplit();
 			} else {
-				// 攻撃できる手がない場合 (通常は発生しない)
+				// 何もできない場合 (通常は発生しない)
 				switchTurn('player');
 			}
 		}
