@@ -361,6 +361,87 @@
 			});
 		}
 
+		function performAiSplit() {
+			const total = aiHands[0] + aiHands[1];
+			if (total === 0) {
+				switchTurn('player');
+				return;
+			}
+
+			const possibleSplits = [];
+			for (let i = 0; i <= total / 2; i++) {
+				const j = total - i;
+				if (j > 4) continue;
+
+				const isSameAsCurrent = (i === aiHands[0] && j === aiHands[1]);
+				const isSameAsReversed = (i === aiHands[1] && j === aiHands[0]);
+
+				if (!isSameAsCurrent && !isSameAsReversed) {
+					possibleSplits.push([i, j]);
+				}
+			}
+
+			if (possibleSplits.length > 0) {
+				const selectedSplit = possibleSplits[Math.floor(Math.random() * possibleSplits.length)];
+				applyAiSplit(selectedSplit[0], selectedSplit[1]);
+			} else {
+				switchTurn('player');
+			}
+		}
+
+		function applyAiSplit(val0, val1) {
+			// AIの分割アニメーション (プレイヤーのapplySplitを参考に)
+			if (isAnimating) return;
+			isAnimating = true;
+
+			const leftHandEl = aiHandElements[0];
+			const rightHandEl = aiHandElements[1];
+
+			const leftCenterX = leftHandEl.getBoundingClientRect().left + leftHandEl.getBoundingClientRect().width / 2;
+			const rightCenterX = rightHandEl.getBoundingClientRect().left + rightHandEl.getBoundingClientRect().width / 2;
+			const centerX = (leftCenterX + rightCenterX) / 2;
+			const centerY = leftHandEl.getBoundingClientRect().top;
+
+			const leftClone = leftHandEl.cloneNode(true);
+			const rightClone = rightHandEl.cloneNode(true);
+			document.body.appendChild(leftClone);
+			document.body.appendChild(rightClone);
+
+			leftClone.style.position = 'absolute';
+			rightClone.style.position = 'absolute';
+
+			const leftRect = leftHandEl.getBoundingClientRect();
+			const rightRect = rightHandEl.getBoundingClientRect();
+
+			leftClone.style.left = `${leftRect.left}px`;
+			leftClone.style.top = `${leftRect.top}px`;
+			rightClone.style.left = `${rightRect.left}px`;
+			rightClone.style.top = `${rightRect.top}px`;
+
+			const leftTargetX = centerX - (leftClone.offsetWidth / 2);
+			const rightTargetX = centerX - (rightClone.offsetWidth / 2);
+
+			animateMove(leftClone, leftTargetX, centerY, () => {
+				document.body.removeChild(leftClone);
+			});
+			animateMove(rightClone, rightTargetX, centerY, () => {
+				document.body.removeChild(rightClone);
+
+				aiHands[0] = val0;
+				aiHands[1] = val1;
+
+				updateDisplay();
+
+				if (checkWin()) {
+					isAnimating = false;
+					return;
+				}
+
+				isAnimating = false;
+				switchTurn('player');
+			});
+		}
+
 
 		// --- 勝利判定 ---
 		function checkWin() {
