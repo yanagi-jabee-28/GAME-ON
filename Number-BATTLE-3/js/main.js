@@ -80,12 +80,14 @@ function setupEventDelegation() {
 				UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands });
 				if (applyPostWinEffects()) return;
 				Game.switchTurnTo('ai');
-				// call AI turn (returns Promise)
-				AI.aiTurnWrapper(() => ({ playerHands: Game.playerHands, aiHands: Game.aiHands, currentPlayer: Game.currentPlayer, gameOver: Game.gameOver, checkWin: Game.checkWin }))
-					.then(() => {
-						UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands });
-						applyPostWinEffects();
-					});
+				// call AI turn after a short delay (0.5s) to leave a pause after player's attack animation
+				setTimeout(() => {
+					AI.aiTurnWrapper(() => ({ playerHands: Game.playerHands, aiHands: Game.aiHands, currentPlayer: Game.currentPlayer, gameOver: Game.gameOver, checkWin: Game.checkWin }))
+						.then(() => {
+							UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands });
+							applyPostWinEffects();
+						});
+				}, 500);
 			});
 		}
 	});
@@ -99,11 +101,14 @@ function setupEventDelegation() {
 				UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands });
 				if (applyPostWinEffects()) return;
 				Game.switchTurnTo('ai');
-				AI.aiTurnWrapper(() => ({ playerHands: Game.playerHands, aiHands: Game.aiHands, currentPlayer: Game.currentPlayer, gameOver: Game.gameOver, checkWin: Game.checkWin }))
-					.then(() => {
-						UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands });
-						applyPostWinEffects();
-					});
+				// delay AI action slightly so player can see split result
+				setTimeout(() => {
+					AI.aiTurnWrapper(() => ({ playerHands: Game.playerHands, aiHands: Game.aiHands, currentPlayer: Game.currentPlayer, gameOver: Game.gameOver, checkWin: Game.checkWin }))
+						.then(() => {
+							UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands });
+							applyPostWinEffects();
+						});
+				}, 500);
 			});
 		});
 	});
