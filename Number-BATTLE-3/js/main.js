@@ -22,6 +22,15 @@ function getStateAccessor() {
 	};
 }
 
+function setTurnMessage() {
+	if (Game.gameOver) return; // 勝敗表示は applyPostWinEffects が行う
+	if (Game.currentPlayer === 'player') {
+		UI.updateMessage('あなたの番です。攻撃する手を選んでください。');
+	} else {
+		UI.updateMessage('CPU の番です。しばらくお待ちください...');
+	}
+}
+
 /**
  * initGame
  * ゲームを初期化し、UI を初期表示に整える。
@@ -32,10 +41,10 @@ function getStateAccessor() {
 function initGame() {
 	Game.initState(); // ゲーム状態をリセット
 	UI.cacheDom(); // DOM 要素をキャッシュして性能向上
-	UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo }); // 初期盤面表示
-	UI.updateMessage('あなたの番です。攻撃する手を選んでください。'); // プレイヤーへ案内
+	UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo, gameOver: Game.gameOver }); // 初期盤面表示
+	setTurnMessage(); // プレイヤーへ案内
 	// Show/Hide buttons - 初期は restart を隠し、split を表示
-	document.getElementById('restart-btn').classList.add('hidden'); // 行末コメント: restart 非表示
+	// restart ボタンは常に表示するため、ここでは制御しない
 	document.getElementById('split-btn').classList.remove('hidden'); // 行末コメント: split 表示
 }
 
@@ -54,8 +63,8 @@ function applyPostWinEffects() {
 			UI.updateMessage('あなたの勝ちです！🎉'); // プレイヤー勝利メッセージ
 		}
 		// 終了状態なので操作要素を切る
+		// 終了状態なので操作要素を切る（restart は常時表示）
 		document.getElementById('split-btn').classList.add('hidden'); // split を無効化
-		document.getElementById('restart-btn').classList.remove('hidden'); // restart を表示
 		return true; // ゲーム終了
 	}
 	return false; // ゲーム継続
@@ -122,15 +131,16 @@ function setupEventDelegation() {
 			UI.performPlayerAttackAnim(attackerIndex, index, () => {
 				// apply attack after animation
 				Game.applyAttack('player', attackerIndex, 'ai', index); // 実際の数値変更を game モジュールに委譲
-				UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands }); // 表示更新
+				UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, gameOver: Game.gameOver }); // 表示更新
 				if (applyPostWinEffects()) return; // 勝敗が出ればここで処理終了
 				Game.switchTurnTo('ai'); // ターンを CPU に移す
+				setTurnMessage();
 				// call AI turn after a short delay (0.5s) to leave a pause after player's attack animation
 				setTimeout(() => {
 					AI.aiTurnWrapper(getStateAccessor)
 						.then(() => {
-							UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands }); // AI の行動後に再描画
-							applyPostWinEffects(); // AI の行動で勝敗が決まっていれば反映
+							UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo, gameOver: Game.gameOver }); // AI の行動後に再描画
+							if (!applyPostWinEffects()) setTurnMessage(); // 勝敗がなければプレイヤーへ案内
 						});
 				}, 500); // 500ms の遅延（行動コメント: CPU 行動に入るまでのポーズ）
 			});
@@ -143,15 +153,16 @@ function setupEventDelegation() {
 			// Animate split first, then apply split and update UI
 			UI.performPlayerSplitAnim(val0, val1, () => {
 				Game.applySplit('player', val0, val1); // ゲーム状態に分割を反映
-				UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands }); // 表示更新
+				UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, gameOver: Game.gameOver }); // 表示更新
 				if (applyPostWinEffects()) return; // 勝敗判定がある場合は終了
 				Game.switchTurnTo('ai'); // CPU ターンへ
+				setTurnMessage();
 				// delay AI action slightly so player can see split result
 				setTimeout(() => {
 					AI.aiTurnWrapper(getStateAccessor)
 						.then(() => {
-							UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands }); // AI 後の再描画
-							applyPostWinEffects(); // 勝敗反映
+							UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo, gameOver: Game.gameOver }); // AI 後の再描画
+							if (!applyPostWinEffects()) setTurnMessage(); // 勝敗反映/プレイヤーへ案内
 						});
 				}, 500); // 500ms の遅延（行動コメント: 分割後の視認性確保）
 			});
@@ -161,11 +172,23 @@ function setupEventDelegation() {
 	// Undo button
 	document.getElementById('undo-btn').addEventListener('click', () => {
 		if (Game.canUndo && Game.canUndo()) {
-			const ok = Game.undoLastMove();
-			if (ok) {
-				UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo });
-				UI.updateMessage('一手戻しました。');
+			// try to undo up to two steps (2手戻し)
+			let undone = 0;
+			for (let i = 0; i < 2; i++) {
+				if (Game.canUndo && Game.canUndo()) {
+					const ok = Game.undoLastMove();
+					if (ok) undone++;
+				}
 			}
+			UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo, gameOver: Game.gameOver });
+			// After undo, ensure CPU turn is skipped: force player's turn if game not over
+			if (!Game.gameOver) {
+				Game.switchTurnTo('player');
+				setTurnMessage();
+			}
+			if (undone >= 2) UI.updateMessage('2手戻しました。');
+			else if (undone === 1) UI.updateMessage('一手戻しました。');
+			else UI.updateMessage('戻せる手がありません。');
 		}
 	});
 

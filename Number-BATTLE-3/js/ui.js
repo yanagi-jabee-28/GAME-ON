@@ -58,6 +58,15 @@ export function updateDisplay(state) {
 			undoBtnEl.classList.remove('opacity-50');
 		}
 	}
+
+	// If gameOver flag provided in state, hide or show split button only.
+	if (typeof state.gameOver !== 'undefined') {
+		if (state.gameOver) {
+			if (splitBtnEl) splitBtnEl.classList.add('hidden');
+		} else {
+			if (splitBtnEl) splitBtnEl.classList.remove('hidden');
+		}
+	}
 }
 
 export function updateMessage(msg) {

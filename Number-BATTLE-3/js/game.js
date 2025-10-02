@@ -119,7 +119,7 @@ export function applySplit(owner, val0, val1) {
  * 次のターンプレイヤーに切り替えるユーティリティ。
  */
 export function switchTurnTo(next) {
-	// push current turn state for undo as well (switching turns is a meaningful action)
-	pushHistory();
+	// switching turns does not itself create a new history entry because
+	// applyAttack/applySplit already record the state before mutation.
 	currentPlayer = next; // 'player' or 'ai'
 }
