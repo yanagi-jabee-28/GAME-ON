@@ -202,6 +202,15 @@ window.addEventListener('DOMContentLoaded', () => {
 	UI.cacheDom();
 	setupEventDelegation();
 	initGame();
+
+	// Debug utilities: always enable in this build (panel can be removed from DOM via close button)
+	try {
+		import('./debug.js').then(mod => {
+			if (mod && mod.initDebug) mod.initDebug({ Game, UI, AI, getStateAccessor });
+		}).catch(() => { });
+	} catch (e) {
+		// ignore in constrained environments
+	}
 });
 
 export { initGame };
