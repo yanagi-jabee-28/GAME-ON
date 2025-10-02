@@ -14,6 +14,7 @@ let restartBtnEl;       // 再スタートボタン要素
 let splitModalEl;       // 分割モーダル要素
 let splitTotalEl;       // モーダル内の合計表示要素
 let splitOptionsContainer; // 分割候補ボタンを入れるコンテナ
+let undoBtnEl; // 戻すボタン要素
 
 export function cacheDom() {
 	// DOM 要素を一度だけ取得してキャッシュする（頻繁な DOM アクセスを避けるため）
@@ -25,6 +26,14 @@ export function cacheDom() {
 	splitModalEl = document.getElementById('split-modal');
 	splitTotalEl = document.getElementById('split-total');
 	splitOptionsContainer = document.getElementById('split-options');
+	undoBtnEl = document.getElementById('undo-btn');
+
+	// Allow clicking on the modal overlay to close the modal (click outside content)
+	if (splitModalEl) {
+		splitModalEl.addEventListener('click', (e) => {
+			if (e.target === splitModalEl) closeSplitModal();
+		});
+	}
 }
 
 export function updateDisplay(state) {
@@ -37,6 +46,18 @@ export function updateDisplay(state) {
 		el.textContent = state.aiHands[i];
 		el.classList.toggle('disabled', state.aiHands[i] === 0);
 	});
+
+	// update undo button enabled/disabled according to state.canUndo if provided
+	if (undoBtnEl) {
+		if (typeof state.canUndo === 'function') {
+			undoBtnEl.disabled = !state.canUndo();
+			undoBtnEl.classList.toggle('opacity-50', !state.canUndo());
+		} else {
+			// fallback: enable by default
+			undoBtnEl.disabled = false;
+			undoBtnEl.classList.remove('opacity-50');
+		}
+	}
 }
 
 export function updateMessage(msg) {
@@ -53,6 +74,12 @@ export function openSplitModal(state, onSelect) {
 	if (total === 0) {
 		// 分割できる指が無い場合の案内
 		splitOptionsContainer.innerHTML = '<p class="col-span-2 text-gray-500">分配できる指がありません。</p>';
+		// Add cancel button so user can close the modal
+		const cancelBtn = document.createElement('button');
+		cancelBtn.textContent = 'キャンセル';
+		cancelBtn.className = 'btn py-3 px-4 bg-gray-300 text-black font-bold rounded-lg shadow-md col-span-2';
+		cancelBtn.onclick = () => { closeSplitModal(); };
+		splitOptionsContainer.appendChild(cancelBtn);
 		splitModalEl.classList.remove('hidden');
 		return;
 	}
@@ -66,6 +93,12 @@ export function openSplitModal(state, onSelect) {
 	}
 	if (possibleSplits.length === 0) {
 		splitOptionsContainer.innerHTML = '<p class="col-span-2 text-gray-500">有効な分配パターンがありません。</p>';
+		// add cancel button
+		const cancelBtn = document.createElement('button');
+		cancelBtn.textContent = 'キャンセル';
+		cancelBtn.className = 'btn py-3 px-4 bg-gray-300 text-black font-bold rounded-lg shadow-md col-span-2';
+		cancelBtn.onclick = () => { closeSplitModal(); };
+		splitOptionsContainer.appendChild(cancelBtn);
 	} else {
 		possibleSplits.forEach(split => {
 			const button = document.createElement('button');
@@ -78,6 +111,12 @@ export function openSplitModal(state, onSelect) {
 			};
 			splitOptionsContainer.appendChild(button);
 		});
+		// Add a cancel button under valid options as well
+		const cancelBtn = document.createElement('button');
+		cancelBtn.textContent = 'キャンセル';
+		cancelBtn.className = 'btn py-3 px-4 bg-gray-300 text-black font-bold rounded-lg shadow-md col-span-2';
+		cancelBtn.onclick = () => { closeSplitModal(); };
+		splitOptionsContainer.appendChild(cancelBtn);
 	}
 	splitModalEl.classList.remove('hidden'); // モーダル表示
 }

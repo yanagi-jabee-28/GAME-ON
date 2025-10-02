@@ -8,6 +8,36 @@ export let currentPlayer = 'player'; // 'player' or 'ai'
 export let selectedHand = { owner: null, index: null }; // 選択中の手の情報
 export let gameOver = false; // ゲーム終了フラグ
 export let isAnimating = false; // アニメーション中フラグ（将来の制御用）
+// Simple history stack for undo functionality. Each entry is a snapshot of the public state.
+let history = [];
+
+function pushHistory() {
+	history.push({
+		playerHands: [playerHands[0], playerHands[1]],
+		aiHands: [aiHands[0], aiHands[1]],
+		currentPlayer,
+		selectedHand: { owner: selectedHand.owner, index: selectedHand.index },
+		gameOver
+	});
+	// keep history bounded to avoid unlimited growth
+	if (history.length > 100) history.shift();
+}
+
+export function canUndo() {
+	return history.length > 0;
+}
+
+export function undoLastMove() {
+	if (history.length === 0) return false;
+	const last = history.pop();
+	playerHands = [last.playerHands[0], last.playerHands[1]];
+	aiHands = [last.aiHands[0], last.aiHands[1]];
+	currentPlayer = last.currentPlayer;
+	selectedHand = { owner: last.selectedHand.owner, index: last.selectedHand.index };
+	gameOver = last.gameOver;
+	isAnimating = false;
+	return true;
+}
 
 /**
  * initState
@@ -22,6 +52,7 @@ export function initState() {
 	selectedHand = { owner: null, index: null }; // 選択解除
 	gameOver = false; // ゲーム終了フラグをリセット
 	isAnimating = false; // アニメーションフラグリセット
+	history = []; // clear history on new game
 }
 
 /**
@@ -57,6 +88,8 @@ export function setSelectedHand(owner, index) {
  * この関数をコールしてゲーム状態のみを更新すること。
  */
 export function applyAttack(fromOwner, attackerIndex, toOwner, targetIndex) {
+	// save current state before mutating for undo
+	pushHistory();
 	if (fromOwner === 'player' && toOwner === 'ai') {
 		aiHands[targetIndex] = (playerHands[attackerIndex] + aiHands[targetIndex]) % 5; // 行末コメント: 5 を超えたら 0 へ
 	} else if (fromOwner === 'ai' && toOwner === 'player') {
@@ -70,6 +103,8 @@ export function applyAttack(fromOwner, attackerIndex, toOwner, targetIndex) {
  * owner に応じて playerHands または aiHands を更新する。
  */
 export function applySplit(owner, val0, val1) {
+	// save state for undo
+	pushHistory();
 	if (owner === 'player') {
 		playerHands[0] = val0; // 行末コメント: 左手
 		playerHands[1] = val1; // 行末コメント: 右手
@@ -84,5 +119,7 @@ export function applySplit(owner, val0, val1) {
  * 次のターンプレイヤーに切り替えるユーティリティ。
  */
 export function switchTurnTo(next) {
+	// push current turn state for undo as well (switching turns is a meaningful action)
+	pushHistory();
 	currentPlayer = next; // 'player' or 'ai'
 }

@@ -32,7 +32,7 @@ function getStateAccessor() {
 function initGame() {
 	Game.initState(); // ゲーム状態をリセット
 	UI.cacheDom(); // DOM 要素をキャッシュして性能向上
-	UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands }); // 初期盤面表示
+	UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo }); // 初期盤面表示
 	UI.updateMessage('あなたの番です。攻撃する手を選んでください。'); // プレイヤーへ案内
 	// Show/Hide buttons - 初期は restart を隠し、split を表示
 	document.getElementById('restart-btn').classList.add('hidden'); // 行末コメント: restart 非表示
@@ -94,6 +94,19 @@ function setupEventDelegation() {
 			}
 			Game.setSelectedHand(null, null); // 選択解除
 			UI.updateMessage('あなたの番です。攻撃する手を選んでください。'); // 案内に戻す
+			// If the player had selected one hand and clicks the other hand, switch selection immediately
+		} else if (Game.selectedHand.owner === 'player' && owner === 'player' && Game.selectedHand.index !== index) {
+			const prevIndex = Game.selectedHand.index;
+			if (prevIndex !== null && prevIndex !== undefined) {
+				const prevEl = document.getElementById(`player-hand-${prevIndex}`);
+				if (prevEl) prevEl.classList.remove('selected');
+			}
+			if (Game.playerHands[index] > 0) {
+				Game.setSelectedHand('player', index);
+				const newEl = document.getElementById(`player-hand-${index}`);
+				if (newEl) newEl.classList.add('selected');
+				UI.updateMessage('相手の手を選んで攻撃してください。');
+			}
 			// プレイヤーが選択済みで、相手（AI）の手をクリックした場合: 攻撃を実行
 		} else if (Game.selectedHand.owner === 'player' && owner === 'ai') {
 			if (Game.aiHands[index] === 0) return; // 相手の手が 0 の場合は攻撃不可
@@ -143,6 +156,17 @@ function setupEventDelegation() {
 				}, 500); // 500ms の遅延（行動コメント: 分割後の視認性確保）
 			});
 		});
+	});
+
+	// Undo button
+	document.getElementById('undo-btn').addEventListener('click', () => {
+		if (Game.canUndo && Game.canUndo()) {
+			const ok = Game.undoLastMove();
+			if (ok) {
+				UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo });
+				UI.updateMessage('一手戻しました。');
+			}
+		}
 	});
 
 	// Restart - 再スタートボタンの処理
