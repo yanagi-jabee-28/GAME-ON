@@ -91,3 +91,133 @@ body {
 		padding: 8px 10px;
 	}
 }
+
+/* Extra-small screens and short viewports: ensure everything fits and becomes scrollable if needed */
+@media (max-width: 380px),
+(max-height: 700px) {
+
+	/* Make the main game card use most of the viewport but not exceed it */
+	#game-container {
+		margin-top: 0;
+		/* top controls will flow above instead of overlapping */
+		max-height: calc(100vh - 88px);
+		overflow: auto;
+		padding: 12px;
+		box-sizing: border-box;
+	}
+
+	/* Reduce sizes so the hand elements fit in narrow columns */
+	.hand {
+		width: 72px;
+		height: 72px;
+		font-size: 2.4rem;
+		border-radius: 0.9rem;
+	}
+
+	/* Reduce heading / message sizes so they don't push layout too tall */
+	h1 {
+		font-size: 1.6rem;
+	}
+
+	#message-area {
+		height: auto;
+		padding: 6px 8px;
+		font-size: 0.95rem;
+	}
+
+	#hint-area {
+		height: auto;
+		font-size: 0.8rem;
+		padding: 2px 6px;
+	}
+
+	/* Buttons smaller and wrap if needed */
+	.btn {
+		padding: 8px 12px;
+		font-size: 0.95rem;
+	}
+
+	/* Make previously absolutely positioned top controls flow into layout to avoid overlap */
+	.relative>.absolute {
+		position: static !important;
+		transform: none !important;
+		left: auto !important;
+		top: auto !important;
+		margin: 6px auto 10px;
+	}
+
+	/* Ensure split modal fits on small screens */
+	#split-modal>div {
+		max-height: calc(100vh - 80px);
+		overflow: auto;
+	}
+
+}
+
+/* Aspect-ratio specific tweaks for common smartphones */
+/* 21:9 very tall/narrow phones (e.g., some modern tall devices) */
+@media (min-aspect-ratio: 21/9) and (max-width: 500px) {
+	#game-container {
+		max-height: calc(100vh - 110px);
+		padding: 10px;
+	}
+
+	.hand {
+		width: 76px;
+		height: 76px;
+		font-size: 2.6rem;
+	}
+
+	.btn {
+		padding: 9px 14px;
+	}
+}
+
+/* 19.5:9 (typical modern phones like many iPhones) */
+@media (min-aspect-ratio: 195/90) and (max-width: 600px) {
+	#game-container {
+		max-height: calc(100vh - 100px);
+	}
+
+	.hand {
+		width: 84px;
+		height: 84px;
+		font-size: 3rem;
+	}
+}
+
+/* 16:9 (older phones / many Android landscape cases) */
+@media (min-aspect-ratio: 16/9) and (max-width: 700px) {
+	#game-container {
+		max-height: calc(100vh - 90px);
+	}
+
+	.hand {
+		width: 96px;
+		height: 96px;
+		font-size: 3.4rem;
+	}
+}
+
+/* Landscape wide screens (ensure horizontal spacing doesn't overflow) */
+@media (orientation: landscape) and (max-height: 500px) {
+	#game-container {
+		max-height: calc(100vh - 60px);
+		padding: 8px;
+	}
+
+	.hand {
+		width: 64px;
+		height: 64px;
+		font-size: 2rem;
+	}
+
+	h1 {
+		font-size: 1.2rem;
+	}
+
+	.btn {
+		padding: 6px 10px;
+		font-size: 0.85rem;
+	}
+}
