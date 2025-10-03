@@ -4,7 +4,7 @@
 //  - 盤面の描画更新（数値・disabled 表示など）
 //  - アニメーションの補助（攻撃エフェクト、分割エフェクト）
 // 注意: UI はゲーム状態を直接変更しない（状態変更は `game.js` が担当）。
-import { playerHands, aiHands, initState, applyAttack, applySplit, checkWin, switchTurnTo } from './game.js';
+import { playerHands, aiHands, initState, applyAttack, applySplit, checkWin, switchTurnTo, selectedHand } from './game.js';
 
 let playerHandElements; // プレイヤーの手を表す DOM 要素配列
 let aiHandElements;     // AI の手を表す DOM 要素配列
@@ -117,6 +117,8 @@ export function displayPlayerHints(analysis, mode = 'full') {
 	if (!analysis) {
 		// Do not display any message to avoid flicker; main.js will request a re-render when data is ready.
 		hintAreaEl.innerHTML = '';
+		// clear any action highlights when analysis not available
+		clearActionHighlights();
 		return;
 	}
 
@@ -174,6 +176,58 @@ export function displayPlayerHints(analysis, mode = 'full') {
 	} else {
 		hintAreaEl.innerHTML = `💡 最善手: <span class="font-bold ${outcomeColorClass}">${outcomeText}</span> <span class="text-xs">${actionText}</span>`;
 	}
+
+	// When analysis is present, also apply per-action highlights (attack targets / splits)
+	try {
+		applyActionHighlights(analysis);
+	} catch (e) {
+		// ignore any highlight errors
+	}
+}
+
+// Helper: clear any action highlight classes we added to hand elements and split buttons
+export function clearActionHighlights() {
+	if (playerHandElements) playerHandElements.forEach(el => {
+		el.classList.remove('hint-win', 'hint-draw', 'hint-loss', 'border-4', 'border-green-400', 'border-blue-400', 'border-red-400');
+	});
+	if (aiHandElements) aiHandElements.forEach(el => {
+		el.classList.remove('hint-win', 'hint-draw', 'hint-loss', 'border-4', 'border-green-400', 'border-blue-400', 'border-red-400');
+	});
+	// clear split option coloring if present
+	if (splitOptionsContainer) {
+		splitOptionsContainer.querySelectorAll('button').forEach(b => {
+			b.classList.remove('border-4', 'border-green-400', 'border-blue-400', 'border-red-400');
+		});
+	}
+}
+
+// Apply per-action highlights when player has selected a hand.
+// analysis: array returned from AI.getPlayerMovesAnalysis (or similar)
+export function applyActionHighlights(analysis) {
+	// first clear previous highlights
+	clearActionHighlights();
+	if (!analysis || !Array.isArray(analysis) || analysis.length === 0) return;
+
+	// Highlight attack targets for the currently selected player hand
+	if (selectedHand && selectedHand.owner === 'player' && typeof selectedHand.index === 'number') {
+		const fromIdx = selectedHand.index;
+		// Find attack moves from this hand
+		const attacks = analysis.filter(a => a.move.type === 'attack' && a.move.fromIndex === fromIdx);
+		attacks.forEach(a => {
+			const toIdx = a.move.toIndex;
+			const el = aiHandElements[toIdx];
+			if (!el) return;
+			el.classList.add('border-4');
+			if (a.outcome === 'WIN') {
+				el.classList.add('border-green-400');
+			} else if (a.outcome === 'DRAW') {
+				el.classList.add('border-blue-400');
+			} else {
+				el.classList.add('border-red-400');
+			}
+		});
+	}
+	// Also color split options inside modal if open (main will pass analysis to openSplitModal)
 }
 
 export function clearPlayerHints() {
@@ -224,7 +278,7 @@ export function updateMessage(msg) {
 	messageEl.textContent = msg; // 行末コメント: プレイヤーに現在の状態/次のアクションを示す
 }
 
-export function openSplitModal(state, onSelect) {
+export function openSplitModal(state, analysisOrUndefined, onSelect) {
 	// 分割モーダルを開く。プレイヤーのターンかつゲーム中であることを前提とする
 	if (state.gameOver || state.currentPlayer !== 'player') return; // 条件満たさない場合は無視
 	const total = state.playerHands[0] + state.playerHands[1]; // 合計本数
@@ -262,7 +316,24 @@ export function openSplitModal(state, onSelect) {
 		possibleSplits.forEach(split => {
 			const button = document.createElement('button');
 			button.textContent = `${split[0]} と ${split[1]}`; // ボタンに候補数値を表示
-			button.className = 'btn py-3 px-4 bg-green-500 text-white font-bold rounded-lg shadow-md w-full';
+			// default neutral styling
+			button.className = 'btn py-3 px-4 bg-gray-100 text-black font-bold rounded-lg shadow-md w-full';
+			// If analysis available, find a matching split result and color accordingly
+			try {
+				if (analysisOrUndefined && Array.isArray(analysisOrUndefined)) {
+					// Find analysis entry that is a split with these values
+					const found = analysisOrUndefined.find(a => a.move.type === 'split' && a.move.values[0] === split[0] && a.move.values[1] === split[1]);
+					if (found) {
+						// paint border color according to outcome
+						button.classList.add('border-4');
+						if (found.outcome === 'WIN') button.classList.add('border-green-400');
+						else if (found.outcome === 'DRAW') button.classList.add('border-blue-400');
+						else button.classList.add('border-red-400');
+					}
+				}
+			} catch (e) {
+				// ignore
+			}
 			button.onclick = () => {
 				// Delegate the actual split action to the caller via callback
 				if (typeof onSelect === 'function') onSelect(split[0], split[1]); // 行末コメント: 選択後に呼び出し側が状態を更新
@@ -325,6 +396,8 @@ export function performPlayerAttackAnim(attackerIndex, targetIndex, onComplete) 
 
 export function performAiAttackAnim(attackerIndex, targetIndex, onComplete) {
 	// AI の攻撃アニメーション（プレイヤー攻撃と逆方向）
+	// Clear any player-side hint highlights so UI doesn't show hints during AI action
+	try { clearActionHighlights(); } catch (e) { /* ignore */ }
 	const attackerEl = aiHandElements[attackerIndex];
 	const targetEl = playerHandElements[targetIndex];
 	const targetRect = targetEl.getBoundingClientRect();
@@ -344,6 +417,8 @@ export function performAiAttackAnim(attackerIndex, targetIndex, onComplete) {
 
 export function performAiSplitAnim(onComplete) {
 	// AI の分割アニメーション: 左右の手を中央へ寄せる表現
+	// Clear any player-side hint highlights so UI doesn't show hints during AI action
+	try { clearActionHighlights(); } catch (e) { /* ignore */ }
 	const leftHandEl = aiHandElements[0];
 	const rightHandEl = aiHandElements[1];
 	const leftCenterX = leftHandEl.getBoundingClientRect().left + leftHandEl.getBoundingClientRect().width / 2;

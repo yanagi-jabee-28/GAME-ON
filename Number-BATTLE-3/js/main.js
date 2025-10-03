@@ -123,6 +123,9 @@ function setupEventDelegation() {
 				Game.setSelectedHand(owner, index); // 選択を game モジュールに通知
 				target.classList.add('selected'); // 見た目の選択表示
 				UI.updateMessage('相手の手を選んで攻撃してください。'); // ガイド表示
+				// refresh hints/highlights for this selection
+				const analysis = AI.getPlayerMovesAnalysis(getStateAccessor());
+				UI.displayPlayerHints(analysis, document.getElementById('hint-mode-select')?.value || 'full');
 			}
 			// 同じ手を再クリックした場合は選択をキャンセル
 		} else if (Game.selectedHand.owner === 'player' && owner === 'player' && Game.selectedHand.index === index) {
@@ -134,6 +137,8 @@ function setupEventDelegation() {
 			}
 			Game.setSelectedHand(null, null); // 選択解除
 			UI.updateMessage('あなたの番です。攻撃する手を選んでください。'); // 案内に戻す
+			// clear any per-action highlights when selection cancelled
+			UI.clearActionHighlights();
 			// If the player had selected one hand and clicks the other hand, switch selection immediately
 		} else if (Game.selectedHand.owner === 'player' && owner === 'player' && Game.selectedHand.index !== index) {
 			const prevIndex = Game.selectedHand.index;
@@ -146,6 +151,9 @@ function setupEventDelegation() {
 				const newEl = document.getElementById(`player-hand-${index}`);
 				if (newEl) newEl.classList.add('selected');
 				UI.updateMessage('相手の手を選んで攻撃してください。');
+				// refresh hints/highlights for this new selection
+				const analysis2 = AI.getPlayerMovesAnalysis(getStateAccessor());
+				UI.displayPlayerHints(analysis2, document.getElementById('hint-mode-select')?.value || 'full');
 			}
 			// プレイヤーが選択済みで、相手（AI）の手をクリックした場合: 攻撃を実行
 		} else if (Game.selectedHand.owner === 'player' && owner === 'ai') {
@@ -180,7 +188,9 @@ function setupEventDelegation() {
 
 	// Split button - 分割操作のハンドリング
 	document.getElementById('split-btn').addEventListener('click', () => {
-		UI.openSplitModal({ playerHands: Game.playerHands, aiHands: Game.aiHands, currentPlayer: Game.currentPlayer, gameOver: Game.gameOver }, (val0, val1) => {
+		// compute analysis so we can color split options (if tablebase loaded)
+		const splitAnalysis = AI.getPlayerMovesAnalysis(getStateAccessor());
+		UI.openSplitModal({ playerHands: Game.playerHands, aiHands: Game.aiHands, currentPlayer: Game.currentPlayer, gameOver: Game.gameOver }, splitAnalysis, (val0, val1) => {
 			// Animate split first, then apply split and update UI
 			UI.performPlayerSplitAnim(val0, val1, () => {
 				Game.applySplit('player', val0, val1); // ゲーム状態に分割を反映
