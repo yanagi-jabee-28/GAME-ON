@@ -1,14 +1,16 @@
 // ai.js - AI の行動決定
 // このモジュールは AI のターンの振る舞いを決定し、アニメーション完了後に
 // ゲーム状態を更新してターンを切り替える役割を持ちます。外部からは
-// aiTurnWrapper(getState) を呼ぶことで Promise ベースで AI の処理が完了するのを待てます。
+// `aiTurnWrapper(getState)` を呼ぶことで Promise ベースで AI の処理が完了するのを待てます。
 import { applyAttack, applySplit, switchTurnTo } from './game.js';
 import { performAiAttackAnim, performAiSplitAnim } from './ui.js';
 
+// 配列からランダムに 1 要素を選ぶユーティリティ
 function randomChoice(arr) {
 	return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// 与えられた手配列（長さ2）から、アクティブ（0 以外）な手のインデックスを返す
 function getAvailableHands(hands) {
 	const res = [];
 	if (hands[0] > 0) res.push(0);
@@ -16,6 +18,9 @@ function getAvailableHands(hands) {
 	return res;
 }
 
+// 合計値 `total` を 2 つの手に分割する候補を生成する。
+// current は現在の手の配列で、現在と同じ分割（および反転）は除外する。
+// なお各手の最大値は 4 を想定しており、sj > 4 の分割は除外する。
 function computePossibleSplits(total, current) {
 	const out = [];
 	for (let si = 0; si <= total / 2; si++) {
@@ -28,6 +33,7 @@ function computePossibleSplits(total, current) {
 	return out;
 }
 
+// 状態オブジェクトの浅いコピーを作る（シミュレーション用）
 function cloneState(state) {
 	return {
 		playerHands: [state.playerHands[0], state.playerHands[1]],
@@ -35,12 +41,15 @@ function cloneState(state) {
 	};
 }
 
+// 勝敗判定を行う。両手が 0 のプレイヤーが敗北となる
 function checkWinState(state) {
 	const playerLost = state.playerHands[0] === 0 && state.playerHands[1] === 0;
 	const aiLost = state.aiHands[0] === 0 && state.aiHands[1] === 0;
 	return { gameOver: playerLost || aiLost, playerLost, aiLost };
 }
 
+// 攻撃をシミュレートした状態を返す。実際のゲーム状態は変更しない。
+// ルール: (attacker + target) % 5 で対象の手の値が変化する。
 function simulateAttack(state, fromOwner, attackerIndex, toOwner, targetIndex) {
 	const s = cloneState(state);
 	if (fromOwner === 'ai' && toOwner === 'player') {
@@ -51,6 +60,8 @@ function simulateAttack(state, fromOwner, attackerIndex, toOwner, targetIndex) {
 	return s;
 }
 
+// 分割（split）をシミュレートして新しい状態を返す。
+// owner に対して val0/val1 を設定するだけの簡易シミュレーション。
 function simulateSplit(state, owner, val0, val1) {
 	const s = cloneState(state);
 	if (owner === 'ai') {
@@ -61,26 +72,33 @@ function simulateSplit(state, owner, val0, val1) {
 	return s;
 }
 
+// 状態を評価するヒューリスティック関数。
+// 大きな正の値は AI に有利、負の値は不利を示す。
 function evaluateState(state) {
 	const win = checkWinState(state);
-	if (win.playerLost) return 1_000_000; // AI wins
-	if (win.aiLost) return -1_000_000; // AI loses
+	if (win.playerLost) return 1_000_000; // AI の即時勝利は非常に高評価
+	if (win.aiLost) return -1_000_000; // AI の敗北は非常に低評価
 
+	// アクティブな手（0 でない手）の数
 	const aiActive = (state.aiHands[0] > 0) + (state.aiHands[1] > 0);
 	const playerActive = (state.playerHands[0] > 0) + (state.playerHands[1] > 0);
+	// 各手の合計値
 	const aiSum = state.aiHands[0] + state.aiHands[1];
 	const playerSum = state.playerHands[0] + state.playerHands[1];
 
-	// Heuristic: prefer more active hands, higher valued hands (especially 4), and reduce opponent options
+	// 特に 4 の手は重要（終盤でのキーカード的役割）
 	const aiHigh = (state.aiHands[0] === 4) + (state.aiHands[1] === 4);
 	const playerHigh = (state.playerHands[0] === 4) + (state.playerHands[1] === 4);
 
 	let score = 0;
+	// 生存性・選択肢の多さを重視
 	score += (aiActive - playerActive) * 200;
+	// 単純な合計の優位性
 	score += (aiSum - playerSum) * 10;
+	// 4 の有無によるボーナス
 	score += (aiHigh - playerHigh) * 50;
 
-	// Small bonus for balanced hands for flexibility
+	// バランスの良さ（差が小さいほどプラス）
 	const aiBalance = -Math.abs(state.aiHands[0] - state.aiHands[1]);
 	const playerBalance = Math.abs(state.playerHands[0] - state.playerHands[1]);
 	score += (aiBalance - playerBalance) * 5;
@@ -88,10 +106,12 @@ function evaluateState(state) {
 	return score;
 }
 
+// 指定したプレイヤー（owner）の可能な手（攻撃 / 分割）を列挙して返す
+// 戻り値はオブジェクト配列: 攻撃は {type:'attack', ...}、分割は {type:'split', ...}
 function generateMovesFor(owner, state) {
 	const moves = [];
 	if (owner === 'ai') {
-		// attacks
+		// 攻撃候補: AI の各アクティブな手からプレイヤーのアクティブな手へ
 		for (let i = 0; i < 2; i++) {
 			if (state.aiHands[i] === 0) continue;
 			for (let j = 0; j < 2; j++) {
@@ -99,11 +119,12 @@ function generateMovesFor(owner, state) {
 				moves.push({ type: 'attack', from: 'ai', aiIndex: i, playerIndex: j });
 			}
 		}
-		// splits
+		// 分割候補: 合計値から合法的な分割を生成
 		const total = state.aiHands[0] + state.aiHands[1];
 		const splits = computePossibleSplits(total, state.aiHands);
 		splits.forEach(s => moves.push({ type: 'split', owner: 'ai', val0: s[0], val1: s[1] }));
 	} else {
+		// プレイヤー側の同様の生成（alpha-beta の敵ノードで使用）
 		for (let i = 0; i < 2; i++) {
 			if (state.playerHands[i] === 0) continue;
 			for (let j = 0; j < 2; j++) {
@@ -119,6 +140,8 @@ function generateMovesFor(owner, state) {
 }
 
 // Alpha-Beta pruning with move ordering
+// アルファベータ探索の実装（ムーブ順序付けあり）
+// maximizingPlayer が true のときは AI（最大化）ノード、false のときはプレイヤー（最小化）ノードとして扱う
 function alphaBeta(state, depth, alpha, beta, maximizingPlayer) {
 	const win = checkWinState(state);
 	if (win.gameOver || depth === 0) return evaluateState(state);
@@ -128,7 +151,7 @@ function alphaBeta(state, depth, alpha, beta, maximizingPlayer) {
 		let moves = generateMovesFor('ai', state);
 		if (moves.length === 0) return evaluateState(state);
 
-		// Move ordering: sort by quick heuristic of resulting state (descending)
+		// ムーブ順序付け: 仮の結果を評価して降順にソート（良さそうな手を先に探索）
 		moves.sort((a, b) => {
 			const as = (a.type === 'attack') ? simulateAttack(state, 'ai', a.aiIndex, 'player', a.playerIndex) : simulateSplit(state, 'ai', a.val0, a.val1);
 			const bs = (b.type === 'attack') ? simulateAttack(state, 'ai', b.aiIndex, 'player', b.playerIndex) : simulateSplit(state, 'ai', b.val0, b.val1);
@@ -142,7 +165,7 @@ function alphaBeta(state, depth, alpha, beta, maximizingPlayer) {
 			const val = alphaBeta(ns, depth - 1, alpha, beta, false);
 			value = Math.max(value, val);
 			alpha = Math.max(alpha, value);
-			if (alpha >= beta) break; // beta cutoff
+			if (alpha >= beta) break; // beta カットオフ
 		}
 		return value;
 	} else {
@@ -150,7 +173,7 @@ function alphaBeta(state, depth, alpha, beta, maximizingPlayer) {
 		let moves = generateMovesFor('player', state);
 		if (moves.length === 0) return evaluateState(state);
 
-		// Move ordering for opponent: assume opponent will try to minimize our score
+		// 敵（プレイヤー）ノードのムーブ順序付け: 最小化を想定した順序
 		moves.sort((a, b) => {
 			const as = (a.type === 'attack') ? simulateAttack(state, 'player', a.playerIndex, 'ai', a.aiIndex) : simulateSplit(state, 'player', a.val0, a.val1);
 			const bs = (b.type === 'attack') ? simulateAttack(state, 'player', b.playerIndex, 'ai', b.aiIndex) : simulateSplit(state, 'player', b.val0, b.val1);
@@ -164,7 +187,7 @@ function alphaBeta(state, depth, alpha, beta, maximizingPlayer) {
 			const val = alphaBeta(ns, depth - 1, alpha, beta, true);
 			value = Math.min(value, val);
 			beta = Math.min(beta, value);
-			if (beta <= alpha) break; // alpha cutoff
+			if (beta <= alpha) break; // alpha カットオフ
 		}
 		return value;
 	}
