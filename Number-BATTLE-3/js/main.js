@@ -271,6 +271,12 @@ window.addEventListener('DOMContentLoaded', () => {
 	setupEventDelegation();
 	initGame();
 
+	// When tablebase finishes loading, re-render hints immediately
+	window.addEventListener('tablebase-loaded', () => {
+		// Re-evaluate hints for current turn
+		setTurnMessage();
+	});
+
 	// Debug utilities removed
 });
 

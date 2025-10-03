@@ -46,9 +46,11 @@ export function displayPlayerHints(analysis, mode = 'full') {
 		hintAreaEl.innerHTML = '';
 		return;
 	}
+	// If analysis is null it means the tablebase isn't loaded yet.
+	// To avoid flicker on reload/initial render, leave the hint area empty instead of showing "計算中...".
 	if (!analysis) {
-		// Only show the "calculating" message if hints are still enabled
-		hintAreaEl.textContent = 'ヒントを計算中...';
+		// Do not display any message to avoid flicker; main.js will request a re-render when data is ready.
+		hintAreaEl.innerHTML = '';
 		return;
 	}
 

@@ -10,6 +10,12 @@ fetch('./chopsticks-tablebase.json')
     .then(data => {
         tablebase = data;
         console.log('Tablebase loaded successfully.');
+        // Notify other modules that the tablebase is now available so they can recalc hints
+        try {
+            window.dispatchEvent(new Event('tablebase-loaded'));
+        } catch (e) {
+            // ignore if window not available (e.g. server-side checks)
+        }
     })
     .catch(error => console.error('Error loading tablebase:', error));
 
