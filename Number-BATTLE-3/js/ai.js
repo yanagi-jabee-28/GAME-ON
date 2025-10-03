@@ -113,6 +113,49 @@ export function aiTurnWrapper(getState) {
             return sorted[0].move;
         }
 
+        // simulate applying a move to a state and return the resulting nextState
+        function simulateNextStateForMove(move, baseState) {
+            const nextState = JSON.parse(JSON.stringify({ playerHands: baseState.playerHands, aiHands: baseState.aiHands }));
+            if (move.type === 'attack') {
+                const handsToUpdate = move.to === 'player' ? nextState.playerHands : nextState.aiHands;
+                const attackerValue = (move.from === 'player' ? nextState.playerHands : nextState.aiHands)[move.fromIndex];
+                handsToUpdate[move.toIndex] = (handsToUpdate[move.toIndex] + attackerValue) % 5;
+            } else if (move.type === 'split') {
+                if (move.owner === 'ai') nextState.aiHands = [...move.values];
+                else nextState.playerHands = [...move.values];
+            }
+            return nextState;
+        }
+
+        // returns array of moves (from original moves list) that allow the player to immediately win on the next turn
+        function findMovesAllowingImmediatePlayerWin(allMoves, baseState) {
+            const res = [];
+            for (const m of allMoves) {
+                const ns = simulateNextStateForMove(m, baseState);
+                // generate player's possible responses
+                const playerResponses = generateMoves({ playerHands: ns.playerHands, aiHands: ns.aiHands }, 'player');
+                for (const pm of playerResponses) {
+                    const after = simulateNextStateForMove(pm, ns);
+                    // check if AI is immediately dead
+                    if ((after.aiHands[0] === 0 && after.aiHands[1] === 0)) {
+                        res.push(m);
+                        break;
+                    }
+                }
+            }
+            return res;
+        }
+
+        // safety: filter out any candidate move that immediately causes player to lose (avoid this even in weakest)
+        function filterOutImmediatePlayerKills(movesList, baseState) {
+            return movesList.filter(m => {
+                const ns = simulateNextStateForMove(m, baseState);
+                // if player immediately loses after this move, drop it
+                if (ns.playerHands[0] === 0 && ns.playerHands[1] === 0) return false;
+                return true;
+            });
+        }
+
         // --- 最善手の選択 ---
         let chosenMove;
         const strength = document.getElementById('cpu-strength-select')?.value || 'hard';
@@ -162,24 +205,35 @@ export function aiTurnWrapper(getState) {
 
         // 新しい 'weakest'（最弱）モード: できるだけ早く負ける手を選ぶ
         if (strength === 'weakest') {
-            // If any losing moves exist, choose immediate-loss first (distance === 0),
-            // otherwise choose the loss with the smallest distance (fastest loss).
-            if (bestMoves.LOSS.length > 0) {
-                const immediate = bestMoves.LOSS.filter(x => x.distance === 0);
-                if (immediate.length > 0) {
-                    // pick random among immediate loss moves (if multiple)
-                    const idx = Math.floor(Math.random() * immediate.length);
-                    chosenMove = immediate[idx].move;
-                } else {
-                    // pick the loss with minimal distance
-                    bestMoves.LOSS.sort((a, b) => a.distance - b.distance);
-                    chosenMove = bestMoves.LOSS[0].move;
-                }
-            } else if (bestMoves.DRAW.length > 0) {
-                // No losing moves available; fall back to draw (avoid draw only when loss exists)
-                chosenMove = pickRandomDraw(bestMoves.DRAW);
+            // Ensure we don't pick a move that immediately kills the player
+            const safeMoves = filterOutImmediatePlayerKills(moves, state);
+
+            // Prefer moves that allow the player to immediately win on their next turn
+            const movesAllowingImmediatePlayerWin = findMovesAllowingImmediatePlayerWin(safeMoves, state);
+            if (movesAllowingImmediatePlayerWin.length > 0) {
+                // pick random among those
+                const idx = Math.floor(Math.random() * movesAllowingImmediatePlayerWin.length);
+                chosenMove = movesAllowingImmediatePlayerWin[idx];
             } else {
-                chosenMove = pickBestWin(bestMoves.WIN);
+                // Fallback: prefer LOSS moves (immediate first), but only from safeMoves
+                const lossCandidates = bestMoves.LOSS.filter(l => safeMoves.some(sm => sm.type === l.move.type && JSON.stringify(sm) === JSON.stringify(l.move)));
+                if (lossCandidates.length > 0) {
+                    const immediate = lossCandidates.filter(x => x.distance === 0);
+                    if (immediate.length > 0) {
+                        const idx = Math.floor(Math.random() * immediate.length);
+                        chosenMove = immediate[idx].move;
+                    } else {
+                        lossCandidates.sort((a, b) => a.distance - b.distance);
+                        chosenMove = lossCandidates[0].move;
+                    }
+                } else if (bestMoves.DRAW.length > 0) {
+                    // pick a safe draw if exists
+                    const safeDraws = safeMoves.filter(m => m.type === 'split' || m.type === 'attack').filter(m => bestMoves.DRAW.some(d => JSON.stringify(d.move) === JSON.stringify(m)));
+                    if (safeDraws.length > 0) chosenMove = safeDraws[Math.floor(Math.random() * safeDraws.length)];
+                    else chosenMove = pickBestWin(bestMoves.WIN);
+                } else {
+                    chosenMove = pickBestWin(bestMoves.WIN);
+                }
             }
         }
 
