@@ -111,3 +111,52 @@ export function aiTurnWrapper(getState) {
         }
     });
 }
+
+/**
+ * getPlayerMovesAnalysis
+ * テーブルベースに基づき、プレイヤーの現在の局面で取りうるすべての手の評価を返す。
+ * @param {object} state - 現在のゲーム状態
+ * @returns {Array|null} 各手の評価結果の配列、またはテーブル未ロードの場合は null
+ */
+export function getPlayerMovesAnalysis(state) {
+    if (!tablebase) return null;
+
+    const moves = generateMoves({ playerHands: state.playerHands, aiHands: state.aiHands }, 'player');
+    const analysis = [];
+
+    for (const move of moves) {
+        // 手を適用した後の次の状態をシミュレート
+        const nextState = JSON.parse(JSON.stringify({ playerHands: state.playerHands, aiHands: state.aiHands }));
+        if (move.type === 'attack') {
+            const handsToUpdate = move.to === 'ai' ? nextState.aiHands : nextState.playerHands;
+            const attackerValue = (move.from === 'player' ? nextState.playerHands : nextState.aiHands)[move.fromIndex];
+            handsToUpdate[move.toIndex] = (handsToUpdate[move.toIndex] + attackerValue) % 5;
+        } else { // split
+            if (move.owner === 'player') nextState.playerHands = move.values;
+        }
+
+        // 次のターンのキーでテーブルを引く（AIのターン）
+        const nextTurn = 'ai';
+        const nextKey = getStateKey(nextState, nextTurn);
+        const outcomeInfo = tablebase[nextKey];
+
+        if (!outcomeInfo) continue; // 万が一テーブルにない場合はスキップ
+
+        let playerOutcome;
+        // outcomeInfo.outcome はAIから見た結果なので、プレイヤーにとっては逆になる
+        if (outcomeInfo.outcome === 'LOSS') {
+            playerOutcome = 'WIN';
+        } else if (outcomeInfo.outcome === 'WIN') {
+            playerOutcome = 'LOSS';
+        } else {
+            playerOutcome = 'DRAW';
+        }
+
+        analysis.push({
+            move: move,
+            outcome: playerOutcome,
+            distance: outcomeInfo.distance
+        });
+    }
+    return analysis;
+}

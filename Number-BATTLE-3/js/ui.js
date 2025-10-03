@@ -15,6 +15,7 @@ let splitModalEl;       // 分割モーダル要素
 let splitTotalEl;       // モーダル内の合計表示要素
 let splitOptionsContainer; // 分割候補ボタンを入れるコンテナ
 let undoBtnEl; // 戻すボタン要素
+let hintAreaEl; // ヒント表示エリア要素
 
 export function cacheDom() {
 	// DOM 要素を一度だけ取得してキャッシュする（頻繁な DOM アクセスを避けるため）
@@ -27,6 +28,7 @@ export function cacheDom() {
 	splitTotalEl = document.getElementById('split-total');
 	splitOptionsContainer = document.getElementById('split-options');
 	undoBtnEl = document.getElementById('undo-btn');
+	hintAreaEl = document.getElementById('hint-area');
 
 	// Allow clicking on the modal overlay to close the modal (click outside content)
 	if (splitModalEl) {
@@ -34,6 +36,56 @@ export function cacheDom() {
 			if (e.target === splitModalEl) closeSplitModal();
 		});
 	}
+}
+
+export function displayPlayerHints(analysis) {
+    if (!hintAreaEl) return;
+    if (!analysis) {
+        hintAreaEl.textContent = 'ヒントを計算中...';
+        return;
+    }
+
+    const winMoves = analysis.filter(a => a.outcome === 'WIN');
+    const drawMoves = analysis.filter(a => a.outcome === 'DRAW');
+    
+    let bestMove;
+    let outcomeText;
+    let outcomeColorClass;
+
+    if (winMoves.length > 0) {
+        winMoves.sort((a, b) => a.distance - b.distance);
+        bestMove = winMoves[0];
+        outcomeText = `${bestMove.distance}手で勝ち`;
+        outcomeColorClass = 'text-green-600';
+    } else if (drawMoves.length > 0) {
+        bestMove = drawMoves[0]; // どの引き分け手でも良い
+        outcomeText = '引き分け';
+        outcomeColorClass = 'text-blue-600';
+    } else if (analysis.length > 0) {
+        analysis.sort((a, b) => b.distance - a.distance); // 最も長く粘れる手
+        bestMove = analysis[0];
+        outcomeText = `${bestMove.distance}手で負け`;
+        outcomeColorClass = 'text-red-600';
+    } else {
+        hintAreaEl.innerHTML = ''; // 手がない場合
+        return;
+    }
+
+    // moveオブジェクトを人間可読な文字列に変換する
+    let actionText = '';
+    if (bestMove.move.type === 'attack') {
+        const fromHand = bestMove.move.fromIndex === 0 ? '左手' : '右手';
+        const toHand = bestMove.move.toIndex === 0 ? '相手の左手' : '相手の右手';
+        actionText = `(${fromHand}で${toHand}を攻撃)`;
+    } else if (bestMove.move.type === 'split') {
+        actionText = `(手を[${bestMove.move.values.join(', ')}]に分割)`;
+    }
+
+    hintAreaEl.innerHTML = `💡 最善手: <span class="font-bold ${outcomeColorClass}">${outcomeText}</span> <span class="text-xs">${actionText}</span>`;
+}
+
+export function clearPlayerHints() {
+    if(hintAreaEl) hintAreaEl.innerHTML = '';
 }
 
 export function updateDisplay(state) {

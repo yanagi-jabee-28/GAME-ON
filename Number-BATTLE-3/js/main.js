@@ -26,8 +26,13 @@ function setTurnMessage() {
 	if (Game.gameOver) return; // 勝敗表示は applyPostWinEffects が行う
 	if (Game.currentPlayer === 'player') {
 		UI.updateMessage('あなたの番です。攻撃する手を選んでください。');
+        // プレイヤーの局面を分析してヒントを表示
+        const analysis = AI.getPlayerMovesAnalysis(getStateAccessor());
+        UI.displayPlayerHints(analysis);
 	} else {
 		UI.updateMessage('CPU の番です。しばらくお待ちください...');
+        // プレイヤー向けのヒントを消去
+        UI.clearPlayerHints();
 	}
 }
 
