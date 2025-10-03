@@ -84,17 +84,31 @@ export function aiTurnWrapper(getState) {
             }
         }
 
-        // helper: choose a loss move that lasts at least minDistance plies when possible
-        function chooseLossMoveWithMinDistance(lossArray, minDistance = 11) {
+        // --- selection helper functions (extracted for reuse and for adding new modes) ---
+        function pickBestWin(winArray) {
+            if (!winArray || winArray.length === 0) return null;
+            winArray.sort((a, b) => a.distance - b.distance);
+            return winArray[0].move;
+        }
+
+        function pickRandomDraw(drawArray) {
+            if (!drawArray || drawArray.length === 0) return null;
+            const idx = Math.floor(Math.random() * drawArray.length);
+            return drawArray[idx].move;
+        }
+
+        function pickLossWithMinDistance(lossArray, minDistance = 11) {
             if (!lossArray || lossArray.length === 0) return null;
-            // find candidates with distance >= minDistance
             const candidates = lossArray.filter(x => (typeof x.distance === 'number') && x.distance >= minDistance);
             if (candidates.length > 0) {
-                // choose the one with the largest distance among candidates
                 candidates.sort((a, b) => b.distance - a.distance);
                 return candidates[0].move;
             }
-            // fallback: choose the move that maximizes distance (longest survival)
+            return null;
+        }
+
+        function pickLongestLoss(lossArray) {
+            if (!lossArray || lossArray.length === 0) return null;
             const sorted = [...lossArray].sort((a, b) => b.distance - a.distance);
             return sorted[0].move;
         }
@@ -105,68 +119,44 @@ export function aiTurnWrapper(getState) {
 
         if (strength === 'hard') {
             // 最強モード：常に最善手を選択
-            if (bestMoves.WIN.length > 0) {
-                bestMoves.WIN.sort((a, b) => a.distance - b.distance);
-                chosenMove = bestMoves.WIN[0].move;
-            } else if (bestMoves.DRAW.length > 0) {
-                chosenMove = bestMoves.DRAW[0].move;
+            chosenMove = pickBestWin(bestMoves.WIN) || pickRandomDraw(bestMoves.DRAW) || pickLongestLoss(bestMoves.LOSS);
+        } else if (strength === 'weak') {
+            // 弱いモード：ランダム性が高く、たまに負け手を選ぶが最低限の耐久力を要求する
+            // Policy:
+            // - 60%: try to pick a non-losing move (WIN > DRAW > LOSS fallback)
+            // - 40%: intentionally choose a losing move, but prefer loss moves with distance >= 5
+            const r = Math.random();
+            if (r < 0.6) {
+                chosenMove = pickBestWin(bestMoves.WIN) || pickRandomDraw(bestMoves.DRAW) || pickLongestLoss(bestMoves.LOSS);
             } else {
-                bestMoves.LOSS.sort((a, b) => b.distance - a.distance);
-                chosenMove = bestMoves.LOSS[0].move;
+                // choose a loss move preferring distance >= 5
+                const lossChoice = pickLossWithMinDistance(bestMoves.LOSS, 5);
+                chosenMove = lossChoice || pickLongestLoss(bestMoves.LOSS) || pickRandomDraw(bestMoves.DRAW) || pickBestWin(bestMoves.WIN);
             }
         } else {
-            // 強いモード：確率でミスをする
+            // 強いモード（normal/strong）: 今までの確率分布を使い、負け手は distance>=11 を優先
             const rand = Math.random();
             if (bestMoves.WIN.length > 0) {
-                // 勝てる局面
-                // Normal モードのミス確率分布: 勝ちを維持する確率、引き分けを選ぶ確率、誤って負けを選ぶ確率
                 const WIN_KEEP = 0.7;
                 const DRAW_PROB = 0.2;
-                const LOSS_PROB = WIN_KEEP + DRAW_PROB; // 勝てる局面でも負けを選ぶ確率（要求に対応）
 
                 if (rand < WIN_KEEP) {
-                    // 最善手(勝ち)
-                    bestMoves.WIN.sort((a, b) => a.distance - b.distance);
-                    chosenMove = bestMoves.WIN[0].move;
+                    chosenMove = pickBestWin(bestMoves.WIN);
                 } else if (rand < WIN_KEEP + DRAW_PROB) {
-                    // 引き分けを狙う確率帯
-                    if (bestMoves.DRAW.length > 0) {
-                        const randomIndex = Math.floor(Math.random() * bestMoves.DRAW.length);
-                        chosenMove = bestMoves.DRAW[randomIndex].move;
-                    } else if (bestMoves.LOSS.length > 0) {
-                        // 引き分け手が無ければ、誤って負けを選ぶ場合のロジックへフォールバック
-                        chosenMove = chooseLossMoveWithMinDistance(bestMoves.LOSS, 11);
-                    } else {
-                        // 最悪の場合は勝ちを選ぶ
-                        bestMoves.WIN.sort((a, b) => a.distance - b.distance);
-                        chosenMove = bestMoves.WIN[0].move;
-                    }
+                    chosenMove = pickRandomDraw(bestMoves.DRAW) || pickLossWithMinDistance(bestMoves.LOSS, 11) || pickLongestLoss(bestMoves.LOSS) || pickBestWin(bestMoves.WIN);
                 } else {
-                    // 残りの確率帯では誤って負けを選ぶ
-                    if (bestMoves.LOSS.length > 0) {
-                        chosenMove = chooseLossMoveWithMinDistance(bestMoves.LOSS, 11);
-                    } else if (bestMoves.DRAW.length > 0) {
-                        const randomIndex = Math.floor(Math.random() * bestMoves.DRAW.length);
-                        chosenMove = bestMoves.DRAW[randomIndex].move;
-                    } else {
-                        bestMoves.WIN.sort((a, b) => a.distance - b.distance);
-                        chosenMove = bestMoves.WIN[0].move;
-                    }
+                    // intentionally pick a loss (rarer)
+                    chosenMove = pickLossWithMinDistance(bestMoves.LOSS, 11) || pickRandomDraw(bestMoves.DRAW) || pickLongestLoss(bestMoves.LOSS) || pickBestWin(bestMoves.WIN);
                 }
             } else if (bestMoves.DRAW.length > 0) {
-                // 引き分けられる局面
-                if (rand < 0.9 || bestMoves.LOSS.length === 0) {
-                    // 90%の確率、または負けの手がない場合は次善手(引き分け)
-                    const randomIndex = Math.floor(Math.random() * bestMoves.DRAW.length);
-                    chosenMove = bestMoves.DRAW[randomIndex].move;
+                const rand2 = Math.random();
+                if (rand2 < 0.9 || bestMoves.LOSS.length === 0) {
+                    chosenMove = pickRandomDraw(bestMoves.DRAW);
                 } else {
-                    // 10%の確率で負け筋を選ぶ
-                    // 選ぶ場合でも "10手以内に負ける手" は避ける（11手以上で負ける手を優先）
-                    chosenMove = chooseLossMoveWithMinDistance(bestMoves.LOSS, 11);
+                    chosenMove = pickLossWithMinDistance(bestMoves.LOSS, 11) || pickRandomDraw(bestMoves.DRAW) || pickLongestLoss(bestMoves.LOSS);
                 }
             } else {
-                // 負けしかない局面では、最善の抵抗をする
-                chosenMove = chooseLossMoveWithMinDistance(bestMoves.LOSS, 11);
+                chosenMove = pickLossWithMinDistance(bestMoves.LOSS, 11) || pickLongestLoss(bestMoves.LOSS) || pickBestWin(bestMoves.WIN);
             }
         }
 
