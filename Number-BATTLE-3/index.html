@@ -55,8 +55,15 @@
 
 	<!-- 固定表示のリスタートボタン（画面上部中央） -->
 	<div class="fixed left-1/2 transform -translate-x-1/2 top-4 z-50">
-		<button id="restart-btn"
-			class="btn py-2 px-4 bg-gray-500 text-white font-bold rounded-full shadow-lg">リスタート</button>
+		<div class="flex items-center gap-3">
+			<label for="starter-select" class="hidden">先攻選択</label>
+			<select id="starter-select" class="py-1 px-2 rounded-lg border">
+				<option value="player" selected>あなた 先攻</option>
+				<option value="ai">CPU 先攻</option>
+			</select>
+			<button id="restart-btn"
+				class="btn py-2 px-4 bg-gray-500 text-white font-bold rounded-full shadow-lg">リスタート</button>
+		</div>
 	</div>
 
 	<!-- 分配モーダル -->

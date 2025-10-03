@@ -45,14 +45,20 @@ export function undoLastMove() {
  * - 手の配列を初期値に戻す
  * - ターンと状態フラグを初期化する
  */
-export function initState() {
+export function initState(starter = 'player') {
 	playerHands = [1, 1]; // 初期は各手1本
 	aiHands = [1, 1];
-	currentPlayer = 'player'; // プレイヤーから開始
+	// starter は 'player' または 'ai' を受け取る
+	currentPlayer = (starter === 'ai') ? 'ai' : 'player';
 	selectedHand = { owner: null, index: null }; // 選択解除
 	gameOver = false; // ゲーム終了フラグをリセット
 	isAnimating = false; // アニメーションフラグリセット
 	history = []; // clear history on new game
+}
+
+// 外部から現在のターンを明示的に設定したい場合に使えるユーティリティ
+export function setCurrentPlayer(p) {
+	currentPlayer = (p === 'ai') ? 'ai' : 'player';
 }
 
 /**

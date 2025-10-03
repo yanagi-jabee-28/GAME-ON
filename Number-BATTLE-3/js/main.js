@@ -39,13 +39,29 @@ function setTurnMessage() {
  *  - ボタン表示を切り替え
  */
 function initGame() {
-	Game.initState(); // ゲーム状態をリセット
-	UI.cacheDom(); // DOM 要素をキャッシュして性能向上
+	// Read starter selection from the DOM (default to 'player' when not present)
+	UI.cacheDom(); // Ensure DOM cached
+	const starterSelect = document.getElementById('starter-select');
+	const starter = (starterSelect && starterSelect.value === 'ai') ? 'ai' : 'player';
+	Game.initState(starter); // ゲーム状態をリセットし先攻を設定
 	UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo, gameOver: Game.gameOver }); // 初期盤面表示
 	setTurnMessage(); // プレイヤーへ案内
 	// Show/Hide buttons - 初期は restart を隠し、split を表示
 	// restart ボタンは常に表示するため、ここでは制御しない
 	document.getElementById('split-btn').classList.remove('hidden'); // 行末コメント: split 表示
+
+	// If AI is set to start, immediately perform AI turn after a short delay
+	if (starter === 'ai' && !Game.gameOver) {
+		// Small delay to allow UI to render initial state
+		setTimeout(() => {
+			UI.updateMessage('CPU の番です。しばらくお待ちください...');
+			AI.aiTurnWrapper(getStateAccessor)
+				.then(() => {
+					UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo, gameOver: Game.gameOver });
+					if (!applyPostWinEffects()) setTurnMessage();
+				});
+		}, 300);
+	}
 }
 
 /**
