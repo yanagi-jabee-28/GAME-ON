@@ -24,23 +24,23 @@ function getStateAccessor() {
 
 function setTurnMessage() {
 	if (Game.gameOver) {
-        UI.clearPlayerHints();
-        return;
-    }
+		UI.clearPlayerHints();
+		return;
+	}
 
-    const hintsEnabled = document.getElementById('toggle-hints-cb')?.checked;
+	const hintsEnabled = document.getElementById('toggle-hints-cb')?.checked;
 
 	if (Game.currentPlayer === 'player') {
 		UI.updateMessage('あなたの番です。攻撃する手を選んでください。');
-        if (hintsEnabled) {
-            const analysis = AI.getPlayerMovesAnalysis(getStateAccessor());
-            UI.displayPlayerHints(analysis);
-        } else {
-            UI.clearPlayerHints();
-        }
+		if (hintsEnabled) {
+			const analysis = AI.getPlayerMovesAnalysis(getStateAccessor());
+			UI.displayPlayerHints(analysis);
+		} else {
+			UI.clearPlayerHints();
+		}
 	} else {
 		UI.updateMessage('CPU の番です。しばらくお待ちください...');
-        UI.clearPlayerHints();
+		UI.clearPlayerHints();
 	}
 }
 
@@ -86,7 +86,7 @@ function initGame() {
 function applyPostWinEffects() {
 	const res = Game.checkWin(); // 勝敗判定
 	if (res.gameOver) {
-        UI.clearPlayerHints();
+		UI.clearPlayerHints();
 		if (res.playerLost) {
 			UI.updateMessage('あなたの負けです...'); // プレイヤー敗北メッセージ
 		} else {
@@ -222,13 +222,34 @@ function setupEventDelegation() {
 		}
 	});
 
-    // ヒント切り替えチェックボックス
-    const hintToggle = document.getElementById('toggle-hints-cb');
-    if (hintToggle) {
-        hintToggle.addEventListener('change', () => {
-            setTurnMessage(); // 状態が変わったらヒント表示を再評価
-        });
-    }
+	// ヒント切り替えチェックボックス
+	const hintToggle = document.getElementById('toggle-hints-cb');
+	if (hintToggle) {
+		// updateHints はヒント表示状態を再評価するための共通処理
+		const updateHints = () => setTurnMessage();
+
+		// 'input' はチェックボックスの状態変化に最も素早く反応します。
+		hintToggle.addEventListener('input', () => setTimeout(updateHints, 0));
+		// 互換性のため change も残す
+		hintToggle.addEventListener('change', () => setTimeout(updateHints, 0));
+
+		// モバイルでタッチ系のイベントが優先される環境に備え、pointerup と touchend を補助的に追加
+		hintToggle.addEventListener('pointerup', () => setTimeout(updateHints, 0));
+		hintToggle.addEventListener('touchend', () => setTimeout(updateHints, 0));
+
+		// click も補助
+		hintToggle.addEventListener('click', () => setTimeout(updateHints, 0));
+
+		// ラベルが触られた場合に input の状態が変わることがあるので、ラベルも監視。
+		const hintLabel = document.querySelector('label[for="toggle-hints-cb"]');
+		if (hintLabel) {
+			// ラベルクリックでは input の checked がまだ更新されていないタイミングがあるため
+			// 次のイベントループで再評価する
+			hintLabel.addEventListener('click', () => setTimeout(updateHints, 0));
+			// タッチイベントも追加
+			hintLabel.addEventListener('touchend', () => setTimeout(updateHints, 0));
+		}
+	}
 
 	// Restart - 再スタートボタンの処理
 	document.getElementById('restart-btn').addEventListener('click', () => {
