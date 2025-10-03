@@ -29,12 +29,13 @@ function setTurnMessage() {
 	}
 
 	const hintsEnabled = document.getElementById('toggle-hints-cb')?.checked;
+	const hintMode = document.getElementById('hint-mode-select')?.value || 'full';
 
 	if (Game.currentPlayer === 'player') {
 		UI.updateMessage('あなたの番です。攻撃する手を選んでください。');
 		if (hintsEnabled) {
 			const analysis = AI.getPlayerMovesAnalysis(getStateAccessor());
-			UI.displayPlayerHints(analysis);
+			UI.displayPlayerHints(analysis, hintMode);
 		} else {
 			UI.clearPlayerHints();
 		}
@@ -248,6 +249,14 @@ function setupEventDelegation() {
 			hintLabel.addEventListener('click', () => setTimeout(updateHints, 0));
 			// タッチイベントも追加
 			hintLabel.addEventListener('touchend', () => setTimeout(updateHints, 0));
+		}
+
+		// ヒントモード切替
+		const hintModeSelect = document.getElementById('hint-mode-select');
+		if (hintModeSelect) {
+			hintModeSelect.addEventListener('change', () => {
+				setTurnMessage();
+			});
 		}
 	}
 

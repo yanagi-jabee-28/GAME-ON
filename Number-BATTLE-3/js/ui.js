@@ -38,7 +38,7 @@ export function cacheDom() {
 	}
 }
 
-export function displayPlayerHints(analysis) {
+export function displayPlayerHints(analysis, mode = 'full') {
 	if (!hintAreaEl) return;
 	// If the hints toggle is currently off, do not display anything.
 	const hintsEnabled = document.getElementById('toggle-hints-cb')?.checked;
@@ -62,16 +62,29 @@ export function displayPlayerHints(analysis) {
 	if (winMoves.length > 0) {
 		winMoves.sort((a, b) => a.distance - b.distance);
 		bestMove = winMoves[0];
-		outcomeText = `${bestMove.distance}手で勝ち`;
+		// フルヒント/簡易ヒントで表示内容を切り替える
+		if (mode === 'simple') {
+			outcomeText = '勝てる局面';
+		} else {
+			// 表示は「この手を含めた手数」として見せる（遷移先 distance + 1）
+			if (bestMove.distance === 0) outcomeText = '即勝ち';
+			else outcomeText = `${bestMove.distance + 1}手で勝ち`;
+		}
 		outcomeColorClass = 'text-green-600';
 	} else if (drawMoves.length > 0) {
 		bestMove = drawMoves[0]; // どの引き分け手でも良い
-		outcomeText = '引き分け';
+		if (mode === 'simple') outcomeText = '引き分けの局面';
+		else outcomeText = '引き分け';
 		outcomeColorClass = 'text-blue-600';
 	} else if (analysis.length > 0) {
 		analysis.sort((a, b) => b.distance - a.distance); // 最も長く粘れる手
 		bestMove = analysis[0];
-		outcomeText = `${bestMove.distance}手で負け`;
+		if (mode === 'simple') {
+			outcomeText = '負ける局面';
+		} else {
+			if (bestMove.distance === 0) outcomeText = '即負け';
+			else outcomeText = `${bestMove.distance + 1}手で負け`;
+		}
 		outcomeColorClass = 'text-red-600';
 	} else {
 		hintAreaEl.innerHTML = ''; // 手がない場合
@@ -88,7 +101,11 @@ export function displayPlayerHints(analysis) {
 		actionText = `(手を[${bestMove.move.values.join(', ')}]に分割)`;
 	}
 
-	hintAreaEl.innerHTML = `💡 最善手: <span class="font-bold ${outcomeColorClass}">${outcomeText}</span> <span class="text-xs">${actionText}</span>`;
+	if (mode === 'simple') {
+		hintAreaEl.innerHTML = `💡 <span class="font-bold ${outcomeColorClass}">${outcomeText}</span>`;
+	} else {
+		hintAreaEl.innerHTML = `💡 最善手: <span class="font-bold ${outcomeColorClass}">${outcomeText}</span> <span class="text-xs">${actionText}</span>`;
+	}
 }
 
 export function clearPlayerHints() {
