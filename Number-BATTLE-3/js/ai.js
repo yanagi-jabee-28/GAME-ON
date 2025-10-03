@@ -80,17 +80,49 @@ export function aiTurnWrapper(getState) {
 
         // --- 最善手の選択 ---
         let chosenMove;
-        if (bestMoves.WIN.length > 0) {
-            // 最短手数で勝てる手を選ぶ
-            bestMoves.WIN.sort((a, b) => a.distance - b.distance);
-            chosenMove = bestMoves.WIN[0].move;
-        } else if (bestMoves.DRAW.length > 0) {
-            // 引き分けに持ち込む手を選ぶ
-            chosenMove = bestMoves.DRAW[0].move;
+        const strength = document.getElementById('cpu-strength-select')?.value || 'hard';
+
+        if (strength === 'hard') {
+            // 最強モード：常に最善手を選択
+            if (bestMoves.WIN.length > 0) {
+                bestMoves.WIN.sort((a, b) => a.distance - b.distance);
+                chosenMove = bestMoves.WIN[0].move;
+            } else if (bestMoves.DRAW.length > 0) {
+                chosenMove = bestMoves.DRAW[0].move;
+            } else {
+                bestMoves.LOSS.sort((a, b) => b.distance - a.distance);
+                chosenMove = bestMoves.LOSS[0].move;
+            }
         } else {
-            // 負けるしかない場合、最も手数がかかる（延命できる）手を選ぶ
-            bestMoves.LOSS.sort((a, b) => b.distance - a.distance);
-            chosenMove = bestMoves.LOSS[0].move;
+            // 強いモード：確率でミスをする
+            const rand = Math.random();
+            if (bestMoves.WIN.length > 0) {
+                // 勝てる局面
+                if (rand < 0.8 || bestMoves.DRAW.length === 0) {
+                    // 80%の確率、または引き分けの手がない場合は最善手(勝ち)
+                    bestMoves.WIN.sort((a, b) => a.distance - b.distance);
+                    chosenMove = bestMoves.WIN[0].move;
+                } else {
+                    // 20%の確率で勝ちを見逃し、引き分けを狙う
+                    const randomIndex = Math.floor(Math.random() * bestMoves.DRAW.length);
+                    chosenMove = bestMoves.DRAW[randomIndex].move;
+                }
+            } else if (bestMoves.DRAW.length > 0) {
+                // 引き分けられる局面
+                if (rand < 0.9 || bestMoves.LOSS.length === 0) {
+                    // 90%の確率、または負けの手がない場合は次善手(引き分け)
+                    const randomIndex = Math.floor(Math.random() * bestMoves.DRAW.length);
+                    chosenMove = bestMoves.DRAW[randomIndex].move;
+                } else {
+                    // 10%の確率で負け筋を選ぶ（ただし最もマシな負け）
+                    bestMoves.LOSS.sort((a, b) => b.distance - a.distance);
+                    chosenMove = bestMoves.LOSS[0].move;
+                }
+            } else {
+                // 負けしかない局面では、最善の抵抗をする
+                bestMoves.LOSS.sort((a, b) => b.distance - a.distance);
+                chosenMove = bestMoves.LOSS[0].move;
+            }
         }
 
         // --- 選択した手を実行 ---

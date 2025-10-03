@@ -23,15 +23,23 @@ function getStateAccessor() {
 }
 
 function setTurnMessage() {
-	if (Game.gameOver) return; // 勝敗表示は applyPostWinEffects が行う
+	if (Game.gameOver) {
+        UI.clearPlayerHints();
+        return;
+    }
+
+    const hintsEnabled = document.getElementById('toggle-hints-cb')?.checked;
+
 	if (Game.currentPlayer === 'player') {
 		UI.updateMessage('あなたの番です。攻撃する手を選んでください。');
-        // プレイヤーの局面を分析してヒントを表示
-        const analysis = AI.getPlayerMovesAnalysis(getStateAccessor());
-        UI.displayPlayerHints(analysis);
+        if (hintsEnabled) {
+            const analysis = AI.getPlayerMovesAnalysis(getStateAccessor());
+            UI.displayPlayerHints(analysis);
+        } else {
+            UI.clearPlayerHints();
+        }
 	} else {
 		UI.updateMessage('CPU の番です。しばらくお待ちください...');
-        // プレイヤー向けのヒントを消去
         UI.clearPlayerHints();
 	}
 }
@@ -78,6 +86,7 @@ function initGame() {
 function applyPostWinEffects() {
 	const res = Game.checkWin(); // 勝敗判定
 	if (res.gameOver) {
+        UI.clearPlayerHints();
 		if (res.playerLost) {
 			UI.updateMessage('あなたの負けです...'); // プレイヤー敗北メッセージ
 		} else {
@@ -212,6 +221,14 @@ function setupEventDelegation() {
 			else UI.updateMessage('戻せる手がありません。');
 		}
 	});
+
+    // ヒント切り替えチェックボックス
+    const hintToggle = document.getElementById('toggle-hints-cb');
+    if (hintToggle) {
+        hintToggle.addEventListener('change', () => {
+            setTurnMessage(); // 状態が変わったらヒント表示を再評価
+        });
+    }
 
 	// Restart - 再スタートボタンの処理
 	document.getElementById('restart-btn').addEventListener('click', () => {

@@ -58,14 +58,24 @@
 
 	<!-- 固定表示のリスタートボタン（画面上部中央） -->
 	<div class="fixed left-1/2 transform -translate-x-1/2 top-4 z-50">
-		<div class="flex items-center gap-3">
-			<label for="starter-select" class="hidden">先攻選択</label>
-			<select id="starter-select" class="py-1 px-2 rounded-lg border">
+		<div class="flex items-center gap-3 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow">
+			<!-- 先攻選択 -->
+			<select id="starter-select" class="py-1 px-2 rounded-lg border bg-white text-sm">
 				<option value="player" selected>あなた 先攻</option>
 				<option value="ai">CPU 先攻</option>
 			</select>
-			<button id="restart-btn"
-				class="btn py-2 px-4 bg-gray-500 text-white font-bold rounded-full shadow-lg">リスタート</button>
+			<!-- CPU強さ -->
+			<select id="cpu-strength-select" class="py-1 px-2 rounded-lg border bg-white text-sm">
+				<option value="hard" selected>CPU: 最強</option>
+				<option value="normal">CPU: 強い</option>
+			</select>
+			<!-- ヒント表示 -->
+			<div class="flex items-center border-l pl-3 ml-1">
+				<input id="toggle-hints-cb" type="checkbox" checked class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+				<label for="toggle-hints-cb" class="ml-2 text-sm font-medium text-gray-900">ヒント</label>
+			</div>
+			<!-- リスタート -->
+			<button id="restart-btn" class="btn py-1 px-4 bg-gray-500 text-white font-bold rounded-full shadow-lg text-sm ml-2">リスタート</button>
 		</div>
 	</div>
 
