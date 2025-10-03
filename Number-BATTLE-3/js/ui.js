@@ -16,6 +16,10 @@ let splitTotalEl;       // モーダル内の合計表示要素
 let splitOptionsContainer; // 分割候補ボタンを入れるコンテナ
 let undoBtnEl; // 戻すボタン要素
 let hintAreaEl; // ヒント表示エリア要素
+let gameContainerEl; // ゲームカード本体
+let gameWrapperEl; // game-container の親（相対配置を含む）
+let topControlsEl; // 上部の制御群
+let currentScale = 1;
 
 export function cacheDom() {
 	// DOM 要素を一度だけ取得してキャッシュする（頻繁な DOM アクセスを避けるため）
@@ -30,12 +34,74 @@ export function cacheDom() {
 	undoBtnEl = document.getElementById('undo-btn');
 	hintAreaEl = document.getElementById('hint-area');
 
+	// layout related elements for adaptive scaling
+	gameContainerEl = document.getElementById('game-container');
+	if (gameContainerEl) gameWrapperEl = gameContainerEl.parentElement;
+	topControlsEl = document.querySelector('.inline-flex');
+
 	// Allow clicking on the modal overlay to close the modal (click outside content)
 	if (splitModalEl) {
 		splitModalEl.addEventListener('click', (e) => {
 			if (e.target === splitModalEl) closeSplitModal();
 		});
 	}
+}
+
+/**
+ * fitUIToViewport
+ * - measure the natural (unscaled) size of `#game-container` and compute a scale
+ *   factor so the whole area fits within the viewport (with small margins).
+ * - apply CSS transform scale to the container and reserve space on the wrapper
+ *   so surrounding elements don't overlap.
+ */
+export function fitUIToViewport() {
+	if (!gameContainerEl || !gameWrapperEl) return;
+
+	// Temporarily remove transform to measure natural size
+	const prevTransform = gameContainerEl.style.transform || '';
+	const prevTransformOrigin = gameContainerEl.style.transformOrigin || '';
+	gameContainerEl.style.transform = '';
+	gameContainerEl.style.transformOrigin = '';
+
+	// Give the browser one frame to settle measurements if needed
+	// Measure natural size
+	const rect = gameContainerEl.getBoundingClientRect();
+	const naturalWidth = Math.ceil(rect.width);
+	const naturalHeight = Math.ceil(rect.height);
+
+	// Available viewport area (leave a small margin so controls aren't flush to edges)
+	const margin = 16; // px
+	const availableWidth = Math.max(100, window.innerWidth - margin * 2);
+	const availableHeight = Math.max(100, window.innerHeight - margin * 2);
+
+	// If there are top controls that take vertical space in normal flow, subtract their height
+	let topControlsHeight = 0;
+	if (topControlsEl) {
+		const tRect = topControlsEl.getBoundingClientRect();
+		// If topControls are absolutely positioned above the container, they may overlap;
+		// but we still reserve a bit of space to avoid overlap in small screens.
+		topControlsHeight = tRect.height || 0;
+	}
+
+	const availW = availableWidth;
+	const availH = Math.max(80, availableHeight - topControlsHeight - margin);
+
+	// Compute scale (never exceed 1 for now, but can be >1 if you want to upscale)
+	const scale = Math.min(1, availW / naturalWidth, availH / naturalHeight);
+
+	// Apply transform with smooth transition
+	gameContainerEl.style.transformOrigin = 'top center';
+	gameContainerEl.style.transition = 'transform 0.18s ease-out';
+	gameContainerEl.style.transform = `scale(${scale})`;
+
+	// Reserve wrapper height so layout below doesn't overlap the scaled card.
+	// Set wrapper height to scaled natural height plus some allowance for top controls.
+	gameWrapperEl.style.height = `${Math.ceil(naturalHeight * scale + topControlsHeight + margin)}px`;
+
+	currentScale = scale;
+
+	// restore previous transform values if needed for future measurements (we keep applied transform)
+	// prevTransform is not reapplied because we want the scaled state to persist
 }
 
 export function displayPlayerHints(analysis, mode = 'full') {
@@ -144,6 +210,12 @@ export function updateDisplay(state) {
 		} else {
 			if (splitBtnEl) splitBtnEl.classList.remove('hidden');
 		}
+	}
+
+	// After updating display, ensure the UI fits the viewport (useful when sizes change)
+	if (typeof fitUIToViewport === 'function') {
+		// Delay slightly to allow DOM reflow (e.g., after animations)
+		setTimeout(() => { try { fitUIToViewport(); } catch (e) { /* ignore */ } }, 30);
 	}
 }
 

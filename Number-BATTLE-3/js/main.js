@@ -271,6 +271,20 @@ window.addEventListener('DOMContentLoaded', () => {
 	setupEventDelegation();
 	initGame();
 
+	// Ensure UI scales to fit the viewport on load
+	if (typeof UI.fitUIToViewport === 'function') UI.fitUIToViewport();
+
+	// Debounced resize handler to recompute scale on resize/orientation change
+	let resizeTimer = null;
+	const onResize = () => {
+		if (resizeTimer) clearTimeout(resizeTimer);
+		resizeTimer = setTimeout(() => {
+			if (typeof UI.fitUIToViewport === 'function') UI.fitUIToViewport();
+		}, 120);
+	};
+	window.addEventListener('resize', onResize);
+	window.addEventListener('orientationchange', onResize);
+
 	// When tablebase finishes loading, re-render hints immediately
 	window.addEventListener('tablebase-loaded', () => {
 		// Re-evaluate hints for current turn
