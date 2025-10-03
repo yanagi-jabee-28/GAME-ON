@@ -69,3 +69,25 @@ body {
 	opacity: 0;
 	transition: opacity 0.5s ease;
 }
+
+/* Mobile adjustments: ensure top control bar doesn't overlap content */
+@media (max-width: 640px) {
+
+	/* add space at top so fixed control bar doesn't cover the game container */
+	#game-container {
+		margin-top: 72px;
+		/* enough space for the fixed controls */
+	}
+
+	/* make hand sizes a bit smaller on very small screens */
+	.hand {
+		width: 96px;
+		height: 96px;
+		font-size: 4rem;
+	}
+
+	/* ensure top control wrapper has comfortable touch target */
+	.inline-flex {
+		padding: 8px 10px;
+	}
+}
