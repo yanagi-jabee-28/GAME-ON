@@ -160,6 +160,29 @@ export function aiTurnWrapper(getState) {
             }
         }
 
+        // 新しい 'weakest'（最弱）モード: できるだけ早く負ける手を選ぶ
+        if (strength === 'weakest') {
+            // If any losing moves exist, choose immediate-loss first (distance === 0),
+            // otherwise choose the loss with the smallest distance (fastest loss).
+            if (bestMoves.LOSS.length > 0) {
+                const immediate = bestMoves.LOSS.filter(x => x.distance === 0);
+                if (immediate.length > 0) {
+                    // pick random among immediate loss moves (if multiple)
+                    const idx = Math.floor(Math.random() * immediate.length);
+                    chosenMove = immediate[idx].move;
+                } else {
+                    // pick the loss with minimal distance
+                    bestMoves.LOSS.sort((a, b) => a.distance - b.distance);
+                    chosenMove = bestMoves.LOSS[0].move;
+                }
+            } else if (bestMoves.DRAW.length > 0) {
+                // No losing moves available; fall back to draw (avoid draw only when loss exists)
+                chosenMove = pickRandomDraw(bestMoves.DRAW);
+            } else {
+                chosenMove = pickBestWin(bestMoves.WIN);
+            }
+        }
+
         // --- 選択した手を実行 ---
         if (chosenMove.type === 'attack') {
             performAiAttackAnim(chosenMove.fromIndex, chosenMove.toIndex, () => {
