@@ -188,8 +188,13 @@ function setupEventDelegation() {
 
 	// Split button - 分割操作のハンドリング
 	document.getElementById('split-btn').addEventListener('click', () => {
-		// compute analysis so we can color split options (if tablebase loaded)
-		const splitAnalysis = AI.getPlayerMovesAnalysis(getStateAccessor());
+		// compute analysis so we can color split options (if tablebase loaded and full hints enabled)
+		const hintsEnabled = document.getElementById('toggle-hints-cb')?.checked;
+		const hintMode = document.getElementById('hint-mode-select')?.value || 'full';
+		let splitAnalysis = null;
+		if (hintsEnabled && hintMode === 'full') {
+			splitAnalysis = AI.getPlayerMovesAnalysis(getStateAccessor());
+		}
 		UI.openSplitModal({ playerHands: Game.playerHands, aiHands: Game.aiHands, currentPlayer: Game.currentPlayer, gameOver: Game.gameOver }, splitAnalysis, (val0, val1) => {
 			// Animate split first, then apply split and update UI
 			UI.performPlayerSplitAnim(val0, val1, () => {

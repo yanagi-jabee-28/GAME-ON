@@ -177,11 +177,16 @@ export function displayPlayerHints(analysis, mode = 'full') {
 		hintAreaEl.innerHTML = `💡 最善手: <span class="font-bold ${outcomeColorClass}">${outcomeText}</span> <span class="text-xs">${actionText}</span>`;
 	}
 
-	// When analysis is present, also apply per-action highlights (attack targets / splits)
-	try {
-		applyActionHighlights(analysis);
-	} catch (e) {
-		// ignore any highlight errors
+	// When analysis is present, also apply per-action highlights (attack targets / splits) only for full hints
+	if (mode === 'full') {
+		try {
+			applyActionHighlights(analysis);
+		} catch (e) {
+			// ignore any highlight errors
+		}
+	} else {
+		// For simple hints, clear any existing highlights
+		clearActionHighlights();
 	}
 }
 
