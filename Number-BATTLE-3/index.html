@@ -27,6 +27,12 @@
 						<option value="player" selected>あなた 先攻</option>
 						<option value="ai">CPU 先攻</option>
 					</select>
+					<!-- デバッグ: AI を手動で操作できるようにするトグル -->
+					<div class="flex items-center border-l pl-3 ml-1 gap-2">
+						<input id="toggle-ai-control-cb" type="checkbox"
+							class="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded" />
+						<label for="toggle-ai-control-cb" class="ml-2 text-sm">AIを手動操作</label>
+					</div>
 					<!-- CPU強さ -->
 					<select id="cpu-strength-select" class="py-1 px-2 rounded-lg border bg-white text-sm">
 						<option value="hard" selected>CPU: 最強</option>

@@ -4,6 +4,7 @@
 import * as Game from './game.js';
 import * as AI from './ai.js';
 import * as UI from './ui.js';
+import { initDebug } from './debug.js';
 
 /**
  * getStateAccessor
@@ -40,7 +41,12 @@ function setTurnMessage() {
 			UI.clearPlayerHints();
 		}
 	} else {
-		UI.updateMessage('CPU の番です。しばらくお待ちください...');
+		const aiManual = document.getElementById('toggle-ai-control-cb')?.checked;
+		if (aiManual) {
+			UI.updateMessage('AI手動操作モード: CPUの手をクリックして操作してください。');
+		} else {
+			UI.updateMessage('CPU の番です。しばらくお待ちください...');
+		}
 		UI.clearPlayerHints();
 	}
 }
@@ -68,12 +74,18 @@ function initGame() {
 	if (starter === 'ai' && !Game.gameOver) {
 		// Small delay to allow UI to render initial state
 		setTimeout(() => {
-			UI.updateMessage('CPU の番です。しばらくお待ちください...');
-			AI.aiTurnWrapper(getStateAccessor)
-				.then(() => {
-					UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo, gameOver: Game.gameOver });
-					if (!applyPostWinEffects()) setTurnMessage();
-				});
+			// If manual AI control is enabled, skip automatic AI execution
+			const aiManual = document.getElementById('toggle-ai-control-cb')?.checked;
+			if (aiManual) {
+				UI.updateMessage('AI手動操作モード: CPUの手をクリックして操作してください。');
+			} else {
+				UI.updateMessage('CPU の番です。しばらくお待ちください...');
+				AI.aiTurnWrapper(getStateAccessor)
+					.then(() => {
+						UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo, gameOver: Game.gameOver });
+						if (!applyPostWinEffects()) setTurnMessage();
+					});
+			}
 		}, 300);
 	}
 }
@@ -176,11 +188,16 @@ function setupEventDelegation() {
 				setTurnMessage();
 				// call AI turn after a short delay (0.5s) to leave a pause after player's attack animation
 				setTimeout(() => {
-					AI.aiTurnWrapper(getStateAccessor)
-						.then(() => {
-							UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo, gameOver: Game.gameOver }); // AI の行動後に再描画
-							if (!applyPostWinEffects()) setTurnMessage(); // 勝敗がなければプレイヤーへ案内
-						});
+					// Respect manual AI control toggle
+					if (document.getElementById('toggle-ai-control-cb')?.checked) {
+						UI.updateMessage('AI手動操作モード: CPUの手をクリックして操作してください。');
+					} else {
+						AI.aiTurnWrapper(getStateAccessor)
+							.then(() => {
+								UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo, gameOver: Game.gameOver }); // AI の行動後に再描画
+								if (!applyPostWinEffects()) setTurnMessage(); // 勝敗がなければプレイヤーへ案内
+							});
+					}
 				}, 500); // 500ms の遅延（行動コメント: CPU 行動に入るまでのポーズ）
 			});
 		}
@@ -205,11 +222,15 @@ function setupEventDelegation() {
 				setTurnMessage();
 				// delay AI action slightly so player can see split result
 				setTimeout(() => {
-					AI.aiTurnWrapper(getStateAccessor)
-						.then(() => {
-							UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo, gameOver: Game.gameOver }); // AI 後の再描画
-							if (!applyPostWinEffects()) setTurnMessage(); // 勝敗反映/プレイヤーへ案内
-						});
+					if (document.getElementById('toggle-ai-control-cb')?.checked) {
+						UI.updateMessage('AI手動操作モード: CPUの手をクリックして操作してください。');
+					} else {
+						AI.aiTurnWrapper(getStateAccessor)
+							.then(() => {
+								UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, canUndo: Game.canUndo, gameOver: Game.gameOver }); // AI 後の再描画
+								if (!applyPostWinEffects()) setTurnMessage(); // 勝敗反映/プレイヤーへ案内
+							});
+					}
 				}, 500); // 500ms の遅延（行動コメント: 分割後の視認性確保）
 			});
 		});
@@ -285,6 +306,9 @@ window.addEventListener('DOMContentLoaded', () => {
 	UI.cacheDom();
 	setupEventDelegation();
 	initGame();
+
+	// initialize debug utilities (will be no-op if debug module not desired)
+	if (typeof initDebug === 'function') initDebug();
 
 	// Ensure UI scales to fit the viewport on load
 	if (typeof UI.fitUIToViewport === 'function') UI.fitUIToViewport();
