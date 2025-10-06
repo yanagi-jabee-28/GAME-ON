@@ -201,3 +201,5 @@ const gameConfig = {
 	});
 	gameConfig.payoutTable = table;
 })();
+
+export { gameConfig };
