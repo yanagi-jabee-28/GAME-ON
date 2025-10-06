@@ -14,7 +14,7 @@
 import * as Game from './game.js';
 import * as UI from './ui.js';
 import { getAIMovesAnalysisFromPlayerView } from './ai.js';
-import { SHOW_AI_MANUAL_TOGGLE } from './config.js';
+import CONFIG from './config.js';
 
 let debugSelected = null; // index of selected AI hand or null
 
@@ -30,7 +30,7 @@ function handleContainerClick(e) {
 	// Only active when AI's turn and game not over
 	try { if (Game.gameOver) return; } catch (e2) { return; }
 	// Check the UI toggle: only intercept when allowed
-	if (!SHOW_AI_MANUAL_TOGGLE) return;
+	if (!CONFIG.SHOW_AI_MANUAL_TOGGLE) return;
 	const enabled = document.getElementById('toggle-ai-control-cb')?.checked;
 	if (!enabled) return;
 	try { if (Game.currentPlayer !== 'ai') return; } catch (e3) { return; }
@@ -155,7 +155,7 @@ function handleSplitButtonClick(e) {
 }
 
 export function initDebug() {
-	if (!SHOW_AI_MANUAL_TOGGLE) return; // feature disabled
+	if (!CONFIG.SHOW_AI_MANUAL_TOGGLE) return; // feature disabled
 	// Install capture-phase handlers so they run before the normal handlers in main.js
 	const container = document.getElementById('game-container');
 	if (container) container.addEventListener('click', handleContainerClick, true);

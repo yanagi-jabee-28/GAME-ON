@@ -1,6 +1,6 @@
 // ai.js - AI の行動決定（テーブルベース参照型）
 import { applyAttack, applySplit, switchTurnTo } from './game.js';
-import { SHOW_CPU_STRENGTH_SELECT, DEFAULT_CPU_STRENGTH, FORCE_CPU_STRENGTH } from './config.js';
+import CONFIG from './config.js';
 import { performAiAttackAnim, performAiSplitAnim } from './ui.js';
 import { generateMoves } from './game.js';
 
@@ -161,12 +161,12 @@ export function aiTurnWrapper(getState) {
         let chosenMove;
         // Determine strength via config/DOM
         let strength = 'hard';
-        if (FORCE_CPU_STRENGTH) {
-            strength = FORCE_CPU_STRENGTH;
-        } else if (SHOW_CPU_STRENGTH_SELECT) {
-            strength = document.getElementById('cpu-strength-select')?.value || DEFAULT_CPU_STRENGTH || 'hard';
+        if (CONFIG.FORCE_CPU_STRENGTH) {
+            strength = CONFIG.FORCE_CPU_STRENGTH;
+        } else if (CONFIG.SHOW_CPU_STRENGTH_SELECT) {
+            strength = document.getElementById('cpu-strength-select')?.value || CONFIG.DEFAULT_CPU_STRENGTH || 'hard';
         } else {
-            strength = DEFAULT_CPU_STRENGTH || 'hard';
+            strength = CONFIG.DEFAULT_CPU_STRENGTH || 'hard';
         }
 
         if (strength === 'hard') {
