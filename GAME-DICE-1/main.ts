@@ -1,3 +1,4 @@
+
 // =================================================================================
 // チンチロリン - 3D
 //
@@ -8,6 +9,7 @@
 import * as CANNON from "cannon-es";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import * as Tone from "tone";
 
 // =================================================================================
 // DOM要素の取得

@@ -1,3 +1,5 @@
+import nipplejs from "nipplejs";
+
 const canvas = document.getElementById("battle-canvas");
 const ctx = canvas.getContext("2d");
 

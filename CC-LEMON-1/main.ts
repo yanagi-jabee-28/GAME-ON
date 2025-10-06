@@ -1,3 +1,5 @@
+import * as Tone from "tone";
+
 // --- DOM要素の取得 ---
 const gameScreen = document.getElementById("game-screen");
 const startScreen = document.getElementById("start-screen");
