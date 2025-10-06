@@ -1,4 +1,19 @@
 // ai.js - AI の行動決定（テーブルベース参照型）
+//
+// Summary:
+// - 本モジュールは局面テーブル（chopsticks-tablebase.json）を参照して
+//   候補手を評価し、CPU 強度ポリシーに従って最終手を選択して実行します。
+// - 非同期にテーブルをロードし、読み込み完了時に `tablebase-loaded` イベントを発行します。
+// - エクスポート:
+//   - aiTurnWrapper(getState): Promise<void> — AI の行動を実行する。getState は現在局面を返す関数。
+//   - getPlayerMovesAnalysis(state): プレイヤー視点での全手評価（ヒント表示用）。テーブル未ロード時は null を返す。
+//   - getAIMovesAnalysisFromPlayerView(state): AI の手を列挙しプレイヤー視点で評価した結果（デバッグ用）。
+//
+// Design notes:
+// - テーブルは "normalizedKey|turn" で検索され `outcome` ('WIN'|'LOSS'|'DRAW') と `distance` を返します。
+// - AI は候補手を simulateMove で適用した "相手のターン" のキーを引き、テーブルに基づいて手を分類します。
+// - 選択ロジックは CPU 強度（hard/normal/weak/weakest）に基づく確率的/ルールベースの方法です。
+// - UI アニメーションの完了コールバック内で `applyAttack` / `applySplit` を呼び出して状態変更を行い、勝敗判定・ターン切り替えを行います。
 import {
 	applyAttack,
 	applySplit,

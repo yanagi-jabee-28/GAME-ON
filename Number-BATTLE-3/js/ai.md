@@ -1,154 +1,86 @@
-## Number-BATTLE-3: AI ロジック仕様書
+## Number-BATTLE-3: AI（テーブルベース）仕様
 
-この文書は `Number-BATTLE-3/js/ai.js` の動作を詳細に説明します。AI の意思決定アルゴリズム、使用されるヘルパー関数、評価関数、探索ロジック、優先順位付け、そして改善案までを含みます。
+この文書は `Number-BATTLE-3/js/ai.js` の現在の実装（テーブルベース参照型）を説明します。リファクタ後の AI は局面テーブル（chopsticks-tablebase.json）を参照して局所評価を行い、CPU 強度に基づく選択ポリシーを適用して最終手を決定します。
 
 ### 目的
-AI モジュールは、AI のターンで行うべき行動（攻撃または分割）を決定し、UI アニメーションを呼び出した後にゲーム状態を更新してターンを切り替える責任を持ちます。外部からは `aiTurnWrapper(getState)` を呼ぶことで Promise を取得できます。Promise は AI のアニメーションと状態更新が完了したときに解決されます。
+AI モジュールは次を提供します:
+- `aiTurnWrapper(getState)` — AI の行動を実行する非同期ラッパー。Promise を返し、アニメーションと状態更新が完了したら解決する。
+- `getPlayerMovesAnalysis(state)` — プレイヤー視点での全手評価（ヒント用）。
+- `getAIMovesAnalysisFromPlayerView(state)` — AI の手を列挙し、それらをプレイヤー視点で評価した結果（デバッグ/手動操作補助用）。
 
----
+モジュールは局面テーブルを非同期でロードし、読み込み完了時に `window` に `tablebase-loaded` イベントを発行します。
 
 ### 高レベルのフロー
 
-1. 外部から `aiTurnWrapper(getState)` が呼ばれる。`getState()` は現在のゲーム状態（プレイヤー手、AI 手、gameOver など）を返す関数。
-2. 現在の状態が既にゲーム終了なら何もせず解決。
-3. `generateMovesFor('ai', rootState)` で可能な全ての手（攻撃・分割）を列挙。
-4. もし手が無ければ分割アニメーションを実行してターン終了。
-5. 速攻で勝利できる攻撃があれば即座にその攻撃をアニメーション付きで実行し、状態更新とターン切り替えを行う。
-6. そうでなければ、アルファベータ探索（深さ 4）で各候補手を評価し、最良手を選択する。
-7. 同点候補の多数決（優先ルール）で最終手を選び、アニメーションを実行して状態を更新する。
+1. `aiTurnWrapper(getState)` が呼ばれる。
+2. `getState()` で現在局面を取得。ゲーム終了なら何もせず終了。
+3. 可能な全手を `generateMoves(...)` で列挙する。
+4. テーブルベースが利用可能であれば、各候補手を `simulateMove` で適用した遷移局面（次ターン）を生成し、テーブルキーで参照して outcome/distance を取得する。
+   - テーブルの outcome は「次ターンのプレイヤー視点」で格納されているため、AI の視点ではラベルを反転して扱う。
+5. 取得した (move, outcome, distance) を WIN/DRAW/LOSS に分類し、CPU 強度（`CONFIG` や DOM の選択）に応じた選択ポリシーで最終手を決定する。
+6. 選択手に応じた UI アニメーション（`performAiAttackAnim` / `performAiSplitAnim`）を呼び、アニメ完了コールバックで `applyAttack` / `applySplit` を実行、勝敗を確認してターンを切り替える。
 
----
+### テーブルベース参照の考え方
 
-### 主要関数一覧（説明付き）
+- テーブルは正規化されたキー（各プレイヤーの手をソートし join した文字列 + 現在ターン）で索引され、対応する `outcome`（'WIN'/'LOSS'/'DRAW'）と `distance`（手数）を持ちます。
+- AI は候補手を適用した後の「相手のターン」キーを参照し、テーブルの outcome を反転することで AI 視点の結果を得ます。
 
-- randomChoice(arr)
-  - 引数: 配列
-  - 返り値: 配列からランダムな要素
-  - 補足: あまり使われていないユーティリティ
+### CPU 強度ごとの選択ポリシー（実装の要点）
 
-- getAvailableHands(hands)
-  - 引数: 2 要素の手配列
-  - 返り値: アクティブ（0 でない）手のインデックス配列
+- `hard`:
+  - 最優先: `WIN`（最短 distance を選ぶ）
+  - 次: `DRAW`（ランダム）
+  - 最後: `LOSS`（最も長く粘れるもの）
 
-- computePossibleSplits(total, current)
-  - 引数: total (両手の合計), current (現在の手の配列)
-  - 返り値: 合計を分割する可能なペアの配列（重複・同一分配は除外、各手は 0..4）
-  - 振る舞い: si を 0 から total/2 までループして対の sj = total - si を作る。sj が 4 を超える場合は除外。
+- `weak`:
+  - 60%: 非負（WIN > DRAW > LOSS の順）を狙う
+  - 40%: 故意に負け手を選ぶ（ただし distance >= 5 を優先）
 
-- cloneState(state)
-  - 引数: state オブジェクト
-  - 返り値: playerHands と aiHands を浅コピーした新しいオブジェクト
+- `normal` / その他:
+  - WIN があれば 70% で勝ち手、20% で引き分け寄りの手、残りは損な手を選ぶ確率を導入
+  - DRAW しか無ければ 90% で DRAW を選択
 
-- checkWinState(state)
-  - 引数: state
-  - 返り値: { gameOver, playerLost, aiLost }
-  - 判定: どちらかの手が両方 0（敗北）かどうかを見る
+- `weakest`:
+  - 可能な限り早く負ける手を選ぶ（ただしプレイヤーを即死させる手は回避する安全策あり）
+  - プレイヤーが即勝ちできる手を優先して選ぶロジックを持つ
 
-- simulateAttack(state, fromOwner, attackerIndex, toOwner, targetIndex)
-  - 引数: ゲーム状態、攻撃側/防御側、攻撃手/対象手のインデックス
-  - 振る舞い: 対象手の値を (attacker + target) % 5 に置き換えたクローン状態を返す
-  - 返り値: 変更後のクローン状態（元 state は変更しない）
+これらのポリシーは `selectMoveForStrength` に実装されています。
 
-- simulateSplit(state, owner, val0, val1)
-  - 引数: state, owner ('ai'|'player'), val0, val1
-  - 振る舞い: 指定した owner の手を val0/val1 にセットしたクローン状態を返す
+### 補助・安全ロジック
 
-- evaluateState(state)
-  - 引数: state
-  - 返り値: 数値スコア（AI にとって高いほど良い）
-  - ロジック:
-    - もし playerLost -> +1_000_000 （AI 勝利）
-    - もし aiLost -> -1_000_000 （AI 敗北）
-    - アクティブな手の数差 (aiActive - playerActive) * 200
-    - 合計値差 (aiSum - playerSum) * 10
-    - 4 の手を持つ数の差 (aiHigh - playerHigh) * 50
-    - バランス（差の絶対値が小さい方に微小ボーナス）
+- `filterOutImmediatePlayerKills` で、AI の手がプレイヤーを即死させる（プレイヤーが次に動けない）手を除外して安全性を保つ場面がある。
+- `findMovesAllowingImmediatePlayerWin` は、AI の候補手のうちプレイヤーに次の手で即勝ちを許すものを検出し、`weakest` で利用される。
 
-- generateMovesFor(owner, state)
-  - 引数: owner ('ai'|'player'), state
-  - 返り値: 可能な手の配列。攻撃は {type:'attack', ...}、分割は {type:'split', ...}
-  - 補足: 攻撃は自分のアクティブな手から相手のアクティブな手へ。分割は computePossibleSplits に基づく。
+### API と期待入力/出力
 
-- alphaBeta(state, depth, alpha, beta, maximizingPlayer)
-  - 引数: state, 探索深さ depth, alpha, beta, 現在のプレイヤーが最大化プレイヤーかどうか
-  - 戻り値: 評価値（evaluateState による）
-  - 振る舞い: 通常の alpha-beta。各ノードで generateMovesFor を呼び、簡易的なムーブ順序付けのために evaluateState によって moves をソートする。
+- `aiTurnWrapper(getState)`
+  - getState(): ゲームのスナップショット（playerHands, aiHands, currentPlayer, gameOver, checkWin 等）を返す関数。
+  - 返り値: Promise<void>（AI のアニメーションと状態更新が完了したら解決）
 
-- aiTurnWrapper(getState)
-  - 引数: getState() を呼ぶことで最新の状態が取得できる関数
-  - 戻り値: Promise（アニメーションと状態更新完了で解決）
-  - 振る舞い: 上述の高レベルフローに従って手を選び実行する。探索深さは SEARCH_DEPTH = 4。
+- `getPlayerMovesAnalysis(state)`
+  - state: { playerHands, aiHands }
+  - 返り値: null（テーブル未ロード）または [{ move, outcome, distance }]（プレイヤー視点での評価）
 
----
-
-### 評価関数の詳細
-
-evaluateState は単純な加重ヒューリスティックで、次の特徴を持ちます:
-
-- 終局の評価は極端な値で処理（+1e6 / -1e6）。探索結果で即時勝敗が見えた場合、局面を強く評価します。
-- アクティブな手の数（0 でない手）の差を重視（200 倍）— 手数が多いほど選択肢が多い。
-- 合計値差（各手の合計）を軽く考慮（10 倍）— 高い合計は強さの指標。
-- 「4 を持っている手」の数をボーナス化（50 倍）— 4 の手は 1 回の攻撃で相手手を 0 にしやすく重要。
-- バランス補正: AI 側が両手の差が小さい（バランスが良い）場合に微小ボーナス。
-
-設計意図: 大きな構造（生存・有利）を優先しつつ、4 を作る（終局に直結する）ことを重視する。
-
----
-
-### 探索とムーブ順序付け
-
-- ルートノードでは generateMovesFor('ai') で全候補を列挙。
-- 各候補について alphaBeta を実行し評価値を取得（SEARCH_DEPTH=4）。
-- 同点候補は bestMoves 配列にまとめられ、最後に movePriority によって優先順位付けされる。
-
-movePriority のルール:
-- 攻撃かどうかで +1000
-- 攻撃で即時勝利ならさらに +100000
-- 攻撃によって 4 を作ると +200
-- 分割で 4 を作ると +150
-- 分割ではバランス度合い (10 - |val0 - val1|) を加算（差が小さいほど高い）
-
-これにより攻撃（特に終局に近い攻撃）を優先し、分割は柔軟性（バランス）と 4 の生成に注目します。
-
----
-
-### 典型的な意思決定シナリオ（例）
-
-1. AI が (1,3)、プレイヤーが (2,3) の場合
-   - 全攻撃候補を simulateAttack して即時勝利がないか確認。
-   - alpha-beta により最も将来的に優位な手を選択。
-
-2. AI が (4,0)、プレイヤーが (1,1) の場合
-   - 4 を使った攻撃は強力。評価関数は 4 の存在を高く評価するため、攻撃が選ばれやすい。
-
-3. AI が (2,2)、プレイヤーが (4,0) の場合
-   - 相手に 4 があるため危険。評価関数は playerHigh を考慮するため、防御的な分割でバランスをとる手が出る可能性がある。
-
----
-
-### 注意点・制約
-
-- 探索深さは固定で 4。状態空間が大きくなる場合、計算コストが増大する。
-- evaluateState は簡易ヒューリスティックで、戦術的な細かい読み（例えば相手の特定の反撃パターン）は完全には捉えない。
-- computePossibleSplits は sj > 4 を除外する仕様だが、ゲームのルール変更があればここを調整する必要がある。
-
----
-
-### 改善案（優先度付き）
-
-1. 反復深化（iterative deepening）を導入して、時間制限内で可能な限り深く探索する。
-2. トランスポジションテーブル（ハッシュ）を導入して状態の再評価を防ぎ、高速化する。
-3. モンテカルロ木探索（MCTS）を試すことで、非決定的な評価関数でもロバストな手が見つかる可能性がある。
-4. 評価関数の改善: 直近の勝利形（例えば特定の手順で相手の手が 0 になる確率）を局所評価として取り入れる。
-5. ムーブ生成の微調整: 分割候補のフィルタリング（無意味な分割を削除）や、攻撃でターゲットとなる手の優先度付けを追加。
-
----
+- `getAIMovesAnalysisFromPlayerView(state)`
+  - state: { playerHands, aiHands }
+  - 返り値: null（テーブル未ロード）または [{ move, outcome, distance }]（プレイヤー視点の評価：デバッグ/ヒント用）
 
 ### 実装上の注意点
 
-- アニメーション関数 `performAiAttackAnim`, `performAiSplitAnim` は UI 側で実際の表示を行い、コールバックで `applyAttack` / `applySplit` を呼んでいる。
-- 実際の状態変更は `applyAttack`, `applySplit`, `switchTurnTo` により行われる。`aiTurnWrapper` 内で直接 state を変更するのではなく、これらのエクスポート関数を使って一貫した状態管理を行っている。
-- `getState()` は常に最新の状態を返すことを期待しており、animate の完了後に `getState().checkWin()` を呼んで勝利判定を確認している。
+- テーブルは非同期ロードされるため、UI は `tablebase-loaded` イベントを監視してヒントや再評価を行うべきです。
+- テーブルに存在しないキーは `null` として扱われ、該当手はスコア対象外になります（フォールバックでランダム選択）。
+
+### 改善案（現実的な順序）
+
+1. テーブル未所持時のフォールバック強化（軽量評価関数）を追加してロード前の挙動を安定化。
+2. テーブルサイズが大きい場合のメモリ/ロード最適化（圧縮・部分ロード）。
+3. オンデマンドでテーブル（局面）をキャッシュする仕組みを追加。
+4. UI 側に「テーブル未ロード」状態を明示してヒントの空表示とする。
+
+---
+
+この `ai.md` は `js/ai.js` の最新のコードに基づいて作成しました。追加で「選択ポリシーの挙動を可視化するログ」や「テーブルに無い局面のデバッグ出力」を実装することも可能です。
+
 
 ---
 
