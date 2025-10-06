@@ -27,6 +27,7 @@ const beatIndicators = [
 let playerState = { hp: 3, charge: 0 };
 let cpuState = { hp: 3, charge: 0 };
 let playerAction = "CHARGE"; // 3拍目までに入力がない場合のデフォルト
+let lockedPlayerAction = "CHARGE"; // 2拍目終了時に確定するアクション
 let cpuAction = "";
 let lastPlayerAction = "";
 let lastCpuAction = "";
@@ -46,6 +47,7 @@ function initGame() {
 	playerState = { hp: 3, charge: 0 };
 	cpuState = { hp: 3, charge: 0 };
 	playerAction = "CHARGE";
+	lockedPlayerAction = "CHARGE";
 	cpuAction = "";
 	lastPlayerAction = "";
 	lastCpuAction = "";
@@ -83,12 +85,8 @@ function updateGuardAvailability() {
 // --- ゲームループ ---
 const gameLoop = (time) => {
 	currentBeat = (currentBeat % 4) + 1;
-
-	// UIスレッドでの更新をスケジュール
 	Tone.Draw.schedule(() => {
 		updateBeatIndicator();
-
-		// 拍ごとの処理
 		switch (currentBeat) {
 			case 1:
 				messageText.textContent = "パン！";
@@ -97,8 +95,17 @@ const gameLoop = (time) => {
 				break;
 			case 2:
 				messageText.textContent = "パン！";
+				// ここではlockedPlayerActionを決定しない
 				break;
 			case 3:
+				// 3拍目直前でアクションを確定
+				if (playerAction === "ATTACK" && playerState.charge > 0) {
+					lockedPlayerAction = "ATTACK";
+				} else if (playerAction === "GUARD" && lastPlayerAction !== "GUARD") {
+					lockedPlayerAction = "GUARD";
+				} else {
+					lockedPlayerAction = "CHARGE";
+				}
 				messageText.textContent = "ACTION!";
 				executeActions(time);
 				showActions();
@@ -110,8 +117,6 @@ const gameLoop = (time) => {
 				break;
 		}
 	}, time);
-
-	// サウンドの再生
 	if (currentBeat <= 2) {
 		synth.triggerAttackRelease("C5", "8n", time);
 	}
@@ -134,19 +139,19 @@ function executeActions(time) {
 	cpuAction = getCpuAction();
 
 	// サウンド再生
-	playActionSound(playerAction, time);
+	playActionSound(lockedPlayerAction, time);
 	playActionSound(cpuAction, time + 0.05); // 少しだけ時間をずらす
 
 	// UIにアクションを表示
-	playerActionDisplay.textContent = playerAction;
+	playerActionDisplay.textContent = lockedPlayerAction;
 	cpuActionDisplay.textContent = cpuAction;
 
 	// アクションの文字色を設定
-	setActionColor(playerActionDisplay, playerAction);
+	setActionColor(playerActionDisplay, lockedPlayerAction);
 	setActionColor(cpuActionDisplay, cpuAction);
 
 	// パネルのスタイルを設定
-	setPanelStyle(playerPanel, playerAction);
+	setPanelStyle(playerPanel, lockedPlayerAction);
 	setPanelStyle(cpuPanel, cpuAction);
 }
 
@@ -270,7 +275,7 @@ function getCpuAction() {
 // --- 4拍目: 結果判定 ---
 function resolveTurn(time) {
 	let turnMessage = "";
-	const pa = playerAction;
+	const pa = lockedPlayerAction;
 	const ca = cpuAction;
 
 	const playerCanAttack = pa === "ATTACK" && playerState.charge > 0;
@@ -427,7 +432,7 @@ restartButton.addEventListener("click", () => {
 // アクションボタン
 actionButtons.forEach((button) => {
 	button.addEventListener("click", () => {
-		if (!isGameRunning || currentBeat === 4 || button.disabled) return;
+		if (!isGameRunning || currentBeat >= 3 || button.disabled) return;
 		playerAction = button.dataset.action;
 
 		// プレイヤーにフィードバック
@@ -438,7 +443,7 @@ actionButtons.forEach((button) => {
 
 // --- キーボード入力 ---
 document.addEventListener("keydown", (event) => {
-	if (!isGameRunning || currentBeat === 4) return;
+	if (!isGameRunning || currentBeat >= 3) return;
 
 	let selectedAction = "";
 	let buttonToHighlight = null;

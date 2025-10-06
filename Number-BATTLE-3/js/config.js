@@ -18,6 +18,14 @@ export const CONFIG = {
 
 	// Force a specific strength regardless of UI or default (null to disable)
 	FORCE_CPU_STRENGTH: null // e.g., 'hard' to force strongest
+	,
+
+	// Hint display controls
+	// SHOW_HINTS_BY_DEFAULT: when true the hint area will be shown (independent of SHOW_HINT_CONTROLS which only controls the UI controls)
+	SHOW_HINTS_BY_DEFAULT: true,
+
+	// DEFAULT_HINT_MODE: 'full' or 'simple' - controls which hint verbosity is selected initially
+	DEFAULT_HINT_MODE: 'full'
 };
 
 // Apply URL query overrides. Example params:
@@ -45,6 +53,17 @@ function applyUrlOverrides() {
 		}
 		if (params.has('defaultStrength')) {
 			CONFIG.DEFAULT_CPU_STRENGTH = params.get('defaultStrength') || CONFIG.DEFAULT_CPU_STRENGTH;
+		}
+
+		// Hint overrides: hints=1|0|true|false and hintMode=full|simple
+		if (params.has('hints')) {
+			const val = params.get('hints');
+			const b = parseBool(val === '1' ? 'true' : (val === '0' ? 'false' : val));
+			if (b !== null) CONFIG.SHOW_HINTS_BY_DEFAULT = b;
+		}
+		if (params.has('hintMode')) {
+			const mode = params.get('hintMode');
+			if (mode === 'full' || mode === 'simple') CONFIG.DEFAULT_HINT_MODE = mode;
 		}
 
 		// Accept CPU strength via several param names for convenience: CPU_STRENGTH, cpuStrength, cpu_strength
