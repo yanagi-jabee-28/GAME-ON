@@ -335,6 +335,18 @@ window.addEventListener('DOMContentLoaded', () => {
 			if (cpuSelect) cpuSelect.classList.add('hidden');
 		}
 	} catch (e) { /* ignore */ }
+
+	// Ensure CPU strength select reflects CONFIG (either forced or default) so AI reads the intended value
+	try {
+		const cpuSelect = document.getElementById('cpu-strength-select');
+		if (cpuSelect) {
+			const desired = CONFIG.FORCE_CPU_STRENGTH || CONFIG.DEFAULT_CPU_STRENGTH;
+			if (desired) {
+				// Only set when the option exists to avoid creating new options
+				try { cpuSelect.value = desired; } catch (e) { /* ignore */ }
+			}
+		}
+	} catch (e) { /* ignore */ }
 	setupEventDelegation();
 	initGame();
 

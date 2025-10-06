@@ -46,6 +46,12 @@ function applyUrlOverrides() {
 		if (params.has('defaultStrength')) {
 			CONFIG.DEFAULT_CPU_STRENGTH = params.get('defaultStrength') || CONFIG.DEFAULT_CPU_STRENGTH;
 		}
+
+		// Accept CPU strength via several param names for convenience: CPU_STRENGTH, cpuStrength, cpu_strength
+		if (params.has('CPU_STRENGTH') || params.has('cpuStrength') || params.has('cpu_strength')) {
+			const sval = params.get('CPU_STRENGTH') || params.get('cpuStrength') || params.get('cpu_strength');
+			if (sval) CONFIG.DEFAULT_CPU_STRENGTH = sval;
+		}
 		if (params.has('forceStrength')) {
 			const v = params.get('forceStrength');
 			CONFIG.FORCE_CPU_STRENGTH = v === 'null' ? null : (v || CONFIG.FORCE_CPU_STRENGTH);
