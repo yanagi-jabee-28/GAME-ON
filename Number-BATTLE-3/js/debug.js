@@ -95,7 +95,7 @@ function handleContainerClick(e) {
 
 		UI.performAiAttackAnim(attackerIndex, index, () => {
 			Game.applyAttack('ai', attackerIndex, 'player', index);
-			UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, gameOver: Game.gameOver, canUndo: Game.canUndo });
+			UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, gameOver: Game.gameOver, canUndo: Game.canUndo, moveCount: Game.getMoveCount?.() });
 			try { UI.clearActionHighlights(); } catch (e) { }
 			const res = Game.checkWin();
 			if (res.gameOver) {
@@ -138,7 +138,7 @@ function handleSplitButtonClick(e) {
 	UI.openSplitModal(fakeState, splitAnalysis, (val0, val1) => {
 		UI.performAiSplitAnim(() => {
 			Game.applySplit('ai', val0, val1);
-			UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, gameOver: Game.gameOver, canUndo: Game.canUndo });
+			UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, gameOver: Game.gameOver, canUndo: Game.canUndo, moveCount: Game.getMoveCount?.() });
 			try { UI.clearActionHighlights(); } catch (e) { }
 			const res = Game.checkWin();
 			if (res.gameOver) {

@@ -20,6 +20,7 @@ let gameContainerEl; // ゲームカード本体
 let gameWrapperEl; // game-container の親（相対配置を含む）
 let topControlsEl; // 上部の制御群
 let currentScale = 1;
+let moveCounterEl; // 手数表示要素
 
 export function cacheDom() {
 	// DOM 要素を一度だけ取得してキャッシュする（頻繁な DOM アクセスを避けるため）
@@ -33,6 +34,7 @@ export function cacheDom() {
 	splitOptionsContainer = document.getElementById('split-options');
 	undoBtnEl = document.getElementById('undo-btn');
 	hintAreaEl = document.getElementById('hint-area');
+	moveCounterEl = document.getElementById('move-counter');
 
 	// layout related elements for adaptive scaling
 	gameContainerEl = document.getElementById('game-container');
@@ -269,6 +271,11 @@ export function updateDisplay(state) {
 		} else {
 			if (splitBtnEl) splitBtnEl.classList.remove('hidden');
 		}
+	}
+
+	// Update move counter if provided
+	if (typeof state.moveCount === 'number' && moveCounterEl) {
+		moveCounterEl.textContent = String(state.moveCount);
 	}
 
 	// After updating display, ensure the UI fits the viewport (useful when sizes change)

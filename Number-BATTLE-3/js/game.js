@@ -23,6 +23,13 @@ function pushHistory() {
 	if (history.length > 100) history.shift();
 }
 
+// 公開: 現在までの履歴項目数を返す（= 実行済み手数）。
+// 仕様: applyAttack/applySplit呼び出し直前に pushHistory() しているため、
+// 実行済み手数として history.length を採用します。
+export function getMoveCount() {
+	return history.length;
+}
+
 export function canUndo() {
 	return history.length > 0;
 }
