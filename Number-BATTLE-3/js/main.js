@@ -5,6 +5,7 @@ import * as Game from './game.js';
 import * as AI from './ai.js';
 import * as UI from './ui.js';
 import { initDebug } from './debug.js';
+import { SHOW_HINT_CONTROLS, SHOW_AI_MANUAL_TOGGLE, SHOW_CPU_STRENGTH_SELECT } from './config.js';
 
 /**
  * getStateAccessor
@@ -29,8 +30,8 @@ function setTurnMessage() {
 		return;
 	}
 
-	const hintsEnabled = document.getElementById('toggle-hints-cb')?.checked;
-	const hintMode = document.getElementById('hint-mode-select')?.value || 'full';
+	const hintsEnabled = SHOW_HINT_CONTROLS ? (document.getElementById('toggle-hints-cb')?.checked) : false;
+	const hintMode = SHOW_HINT_CONTROLS ? (document.getElementById('hint-mode-select')?.value || 'full') : 'full';
 
 	if (Game.currentPlayer === 'player') {
 		UI.updateMessage('あなたの番です。攻撃する手を選んでください。');
@@ -41,7 +42,7 @@ function setTurnMessage() {
 			UI.clearPlayerHints();
 		}
 	} else {
-		const aiManual = document.getElementById('toggle-ai-control-cb')?.checked;
+		const aiManual = SHOW_AI_MANUAL_TOGGLE && document.getElementById('toggle-ai-control-cb')?.checked;
 		if (aiManual) {
 			UI.updateMessage('AI手動操作モード: CPUの手をクリックして操作してください。');
 		} else {
@@ -77,7 +78,7 @@ function initGame() {
 		// Small delay to allow UI to render initial state
 		setTimeout(() => {
 			// If manual AI control is enabled, skip automatic AI execution
-			const aiManual = document.getElementById('toggle-ai-control-cb')?.checked;
+			const aiManual = SHOW_AI_MANUAL_TOGGLE && document.getElementById('toggle-ai-control-cb')?.checked;
 			if (aiManual) {
 				UI.updateMessage('AI手動操作モード: CPUの手をクリックして操作してください。');
 			} else {
@@ -191,7 +192,7 @@ function setupEventDelegation() {
 				// call AI turn after a short delay (0.5s) to leave a pause after player's attack animation
 				setTimeout(() => {
 					// Respect manual AI control toggle
-					if (document.getElementById('toggle-ai-control-cb')?.checked) {
+					if (SHOW_AI_MANUAL_TOGGLE && document.getElementById('toggle-ai-control-cb')?.checked) {
 						UI.updateMessage('AI手動操作モード: CPUの手をクリックして操作してください。');
 					} else {
 						AI.aiTurnWrapper(getStateAccessor)
@@ -224,7 +225,7 @@ function setupEventDelegation() {
 				setTurnMessage();
 				// delay AI action slightly so player can see split result
 				setTimeout(() => {
-					if (document.getElementById('toggle-ai-control-cb')?.checked) {
+					if (SHOW_AI_MANUAL_TOGGLE && document.getElementById('toggle-ai-control-cb')?.checked) {
 						UI.updateMessage('AI手動操作モード: CPUの手をクリックして操作してください。');
 					} else {
 						AI.aiTurnWrapper(getStateAccessor)
@@ -306,6 +307,32 @@ function setupEventDelegation() {
 
 window.addEventListener('DOMContentLoaded', () => {
 	UI.cacheDom();
+
+	// Apply feature toggles to UI visibility immediately
+	try {
+		// Hints: hide both the toggle checkbox, its label and the mode select. Also clear any existing hint text.
+		if (!SHOW_HINT_CONTROLS) {
+			const hintCheckbox = document.getElementById('toggle-hints-cb');
+			if (hintCheckbox) hintCheckbox.classList.add('hidden');
+			const hintLabel = document.querySelector('label[for="toggle-hints-cb"]');
+			if (hintLabel) hintLabel.classList.add('hidden');
+			const hintMode = document.getElementById('hint-mode-select');
+			if (hintMode) hintMode.classList.add('hidden');
+			try { UI.clearPlayerHints(); } catch (e) { }
+		}
+		// AI manual toggle: hide the checkbox and its label when feature disabled
+		if (!SHOW_AI_MANUAL_TOGGLE) {
+			const aiCheckbox = document.getElementById('toggle-ai-control-cb');
+			if (aiCheckbox) aiCheckbox.classList.add('hidden');
+			const aiLabel = document.querySelector('label[for="toggle-ai-control-cb"]');
+			if (aiLabel) aiLabel.classList.add('hidden');
+		}
+		// CPU strength: only hide the select itself (not its entire parent container)
+		if (!SHOW_CPU_STRENGTH_SELECT) {
+			const cpuSelect = document.getElementById('cpu-strength-select');
+			if (cpuSelect) cpuSelect.classList.add('hidden');
+		}
+	} catch (e) { /* ignore */ }
 	setupEventDelegation();
 	initGame();
 

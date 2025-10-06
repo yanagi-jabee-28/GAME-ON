@@ -106,8 +106,12 @@ export function fitUIToViewport() {
 	// prevTransform is not reapplied because we want the scaled state to persist
 }
 
+import { SHOW_HINT_CONTROLS } from './config.js';
+
 export function displayPlayerHints(analysis, mode = 'full') {
 	if (!hintAreaEl) return;
+	// Globally disabled hints: clear and bail
+	if (!SHOW_HINT_CONTROLS) { hintAreaEl.innerHTML = ''; return; }
 	// If the hints toggle is currently off, do not display anything.
 	const hintsEnabled = document.getElementById('toggle-hints-cb')?.checked;
 	if (!hintsEnabled) {

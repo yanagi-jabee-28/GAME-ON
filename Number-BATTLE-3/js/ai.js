@@ -1,5 +1,6 @@
 // ai.js - AI の行動決定（テーブルベース参照型）
 import { applyAttack, applySplit, switchTurnTo } from './game.js';
+import { SHOW_CPU_STRENGTH_SELECT, DEFAULT_CPU_STRENGTH, FORCE_CPU_STRENGTH } from './config.js';
 import { performAiAttackAnim, performAiSplitAnim } from './ui.js';
 import { generateMoves } from './game.js';
 
@@ -158,7 +159,15 @@ export function aiTurnWrapper(getState) {
 
         // --- 最善手の選択 ---
         let chosenMove;
-        const strength = document.getElementById('cpu-strength-select')?.value || 'hard';
+        // Determine strength via config/DOM
+        let strength = 'hard';
+        if (FORCE_CPU_STRENGTH) {
+            strength = FORCE_CPU_STRENGTH;
+        } else if (SHOW_CPU_STRENGTH_SELECT) {
+            strength = document.getElementById('cpu-strength-select')?.value || DEFAULT_CPU_STRENGTH || 'hard';
+        } else {
+            strength = DEFAULT_CPU_STRENGTH || 'hard';
+        }
 
         if (strength === 'hard') {
             // 最強モード：常に最善手を選択
