@@ -87,7 +87,9 @@ export function fitUIToViewport() {
 	}
 
 	const availW = availableWidth;
-	const availH = Math.max(80, availableHeight - topControlsHeight - margin);
+	// Remove topControlsHeight from available height calculation to avoid double-counting
+	// the top controls as extra spacing; keep a small margin.
+	const availH = Math.max(80, availableHeight - margin);
 
 	// Compute scale (never exceed 1 for now, but can be >1 if you want to upscale)
 	const scale = Math.min(1, availW / naturalWidth, availH / naturalHeight);
@@ -97,9 +99,18 @@ export function fitUIToViewport() {
 	gameContainerEl.style.transition = 'transform 0.18s ease-out';
 	gameContainerEl.style.transform = `scale(${scale})`;
 
-	// Reserve wrapper height so layout below doesn't overlap the scaled card.
-	// Set wrapper height to scaled natural height plus some allowance for top controls.
-	gameWrapperEl.style.height = `${Math.ceil(naturalHeight * scale + topControlsHeight + margin)}px`;
+	// Reserve wrapper minimum height so layout below doesn't overlap the scaled card.
+	// Use minHeight instead of fixed height to avoid creating excessive top whitespace.
+	try {
+		if (scale >= 1) {
+			// No scaling required, clear any forced minHeight so layout can be natural
+			gameWrapperEl.style.minHeight = '';
+			gameWrapperEl.style.height = '';
+		} else {
+			gameWrapperEl.style.height = '';
+			gameWrapperEl.style.minHeight = `${Math.ceil(naturalHeight * scale + margin)}px`;
+		}
+	} catch (e) { /* ignore styling errors */ }
 
 	currentScale = scale;
 

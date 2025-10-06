@@ -118,8 +118,9 @@ body {
 
 /* Small screens: avoid overlap by making the controls flow into document and be scrollable */
 @media (max-width: 640px) {
+	/* Avoid adding a large top margin; top controls now sit in flow above the card */
 	#game-container {
-		margin-top: 68px;
+		margin-top: 0;
 	}
 
 	.inline-flex {
