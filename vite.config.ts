@@ -21,4 +21,6 @@ export default defineConfig({
 			},
 		},
 	},
+	// GitHub Pagesで`<USERNAME>.github.io/GAME-ON/`に公開する
+	base: "/GAME-ON/",
 });
