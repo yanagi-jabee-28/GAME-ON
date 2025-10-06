@@ -48,6 +48,8 @@ function setTurnMessage() {
 			UI.updateMessage('CPU の番です。しばらくお待ちください...');
 		}
 		UI.clearPlayerHints();
+		// Also remove any action/border highlights that may remain from player's full-hint view
+		try { UI.clearActionHighlights(); } catch (e) { /* ignore */ }
 	}
 }
 

@@ -304,3 +304,39 @@ export function getPlayerMovesAnalysis(state) {
     }
     return analysis;
 }
+
+/**
+ * getAIMovesAnalysisFromPlayerView
+ * AIが次に指せる全手（攻撃/分割）を列挙し、その結果を「プレイヤー視点の勝敗」で評価して返す。
+ * manual AI 操作（デバッグ）時のヒント表示に使用する。
+ * @param {object} state - 現在のゲーム状態 { playerHands, aiHands }
+ * @returns {Array|null} 各手の評価結果の配列（{ move, outcome, distance }）またはテーブル未ロード時 null
+ */
+export function getAIMovesAnalysisFromPlayerView(state) {
+    if (!tablebase) return null;
+
+    const moves = generateMoves({ playerHands: state.playerHands, aiHands: state.aiHands }, 'ai');
+    const analysis = [];
+
+    for (const move of moves) {
+        // シミュレーション
+        const nextState = JSON.parse(JSON.stringify({ playerHands: state.playerHands, aiHands: state.aiHands }));
+        if (move.type === 'attack') {
+            const handsToUpdate = move.to === 'player' ? nextState.playerHands : nextState.aiHands;
+            const attackerValue = (move.from === 'player' ? nextState.playerHands : nextState.aiHands)[move.fromIndex];
+            handsToUpdate[move.toIndex] = (handsToUpdate[move.toIndex] + attackerValue) % 5;
+        } else if (move.type === 'split') {
+            if (move.owner === 'ai') nextState.aiHands = [...move.values];
+        }
+
+        // 次はプレイヤーのターン。テーブルは nextTurn 視点の結果を返すので、
+        // そのまま「プレイヤー視点の結果」として扱える。
+        const nextTurn = 'player';
+        const nextKey = getStateKey(nextState, nextTurn);
+        const outcomeInfo = tablebase[nextKey];
+        if (!outcomeInfo) continue;
+
+        analysis.push({ move, outcome: outcomeInfo.outcome, distance: outcomeInfo.distance });
+    }
+    return analysis;
+}

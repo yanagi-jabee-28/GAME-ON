@@ -13,6 +13,7 @@
 
 import * as Game from './game.js';
 import * as UI from './ui.js';
+import { getAIMovesAnalysisFromPlayerView } from './ai.js';
 
 let debugSelected = null; // index of selected AI hand or null
 
@@ -50,6 +51,7 @@ function handleContainerClick(e) {
 		if (debugSelected === index) {
 			clearSelectionVisual();
 			UI.updateMessage('AIの手の選択をキャンセルしました。');
+			try { UI.clearActionHighlights(); } catch (e) { }
 			return;
 		}
 		// select new
@@ -58,6 +60,26 @@ function handleContainerClick(e) {
 		const el = document.getElementById(`ai-hand-${index}`);
 		if (el) el.classList.add('selected');
 		UI.updateMessage(`AIの${index === 0 ? '左手' : '右手'}を選択しました。攻撃先のあなたの手を選んでください、または分配を選んでください。`);
+
+		// Show manual hints for AI: color player's target hands by player's outcome after AI acts
+		try {
+			const analysis = getAIMovesAnalysisFromPlayerView({ playerHands: Game.playerHands, aiHands: Game.aiHands });
+			if (analysis && Array.isArray(analysis)) {
+				// Filter only attack moves from this AI hand
+				const attacks = analysis.filter(a => a.move.type === 'attack' && a.move.from === 'ai' && a.move.fromIndex === index);
+				// Clear any previous highlights and then apply to player hands
+				UI.clearActionHighlights();
+				attacks.forEach(a => {
+					const tIdx = a.move.toIndex;
+					const elT = document.getElementById(`player-hand-${tIdx}`);
+					if (!elT) return;
+					elT.classList.add('border-4');
+					if (a.outcome === 'WIN') elT.classList.add('border-green-400'); // プレイヤー勝ち＝AIにとって不利
+					else if (a.outcome === 'DRAW') elT.classList.add('border-blue-400');
+					else elT.classList.add('border-red-400'); // プレイヤー負け＝AIにとって有利
+				});
+			}
+		} catch (e) { /* ignore hint errors */ }
 		return;
 	}
 
@@ -74,6 +96,7 @@ function handleContainerClick(e) {
 		UI.performAiAttackAnim(attackerIndex, index, () => {
 			Game.applyAttack('ai', attackerIndex, 'player', index);
 			UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, gameOver: Game.gameOver, canUndo: Game.canUndo });
+			try { UI.clearActionHighlights(); } catch (e) { }
 			const res = Game.checkWin();
 			if (res.gameOver) {
 				if (res.playerLost) UI.updateMessage('あなたの負けです...');
@@ -95,13 +118,28 @@ function handleSplitButtonClick(e) {
 	e.stopPropagation();
 	e.preventDefault();
 
-	// Reuse openSplitModal by passing a fake state where AI's hands appear as the "player" hands
-	// so the modal computes possible splits from the AI's total.
+	// Prepare analysis for AI split options (player-view outcome)
+	let splitAnalysis = null;
+	try {
+		const a = getAIMovesAnalysisFromPlayerView({ playerHands: Game.playerHands, aiHands: Game.aiHands });
+		splitAnalysis = Array.isArray(a) ? a.filter(x => x.move.type === 'split' && x.move.owner === 'ai') : null;
+		// Map analysis to fake state's coordinate where values appear in player slot
+		if (splitAnalysis) {
+			splitAnalysis = splitAnalysis.map(x => ({
+				move: { type: 'split', owner: 'player', values: x.move.values },
+				outcome: x.outcome,
+				distance: x.distance
+			}));
+		}
+	} catch (e) { /* ignore */ }
+
+	// Fake state: AI hands -> playerHands, Player hands -> aiHands
 	const fakeState = { playerHands: Game.aiHands.slice(), aiHands: Game.playerHands.slice(), currentPlayer: 'player', gameOver: Game.gameOver };
-	UI.openSplitModal(fakeState, null, (val0, val1) => {
+	UI.openSplitModal(fakeState, splitAnalysis, (val0, val1) => {
 		UI.performAiSplitAnim(() => {
 			Game.applySplit('ai', val0, val1);
 			UI.updateDisplay({ playerHands: Game.playerHands, aiHands: Game.aiHands, gameOver: Game.gameOver, canUndo: Game.canUndo });
+			try { UI.clearActionHighlights(); } catch (e) { }
 			const res = Game.checkWin();
 			if (res.gameOver) {
 				if (res.playerLost) UI.updateMessage('あなたの負けです...');
