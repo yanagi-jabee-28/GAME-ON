@@ -12,13 +12,11 @@
 <body class="bg-gray-50 text-gray-800 flex flex-col items-center justify-center min-h-screen p-4">
 
 	<div class="relative w-full max-w-md mx-auto">
-		<div class="absolute -top-10 left-1/2 transform -translate-x-1/2 z-50">
+		<!-- Controls moved into document flow to avoid negative absolute offsets and magic numbers -->
+		<div class="w-full flex flex-col items-center gap-3 mb-4">
 			<button id="restart-btn"
 				class="btn py-2 px-4 bg-gray-500 text-white font-bold rounded-full shadow-lg">リスタート</button>
-		</div>
 
-		<!-- 固定表示のトップオプション（ゲームカードに合わせて中央配置） -->
-		<div class="absolute -top-24 left-1/2 transform -translate-x-1/2 z-50">
 			<div class="overflow-x-auto w-full px-4">
 				<div
 					class="flex items-center justify-center gap-3 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow inline-flex whitespace-nowrap">
@@ -50,7 +48,6 @@
 							<option value="simple">勝敗のみ</option>
 						</select>
 					</div>
-					<!-- リスタートはゲーム直上に移動済み -->
 				</div>
 			</div>
 		</div>
@@ -108,11 +105,11 @@
 
 
 	<!-- 分配モーダル -->
-	<div id="split-modal" class="fixed inset-0 flex items-center justify-center hidden">
+	<div id="split-modal" class="fixed inset-0 items-center justify-center hidden">
 		<div class="bg-white rounded-2xl shadow-xl p-8 w-11/12 max-w-sm mx-auto space-y-4 text-center">
 			<h2 class="text-2xl font-bold">分配</h2>
 			<p>合計値「<span id="split-total"></span>」を維持するパターンを選んでください。</p>
-			<div id="split-options" class="grid grid-cols-2 gap-4 py-4">
+			<div id="split-options" class="grid gap-4 py-4">
 				<!-- 分配オプションがここに動的に生成されます -->
 			</div>
 		</div>

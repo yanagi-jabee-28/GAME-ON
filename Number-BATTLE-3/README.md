@@ -62,4 +62,4 @@ Number-BATTLE-3/
 ---
 何か不具合や改善アイデアがあれば issue やコメントで共有してください。
 
-http://127.0.0.1:5500/Number-BATTLE-3/index.html?showHints=false&showCpuStrength=true&showAiManual=false&CPU_STRENGTH=normal
+http://127.0.0.1:5500/Number-BATTLE-3/index.html?showHints=true&showCpuStrength=true&showAiManual=false&CPU_STRENGTH=normal&hints=1&hintMode=full

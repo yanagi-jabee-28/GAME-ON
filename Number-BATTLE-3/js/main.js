@@ -307,6 +307,21 @@ function setupEventDelegation() {
 window.addEventListener('DOMContentLoaded', () => {
 	UI.cacheDom();
 
+	// Initialize hint visibility and mode from CONFIG (may have been overridden by URL params)
+	try {
+		const hintCheckbox = document.getElementById('toggle-hints-cb');
+		const hintModeSelect = document.getElementById('hint-mode-select');
+		if (hintCheckbox) {
+			// Show or hide the UI control according to SHOW_HINT_CONTROLS is handled below.
+			// Here we set the initial checked state according to SHOW_HINTS_BY_DEFAULT.
+			hintCheckbox.checked = !!CONFIG.SHOW_HINTS_BY_DEFAULT;
+		}
+		if (hintModeSelect) {
+			if (CONFIG.DEFAULT_HINT_MODE === 'simple') hintModeSelect.value = 'simple';
+			else hintModeSelect.value = 'full';
+		}
+	} catch (e) { /* ignore DOM errors */ }
+
 	try { console.info('main DOMContentLoaded, CONFIG:', CONFIG); } catch (e) { }
 
 	// Apply feature toggles to UI visibility immediately
