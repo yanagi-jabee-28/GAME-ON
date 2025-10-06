@@ -4,6 +4,9 @@
  *        リールの生成、回転アニメーション、停止制御、ゲームモードの切り替えなどを担当します。
  */
 
+import { SlotSoundManager } from "./audio";
+import { gameConfig } from "./config.js";
+
 // --- 共通ユーティリティ（純粋関数群） --------------------------------------
 /** 数値を[min,max]にクランプ */
 function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
@@ -236,7 +239,7 @@ class SlotGame {
 		// グローバル参照を設定して UIManager から委譲できるようにする
 		try { window.activeSlotGame = this; } catch (e) { /* ignore */ }
 		// サウンドマネージャを初期化（設定に基づく）
-		this.soundManager = new (window.SlotSoundManager || function () { })(this.config);
+		this.soundManager = new SlotSoundManager(this.config);
 
 		// UIスケールを反映: CSSの --ui-scale を設定し、内部の symbolHeight をスケール
 		const uiScale = Number(this.config.uiScale) || 1;
@@ -1862,7 +1865,7 @@ class SlotGame {
 	 * 注意: この方式は暗号的に強固ではありません。より強い保護が必要なら server-side の署名や Web Crypto を使った HMAC を導入してください。
 	 */
 	getPersistenceSalt() {
-		if (window.gameConfig && gameConfig.persistenceSalt) return String(gameConfig.persistenceSalt);
+		if (gameConfig && gameConfig.persistenceSalt) return String(gameConfig.persistenceSalt);
 		// デフォルトの salt（将来変更すると復元できなくなるため注意）
 		return 'GAME-ON-PERSIST-V1';
 	}
