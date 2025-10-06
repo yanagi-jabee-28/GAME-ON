@@ -16,6 +16,7 @@
 
 import Matter from "matter-js";
 import decomp from "poly-decomp"; // Matter.jsのBodies.fromVerticesで必要
+import { GAME_CONFIG, GAME_MATERIALS } from "./config";
 
 Matter.Common.setDecomp(decomp); // 凹多角形を扱えるように設定
 
@@ -78,7 +79,7 @@ function normalizeMaterialId(m) {
  */
 
 // 新しいボール（動的円形ボディ）を作成して返す
-function createBall(x, y, options = {}) {
+export function createBall(x, y, options = {}) {
 	const ballConfig = getObjectDef('ball');
 	const optionFill = options && options.render && options.render.fillStyle;
 	const useRandom = (typeof ballConfig.randomColor === 'undefined') ? true : Boolean(ballConfig.randomColor);
@@ -93,7 +94,7 @@ function createBall(x, y, options = {}) {
 // レイアウト基準（baseWidth/baseHeight）との差分から、左右上下のセンターオフセットを算出
 
 // レイアウト基準（baseWidth/baseHeight）との差分から左右上下のオフセットを計算して返す
-function getOffsets() {
+export function getOffsets() {
 	const width = GAME_CONFIG.dimensions?.width || 0;
 	const height = GAME_CONFIG.dimensions?.height || 0;
 	const baseWidth = GAME_CONFIG.dimensions?.baseWidth || width;
@@ -111,7 +112,7 @@ function getOffsets() {
  */
 // ゲームエリア境界（天板/壁/床）を生成して配列で返す
 // topPlate 設定に応じて多様な形状（矩形/アーチ/ドーム/多角分割）を生成する
-function createBounds() {
+export function createBounds() {
 	const width = GAME_CONFIG.dimensions?.width || 650;
 	const height = GAME_CONFIG.dimensions?.height || 900;
 	const wallConfig = getObjectDef('wall');
@@ -300,7 +301,7 @@ function createBounds() {
 
 // ワールドに境界群を一括追加（呼び出し箇所を簡潔に）
 // 生成した境界群をワールドに一括追加するユーティリティ
-function addBoundsToWorld(bounds, world) {
+export function addBoundsToWorld(bounds, world) {
 	if (Array.isArray(bounds) && bounds.length) {
 		Matter.World.add(world, bounds);
 	}
@@ -311,7 +312,7 @@ function addBoundsToWorld(bounds, world) {
  * spec: { x, y, width, height, angleDeg?, isStatic?, material?, color?, label?, layer?, anchor? }
  */
 // 任意長方形ボディを作成するヘルパー（anchor により座標基準を処理）
-function createRectangle(spec = {}) {
+export function createRectangle(spec = {}) {
 	let x = Number(spec.x) || 0;
 	let y = Number(spec.y) || 0;
 	const w = Math.max(1, Number(spec.width) || 1);
@@ -353,7 +354,7 @@ function createRectangle(spec = {}) {
  * 描画専用（非干渉）長方形
  */
 // 描画専用（物理干渉しない）長方形を作成する
-function createDecorRectangle(spec = {}) {
+export function createDecorRectangle(spec = {}) {
 	const base = Object.assign({ material: getObjectDef('decor').material, layer: (spec.layer != null ? Number(spec.layer) : (getObjectDef('decor').render?.layer ?? 1)) }, spec);
 	// isSensor/static はオプション合成により付与される
 	const body = createRectangle(base);
@@ -373,7 +374,7 @@ function createDecorRectangle(spec = {}) {
  * - 角度/位置オフセット、任意ピボットを用いた回転にも対応
  */
 // 任意多角形ボディを生成する。world/local 座標モードと回転オフセットをサポート
-function createPolygon(spec = {}) {
+export function createPolygon(spec = {}) {
 	const pts = Array.isArray(spec.points) ? spec.points : [];
 	if (pts.length < 3) return null; // 要三点以上
 	const angleDeg = Number(spec.angleDeg || spec.angle || 0);
@@ -474,7 +475,7 @@ function createPolygon(spec = {}) {
  * 描画専用多角形（非干渉）
  */
 // 描画専用の多角形（センサー/静的）を作るラッパー
-function createDecorPolygon(spec = {}) {
+export function createDecorPolygon(spec = {}) {
 	const base = Object.assign({ material: getObjectDef('decorPolygon').material, isStatic: true }, spec);
 	const body = createPolygon(base);
 	if (!body) return body;
@@ -489,7 +490,7 @@ function createDecorPolygon(spec = {}) {
  * 発射台（キャンバス描画用、非干渉）
  */
 // 発射台用の非干渉ボディ（描画のみ）を生成する
-function createLaunchPadBody(spec = {}) {
+export function createLaunchPadBody(spec = {}) {
 	const padW = Math.max(1, Number(spec.width || 64));
 	const padH = Math.max(1, Number(spec.height || 14));
 	const color = spec.color || spec.background || '#444';
@@ -516,7 +517,7 @@ function createLaunchPadBody(spec = {}) {
  */
 // ペグ（釘）配置プリセットを読み込み、ワールドに追加する
 // 旧形式の配列と新形式の groups/points 両対応
-function loadPegs(presetUrl, world) {
+export function loadPegs(presetUrl, world) {
 	const pegConfig = getObjectDef('peg');
 
 	const num = (v, d = 0) => (typeof v === 'number' && isFinite(v)) ? v : d;
@@ -616,7 +617,7 @@ function loadPegs(presetUrl, world) {
  * 回転役物（風車）の複合ボディ生成
  */
 // 風車などの回転役物を複合ボディとして生成する（複数パーツを組み合わせ）
-function createRotatingYakumono(blueprint) {
+export function createRotatingYakumono(blueprint) {
 	const windDef = getObjectDef('windmill') || {};
 	const defaults = windDef.defaults || {};
 	const commonBodyOptions = getObjectDef('yakumono_blade') || {};
@@ -667,7 +668,7 @@ function createRotatingYakumono(blueprint) {
  * - 物理干渉せず、通過イベントをカウントする領域を定義
  * - カウントデータは GAME_CONFIG.sensorCounters.counters に保存
  */
-function createSensorCounter(spec = {}) {
+export function createSensorCounter(spec = {}) {
 	const counterId = spec.id || 'default_counter';
 	const x = Number(spec.x) || 0;
 	const y = Number(spec.y) || 0;
@@ -775,7 +776,7 @@ function createSensorCounter(spec = {}) {
  * - 物理干渉せず、通過イベントをカウントする任意形状の領域を定義
  * - カウントデータは GAME_CONFIG.sensorCounters.counters に保存
  */
-function createSensorCounterPolygon(spec = {}) {
+export function createSensorCounterPolygon(spec = {}) {
 	const counterId = spec.id || 'default_polygon_counter';
 	const pts = Array.isArray(spec.points) ? spec.points : [];
 	if (pts.length < 3) return null; // 要三点以上
@@ -951,7 +952,7 @@ function createSensorCounterPolygon(spec = {}) {
  * - count: パーティクル数
  * - lifeMs: 存続時間(ms)
  */
-function createParticleBurst(world, x, y, color, count = 12, lifeMs = 700) {
+export function createParticleBurst(world, x, y, color, count = 12, lifeMs = 700) {
 	if (!world || !window.Matter) return;
 	const Bodies = Matter.Bodies;
 	const Body = Matter.Body;
