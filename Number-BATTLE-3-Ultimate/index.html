@@ -27,29 +27,7 @@
 						<option value="player" selected>あなた 先攻</option>
 						<option value="ai">CPU 先攻</option>
 					</select>
-					<!-- デバッグ: AI を手動で操作できるようにするトグル -->
-					<div class="flex items-center border-l pl-3 ml-1 gap-2">
-						<input id="toggle-ai-control-cb" type="checkbox"
-							class="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded" />
-						<label for="toggle-ai-control-cb" class="ml-2 text-sm">AIを手動操作</label>
-					</div>
-					<!-- CPU強さ -->
-					<select id="cpu-strength-select" class="py-1 px-2 rounded-lg border bg-white text-sm">
-						<option value="hard" selected>CPU: 最強</option>
-						<option value="normal">CPU: 強い</option>
-						<option value="weak">CPU: 弱い</option>
-						<option value="weakest">CPU: 最弱</option>
-					</select>
-					<!-- ヒント表示 -->
-					<div class="flex items-center border-l pl-3 ml-1 gap-3">
-						<input id="toggle-hints-cb" type="checkbox"
-							class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
-						<label for="toggle-hints-cb" class="ml-2 text-sm font-medium text-gray-900">ヒント</label>
-						<select id="hint-mode-select" class="py-1 px-2 rounded-lg border bg-white text-sm">
-							<option value="full" selected>フルヒント</option>
-							<option value="simple">勝敗のみ</option>
-						</select>
-					</div>
+					<!-- Ultimate: CPU強さとヒントは非表示（最強固定・ノーヒント） -->
 					<!-- リスタートはゲーム直上に移動済み -->
 				</div>
 			</div>
@@ -76,8 +54,7 @@
 				<p id="message">ゲーム開始！</p>
 			</div>
 
-			<!-- ヒント表示エリア -->
-			<div id="hint-area" class="text-center text-sm text-gray-500 h-8 flex items-center justify-center"></div>
+			<!-- Ultimate: ヒントエリアを削除（ノーヒントモード） -->
 
 			<!-- Player (あなた) のエリア -->
 			<div id="player-area" class="space-y-3">

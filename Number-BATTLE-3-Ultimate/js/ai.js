@@ -158,7 +158,8 @@ export function aiTurnWrapper(getState) {
 
         // --- 最善手の選択 ---
         let chosenMove;
-        const strength = document.getElementById('cpu-strength-select')?.value || 'hard';
+        // Ultimate: always use strongest AI
+        const strength = 'hard';
 
         if (strength === 'hard') {
             // 最強モード：常に最善手を選択
