@@ -170,6 +170,33 @@ function findMovesAllowingImmediatePlayerWin(entries, baseState) {
 	return result;
 }
 
+function findMovesForcingPlayerWin(entries, baseState, table) {
+	// Return subset of entries such that after AI plays the entry.move,
+	// for every legal player response the resulting position (with AI to move)
+	// is recorded in the table as a LOSS for the AI (→ player eventually wins).
+	if (!entries || entries.length === 0) return [];
+	if (!table) return []; // cannot guarantee without table
+	const forced = [];
+	for (const entry of entries) {
+		const aiNext = simulateMove({ ...baseState, currentPlayer: 'ai' }, entry.move);
+		const playerResponses = generateMoves({ playerHands: aiNext.playerHands, aiHands: aiNext.aiHands }, 'player');
+		if (!playerResponses || playerResponses.length === 0) continue; // player has no response -> not a forced win for player
+		let allLeadToPlayerWin = true;
+		for (const response of playerResponses) {
+			const afterPlayer = simulateMove({ ...aiNext, currentPlayer: 'player' }, response);
+			const key = getStateKey(afterPlayer, 'ai');
+			const info = table?.[key];
+			// if table missing or outcome is not LOSS (ai to move loses), then cannot guarantee
+			if (!info || info.outcome !== 'LOSS') {
+				allLeadToPlayerWin = false;
+				break;
+			}
+		}
+		if (allLeadToPlayerWin) forced.push(entry);
+	}
+	return forced;
+}
+
 function selectMoveForStrength(strength, grouped, baseState) {
 	let choice = null;
 
@@ -289,7 +316,33 @@ export async function aiTurnWrapper(getState) {
 	if (scoredEntries.length > 0) {
 		const grouped = groupByOutcome(scoredEntries);
 		const strength = resolveCpuStrength();
-		choice = selectMoveForStrength(strength, grouped, state);
+		// When in 'weakest' mode, prefer moves that allow the PLAYER to win if any exist.
+		if (strength === 'weakest') {
+			// 1) Moves that force a player win regardless of player's reply (requires table)
+			const forcedPlayerWinMoves = findMovesForcingPlayerWin(scoredEntries, state, table);
+			if (forcedPlayerWinMoves.length > 0) {
+				choice = pickRandom(forcedPlayerWinMoves);
+			} else {
+				// 2) Immediate player-win by simulation (player can win next turn)
+				const safeEntries = filterOutImmediatePlayerKills(scoredEntries, state);
+				const immediateWinMoves = findMovesAllowingImmediatePlayerWin(safeEntries, state);
+				if (immediateWinMoves.length > 0) {
+					choice = pickRandom(immediateWinMoves);
+				} else {
+					// 3) Table-based moves that are evaluated as player-win (from opponent view)
+					const oppEntries = evaluateMovesWithOutcome(state, 'ai', table, 'opponent');
+					const playerWinMoves = oppEntries ? oppEntries.filter((e) => e.outcome === 'WIN') : [];
+					if (playerWinMoves.length > 0) {
+						choice = pickShortestDistance(playerWinMoves) || pickRandom(playerWinMoves);
+					} else {
+						// 4) Fallback to existing weakest heuristics if nothing above applies
+						choice = selectMoveForStrength(strength, grouped, state);
+					}
+				}
+			}
+		} else {
+			choice = selectMoveForStrength(strength, grouped, state);
+		}
 	}
 
 	if (!choice) {
