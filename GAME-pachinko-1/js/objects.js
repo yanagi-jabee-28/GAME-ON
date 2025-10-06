@@ -14,6 +14,11 @@
  *  5) 役物（風車）の複合ボディ生成（createRotatingYakumono）
  */
 
+import Matter from "matter-js";
+import decomp from "poly-decomp"; // Matter.jsのBodies.fromVerticesで必要
+
+Matter.Common.setDecomp(decomp); // 凹多角形を扱えるように設定
+
 // --- 共通ユーティリティ: 材料・ラベル・描画の適用を一元化 ---
 // GAME_CONFIG 内の objects からキーに対応する定義を返す（未定義なら空オブジェクト）
 function getObjectDef(key) {
@@ -131,7 +136,7 @@ function createBounds() {
 
 	// --- 上側（天板）生成 ---
 	// topPlate.enabled が有効ならアーチやドームなど複雑形状を生成、無効時は矩形にフォールバック
-	// 各分岐は poly-decomp の有無や設定により複数の実装パスを持つ
+	// 各分岐は設定により複数の実装パスを持つ
 	// 上のロジックは精度と互換性のトレードオフを扱っています
 	// 上壁の生成
 	if (GAME_CONFIG.topPlate && GAME_CONFIG.topPlate.enabled) {
@@ -142,9 +147,8 @@ function createBounds() {
 		const thickness = Math.max(2, tp.thickness || 20);
 		const radius = tp.radius;
 
-		const hasDecomp = (typeof window !== 'undefined' && typeof window.decomp !== 'undefined');
-		// 単一ポリゴン生成を許可（poly-decomp が利用可能で、設定で有効化された場合）
-		const useSinglePolygon = !!(GAME_CONFIG && GAME_CONFIG.topPlate && GAME_CONFIG.topPlate.useSinglePolygon) && hasDecomp;
+		// 単一ポリゴン生成を許可（設定で有効化された場合）
+		const useSinglePolygon = GAME_CONFIG.topPlate.useSinglePolygon;
 
 		// 無効な半径は矩形にフォールバック
 		if (!isFinite(radius) || radius <= thickness) {
@@ -161,7 +165,7 @@ function createBounds() {
 			const centerY = (tp.centerOffsetY || 0) + topApexY + radius;
 
 			const start = Math.PI, end = 2 * Math.PI;
-			if (hasDecomp && useSinglePolygon) {
+			if (useSinglePolygon) {
 				// アンカーを (cx, centerY) に固定し、局所頂点を渡す（重複端点は排除）
 				const localVerts = [];
 				for (let i = 0; i <= segs; i++) {
@@ -229,7 +233,7 @@ function createBounds() {
 				const margin = 8;
 				const centerY = (tp.centerOffsetY || 0) + (radius - thickness / 2 - margin);
 
-				if (hasDecomp && useSinglePolygon) {
+				if (useSinglePolygon) {
 					// アンカーを (cx, centerY) に固定し、局所頂点で渡す（端点重複は避ける）
 					const localVerts = [];
 					for (let i = 0; i <= segs; i++) {

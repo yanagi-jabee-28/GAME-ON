@@ -40,32 +40,11 @@
 		</div>
 	</div>
 
-	<!-- 物理エンジンライブラリ -->
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-	<!-- 凹多角形の分解ライブラリ（Matter.jsのBodies.fromVerticesで必要） -->
-	<script src="https://cdn.jsdelivr.net/npm/poly-decomp@0.3.0/build/decomp.min.js"></script>
-
-	<!-- poly-decompをMatter.jsに登録 -->
-	<script>
-		(function () {
-			var ok = false;
-			// ライブラリが正しく読み込まれているか確認
-			if (window.decomp && window.Matter && window.Matter.Common) {
-				// 凹多角形を扱えるように設定
-				window.Matter.Common.setDecomp(window.decomp);
-				ok = true;
-			}
-			if (!ok) {
-				console.warn('[topPlate] poly-decomp の登録に失敗しました。複雑な頂点形状が凸包化される可能性があります。');
-			}
-		})();
-	</script>
-
 	<!-- ゲームスクリプト（読み込み順序が重要） -->
 	<script src="js/config.js"></script> <!-- 設定ファイル -->
-	<script src="js/objects.js"></script> <!-- ゲームオブジェクト定義 -->
+	<script type="module" src="js/objects.js"></script> <!-- ゲームオブジェクト定義 -->
 	<script src="js/dev-tools.js"></script> <!-- 開発用ツール -->
-	<script src="js/main.js"></script> <!-- メインロジック -->
+	<script type="module" src="js/main.js"></script> <!-- メインロジック -->
 	<!-- Slot adapter (optional embedding of GAME-SLOT-1) -->
 	<script type="module" src="../GAME-SLOT-1/script.js"></script>
 	<script src="js/slot-adapter.js"></script>
