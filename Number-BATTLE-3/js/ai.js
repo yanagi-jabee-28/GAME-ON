@@ -1,351 +1,296 @@
 // ai.js - AI の行動決定（テーブルベース参照型）
-import { applyAttack, applySplit, switchTurnTo } from './game.js';
+import {
+	applyAttack,
+	applySplit,
+	switchTurnTo,
+	generateMoves,
+	simulateMove,
+	getStateKey,
+	invertOutcomeLabel
+} from './game.js';
 import CONFIG from './config.js';
 import { performAiAttackAnim, performAiSplitAnim } from './ui.js';
-import { generateMoves } from './game.js';
 
-// --- テーブルベースの読み込み ---
+const TABLEBASE_URL = './chopsticks-tablebase.json';
+
 let tablebase = null;
-fetch('./chopsticks-tablebase.json')
-	.then(response => response.json())
-	.then(data => {
-		tablebase = data;
-		console.log('Tablebase loaded successfully.');
-		// Notify other modules that the tablebase is now available so they can recalc hints
-		try {
+let tablebasePromise = null;
+
+function dispatchTablebaseLoaded() {
+	try {
+		if (typeof window !== 'undefined') {
 			window.dispatchEvent(new Event('tablebase-loaded'));
-		} catch (e) {
-			// ignore if window not available (e.g. server-side checks)
 		}
-	})
-	.catch(error => console.error('Error loading tablebase:', error));
-
-// --- 状態管理ヘルパー ---
-function normalizeState(state) {
-	return {
-		playerHands: [...state.playerHands].sort((a, b) => a - b),
-		aiHands: [...state.aiHands].sort((a, b) => a - b),
-	};
+	} catch (e) {
+		// ignore when window is unavailable (e.g., tests)
+	}
 }
 
-function getStateKey(state, turn) {
-	const norm = normalizeState(state);
-	return `${norm.playerHands.join(',')}|${norm.aiHands.join(',')}|${turn}`;
+async function requestTablebase() {
+	if (tablebase) return tablebase;
+	if (!tablebasePromise) {
+		tablebasePromise = fetch(TABLEBASE_URL)
+			.then((response) => {
+				if (!response.ok) throw new Error(`Failed to load tablebase (${response.status})`);
+				return response.json();
+			})
+			.then((data) => {
+				tablebase = data;
+				try { console.info('Tablebase loaded successfully.'); } catch (e) { /* ignore */ }
+				dispatchTablebaseLoaded();
+				return data;
+			})
+			.catch((error) => {
+				console.error('Error loading tablebase:', error);
+				tablebasePromise = null; // allow retry on next request
+				return null;
+			});
+	}
+	return tablebasePromise;
 }
 
-/**
- * aiTurnWrapper
- * テーブルベースを参照してAIの最適な行動を決定し、実行する。
- */
-export function aiTurnWrapper(getState) {
-	return new Promise((resolve) => {
-		const state = getState();
-		if (state.gameOver) return resolve();
+// Kick off loading in the background to minimize first-turn latency
+requestTablebase();
 
-		// テーブルベースが読み込まれていない場合は待機
-		if (!tablebase) {
-			console.log('Tablebase not loaded yet, waiting...');
-			setTimeout(() => aiTurnWrapper(getState).then(resolve), 500);
-			return;
-		}
+function resolveCpuStrength() {
+	if (CONFIG.FORCE_CPU_STRENGTH) return CONFIG.FORCE_CPU_STRENGTH;
+	if (CONFIG.SHOW_CPU_STRENGTH_SELECT && typeof document !== 'undefined') {
+		const select = document.getElementById('cpu-strength-select');
+		if (select && select.value) return select.value;
+	}
+	return CONFIG.DEFAULT_CPU_STRENGTH || 'hard';
+}
 
-		const moves = generateMoves({ playerHands: state.playerHands, aiHands: state.aiHands }, 'ai');
-		if (moves.length === 0) {
-			// 打つ手がない場合（通常は発生しないが、念のため）
-			performAiSplitAnim(() => { switchTurnTo('player'); resolve(); });
-			return;
-		}
+function evaluateMovesWithOutcome(state, actor, table, perspective = 'actor') {
+	if (!state) return [];
+	const base = { playerHands: state.playerHands, aiHands: state.aiHands };
+	const moves = generateMoves(base, actor);
+	const opponentTurn = actor === 'player' ? 'ai' : 'player';
 
-		// --- 各手の評価 ---
-		let bestMoves = { WIN: [], DRAW: [], LOSS: [] };
+	return moves.reduce((acc, move) => {
+		const simulated = simulateMove({ ...state, currentPlayer: actor }, move);
+		const key = getStateKey(simulated, opponentTurn);
+		const info = table?.[key];
+		if (!info) return acc;
+		const distance = typeof info.distance === 'number' ? info.distance : null;
+		const outcome = (perspective === 'actor')
+			? invertOutcomeLabel(info.outcome)
+			: info.outcome;
+		acc.push({ move, outcome, distance, tableKey: key });
+		return acc;
+	}, []);
+}
 
-		for (const move of moves) {
-			// 手を適用した後の次の状態をシミュレート
-			const nextState = JSON.parse(JSON.stringify({ playerHands: state.playerHands, aiHands: state.aiHands }));
-			if (move.type === 'attack') {
-				const handsToUpdate = move.to === 'player' ? nextState.playerHands : nextState.aiHands;
-				const attackerValue = (move.from === 'player' ? nextState.playerHands : nextState.aiHands)[move.fromIndex];
-				handsToUpdate[move.toIndex] = (handsToUpdate[move.toIndex] + attackerValue) % 5;
-			} else { // split
-				if (move.owner === 'ai') nextState.aiHands = move.values;
-			}
+function groupByOutcome(entries) {
+	const buckets = { WIN: [], DRAW: [], LOSS: [], UNKNOWN: [], ALL: entries };
+	for (const entry of entries) {
+		if (entry.outcome === 'WIN') buckets.WIN.push(entry);
+		else if (entry.outcome === 'DRAW') buckets.DRAW.push(entry);
+		else if (entry.outcome === 'LOSS') buckets.LOSS.push(entry);
+		else buckets.UNKNOWN.push(entry);
+	}
+	return buckets;
+}
 
-			// 次のターンのキーでテーブルを引く（相手のターン）
-			const nextTurn = 'player';
-			const nextKey = getStateKey(nextState, nextTurn);
-			const outcome = tablebase[nextKey];
+function pickRandom(entries) {
+	if (!entries || entries.length === 0) return null;
+	const idx = Math.floor(Math.random() * entries.length);
+	return entries[idx];
+}
 
-			// outcome.outcomeは相手から見た結果なので、AIにとっては逆になる
-			if (outcome.outcome === 'LOSS') { // 相手が負け = AIの勝ち
-				bestMoves.WIN.push({ move, distance: outcome.distance });
-			} else if (outcome.outcome === 'DRAW') {
-				bestMoves.DRAW.push({ move, distance: -1 });
-			} else { // 相手が勝ち = AIの負け
-				bestMoves.LOSS.push({ move, distance: outcome.distance });
-			}
-		}
+function pickBestWin(entries) {
+	if (!entries || entries.length === 0) return null;
+	const sorted = [...entries].sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
+	return sorted[0];
+}
 
-		// --- selection helper functions (extracted for reuse and for adding new modes) ---
-		function pickBestWin(winArray) {
-			if (!winArray || winArray.length === 0) return null;
-			winArray.sort((a, b) => a.distance - b.distance);
-			return winArray[0].move;
-		}
+function pickRandomDraw(entries) {
+	return pickRandom(entries);
+}
 
-		function pickRandomDraw(drawArray) {
-			if (!drawArray || drawArray.length === 0) return null;
-			const idx = Math.floor(Math.random() * drawArray.length);
-			return drawArray[idx].move;
-		}
+function pickLossWithMinDistance(entries, minDistance) {
+	if (!entries || entries.length === 0) return null;
+	const candidates = entries.filter((entry) => typeof entry.distance === 'number' && entry.distance >= minDistance);
+	if (candidates.length === 0) return null;
+	candidates.sort((a, b) => (b.distance ?? -Infinity) - (a.distance ?? -Infinity));
+	return candidates[0];
+}
 
-		function pickLossWithMinDistance(lossArray, minDistance = 11) {
-			if (!lossArray || lossArray.length === 0) return null;
-			const candidates = lossArray.filter(x => (typeof x.distance === 'number') && x.distance >= minDistance);
-			if (candidates.length > 0) {
-				candidates.sort((a, b) => b.distance - a.distance);
-				return candidates[0].move;
-			}
-			return null;
-		}
+function pickLongestLoss(entries) {
+	if (!entries || entries.length === 0) return null;
+	const sorted = [...entries].sort((a, b) => (b.distance ?? -Infinity) - (a.distance ?? -Infinity));
+	return sorted[0];
+}
 
-		function pickLongestLoss(lossArray) {
-			if (!lossArray || lossArray.length === 0) return null;
-			const sorted = [...lossArray].sort((a, b) => b.distance - a.distance);
-			return sorted[0].move;
-		}
+function pickShortestDistance(entries) {
+	if (!entries || entries.length === 0) return null;
+	const sorted = [...entries].sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
+	return sorted[0];
+}
 
-		// simulate applying a move to a state and return the resulting nextState
-		function simulateNextStateForMove(move, baseState) {
-			const nextState = JSON.parse(JSON.stringify({ playerHands: baseState.playerHands, aiHands: baseState.aiHands }));
-			if (move.type === 'attack') {
-				const handsToUpdate = move.to === 'player' ? nextState.playerHands : nextState.aiHands;
-				const attackerValue = (move.from === 'player' ? nextState.playerHands : nextState.aiHands)[move.fromIndex];
-				handsToUpdate[move.toIndex] = (handsToUpdate[move.toIndex] + attackerValue) % 5;
-			} else if (move.type === 'split') {
-				if (move.owner === 'ai') nextState.aiHands = [...move.values];
-				else nextState.playerHands = [...move.values];
-			}
-			return nextState;
-		}
-
-		// returns array of moves (from original moves list) that allow the player to immediately win on the next turn
-		function findMovesAllowingImmediatePlayerWin(allMoves, baseState) {
-			const res = [];
-			for (const m of allMoves) {
-				const ns = simulateNextStateForMove(m, baseState);
-				// generate player's possible responses
-				const playerResponses = generateMoves({ playerHands: ns.playerHands, aiHands: ns.aiHands }, 'player');
-				for (const pm of playerResponses) {
-					const after = simulateNextStateForMove(pm, ns);
-					// check if AI is immediately dead
-					if ((after.aiHands[0] === 0 && after.aiHands[1] === 0)) {
-						res.push(m);
-						break;
-					}
-				}
-			}
-			return res;
-		}
-
-		// safety: filter out any candidate move that immediately causes player to lose (avoid this even in weakest)
-		function filterOutImmediatePlayerKills(movesList, baseState) {
-			return movesList.filter(m => {
-				const ns = simulateNextStateForMove(m, baseState);
-				// if player immediately loses after this move, drop it
-				if (ns.playerHands[0] === 0 && ns.playerHands[1] === 0) return false;
-				return true;
-			});
-		}
-
-		// --- 最善手の選択 ---
-		let chosenMove;
-		// Determine strength via config/DOM
-		let strength = 'hard';
-		if (CONFIG.FORCE_CPU_STRENGTH) {
-			strength = CONFIG.FORCE_CPU_STRENGTH;
-		} else if (CONFIG.SHOW_CPU_STRENGTH_SELECT) {
-			strength = document.getElementById('cpu-strength-select')?.value || CONFIG.DEFAULT_CPU_STRENGTH || 'hard';
-		} else {
-			strength = CONFIG.DEFAULT_CPU_STRENGTH || 'hard';
-		}
-
-		if (strength === 'hard') {
-			// 最強モード：常に最善手を選択
-			chosenMove = pickBestWin(bestMoves.WIN) || pickRandomDraw(bestMoves.DRAW) || pickLongestLoss(bestMoves.LOSS);
-		} else if (strength === 'weak') {
-			// 弱いモード：ランダム性が高く、たまに負け手を選ぶが最低限の耐久力を要求する
-			// Policy:
-			// - 60%: try to pick a non-losing move (WIN > DRAW > LOSS fallback)
-			// - 40%: intentionally choose a losing move, but prefer loss moves with distance >= 5
-			const r = Math.random();
-			if (r < 0.6) {
-				chosenMove = pickBestWin(bestMoves.WIN) || pickRandomDraw(bestMoves.DRAW) || pickLongestLoss(bestMoves.LOSS);
-			} else {
-				// choose a loss move preferring distance >= 5
-				const lossChoice = pickLossWithMinDistance(bestMoves.LOSS, 5);
-				chosenMove = lossChoice || pickLongestLoss(bestMoves.LOSS) || pickRandomDraw(bestMoves.DRAW) || pickBestWin(bestMoves.WIN);
-			}
-		} else {
-			// 強いモード（normal/strong）: 今までの確率分布を使い、負け手は distance>=11 を優先
-			const rand = Math.random();
-			if (bestMoves.WIN.length > 0) {
-				const WIN_KEEP = 0.7;
-				const DRAW_PROB = 0.2;
-
-				if (rand < WIN_KEEP) {
-					chosenMove = pickBestWin(bestMoves.WIN);
-				} else if (rand < WIN_KEEP + DRAW_PROB) {
-					chosenMove = pickRandomDraw(bestMoves.DRAW) || pickLossWithMinDistance(bestMoves.LOSS, 11) || pickLongestLoss(bestMoves.LOSS) || pickBestWin(bestMoves.WIN);
-				} else {
-					// intentionally pick a loss (rarer)
-					chosenMove = pickLossWithMinDistance(bestMoves.LOSS, 11) || pickRandomDraw(bestMoves.DRAW) || pickLongestLoss(bestMoves.LOSS) || pickBestWin(bestMoves.WIN);
-				}
-			} else if (bestMoves.DRAW.length > 0) {
-				const rand2 = Math.random();
-				if (rand2 < 0.9 || bestMoves.LOSS.length === 0) {
-					chosenMove = pickRandomDraw(bestMoves.DRAW);
-				} else {
-					chosenMove = pickLossWithMinDistance(bestMoves.LOSS, 11) || pickRandomDraw(bestMoves.DRAW) || pickLongestLoss(bestMoves.LOSS);
-				}
-			} else {
-				chosenMove = pickLossWithMinDistance(bestMoves.LOSS, 11) || pickLongestLoss(bestMoves.LOSS) || pickBestWin(bestMoves.WIN);
-			}
-		}
-
-		// 新しい 'weakest'（最弱）モード: できるだけ早く負ける手を選ぶ
-		if (strength === 'weakest') {
-			// Ensure we don't pick a move that immediately kills the player
-			const safeMoves = filterOutImmediatePlayerKills(moves, state);
-
-			// Prefer moves that allow the player to immediately win on their next turn
-			const movesAllowingImmediatePlayerWin = findMovesAllowingImmediatePlayerWin(safeMoves, state);
-			if (movesAllowingImmediatePlayerWin.length > 0) {
-				// pick random among those
-				const idx = Math.floor(Math.random() * movesAllowingImmediatePlayerWin.length);
-				chosenMove = movesAllowingImmediatePlayerWin[idx];
-			} else {
-				// Fallback: prefer LOSS moves (immediate first), but only from safeMoves
-				const lossCandidates = bestMoves.LOSS.filter(l => safeMoves.some(sm => sm.type === l.move.type && JSON.stringify(sm) === JSON.stringify(l.move)));
-				if (lossCandidates.length > 0) {
-					const immediate = lossCandidates.filter(x => x.distance === 0);
-					if (immediate.length > 0) {
-						const idx = Math.floor(Math.random() * immediate.length);
-						chosenMove = immediate[idx].move;
-					} else {
-						lossCandidates.sort((a, b) => a.distance - b.distance);
-						chosenMove = lossCandidates[0].move;
-					}
-				} else if (bestMoves.DRAW.length > 0) {
-					// pick a safe draw if exists
-					const safeDraws = safeMoves.filter(m => m.type === 'split' || m.type === 'attack').filter(m => bestMoves.DRAW.some(d => JSON.stringify(d.move) === JSON.stringify(m)));
-					if (safeDraws.length > 0) chosenMove = safeDraws[Math.floor(Math.random() * safeDraws.length)];
-					else chosenMove = pickBestWin(bestMoves.WIN);
-				} else {
-					chosenMove = pickBestWin(bestMoves.WIN);
-				}
-			}
-		}
-
-		// --- 選択した手を実行 ---
-		if (chosenMove.type === 'attack') {
-			performAiAttackAnim(chosenMove.fromIndex, chosenMove.toIndex, () => {
-				applyAttack('ai', chosenMove.fromIndex, 'player', chosenMove.toIndex);
-				const res = getState().checkWin();
-				if (!res.gameOver) switchTurnTo('player');
-				resolve();
-			});
-		} else if (chosenMove.type === 'split') {
-			performAiSplitAnim(() => {
-				applySplit('ai', chosenMove.values[0], chosenMove.values[1]);
-				const res = getState().checkWin();
-				if (!res.gameOver) switchTurnTo('player');
-				resolve();
-			});
-		}
+function filterOutImmediatePlayerKills(entries, baseState) {
+	if (!entries || entries.length === 0) return [];
+	return entries.filter((entry) => {
+		const next = simulateMove({ ...baseState, currentPlayer: 'ai' }, entry.move);
+		const playerHands = next.playerHands ?? [0, 0];
+		return !(playerHands[0] === 0 && playerHands[1] === 0);
 	});
 }
 
-/**
- * getPlayerMovesAnalysis
- * テーブルベースに基づき、プレイヤーの現在の局面で取りうるすべての手の評価を返す。
- * @param {object} state - 現在のゲーム状態
- * @returns {Array|null} 各手の評価結果の配列、またはテーブル未ロードの場合は null
- */
-export function getPlayerMovesAnalysis(state) {
-	if (!tablebase) return null;
-
-	const moves = generateMoves({ playerHands: state.playerHands, aiHands: state.aiHands }, 'player');
-	const analysis = [];
-
-	for (const move of moves) {
-		// 手を適用した後の次の状態をシミュレート
-		const nextState = JSON.parse(JSON.stringify({ playerHands: state.playerHands, aiHands: state.aiHands }));
-		if (move.type === 'attack') {
-			const handsToUpdate = move.to === 'ai' ? nextState.aiHands : nextState.playerHands;
-			const attackerValue = (move.from === 'player' ? nextState.playerHands : nextState.aiHands)[move.fromIndex];
-			handsToUpdate[move.toIndex] = (handsToUpdate[move.toIndex] + attackerValue) % 5;
-		} else { // split
-			if (move.owner === 'player') nextState.playerHands = move.values;
+function findMovesAllowingImmediatePlayerWin(entries, baseState) {
+	if (!entries || entries.length === 0) return [];
+	const result = [];
+	for (const entry of entries) {
+		const aiNext = simulateMove({ ...baseState, currentPlayer: 'ai' }, entry.move);
+		const playerResponses = generateMoves({ playerHands: aiNext.playerHands, aiHands: aiNext.aiHands }, 'player');
+		for (const response of playerResponses) {
+			const afterPlayer = simulateMove({ ...aiNext, currentPlayer: 'player' }, response);
+			const aiHands = afterPlayer.aiHands ?? [0, 0];
+			if (aiHands[0] === 0 && aiHands[1] === 0) {
+				result.push(entry);
+				break;
+			}
 		}
-
-		// 次のターンのキーでテーブルを引く（AIのターン）
-		const nextTurn = 'ai';
-		const nextKey = getStateKey(nextState, nextTurn);
-		const outcomeInfo = tablebase[nextKey];
-
-		if (!outcomeInfo) continue; // 万が一テーブルにない場合はスキップ
-
-		let playerOutcome;
-		// outcomeInfo.outcome はAIから見た結果なので、プレイヤーにとっては逆になる
-		if (outcomeInfo.outcome === 'LOSS') {
-			playerOutcome = 'WIN';
-		} else if (outcomeInfo.outcome === 'WIN') {
-			playerOutcome = 'LOSS';
-		} else {
-			playerOutcome = 'DRAW';
-		}
-
-		analysis.push({
-			move: move,
-			outcome: playerOutcome,
-			distance: outcomeInfo.distance
-		});
 	}
-	return analysis;
+	return result;
 }
 
-/**
- * getAIMovesAnalysisFromPlayerView
- * AIが次に指せる全手（攻撃/分割）を列挙し、その結果を「プレイヤー視点の勝敗」で評価して返す。
- * manual AI 操作（デバッグ）時のヒント表示に使用する。
- * @param {object} state - 現在のゲーム状態 { playerHands, aiHands }
- * @returns {Array|null} 各手の評価結果の配列（{ move, outcome, distance }）またはテーブル未ロード時 null
- */
+function selectMoveForStrength(strength, grouped, baseState) {
+	let choice = null;
+
+	if (strength === 'hard') {
+		choice = pickBestWin(grouped.WIN) || pickRandomDraw(grouped.DRAW) || pickLongestLoss(grouped.LOSS);
+	} else if (strength === 'weak') {
+		const r = Math.random();
+		if (r < 0.6) {
+			choice = pickBestWin(grouped.WIN) || pickRandomDraw(grouped.DRAW) || pickLongestLoss(grouped.LOSS);
+		} else {
+			choice = pickLossWithMinDistance(grouped.LOSS, 5)
+				|| pickLongestLoss(grouped.LOSS)
+				|| pickRandomDraw(grouped.DRAW)
+				|| pickBestWin(grouped.WIN);
+		}
+	} else {
+		const rand = Math.random();
+		if (grouped.WIN.length > 0) {
+			const WIN_KEEP = 0.7;
+			const DRAW_PROB = 0.2;
+			if (rand < WIN_KEEP) {
+				choice = pickBestWin(grouped.WIN);
+			} else if (rand < WIN_KEEP + DRAW_PROB) {
+				choice = pickRandomDraw(grouped.DRAW)
+					|| pickLossWithMinDistance(grouped.LOSS, 11)
+					|| pickLongestLoss(grouped.LOSS)
+					|| pickBestWin(grouped.WIN);
+			} else {
+				choice = pickLossWithMinDistance(grouped.LOSS, 11)
+					|| pickRandomDraw(grouped.DRAW)
+					|| pickLongestLoss(grouped.LOSS)
+					|| pickBestWin(grouped.WIN);
+			}
+		} else if (grouped.DRAW.length > 0) {
+			if (rand < 0.9 || grouped.LOSS.length === 0) {
+				choice = pickRandomDraw(grouped.DRAW);
+			} else {
+				choice = pickLossWithMinDistance(grouped.LOSS, 11)
+					|| pickRandomDraw(grouped.DRAW)
+					|| pickLongestLoss(grouped.LOSS);
+			}
+		} else {
+			choice = pickLossWithMinDistance(grouped.LOSS, 11)
+				|| pickLongestLoss(grouped.LOSS)
+				|| pickBestWin(grouped.WIN);
+		}
+	}
+
+	if (strength === 'weakest') {
+		const safeEntries = filterOutImmediatePlayerKills(grouped.ALL, baseState);
+		if (safeEntries.length > 0) {
+			const immediateWinMoves = findMovesAllowingImmediatePlayerWin(safeEntries, baseState);
+			if (immediateWinMoves.length > 0) {
+				choice = pickRandom(immediateWinMoves);
+			} else {
+				const safeSet = new Set(safeEntries);
+				const lossCandidates = grouped.LOSS.filter((entry) => safeSet.has(entry));
+				if (lossCandidates.length > 0) {
+					const immediateLoss = lossCandidates.filter((entry) => entry.distance === 0);
+					choice = pickRandom(immediateLoss) || pickShortestDistance(lossCandidates);
+				} else {
+					const safeDraws = grouped.DRAW.filter((entry) => safeSet.has(entry));
+					choice = pickRandom(safeDraws) || choice;
+				}
+			}
+		}
+		if (!choice) choice = pickRandom(safeEntries) || choice;
+	}
+
+	return choice
+		|| pickRandom(grouped.WIN)
+		|| pickRandom(grouped.DRAW)
+		|| pickLongestLoss(grouped.LOSS)
+		|| grouped.ALL[0]
+		|| null;
+}
+
+function commitAiMove(move, getState) {
+	if (!move) return Promise.resolve();
+	if (move.type === 'attack') {
+		return new Promise((resolve) => {
+			performAiAttackAnim(move.fromIndex, move.toIndex, resolve);
+		}).then(() => {
+			applyAttack('ai', move.fromIndex, 'player', move.toIndex);
+			const result = getState().checkWin();
+			if (!result.gameOver) switchTurnTo('player');
+		});
+	}
+	if (move.type === 'split') {
+		return new Promise((resolve) => {
+			performAiSplitAnim(resolve);
+		}).then(() => {
+			const values = Array.isArray(move.values) ? move.values : [move.val0, move.val1];
+			applySplit('ai', values[0], values[1]);
+			const result = getState().checkWin();
+			if (!result.gameOver) switchTurnTo('player');
+		});
+	}
+	return Promise.resolve();
+}
+
+export async function aiTurnWrapper(getState) {
+	const state = getState();
+	if (!state || state.gameOver) return;
+
+	const legalMoves = generateMoves({ playerHands: state.playerHands, aiHands: state.aiHands }, 'ai');
+	if (legalMoves.length === 0) {
+		switchTurnTo('player');
+		return;
+	}
+
+	const table = await requestTablebase();
+	let scoredEntries = [];
+	if (table) scoredEntries = evaluateMovesWithOutcome(state, 'ai', table, 'actor');
+
+	let choice = null;
+	if (scoredEntries.length > 0) {
+		const grouped = groupByOutcome(scoredEntries);
+		const strength = resolveCpuStrength();
+		choice = selectMoveForStrength(strength, grouped, state);
+	}
+
+	if (!choice) {
+		const fallbackEntries = legalMoves.map((move) => ({ move }));
+		choice = pickRandom(fallbackEntries) || fallbackEntries[0];
+	}
+
+	await commitAiMove(choice.move, getState);
+}
+
+export function getPlayerMovesAnalysis(state) {
+	if (!tablebase) return null;
+	return evaluateMovesWithOutcome(state, 'player', tablebase, 'actor');
+}
+
 export function getAIMovesAnalysisFromPlayerView(state) {
 	if (!tablebase) return null;
-
-	const moves = generateMoves({ playerHands: state.playerHands, aiHands: state.aiHands }, 'ai');
-	const analysis = [];
-
-	for (const move of moves) {
-		// シミュレーション
-		const nextState = JSON.parse(JSON.stringify({ playerHands: state.playerHands, aiHands: state.aiHands }));
-		if (move.type === 'attack') {
-			const handsToUpdate = move.to === 'player' ? nextState.playerHands : nextState.aiHands;
-			const attackerValue = (move.from === 'player' ? nextState.playerHands : nextState.aiHands)[move.fromIndex];
-			handsToUpdate[move.toIndex] = (handsToUpdate[move.toIndex] + attackerValue) % 5;
-		} else if (move.type === 'split') {
-			if (move.owner === 'ai') nextState.aiHands = [...move.values];
-		}
-
-		// 次はプレイヤーのターン。テーブルは nextTurn 視点の結果を返すので、
-		// そのまま「プレイヤー視点の結果」として扱える。
-		const nextTurn = 'player';
-		const nextKey = getStateKey(nextState, nextTurn);
-		const outcomeInfo = tablebase[nextKey];
-		if (!outcomeInfo) continue;
-
-		analysis.push({ move, outcome: outcomeInfo.outcome, distance: outcomeInfo.distance });
-	}
-	return analysis;
+	return evaluateMovesWithOutcome(state, 'ai', tablebase, 'opponent');
 }

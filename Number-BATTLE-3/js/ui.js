@@ -4,7 +4,6 @@
 //  - 盤面の描画更新（数値・disabled 表示など）
 //  - アニメーションの補助（攻撃エフェクト、分割エフェクト）
 // 注意: UI はゲーム状態を直接変更しない（状態変更は `game.js` が担当）。
-import { playerHands, aiHands, initState, applyAttack, applySplit, checkWin, switchTurnTo, selectedHand } from './game.js';
 
 let playerHandElements; // プレイヤーの手を表す DOM 要素配列
 let aiHandElements;     // AI の手を表す DOM 要素配列
@@ -108,7 +107,7 @@ export function fitUIToViewport() {
 
 import CONFIG from './config.js';
 
-export function displayPlayerHints(analysis, mode = 'full') {
+export function displayPlayerHints(analysis, mode = 'full', selection = null) {
 	if (!hintAreaEl) return;
 	// Globally disabled hints: clear and bail
 	if (!CONFIG.SHOW_HINT_CONTROLS) { hintAreaEl.innerHTML = ''; return; }
@@ -186,7 +185,7 @@ export function displayPlayerHints(analysis, mode = 'full') {
 	// When analysis is present, also apply per-action highlights (attack targets / splits) only for full hints
 	if (mode === 'full') {
 		try {
-			applyActionHighlights(analysis);
+			applyActionHighlights(analysis, selection);
 		} catch (e) {
 			// ignore any highlight errors
 		}
@@ -214,14 +213,14 @@ export function clearActionHighlights() {
 
 // Apply per-action highlights when player has selected a hand.
 // analysis: array returned from AI.getPlayerMovesAnalysis (or similar)
-export function applyActionHighlights(analysis) {
+export function applyActionHighlights(analysis, selection) {
 	// first clear previous highlights
 	clearActionHighlights();
 	if (!analysis || !Array.isArray(analysis) || analysis.length === 0) return;
 
 	// Highlight attack targets for the currently selected player hand
-	if (selectedHand && selectedHand.owner === 'player' && typeof selectedHand.index === 'number') {
-		const fromIdx = selectedHand.index;
+	if (selection && selection.owner === 'player' && typeof selection.index === 'number') {
+		const fromIdx = selection.index;
 		// Find attack moves from this hand
 		const attacks = analysis.filter(a => a.move.type === 'attack' && a.move.fromIndex === fromIdx);
 		attacks.forEach(a => {

@@ -11,16 +11,46 @@ export let isAnimating = false; // アニメーション中フラグ（将来の
 // Simple history stack for undo functionality. Each entry is a snapshot of the public state.
 let history = [];
 
+const HISTORY_LIMIT = 100;
+
+export const MOVE_TYPES = Object.freeze({
+	ATTACK: 'attack',
+	SPLIT: 'split'
+});
+
+function cloneHandPair(source) {
+	return [source[0], source[1]];
+}
+
+function cloneSelected(source) {
+	return {
+		owner: source?.owner ?? null,
+		index: typeof source?.index === 'number' ? source.index : null
+	};
+}
+
+export function getSnapshot() {
+	return {
+		playerHands: cloneHandPair(playerHands),
+		aiHands: cloneHandPair(aiHands),
+		currentPlayer,
+		selectedHand: cloneSelected(selectedHand),
+		gameOver,
+		isAnimating,
+		moveCount: getMoveCount()
+	};
+}
+
 function pushHistory() {
 	history.push({
-		playerHands: [playerHands[0], playerHands[1]],
-		aiHands: [aiHands[0], aiHands[1]],
+		playerHands: cloneHandPair(playerHands),
+		aiHands: cloneHandPair(aiHands),
 		currentPlayer,
-		selectedHand: { owner: selectedHand.owner, index: selectedHand.index },
+		selectedHand: cloneSelected(selectedHand),
 		gameOver
 	});
 	// keep history bounded to avoid unlimited growth
-	if (history.length > 100) history.shift();
+	if (history.length > HISTORY_LIMIT) history.shift();
 }
 
 // 公開: 現在までの履歴項目数を返す（= 実行済み手数）。
@@ -44,6 +74,12 @@ export function undoLastMove() {
 	gameOver = last.gameOver;
 	isAnimating = false;
 	return true;
+}
+
+function evaluateWinCondition(playerPair, aiPair) {
+	const playerLost = playerPair[0] === 0 && playerPair[1] === 0; // プレイヤー全滅
+	const aiLost = aiPair[0] === 0 && aiPair[1] === 0; // AI 全滅
+	return { gameOver: playerLost || aiLost, playerLost };
 }
 
 /**
@@ -75,14 +111,39 @@ export function setCurrentPlayer(p) {
  * 戻り値の形式: { gameOver: boolean, playerLost?: boolean }
  */
 export function checkWin() {
-	const playerLost = playerHands[0] === 0 && playerHands[1] === 0; // プレイヤー全滅
-	const aiLost = aiHands[0] === 0 && aiHands[1] === 0; // AI 全滅
+	const result = evaluateWinCondition(playerHands, aiHands);
+	gameOver = result.gameOver; // グローバルフラグを最新化
+	return result;
+}
 
-	if (playerLost || aiLost) {
-		gameOver = true; // グローバルフラグを立てる
-		return { gameOver: true, playerLost };
+export function checkWinFromState(state) {
+	if (!state) return { gameOver: false };
+	return evaluateWinCondition(state.playerHands ?? [0, 0], state.aiHands ?? [0, 0]);
+}
+
+function applyAttackToHands(attackerHands, targetHands, attackerIndex, targetIndex) {
+	const attackerValue = attackerHands?.[attackerIndex] ?? 0;
+	if (!targetHands || attackerValue === 0) return;
+	const currentTarget = targetHands[targetIndex] ?? 0;
+	targetHands[targetIndex] = (currentTarget + attackerValue) % 5;
+}
+
+function applySplitToHands(targetHands, val0, val1) {
+	if (!targetHands) return;
+	targetHands[0] = val0;
+	targetHands[1] = val1;
+}
+
+export function applyMove(move) {
+	if (!move || typeof move !== 'object') return;
+	if (move.type === MOVE_TYPES.ATTACK || move.type === 'attack') {
+		applyAttack(move.from, move.fromIndex, move.to, move.toIndex);
+		return;
 	}
-	return { gameOver: false };
+	if (move.type === MOVE_TYPES.SPLIT || move.type === 'split') {
+		const values = Array.isArray(move.values) ? move.values : [move.val0, move.val1];
+		applySplit(move.owner, values[0], values[1]);
+	}
 }
 
 /**
@@ -104,9 +165,9 @@ export function applyAttack(fromOwner, attackerIndex, toOwner, targetIndex) {
 	// save current state before mutating for undo
 	pushHistory();
 	if (fromOwner === 'player' && toOwner === 'ai') {
-		aiHands[targetIndex] = (playerHands[attackerIndex] + aiHands[targetIndex]) % 5; // 行末コメント: 5 を超えたら 0 へ
+		applyAttackToHands(playerHands, aiHands, attackerIndex, targetIndex); // 行末コメント: 5 を超えたら 0 へ
 	} else if (fromOwner === 'ai' && toOwner === 'player') {
-		playerHands[targetIndex] = (aiHands[attackerIndex] + playerHands[targetIndex]) % 5; // 行末コメント: 同上
+		applyAttackToHands(aiHands, playerHands, attackerIndex, targetIndex); // 行末コメント: 同上
 	}
 }
 
@@ -119,11 +180,9 @@ export function applySplit(owner, val0, val1) {
 	// save state for undo
 	pushHistory();
 	if (owner === 'player') {
-		playerHands[0] = val0; // 行末コメント: 左手
-		playerHands[1] = val1; // 行末コメント: 右手
+		applySplitToHands(playerHands, val0, val1); // 行末コメント: 左右の手を更新
 	} else {
-		aiHands[0] = val0;
-		aiHands[1] = val1;
+		applySplitToHands(aiHands, val0, val1);
 	}
 }
 
@@ -137,8 +196,42 @@ export function switchTurnTo(next) {
 	currentPlayer = next; // 'player' or 'ai'
 }
 
+export function cloneState(state) {
+	if (!state) return {
+		playerHands: cloneHandPair(playerHands),
+		aiHands: cloneHandPair(aiHands)
+	};
+	return {
+		playerHands: cloneHandPair(state.playerHands ?? cloneHandPair(playerHands)),
+		aiHands: cloneHandPair(state.aiHands ?? cloneHandPair(aiHands)),
+		currentPlayer: state.currentPlayer ?? currentPlayer,
+		gameOver: state.gameOver ?? false
+	};
+}
+
+export function simulateMove(baseState, move) {
+	const state = cloneState(baseState ?? getSnapshot());
+	if (!move || typeof move !== 'object') return state;
+	const type = move.type;
+	if (type === MOVE_TYPES.ATTACK || type === 'attack') {
+		const attackerHands = (move.from === 'player') ? state.playerHands : state.aiHands;
+		const targetHands = (move.to === 'player') ? state.playerHands : state.aiHands;
+		applyAttackToHands(attackerHands, targetHands, move.fromIndex, move.toIndex);
+	} else if (type === MOVE_TYPES.SPLIT || type === 'split') {
+		const values = Array.isArray(move.values) ? move.values : [move.val0, move.val1];
+		const targetHands = (move.owner === 'player') ? state.playerHands : state.aiHands;
+		applySplitToHands(targetHands, values[0], values[1]);
+	}
+	const turnAfter = (baseState?.currentPlayer ?? currentPlayer) === 'player' ? 'ai' : 'player';
+	state.currentPlayer = turnAfter;
+	const winCheck = evaluateWinCondition(state.playerHands, state.aiHands);
+	state.gameOver = winCheck.gameOver;
+	state.playerLost = winCheck.playerLost;
+	return state;
+}
+
 // ヘルパー関数: 合計値と現在の分割状態から、他の可能な分割を計算する
-function computePossibleSplits(total, current) {
+export function computePossibleSplits(total, current) {
 	const out = [];
 	for (let si = 0; si <= total / 2; si++) {
 		const sj = total - si;
@@ -213,16 +306,10 @@ export function generatePredecessors(state, currentPlayer) {
 	const uniquePredecessors = [];
 	const seen = new Set();
 	for (const p of predecessors) {
-		// 状態の正規化: 各プレイヤーの手をソートする
-		const p_hands = [...p.state.playerHands].sort((a, b) => a - b);
-		const a_hands = [...p.state.aiHands].sort((a, b) => a - b);
-		// 正規化したキーで重複をチェック
-		const key = `${p_hands.join(',')}|${a_hands.join(',')}|${p.turn}`;
-		if (!seen.has(key)) {
-			seen.add(key);
-			// 重複がない場合、元の（ソートされていない）状態を追加
-			uniquePredecessors.push(p);
-		}
+		const key = getStateKey(p.state, p.turn);
+		if (seen.has(key)) continue;
+		seen.add(key);
+		uniquePredecessors.push(p);
 	}
 
 	return uniquePredecessors;
@@ -277,4 +364,29 @@ export function generateMoves(state, player) {
 		}
 	}
 	return moves;
+}
+
+export function normalizeHands(hands) {
+	if (!Array.isArray(hands)) return [0, 0];
+	return [...hands].sort((a, b) => a - b);
+}
+
+export function normalizeState(state) {
+	return {
+		playerHands: normalizeHands(state?.playerHands),
+		aiHands: normalizeHands(state?.aiHands)
+	};
+}
+
+export function getStateKey(state, turn) {
+	const norm = normalizeState(state);
+	return `${norm.playerHands.join(',')}|${norm.aiHands.join(',')}|${turn}`;
+}
+
+export function invertOutcomeLabel(outcome) {
+	switch (outcome) {
+		case 'WIN': return 'LOSS';
+		case 'LOSS': return 'WIN';
+		default: return 'DRAW';
+	}
 }
