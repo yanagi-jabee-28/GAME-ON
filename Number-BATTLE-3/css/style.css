@@ -1,25 +1,45 @@
 /* Extracted styles from index.html - Number-BATTLE-3 */
 @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap');
 
+:root {
+	/* Layout tokens - avoid magic numbers */
+	--page-padding: 1rem;
+	--card-max-width: 42rem;
+	/* matches tailwind max-w-md ~ 672px */
+	--control-bar-gap: 0.75rem;
+	--hand-min-size: 88px;
+	/* increased to keep digits readable on narrow screens */
+	--hand-preferred-size: 112px;
+	--hand-max-size: 140px;
+	--hand-border-radius: 1.5rem;
+}
+
 body {
 	font-family: 'M PLUS Rounded 1c', sans-serif;
 	touch-action: manipulation;
+	padding: var(--page-padding);
+	display: flex;
+	justify-content: center;
 }
 
 .hand {
-	width: 120px;
-	height: 120px;
+	/* Use clamp() to avoid magic numbers and support many viewports */
+	width: clamp(var(--hand-min-size), 12vw, var(--hand-max-size));
+	height: clamp(var(--hand-min-size), 12vw, var(--hand-max-size));
 	border: 4px solid transparent;
-	border-radius: 1.5rem;
+	border-radius: var(--hand-border-radius);
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	font-size: 5rem;
-	font-weight: bold;
+	/* Ensure a readable minimum font-size for digits while still scaling up */
+	font-size: clamp(2rem, 4.2vw, 5rem);
+	font-weight: 700;
 	cursor: pointer;
-	transition: all 0.2s ease;
+	transition: all 0.18s ease;
 	user-select: none;
-	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
+	min-width: var(--hand-min-size);
+	min-height: var(--hand-min-size);
 }
 
 .hand.selected {
@@ -59,6 +79,13 @@ body {
 	background-color: rgba(0, 0, 0, 0.5);
 }
 
+/* Only show and center the modal when it does NOT have the `hidden` class (Tailwind uses `hidden`) */
+#split-modal:not(.hidden) {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
 .move-to-target {
 	position: absolute;
 	transition: transform 0.5s ease, opacity 0.5s ease;
@@ -70,88 +97,82 @@ body {
 	transition: opacity 0.5s ease;
 }
 
-/* Mobile adjustments: ensure top control bar doesn't overlap content */
+/* Top control bar: make it horizontally scrollable when it would overflow the card width.
+   The control bar is centered and limited to the same max width as the card so options never escape visually. */
+/* (no-op placeholder removed) */
+
+.overflow-x-auto {
+	/* Ensure the top control container can scroll horizontally inside the card width */
+	max-width: var(--card-max-width);
+	margin: 0 auto;
+}
+
+.overflow-x-auto>.flex {
+	gap: var(--control-bar-gap);
+	align-items: center;
+	padding: 0.4rem 0.6rem;
+	overflow: auto;
+	white-space: nowrap;
+	-webkit-overflow-scrolling: touch;
+}
+
+/* Small screens: avoid overlap by making the controls flow into document and be scrollable */
 @media (max-width: 640px) {
-
-	/* add space at top so fixed control bar doesn't cover the game container */
 	#game-container {
-		margin-top: 72px;
-		/* enough space for the fixed controls */
+		margin-top: 68px;
 	}
 
-	/* make hand sizes a bit smaller on very small screens */
-	.hand {
-		width: 96px;
-		height: 96px;
-		font-size: 4rem;
-	}
-
-	/* ensure top control wrapper has comfortable touch target */
 	.inline-flex {
-		padding: 8px 10px;
+		padding: 0.5rem 0.6rem;
 	}
 }
 
 /* Extra-small screens and short viewports: ensure everything fits and becomes scrollable if needed */
 @media (max-width: 380px),
 (max-height: 700px) {
-
-	/* Make the main game card use most of the viewport but not exceed it */
 	#game-container {
 		margin-top: 0;
-		/* top controls will flow above instead of overlapping */
 		max-height: calc(100vh - 88px);
 		overflow: auto;
-		padding: 12px;
+		padding: 0.75rem;
 		box-sizing: border-box;
 	}
 
-	/* Reduce sizes so the hand elements fit in narrow columns */
-	.hand {
-		width: 72px;
-		height: 72px;
-		font-size: 2.4rem;
-		border-radius: 0.9rem;
-	}
-
-	/* Reduce heading / message sizes so they don't push layout too tall */
 	h1 {
-		font-size: 1.6rem;
+		font-size: 1.55rem;
 	}
 
 	#message-area {
 		height: auto;
-		padding: 6px 8px;
+		padding: 0.4rem 0.6rem;
 		font-size: 0.95rem;
 	}
 
 	#hint-area {
 		height: auto;
-		font-size: 0.8rem;
-		padding: 2px 6px;
+		font-size: 0.78rem;
+		padding: 0.2rem 0.4rem;
 	}
 
-	/* Buttons smaller and wrap if needed */
 	.btn {
-		padding: 8px 12px;
+		padding: 0.4rem 0.6rem;
 		font-size: 0.95rem;
 	}
 
-	/* Make previously absolutely positioned top controls flow into layout to avoid overlap */
+	/* Let the top controls flow into the document so they don't overlap small cards */
 	.relative>.absolute {
 		position: static !important;
 		transform: none !important;
-		left: auto !important;
-		top: auto !important;
-		margin: 6px auto 10px;
+		margin: 0.4rem auto 0.6rem;
 	}
 
 	/* Ensure split modal fits on small screens */
 	#split-modal>div {
 		max-height: calc(100vh - 80px);
 		overflow: auto;
+		margin: 0 1rem;
+		width: calc(100% - 2rem);
 	}
-
 }
 
 /* Aspect-ratio specific tweaks for common smartphones */
@@ -162,11 +183,7 @@ body {
 		padding: 10px;
 	}
 
-	.hand {
-		width: 76px;
-		height: 76px;
-		font-size: 2.6rem;
-	}
+	/* Rely on root clamp() sizing for .hand to keep sizes consistent */
 
 	.btn {
 		padding: 9px 14px;
@@ -179,11 +196,7 @@ body {
 		max-height: calc(100vh - 100px);
 	}
 
-	.hand {
-		width: 84px;
-		height: 84px;
-		font-size: 3rem;
-	}
+	/* root clamp() covers .hand sizing */
 }
 
 /* 16:9 (older phones / many Android landscape cases) */
@@ -192,32 +205,49 @@ body {
 		max-height: calc(100vh - 90px);
 	}
 
-	.hand {
-		width: 96px;
-		height: 96px;
-		font-size: 3.4rem;
-	}
+	/* root clamp() covers .hand sizing */
 }
 
-/* Landscape wide screens (ensure horizontal spacing doesn't overflow) */
+/* Landscape tight heights: reduce card height and controls to fit */
 @media (orientation: landscape) and (max-height: 500px) {
 	#game-container {
 		max-height: calc(100vh - 60px);
-		padding: 8px;
-	}
-
-	.hand {
-		width: 64px;
-		height: 64px;
-		font-size: 2rem;
+		padding: 0.5rem;
 	}
 
 	h1 {
-		font-size: 1.2rem;
+		font-size: 1.15rem;
 	}
 
 	.btn {
-		padding: 6px 10px;
+		padding: 0.35rem 0.6rem;
 		font-size: 0.85rem;
 	}
+}
+
+/* Center split modal internals and options */
+#split-modal>div {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: flex-start;
+}
+
+#split-modal #split-options {
+	width: 100%;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+	gap: 0.6rem;
+}
+
+/* Make sure option buttons inside split modal are centered */
+#split-modal #split-options button {
+	width: 100%;
+}
+
+/* Utility: ensure the main card is centered and constrained */
+#game-container {
+	max-width: var(--card-max-width);
+	margin-left: auto;
+	margin-right: auto;
 }

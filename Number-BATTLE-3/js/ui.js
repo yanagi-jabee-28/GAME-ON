@@ -29,6 +29,8 @@ export function cacheDom() {
 	splitBtnEl = document.getElementById('split-btn');
 	restartBtnEl = document.getElementById('restart-btn');
 	splitModalEl = document.getElementById('split-modal');
+	// Ensure modal is hidden on initial load to avoid accidental visible state
+	if (splitModalEl) splitModalEl.classList.add('hidden');
 	splitTotalEl = document.getElementById('split-total');
 	splitOptionsContainer = document.getElementById('split-options');
 	undoBtnEl = document.getElementById('undo-btn');
