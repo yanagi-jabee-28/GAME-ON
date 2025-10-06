@@ -1,3 +1,5 @@
+import { GAME_CONFIG } from "./config";
+
 // 開発者向けツール集: UI 拡張やデバッグ操作をここに集約
 (function setupDevTools() {
 	// 最新の Engine 参照を保持し、常にそれを使う
