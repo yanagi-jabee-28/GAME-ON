@@ -35,6 +35,29 @@ function generateProblem(max = 1000) {
 	return 1
 }
 
+function factorize(n: number): number[] {
+	const res: number[] = []
+	let x = n
+	// first try the allowed small primes
+	for (const p of PRIMES) {
+		while (x % p === 0) {
+			res.push(p)
+			x = x / p
+		}
+	}
+	// if anything remains, factor it generally (for safety)
+	if (x > 1) {
+		for (let d = 2; d * d <= x; d++) {
+			while (x % d === 0) {
+				res.push(d)
+				x = x / d
+			}
+		}
+	}
+	if (x > 1) res.push(x)
+	return res
+}
+
 function App() {
 	const [target, setTarget] = useState(() => generateProblem(1000))
 	const [current, setCurrent] = useState<number>(target)
@@ -68,7 +91,8 @@ function App() {
 	}
 
 	const giveUp = () => {
-		setMessage(`答え: ${target} = ${history.length ? history.join(' × ') : ''} × ${current}`)
+		const factors = factorize(target)
+		setMessage(`答え: ${target} = ${factors.join(' × ')}`)
 		setCurrent(1)
 	}
 
