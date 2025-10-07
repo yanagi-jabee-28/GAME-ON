@@ -1,5 +1,7 @@
 // Simple adapter to embed GAME-SLOT-1 into the pachinko page and provide a programmatic API.
 
+import { gameConfig } from "../../GAME-SLOT-1/config";
+
 // Diagnostic: mark adapter load and expose quick helpers for debugging
 try {
 	console.log("[EmbeddedSlotAdapter] loaded");
@@ -157,10 +159,8 @@ const API = {
 		try {
 			if (!API._instance && typeof window.SlotGame === "function") {
 				const slotEl = document.getElementById("slot-machine");
-				const cfg =
-					typeof window.gameConfig === "object" && window.gameConfig
-						? window.gameConfig
-						: {};
+				const cfg = { ...gameConfig };
+
 				try {
 					if (slotEl) {
 						// prefer embedder-friendly helper if available
@@ -295,7 +295,7 @@ API.diagnose = () => {
 			slotEl
 		) {
 			console.log("Attempting to instantiate via createSlotIn...");
-			const inst = window.createSlotIn(slotEl, window.gameConfig || {});
+			const inst = window.createSlotIn(slotEl, { ...gameConfig });
 			console.log("createSlotIn returned:", inst);
 		}
 		console.groupEnd && console.groupEnd();

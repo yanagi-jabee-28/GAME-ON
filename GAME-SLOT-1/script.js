@@ -2107,16 +2107,10 @@ window.createSlotIn = function (container, cfg) {
 		if (typeof container === 'string') el = document.querySelector(container);
 		if (!el) return null;
 		// Prefer the internal `gameConfig` defined in this script if cfg is missing or lacks selectors.
-		let conf = null;
-		if (typeof cfg === 'object' && cfg && typeof cfg.selectors === 'object') {
-			conf = cfg;
-		} else if (typeof gameConfig === 'object' && gameConfig && typeof gameConfig.selectors === 'object') {
-			conf = gameConfig;
-		} else if (typeof window.gameConfig === 'object' && window.gameConfig && typeof window.gameConfig.selectors === 'object') {
-			conf = window.gameConfig;
-		} else {
-			conf = cfg || {};
-		}
+		const isConfValid =
+			typeof cfg === "object" && cfg && typeof cfg.selectors === "object";
+		const conf = isConfValid ? { ...gameConfig, ...cfg } : { ...gameConfig };
+
 		const inst = new SlotGame(el, conf);
 		window.SLOT_GAME_INSTANCE = inst;
 		return inst;
