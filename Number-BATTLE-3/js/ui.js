@@ -125,7 +125,8 @@ export function displayPlayerHints(analysis, mode = 'full', selection = null) {
 	// Globally disabled hints: clear and bail
 	if (!CONFIG.SHOW_HINT_CONTROLS) { hintAreaEl.innerHTML = ''; return; }
 	// If the hints toggle is currently off, do not display anything.
-	const hintsEnabled = document.getElementById('toggle-hints-cb')?.checked;
+	const hintToggle = /** @type {HTMLInputElement | null} */ (document.getElementById('toggle-hints-cb'));
+	const hintsEnabled = !!(hintToggle && hintToggle.checked);
 	if (!hintsEnabled) {
 		hintAreaEl.innerHTML = '';
 		return;

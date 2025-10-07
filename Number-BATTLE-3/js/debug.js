@@ -18,6 +18,14 @@ import CONFIG from './config.js';
 
 let debugSelected = null; // index of selected AI hand or null
 
+/**
+ * @returns {HTMLInputElement | null}
+ */
+function getAiControlToggle() {
+	const el = document.getElementById('toggle-ai-control-cb');
+	return el instanceof HTMLInputElement ? el : null;
+}
+
 function clearSelectionVisual() {
 	if (debugSelected !== null) {
 		const prev = document.getElementById(`ai-hand-${debugSelected}`);
@@ -31,11 +39,14 @@ function handleContainerClick(e) {
 	try { if (Game.gameOver) return; } catch (e2) { return; }
 	// Check the UI toggle: only intercept when allowed
 	if (!CONFIG.SHOW_AI_MANUAL_TOGGLE) return;
-	const enabled = document.getElementById('toggle-ai-control-cb')?.checked;
+	const aiToggle = getAiControlToggle();
+	const enabled = !!(aiToggle && aiToggle.checked);
 	if (!enabled) return;
 	try { if (Game.currentPlayer !== 'ai') return; } catch (e3) { return; }
 
-	const target = e.target.closest('[data-hand]');
+	const eventTarget = e.target instanceof Element ? e.target : null;
+	const rawTarget = eventTarget ? eventTarget.closest('[data-hand]') : null;
+	const target = rawTarget instanceof HTMLElement ? rawTarget : null;
 	if (!target) return; // not a hand click
 
 	// Intercept and prevent main.js player handler from running
@@ -43,7 +54,10 @@ function handleContainerClick(e) {
 	e.preventDefault();
 
 	const owner = target.dataset.owner;
-	const index = Number(target.dataset.index);
+	const indexAttr = target.dataset.index;
+	if (!owner || typeof indexAttr === 'undefined') return;
+	const index = Number(indexAttr);
+	if (!Number.isFinite(index)) return;
 
 	// If clicked an AI hand
 	if (owner === 'ai') {
@@ -173,7 +187,7 @@ export function initDebug() {
 	});
 
 	// When the toggle is switched off, ensure any selection is cleared immediately.
-	const toggle = document.getElementById('toggle-ai-control-cb');
+	const toggle = getAiControlToggle();
 	if (toggle) {
 		toggle.addEventListener('change', () => {
 			if (!toggle.checked) {
