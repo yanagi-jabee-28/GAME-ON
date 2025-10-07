@@ -2,10 +2,11 @@
 import { applyAttack, applySplit, switchTurnTo } from './game.js';
 import { performAiAttackAnim, performAiSplitAnim } from './ui.js';
 import { generateMoves } from './game.js';
+import chopSticksTableBaseUrl from '../chopsticks-tablebase.json?url';
 
 // --- テーブルベースの読み込み ---
 let tablebase = null;
-fetch('./chopsticks-tablebase.json')
+fetch(chopSticksTableBaseUrl)
     .then(response => response.json())
     .then(data => {
         tablebase = data;
