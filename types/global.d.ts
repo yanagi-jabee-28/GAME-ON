@@ -1,3 +1,16 @@
+// Minimal ambient declarations to reduce checkJs / tsserver noise for legacy JS files
+interface Window {
+	activeSlotGame?: any;
+	createSlotIn?: any;
+	SlotGame?: any;
+	webkitAudioContext?: typeof AudioContext;
+}
+
+interface HTMLInputElement {
+	// keep the standard properties; sometimes checkJs treats element as generic HTMLElement
+}
+
+declare var window: Window & typeof globalThis;
 // Global ambient type augmentations for the project (lightweight)
 import 'matter-js';
 
