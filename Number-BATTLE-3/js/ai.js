@@ -26,7 +26,7 @@ import {
 import CONFIG from './config.js';
 import { performAiAttackAnim, performAiSplitAnim } from './ui.js';
 
-const TABLEBASE_URL = './chopsticks-tablebase.json';
+import TABLEBASE_URL from '../chopsticks-tablebase.json?url';
 
 let tablebase = null;
 let tablebasePromise = null;
