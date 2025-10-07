@@ -2,10 +2,8 @@
  * SlotSoundManager: スロット用のオーディオ管理（WebAudioベース）
  * - マスター音量と、音種別（spinStart/reelStop/win）ごとの個別音量をサポート
  * - 外部ファイル指定がある場合はプリロードして再生、なければ簡易合成音でフォールバック
- * - グローバルに window.SlotSoundManager として公開
  */
-(function () {
-	class SlotSoundManager {
+export class SlotSoundManager {
 		constructor(config) {
 			this.config = config || {};
 			this.enabled = Boolean(this.config.sounds?.enabled);
@@ -162,6 +160,3 @@
 			}
 		}
 	}
-
-	window.SlotSoundManager = SlotSoundManager;
-})();

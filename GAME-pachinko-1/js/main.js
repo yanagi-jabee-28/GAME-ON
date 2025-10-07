@@ -17,6 +17,11 @@
  *  6) 発射ロジック（単発/連射）
  *  7) イベントループ（afterUpdateでの駆動）と衝突処理
  */
+
+import Matter from "matter-js";
+import { GAME_CONFIG, getMaterialInteraction } from "./config";
+import { addBoundsToWorld, createBall, createBounds, createDecorPolygon, createDecorRectangle, createLaunchPadBody, createParticleBurst, createPolygon, createRectangle, createRotatingYakumono, createSensorCounter, createSensorCounterPolygon, getOffsets, loadPegs } from "./objects";
+
 document.addEventListener('DOMContentLoaded', () => {
 	// Matter.jsの主要モジュールを取得
 	const { Engine, Render, Runner, World, Events, Body, Constraint } = Matter;

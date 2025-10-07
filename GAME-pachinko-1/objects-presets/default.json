@@ -235,23 +235,6 @@
 			"isStatic": true
 		}
 	],
-	"rectangles": [
-		{
-			"x": -40,
-			"y": 80,
-			"width": 25,
-			"height": 6,
-			"angleDeg": 45,
-			"color": "hsl(190,80%,70%,0.4)",
-			"layer": 2,
-			"material": "GUIDE",
-			"isStatic": true,
-			"oneWay": {
-				"enabled": true,
-				"blockDir": "down"
-			}
-		}
-	],
 	"sensorCounters": [],
 	"sensorCounterPolygons": [
 		{

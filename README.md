@@ -15,20 +15,20 @@
 
 ローカルでの実行（推奨: Live Server）
 1. リポジトリをローカルにクローンまたはダウンロード
-2. VS Code の Live Server 拡張を使う（推奨）
-   - 対象サブフォルダの index.html を開き、右クリック → 「Open with Live Server」
-3. 代替: npx live-server（Node.js がある場合）
-   - リポジトリルートで: npx live-server --port=8000
-   - ブラウザで: http://localhost:8000/Novel-games/ など
-4. 代替: Python 簡易サーバ
-   - リポジトリルートで: python -m http.server 8000
-   - ブラウザで: http://localhost:8000/GAME-SLOT-1/ など
+2. `npm install`で依存関係をインストール
+3. `npm run dev`で開発サーバーを起動
 
 開発メモ（共通）
 - 各プロジェクトの詳細設定や実装メモは、それぞれのサブフォルダ内の README を参照してください。
 - 設定やプリセット（JSON 等）を変更することで挙動をカスタマイズできます。
 - ブラウザのデベロッパーツール（コンソール）でのログ出力やデバッグが有効です。
 - 追加したい機能（サウンド／スコア／モバイル最適化など）は各プロジェクトで比較的容易に追加可能です。
+
+新しいページの追加方法
+1. 新しいフォルダを作成し、HTMLファイルを配置
+2. 必要に応じてCSS/JSファイルを追加
+3. 既存の設定を参考に`vite.config.js`のルーティング設定（`build.rollupOptions.input`）を更新
+4. プロジェクトルートの`index.html`に新しいリンクを追加
 
 貢献・ライセンス
 - プルリクエスト歓迎。まず Issue を立てるか、PR に簡単な説明を添えてください。
