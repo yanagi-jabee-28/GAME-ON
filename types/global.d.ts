@@ -1,25 +1,31 @@
 // Minimal ambient declarations to reduce checkJs / tsserver noise for legacy JS files
-interface Window {
-	activeSlotGame?: any;
-	createSlotIn?: any;
-	SlotGame?: any;
-	webkitAudioContext?: typeof AudioContext;
-}
+type GameManagerType = import("../Novel-games/js/gameManager.js").GameManager;
+type UIManagerType = import("../Novel-games/js/ui.js").UIManager;
+type SoundManagerType = import("../Novel-games/js/soundManager.js").SoundManager;
+type GameEventManagerType = typeof import("../Novel-games/js/events.js").GameEventManager;
+type ItemsMap = typeof import("../Novel-games/js/items.js").ITEMS;
+type ConfigType = typeof import("../Novel-games/js/config.js").CONFIG;
 
-interface HTMLInputElement {
-	// keep the standard properties; sometimes checkJs treats element as generic HTMLElement
-}
-
-declare var window: Window & typeof globalThis;
 // Global ambient type augmentations for the project (lightweight)
-import 'matter-js';
+import "matter-js";
 
 declare global {
 	interface Window {
+		activeSlotGame?: any;
+		createSlotIn?: any;
+		SlotGame?: any;
+		webkitAudioContext?: typeof AudioContext;
+		soundManager?: SoundManagerType;
+		GameEventManager?: GameEventManagerType;
+		ITEMS?: ItemsMap;
+		CONFIG?: ConfigType;
+		gameManager?: GameManagerType;
+		ui?: UIManagerType;
+		initializeGame?: (protagonistName?: string) => void;
+
 		__engine_for_devtools__?: any;
 		__render_for_devtools__?: any;
 		__recordPhysicsPerf__?: any;
-		__engine_for_devtools__?: any;
 		__EmbeddedSlotAdapterLoadedAt?: any;
 		__EmbeddedSlotAdapterTrigger?: any;
 		__EmbeddedSlotLastError?: any;
@@ -32,6 +38,37 @@ declare global {
 		setRotatorEnabledByIndex?: any;
 		setAllRotatorsEnabled?: any;
 		toggleRotatorEnabled?: any;
+	}
+
+	var window: Window & typeof globalThis;
+	const soundManager: SoundManagerType;
+	const GameEventManager: GameEventManagerType;
+	const ITEMS: ItemsMap;
+	const CONFIG: ConfigType;
+	const gameManager: GameManagerType;
+	const ui: UIManagerType;
+	function initializeGame(protagonistName?: string): void;
+
+	interface Element {
+		focus?(): void;
+		click?(): void;
+		closest?(selectors: string): Element | null;
+		offsetParent?: Element | null;
+		isContentEditable?: boolean;
+	}
+
+	interface HTMLElement extends Element {
+		disabled?: boolean;
+		value?: string | number | null;
+	}
+
+	interface EventTarget {
+		value?: string | number | null;
+		closest?(selectors: string): Element | null;
+	}
+
+	interface HTMLInputElement extends HTMLElement {
+		value: string;
 	}
 
 	namespace Matter {

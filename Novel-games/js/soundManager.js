@@ -87,8 +87,8 @@ export class SoundManager {
 				const clone = audio.cloneNode(true);
 				try {
 					clone.volume = this.volume;
-				} catch (e) {}
-				clone.play().catch(() => {});
+				} catch (e) { }
+				clone.play().catch(() => { });
 				return;
 			} catch (e) {
 				// fallback to synthetic
@@ -111,9 +111,9 @@ export class SoundManager {
 				try {
 					const a = new Audio(choice);
 					a.volume = this.volume;
-					a.play().catch(() => {});
+					a.play().catch(() => { });
 					return;
-				} catch (e) {}
+				} catch (e) { }
 			}
 		}
 
@@ -141,7 +141,7 @@ export class SoundManager {
 		const audio = this.sounds[key];
 		if (audio) {
 			audio.loop = true;
-			if (!this.muted) audio.play().catch(() => {});
+			if (!this.muted) audio.play().catch(() => { });
 			return;
 		}
 		// WebAudio loop not implemented for synths in this simple manager
@@ -161,18 +161,31 @@ export class SoundManager {
 		for (const k of Object.keys(this.sounds)) {
 			try {
 				this.sounds[k].volume = this.volume;
-			} catch (e) {}
+			} catch (e) { }
+		}
+	}
+
+	setMuted(state) {
+		const next = !!state;
+		if (this.muted === next) return;
+		this.muted = next;
+		if (this.muted) {
+			for (const audio of Object.values(this.sounds)) {
+				try {
+					audio.pause();
+				} catch (e) { }
+			}
 		}
 	}
 
 	mute() {
-		this.muted = true;
+		this.setMuted(true);
 	}
 	unmute() {
-		this.muted = false;
+		this.setMuted(false);
 	}
 	toggleMute() {
-		this.muted = !this.muted;
+		this.setMuted(!this.muted);
 	}
 
 	// --- internal synthetic sounds ---

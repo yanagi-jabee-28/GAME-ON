@@ -156,7 +156,7 @@ function initializeGame(protagonistName) {
 	// Play game start sound if available
 	try {
 		if (typeof soundManager !== "undefined") soundManager.play("game_start");
-	} catch (e) {}
+	} catch (e) { }
 
 	// 初期状態を画面に反映
 	ui.updateStatusDisplay(gameManager.getStatus());
@@ -184,15 +184,22 @@ function initializeTitleScreen() {
 
 	const newGameButton = document.getElementById("new-game-button");
 	const loadGameButton = document.getElementById("load-game-button-title");
-	const protagonistNameInput = document.getElementById("protagonist-name");
+	const protagonistNameInput = /** @type {HTMLInputElement|null} */ (
+		document.getElementById("protagonist-name")
+	);
+
+	if (!newGameButton || !loadGameButton || !protagonistNameInput) return;
 
 	newGameButton.addEventListener("click", () => {
-		const name = protagonistNameInput.value.trim();
+		const rawValue = protagonistNameInput.value;
+		const name = typeof rawValue === "string"
+			? rawValue.trim()
+			: String(rawValue ?? "").trim();
 		if (name) {
 			try {
 				if (typeof soundManager !== "undefined")
 					soundManager.play("game_start");
-			} catch (e) {}
+			} catch (e) { }
 			initializeGame(name);
 		} else {
 			ui.showTransientNotice("主人公の名前を入力してください。");

@@ -6,6 +6,7 @@
 
 import { CONFIG } from "./config.js";
 import { ITEMS } from "./items.js";
+import { RANDOM_EVENTS } from "./eventsData.js";
 
 export class GameManager {
 	/**
@@ -131,8 +132,8 @@ export class GameManager {
 				const sign = delta > 0 ? "+" : "";
 				const unit =
 					typeof CONFIG !== "undefined" &&
-					CONFIG.LABELS &&
-					CONFIG.LABELS.currencyUnit
+						CONFIG.LABELS &&
+						CONFIG.LABELS.currencyUnit
 						? CONFIG.LABELS.currencyUnit
 						: "円";
 				messages.push(`所持金: ${sign}${delta}${unit}`);
@@ -165,7 +166,7 @@ export class GameManager {
 				try {
 					if (typeof soundManager !== "undefined")
 						soundManager.play("item_get");
-				} catch (e) {}
+				} catch (e) { }
 			}
 
 			// menuLocked
@@ -520,7 +521,7 @@ export class GameManager {
 			if (
 				this.playerStatus.lastExamRunDay &&
 				Number(this.playerStatus.lastExamRunDay) ===
-					Number(this.playerStatus.day)
+				Number(this.playerStatus.day)
 			) {
 				return;
 			}
@@ -642,7 +643,7 @@ export class GameManager {
 
 	/**
 	 * ランダムイベントの発生をチェックし、条件に合致すればトリガーする
-	 * @returns {boolean} イベントが発生したかどうか
+	 * @returns {Promise<boolean>} イベントが発生したかどうか
 	 */
 	async checkAndTriggerRandomEvent() {
 		// ここにランダムイベントの発生判定ロジックを記述
@@ -715,7 +716,7 @@ export class GameManager {
 
 	/**
 	 * 履歴を追加するユーティリティ
-	 * @param {{ type: string, actionId?: string, eventId?: string, choiceId?: string, result?: string, changes?: object, detail?: object }} entry
+	 * @param {{ type: string, actionId?: string, eventId?: string, choiceId?: string, result?: string, changes?: object, detail?: object, _label?: string }} entry
 	 */
 	addHistory(entry) {
 		if (!this.playerStatus.history) this.playerStatus.history = [];
@@ -837,10 +838,10 @@ export class GameManager {
 						e.detail && e.detail.shopLabel
 							? e.detail.shopLabel
 							: shopId &&
-									CONFIG &&
-									CONFIG.SHOPS &&
-									CONFIG.SHOPS[shopId] &&
-									CONFIG.SHOPS[shopId].label
+								CONFIG &&
+								CONFIG.SHOPS &&
+								CONFIG.SHOPS[shopId] &&
+								CONFIG.SHOPS[shopId].label
 								? CONFIG.SHOPS[shopId].label
 								: shopId || "店";
 					if (purchased) {
@@ -893,7 +894,7 @@ export class GameManager {
 				(message ? message + "\n" : "") + (msgs.length ? msgs.join("\n") : "");
 			if (typeof ui !== "undefined") {
 				if (typeof ui.showFloatingMessage === "function")
-					await ui.showFloatingMessage(combined).catch(() => {});
+					await ui.showFloatingMessage(combined).catch(() => { });
 				else if (typeof ui.displayMessage === "function")
 					ui.displayMessage(combined, name || "システム");
 			}
@@ -1123,7 +1124,7 @@ export class GameManager {
 		this._notifyListeners(); // ステータス変更を通知
 		try {
 			if (typeof soundManager !== "undefined") soundManager.play("item_use");
-		} catch (e) {}
+		} catch (e) { }
 		return true;
 	}
 
@@ -1135,12 +1136,12 @@ export class GameManager {
 		// 新仕様: 体力(physical)と精神力(mental)の平均からコンディションを推定
 		const p =
 			this.playerStatus.stats &&
-			typeof this.playerStatus.stats.physical === "number"
+				typeof this.playerStatus.stats.physical === "number"
 				? this.playerStatus.stats.physical
 				: undefined;
 		const m =
 			this.playerStatus.stats &&
-			typeof this.playerStatus.stats.mental === "number"
+				typeof this.playerStatus.stats.mental === "number"
 				? this.playerStatus.stats.mental
 				: undefined;
 		let cond;
