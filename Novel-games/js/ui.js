@@ -4,65 +4,81 @@
  * HTML要素の操作はすべてここで行い、他のロジックから分離します。
  */
 
-class UIManager {
+import { CONFIG } from "./config.js";
+import { ITEMS } from "./items.js";
+
+export class UIManager {
 	/**
 	 * UIManagerのコンストラクタ
 	 */
 	constructor() {
 		// UI要素を取得してプロパティに保持
-		this.titleScreen = document.getElementById('title-screen');
-		this.gameScreen = document.getElementById('game-screen');
+		this.titleScreen = document.getElementById("title-screen");
+		this.gameScreen = document.getElementById("game-screen");
 
-		this.dateDisplay = document.getElementById('date-display');
-		this.timeOfDayDisplay = document.getElementById('time-of-day-display');
-		this.physicalDisplay = document.getElementById('physical-display');
-		this.mentalDisplay = document.getElementById('mental-display');
-		this.technicalDisplay = document.getElementById('technical-display');
-		this.moneyDisplay = document.getElementById('money-display');
-		this.cpDisplay = document.getElementById('cp-display');
+		this.dateDisplay = document.getElementById("date-display");
+		this.timeOfDayDisplay = document.getElementById("time-of-day-display");
+		this.physicalDisplay = document.getElementById("physical-display");
+		this.mentalDisplay = document.getElementById("mental-display");
+		this.technicalDisplay = document.getElementById("technical-display");
+		this.moneyDisplay = document.getElementById("money-display");
+		this.cpDisplay = document.getElementById("cp-display");
 
-		this.messageWindow = document.getElementById('message-window');
-		this.characterName = document.getElementById('character-name');
-		this.messageText = document.getElementById('message-text');
-		this.clickIndicator = document.getElementById('click-indicator');
+		this.messageWindow = document.getElementById("message-window");
+		this.characterName = document.getElementById("character-name");
+		this.messageText = document.getElementById("message-text");
+		this.clickIndicator = document.getElementById("click-indicator");
 
-		this.choicesArea = document.getElementById('choices-area');
+		this.choicesArea = document.getElementById("choices-area");
 
 		// メニュー関連の要素
-		this.menuButton = document.getElementById('menu-button');
-		this.menuCloseButton = document.getElementById('menu-close-button');
-		this.menuOverlay = document.getElementById('menu-overlay');
-		this.menuAcademic = document.getElementById('menu-academic');
-		this.menuPhysical = document.getElementById('menu-physical');
-		this.menuMental = document.getElementById('menu-mental');
-		this.menuTechnical = document.getElementById('menu-technical');
-		this.menuReportDebt = document.getElementById('menu-report-debt');
-		this.menuItemList = document.getElementById('menu-item-list');
-		this.menuCloseFloating = document.getElementById('menu-close-floating');
-		this.menuItemSection = document.getElementById('menu-item-section');
-		this.menuHistorySection = document.getElementById('menu-history-section');
-		this.toggleItemsButton = document.getElementById('toggle-items-button');
-		this.toggleHistoryButton = document.getElementById('toggle-history-button');
-		this.toggleCharactersButton = document.getElementById('toggle-characters-button');
-		this.menuCharactersSection = document.getElementById('menu-characters-section');
+		this.menuButton = document.getElementById("menu-button");
+		this.menuCloseButton = document.getElementById("menu-close-button");
+		this.menuOverlay = document.getElementById("menu-overlay");
+		this.menuAcademic = document.getElementById("menu-academic");
+		this.menuPhysical = document.getElementById("menu-physical");
+		this.menuMental = document.getElementById("menu-mental");
+		this.menuTechnical = document.getElementById("menu-technical");
+		this.menuReportDebt = document.getElementById("menu-report-debt");
+		this.menuItemList = document.getElementById("menu-item-list");
+		this.menuCloseFloating = document.getElementById("menu-close-floating");
+		this.menuItemSection = document.getElementById("menu-item-section");
+		this.menuHistorySection = document.getElementById("menu-history-section");
+		this.toggleItemsButton = document.getElementById("toggle-items-button");
+		this.toggleHistoryButton = document.getElementById("toggle-history-button");
+		this.toggleCharactersButton = document.getElementById(
+			"toggle-characters-button",
+		);
+		this.menuCharactersSection = document.getElementById(
+			"menu-characters-section",
+		);
 
 		// キャラクター関連 UI 要素
-		this.focusedCharacterWrap = document.getElementById('focused-character');
-		this.focusedCharacterName = document.getElementById('focused-character-name');
-		this.focusedCharacterTrust = document.getElementById('focused-character-trust');
-
+		this.focusedCharacterWrap = document.getElementById("focused-character");
+		this.focusedCharacterName = document.getElementById(
+			"focused-character-name",
+		);
+		this.focusedCharacterTrust = document.getElementById(
+			"focused-character-trust",
+		);
 
 		// セーブ・ロード関連の要素
-		this.saveGameButton = document.getElementById('save-game-button');
-		this.loadGameButton = document.getElementById('load-game-button');
-		this.loadGameFileInput = document.getElementById('load-game-file-input');
+		this.saveGameButton = document.getElementById("save-game-button");
+		this.loadGameButton = document.getElementById("load-game-button");
+		this.loadGameFileInput = document.getElementById("load-game-file-input");
 
 		// GameManager のステータス変更を購読して自動的に表示を更新
-		if (typeof gameManager !== 'undefined' && typeof gameManager.subscribe === 'function') {
-			gameManager.subscribe(status => {
+		if (
+			typeof gameManager !== "undefined" &&
+			typeof gameManager.subscribe === "function"
+		) {
+			gameManager.subscribe((status) => {
 				this.updateStatusDisplay(status);
 				// メニューが開いている場合はメニューの内容も更新する
-				if (this.menuOverlay && !this.menuOverlay.classList.contains('hidden')) {
+				if (
+					this.menuOverlay &&
+					!this.menuOverlay.classList.contains("hidden")
+				) {
 					this.updateMenuDisplay();
 				}
 				// キャラクター表示の更新
@@ -73,24 +89,28 @@ class UIManager {
 		// グローバルキーハンドラを早期に登録しておく（タイトル画面でも有効にするため）
 		if (!this._boundKeyboardHandler) {
 			this._boundKeyboardHandler = this._handleGlobalKeydown.bind(this);
-			window.addEventListener('keydown', this._boundKeyboardHandler);
+			window.addEventListener("keydown", this._boundKeyboardHandler);
 		}
 	}
 
 	showTitleScreen() {
-		if (this.titleScreen) this.titleScreen.style.display = 'flex';
-		if (this.gameScreen) this.gameScreen.style.display = 'none';
+		if (this.titleScreen) this.titleScreen.style.display = "flex";
+		if (this.gameScreen) this.gameScreen.style.display = "none";
 
 		// 初期フォーカスをタイトルの最初のボタンに移す（キーボード操作を容易にする）
 		setTimeout(() => {
 			try {
-				const buttons = Array.from(document.querySelectorAll('#title-screen .title-buttons button'));
+				const buttons = Array.from(
+					document.querySelectorAll("#title-screen .title-buttons button"),
+				);
 				if (buttons.length > 0) {
-					buttons.forEach(b => b.classList.remove('focused'));
-					buttons[0].classList.add('focused');
-					try { buttons[0].focus(); } catch (e) { }
+					buttons.forEach((b) => b.classList.remove("focused"));
+					buttons[0].classList.add("focused");
+					try {
+						buttons[0].focus();
+					} catch (e) {}
 				}
-			} catch (e) { }
+			} catch (e) {}
 		}, 40);
 	}
 
@@ -102,51 +122,55 @@ class UIManager {
 	_setTitleButtonFocus(buttons, index) {
 		buttons.forEach((b, i) => {
 			if (i === index) {
-				b.classList.add('focused');
-				try { b.focus(); } catch (e) { }
+				b.classList.add("focused");
+				try {
+					b.focus();
+				} catch (e) {}
 			} else {
-				b.classList.remove('focused');
+				b.classList.remove("focused");
 			}
 		});
 	}
 
 	showGameScreen() {
-		if (this.titleScreen) this.titleScreen.style.display = 'none';
-		if (this.gameScreen) this.gameScreen.style.display = 'block';
+		if (this.titleScreen) this.titleScreen.style.display = "none";
+		if (this.gameScreen) this.gameScreen.style.display = "block";
 	}
 
 	/**
 	 * メニューの専用ウィンドウを開く
 	 * @param {'item'|'history'} type
-	*/
+	 */
 	async openMenuWindow(type) {
 		try {
 			// メニュー自体が閉じている場合は開く（ただしフリー行動チェックは openMenu が行う）
-			if (this.menuOverlay && this.menuOverlay.classList.contains('hidden')) {
-				this.menuOverlay.classList.remove('hidden');
+			if (this.menuOverlay && this.menuOverlay.classList.contains("hidden")) {
+				this.menuOverlay.classList.remove("hidden");
 			}
 			// Mark as user-opened because this is invoked from a user action
-			try { if (this.menuOverlay) this.menuOverlay.dataset.userOpened = '1'; } catch (e) { }
+			try {
+				if (this.menuOverlay) this.menuOverlay.dataset.userOpened = "1";
+			} catch (e) {}
 
-			if (type === 'item') {
-				const win = document.getElementById('menu-item-window');
+			if (type === "item") {
+				const win = document.getElementById("menu-item-window");
 				if (!win) return;
-				const list = document.getElementById('menu-item-window-list');
-				list.innerHTML = '';
+				const list = document.getElementById("menu-item-window-list");
+				list.innerHTML = "";
 				const status = gameManager.getAllStatus();
 				if (!status.items || status.items.length === 0) {
-					const li = document.createElement('li');
-					li.textContent = '(アイテムはありません)';
+					const li = document.createElement("li");
+					li.textContent = "(アイテムはありません)";
 					list.appendChild(li);
 				} else {
-					status.items.forEach(itemId => {
+					status.items.forEach((itemId) => {
 						const item = ITEMS[itemId];
-						const li = document.createElement('li');
-						li.innerHTML = `<span>${item ? item.name : itemId} - ${item ? item.description : ''}</span>`;
+						const li = document.createElement("li");
+						li.innerHTML = `<span>${item ? item.name : itemId} - ${item ? item.description : ""}</span>`;
 
-						const useBtn = document.createElement('button');
-						useBtn.textContent = '使用';
-						useBtn.className = 'item-use-btn';
+						const useBtn = document.createElement("button");
+						useBtn.textContent = "使用";
+						useBtn.className = "item-use-btn";
 						useBtn.onclick = async () => {
 							if (useBtn.disabled) return;
 							useBtn.disabled = true;
@@ -154,15 +178,20 @@ class UIManager {
 								const ok = await gameManager.useItem(itemId);
 								// 使用が成功していればこのウィンドウを再描画して所持数を反映する
 								if (ok) {
-									await this.openMenuWindow('item');
+									await this.openMenuWindow("item");
 								} else {
 									// 失敗（所持していない等）はトーストで通知して再描画
-									try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
-									this.showTransientNotice('アイテムを所持していません。', { duration: 1200 });
-									await this.openMenuWindow('item');
+									try {
+										if (typeof soundManager !== "undefined")
+											soundManager.play("error");
+									} catch (e) {}
+									this.showTransientNotice("アイテムを所持していません。", {
+										duration: 1200,
+									});
+									await this.openMenuWindow("item");
 								}
 							} catch (e) {
-								console.error('useItem error (window)', e);
+								console.error("useItem error (window)", e);
 							} finally {
 								useBtn.disabled = false;
 							}
@@ -171,29 +200,29 @@ class UIManager {
 						list.appendChild(li);
 					});
 				}
-				win.classList.remove('hidden');
+				win.classList.remove("hidden");
 				// When the item window is open, disable the main menu close controls to avoid accidental closure
 				this._setMenuCloseEnabled(false);
 				return;
 			}
 
-			if (type === 'history') {
-				const win = document.getElementById('menu-history-window');
+			if (type === "history") {
+				const win = document.getElementById("menu-history-window");
 				if (!win) return;
-				const list = document.getElementById('menu-history-window-list');
-				list.innerHTML = '';
+				const list = document.getElementById("menu-history-window-list");
+				list.innerHTML = "";
 				const status = gameManager.getAllStatus();
 				const history = status.history || [];
 				if (history.length === 0) {
-					const li = document.createElement('li');
-					li.textContent = '(履歴はありません)';
+					const li = document.createElement("li");
+					li.textContent = "(履歴はありません)";
 					list.appendChild(li);
 				} else {
 					const entries = history.slice().reverse();
-					entries.forEach(h => {
-						const li = document.createElement('li');
-						const time = `${h.day}日目 ${h.turn || ''}`.trim();
-						let text = '';
+					entries.forEach((h) => {
+						const li = document.createElement("li");
+						const time = `${h.day}日目 ${h.turn || ""}`.trim();
+						let text = "";
 
 						// If a human-readable label was attached by gameManager.addHistory, prefer it.
 						if (h && h._label) {
@@ -201,11 +230,18 @@ class UIManager {
 							list.appendChild(li);
 							return;
 						}
-						if (h.type === 'use_item') {
-							const itemName = h.detail && h.detail.itemName ? h.detail.itemName : (h.detail && h.detail.itemId && ITEMS[h.detail.itemId] ? ITEMS[h.detail.itemId].name : h.detail && h.detail.itemId ? h.detail.itemId : 'アイテム');
+						if (h.type === "use_item") {
+							const itemName =
+								h.detail && h.detail.itemName
+									? h.detail.itemName
+									: h.detail && h.detail.itemId && ITEMS[h.detail.itemId]
+										? ITEMS[h.detail.itemId].name
+										: h.detail && h.detail.itemId
+											? h.detail.itemId
+											: "アイテム";
 							text = `${time}: アイテム使用 - ${itemName}`;
-						} else if (h.type === 'choice') {
-							const label = h.detail && h.detail.label ? h.detail.label : '';
+						} else if (h.type === "choice") {
+							const label = h.detail && h.detail.label ? h.detail.label : "";
 							text = `${time}: 選択 - ${label}`;
 						} else {
 							text = `${time}: ${h.type}`;
@@ -214,64 +250,78 @@ class UIManager {
 						list.appendChild(li);
 					});
 				}
-				win.classList.remove('hidden');
+				win.classList.remove("hidden");
 				return;
 			}
 
-			if (type === 'character') {
-				const winId = 'menu-character-window';
+			if (type === "character") {
+				const winId = "menu-character-window";
 				let win = document.getElementById(winId);
 				if (!win) {
-					win = document.createElement('div');
+					win = document.createElement("div");
 					win.id = winId;
-					win.className = 'menu-window';
+					win.className = "menu-window";
 					win.innerHTML = `<div class="menu-window-header">キャラクター一覧<button class="menu-window-close">✕</button></div><div class="menu-window-body" id="menu-character-window-list"></div>`;
-					document.getElementById('game-container').appendChild(win);
+					document.getElementById("game-container").appendChild(win);
 					// wire close
-					win.querySelector('.menu-window-close').addEventListener('click', (e) => { this.closeMenuWindow(win); });
+					win
+						.querySelector(".menu-window-close")
+						.addEventListener("click", (e) => {
+							this.closeMenuWindow(win);
+						});
 				}
-				const listEl = document.getElementById('menu-character-window-list');
-				listEl.innerHTML = '';
+				const listEl = document.getElementById("menu-character-window-list");
+				listEl.innerHTML = "";
 				const status = gameManager.getAllStatus();
-				const chars = (status.characters || []).filter(c => c.id !== 'player');
+				const chars = (status.characters || []).filter(
+					(c) => c.id !== "player",
+				);
 				if (chars.length === 0) {
-					const p = document.createElement('p');
-					p.textContent = '(キャラクターが登録されていません)';
+					const p = document.createElement("p");
+					p.textContent = "(キャラクターが登録されていません)";
 					listEl.appendChild(p);
 				} else {
-					const ul = document.createElement('ul');
-					chars.forEach(c => {
-						const li = document.createElement('li');
+					const ul = document.createElement("ul");
+					chars.forEach((c) => {
+						const li = document.createElement("li");
 						li.textContent = `${c.name} (信頼: ${c.trust})`;
-						const btn = document.createElement('button');
-						btn.textContent = '表示';
-						btn.className = 'char-view-btn';
+						const btn = document.createElement("button");
+						btn.textContent = "表示";
+						btn.className = "char-view-btn";
 						btn.onclick = () => {
 							// reuse existing detail window logic
-							let detail = document.getElementById('menu-character-detail-window');
+							let detail = document.getElementById(
+								"menu-character-detail-window",
+							);
 							if (!detail) {
-								detail = document.createElement('div');
-								detail.id = 'menu-character-detail-window';
-								detail.className = 'menu-window';
+								detail = document.createElement("div");
+								detail.id = "menu-character-detail-window";
+								detail.className = "menu-window";
 								detail.innerHTML = `<div class="menu-window-header">キャラクター詳細<button class="menu-window-close">✕</button></div><div class="menu-window-body" id="menu-character-detail-body"></div>`;
-								document.getElementById('game-container').appendChild(detail);
+								document.getElementById("game-container").appendChild(detail);
 								// wire close
-								detail.querySelector('.menu-window-close').addEventListener('click', (e) => { this.closeMenuWindow(detail); });
+								detail
+									.querySelector(".menu-window-close")
+									.addEventListener("click", (e) => {
+										this.closeMenuWindow(detail);
+									});
 							}
-							const body = document.getElementById('menu-character-detail-body');
+							const body = document.getElementById(
+								"menu-character-detail-body",
+							);
 							if (body) {
-								body.innerHTML = '';
-								const nameEl = document.createElement('h4');
+								body.innerHTML = "";
+								const nameEl = document.createElement("h4");
 								nameEl.textContent = c.name;
-								const trustEl = document.createElement('p');
+								const trustEl = document.createElement("p");
 								trustEl.textContent = `信頼: ${c.trust}`;
-								const notes = document.createElement('p');
-								notes.textContent = c.notes || '';
+								const notes = document.createElement("p");
+								notes.textContent = c.notes || "";
 								body.appendChild(nameEl);
 								body.appendChild(trustEl);
 								body.appendChild(notes);
 							}
-							detail.classList.remove('hidden');
+							detail.classList.remove("hidden");
 							this._setMenuCloseEnabled(false);
 						};
 						li.appendChild(btn);
@@ -279,45 +329,49 @@ class UIManager {
 					});
 					listEl.appendChild(ul);
 				}
-				win.classList.remove('hidden');
+				win.classList.remove("hidden");
 				this._setMenuCloseEnabled(false);
 				return;
 			}
 
-			if (type === 'report') {
-				const winId = 'menu-report-window';
+			if (type === "report") {
+				const winId = "menu-report-window";
 				let win = document.getElementById(winId);
 				if (!win) {
-					win = document.createElement('div');
+					win = document.createElement("div");
 					win.id = winId;
-					win.className = 'menu-window';
+					win.className = "menu-window";
 					win.innerHTML = `<div class="menu-window-header">レポート一覧<button class="menu-window-close">✕</button></div><div class="menu-window-body" id="menu-report-window-body"></div>`;
-					document.getElementById('game-container').appendChild(win);
-					win.querySelector('.menu-window-close').addEventListener('click', (e) => { this.closeMenuWindow(win); });
+					document.getElementById("game-container").appendChild(win);
+					win
+						.querySelector(".menu-window-close")
+						.addEventListener("click", (e) => {
+							this.closeMenuWindow(win);
+						});
 				}
-				const body = document.getElementById('menu-report-window-body');
-				body.innerHTML = '';
+				const body = document.getElementById("menu-report-window-body");
+				body.innerHTML = "";
 				const status = gameManager.getAllStatus();
 				const reports = status.reports || [];
 				if (reports.length === 0) {
-					const p = document.createElement('p');
-					p.textContent = '(進行中のレポートはありません)';
+					const p = document.createElement("p");
+					p.textContent = "(進行中のレポートはありません)";
 					body.appendChild(p);
 				} else {
-					const ul = document.createElement('ul');
-					reports.forEach(r => {
-						const li = document.createElement('li');
+					const ul = document.createElement("ul");
+					reports.forEach((r) => {
+						const li = document.createElement("li");
 						li.textContent = `${r.title} (${r.progress}/${r.required})`;
 						ul.appendChild(li);
 					});
 					body.appendChild(ul);
 				}
-				win.classList.remove('hidden');
+				win.classList.remove("hidden");
 				this._setMenuCloseEnabled(false);
 				return;
 			}
 		} catch (e) {
-			console.error('openMenuWindow error', e);
+			console.error("openMenuWindow error", e);
 		}
 	}
 
@@ -327,16 +381,21 @@ class UIManager {
 	 */
 	closeMenuWindow(winEl) {
 		if (!winEl) return;
-		winEl.classList.add('hidden');
+		winEl.classList.add("hidden");
 		// If the closed window was an item or character window, re-enable main menu close controls
 		try {
-			const itemWin = document.getElementById('menu-item-window');
-			const charWin = document.getElementById('menu-character-window');
-			const charDetail = document.getElementById('menu-character-detail-window');
-			const reportWin = document.getElementById('menu-report-window');
-			const stillOpen = (itemWin && !itemWin.classList.contains('hidden')) || (charWin && !charWin.classList.contains('hidden')) || (charDetail && !charDetail.classList.contains('hidden'));
+			const itemWin = document.getElementById("menu-item-window");
+			const charWin = document.getElementById("menu-character-window");
+			const charDetail = document.getElementById(
+				"menu-character-detail-window",
+			);
+			const reportWin = document.getElementById("menu-report-window");
+			const stillOpen =
+				(itemWin && !itemWin.classList.contains("hidden")) ||
+				(charWin && !charWin.classList.contains("hidden")) ||
+				(charDetail && !charDetail.classList.contains("hidden"));
 			if (!stillOpen) this._setMenuCloseEnabled(true);
-		} catch (e) { }
+		} catch (e) {}
 	}
 
 	/**
@@ -347,13 +406,18 @@ class UIManager {
 		try {
 			if (this.menuCloseButton) {
 				this.menuCloseButton.disabled = !enabled;
-				if (!enabled) this.menuCloseButton.classList.add('disabled'); else this.menuCloseButton.classList.remove('disabled');
+				if (!enabled) this.menuCloseButton.classList.add("disabled");
+				else this.menuCloseButton.classList.remove("disabled");
 			}
 			if (this.menuCloseFloating) {
-				this.menuCloseFloating.setAttribute('aria-disabled', enabled ? 'false' : 'true');
-				if (!enabled) this.menuCloseFloating.classList.add('disabled'); else this.menuCloseFloating.classList.remove('disabled');
+				this.menuCloseFloating.setAttribute(
+					"aria-disabled",
+					enabled ? "false" : "true",
+				);
+				if (!enabled) this.menuCloseFloating.classList.add("disabled");
+				else this.menuCloseFloating.classList.remove("disabled");
 			}
-		} catch (e) { }
+		} catch (e) {}
 	}
 
 	/**
@@ -361,30 +425,64 @@ class UIManager {
 	 * @param {object} status - 表示するステータス情報 (GameManagerから取得)
 	 */
 	updateStatusDisplay(status) {
-		console.log('UI.updateStatusDisplay called with status:', status);
+		console.log("UI.updateStatusDisplay called with status:", status);
 		// 日付表示に曜日を付与
-		const weekday = typeof gameManager.getWeekdayName === 'function' ? gameManager.getWeekdayName() : '';
+		const weekday =
+			typeof gameManager.getWeekdayName === "function"
+				? gameManager.getWeekdayName()
+				: "";
 		// DOM が差し替えられている可能性があるため、要素が document に存在するか確認して再取得する
 		try {
-			if (!this.dateDisplay || !document.contains(this.dateDisplay)) this.dateDisplay = document.getElementById('date-display');
-			if (!this.timeOfDayDisplay || !document.contains(this.timeOfDayDisplay)) this.timeOfDayDisplay = document.getElementById('time-of-day-display');
-			if (!this.moneyDisplay || !document.contains(this.moneyDisplay)) this.moneyDisplay = document.getElementById('money-display');
-			if (!this.cpDisplay || !document.contains(this.cpDisplay)) this.cpDisplay = document.getElementById('cp-display');
-			if (!this.physicalDisplay || !document.contains(this.physicalDisplay)) this.physicalDisplay = document.getElementById('physical-display');
-			if (!this.mentalDisplay || !document.contains(this.mentalDisplay)) this.mentalDisplay = document.getElementById('mental-display');
-			if (!this.technicalDisplay || !document.contains(this.technicalDisplay)) this.technicalDisplay = document.getElementById('technical-display');
+			if (!this.dateDisplay || !document.contains(this.dateDisplay))
+				this.dateDisplay = document.getElementById("date-display");
+			if (!this.timeOfDayDisplay || !document.contains(this.timeOfDayDisplay))
+				this.timeOfDayDisplay = document.getElementById("time-of-day-display");
+			if (!this.moneyDisplay || !document.contains(this.moneyDisplay))
+				this.moneyDisplay = document.getElementById("money-display");
+			if (!this.cpDisplay || !document.contains(this.cpDisplay))
+				this.cpDisplay = document.getElementById("cp-display");
+			if (!this.physicalDisplay || !document.contains(this.physicalDisplay))
+				this.physicalDisplay = document.getElementById("physical-display");
+			if (!this.mentalDisplay || !document.contains(this.mentalDisplay))
+				this.mentalDisplay = document.getElementById("mental-display");
+			if (!this.technicalDisplay || !document.contains(this.technicalDisplay))
+				this.technicalDisplay = document.getElementById("technical-display");
 			// academic may be added in the header chips
-			if (!this.academicDisplay || !document.contains(this.academicDisplay)) this.academicDisplay = document.getElementById('academic-display');
-		} catch (e) { console.warn('Error checking status display elements', e); }
+			if (!this.academicDisplay || !document.contains(this.academicDisplay))
+				this.academicDisplay = document.getElementById("academic-display");
+		} catch (e) {
+			console.warn("Error checking status display elements", e);
+		}
 
-		if (this.dateDisplay) this.dateDisplay.textContent = `${status.day}日目 (${weekday}曜日)`;
-		if (this.timeOfDayDisplay) this.timeOfDayDisplay.textContent = CONFIG.TURNS[status.turnIndex];
-		if (this.physicalDisplay) this.physicalDisplay.textContent = status.stats && typeof status.stats.physical !== 'undefined' ? status.stats.physical : '';
-		if (this.mentalDisplay) this.mentalDisplay.textContent = status.stats && typeof status.stats.mental !== 'undefined' ? status.stats.mental : '';
-		if (this.academicDisplay) this.academicDisplay.textContent = status.stats && typeof status.stats.academic !== 'undefined' ? status.stats.academic : '';
-		if (this.technicalDisplay) this.technicalDisplay.textContent = status.stats && typeof status.stats.technical !== 'undefined' ? status.stats.technical : '';
+		if (this.dateDisplay)
+			this.dateDisplay.textContent = `${status.day}日目 (${weekday}曜日)`;
+		if (this.timeOfDayDisplay)
+			this.timeOfDayDisplay.textContent = CONFIG.TURNS[status.turnIndex];
+		if (this.physicalDisplay)
+			this.physicalDisplay.textContent =
+				status.stats && typeof status.stats.physical !== "undefined"
+					? status.stats.physical
+					: "";
+		if (this.mentalDisplay)
+			this.mentalDisplay.textContent =
+				status.stats && typeof status.stats.mental !== "undefined"
+					? status.stats.mental
+					: "";
+		if (this.academicDisplay)
+			this.academicDisplay.textContent =
+				status.stats && typeof status.stats.academic !== "undefined"
+					? status.stats.academic
+					: "";
+		if (this.technicalDisplay)
+			this.technicalDisplay.textContent =
+				status.stats && typeof status.stats.technical !== "undefined"
+					? status.stats.technical
+					: "";
 		// 通貨単位は CONFIG.LABELS.currencyUnit を優先
-		const unit = (CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円';
+		const unit =
+			CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit
+				? CONFIG.LABELS.currencyUnit
+				: "円";
 		this.moneyDisplay.textContent = `${status.money}${unit}`;
 		this.cpDisplay.textContent = status.cp;
 	}
@@ -395,15 +493,18 @@ class UIManager {
 	updateFocusedCharacter(status) {
 		try {
 			if (!this.focusedCharacterWrap) return;
-			const player = gameManager.getCharacter('player');
+			const player = gameManager.getCharacter("player");
 			if (!player) {
-				this.focusedCharacterWrap.style.display = 'none';
+				this.focusedCharacterWrap.style.display = "none";
 				return;
 			}
-			this.focusedCharacterName.textContent = player.name || '';
-			this.focusedCharacterTrust.textContent = (typeof player.trust === 'number') ? `${player.trust}` : '';
-			this.focusedCharacterWrap.style.display = 'flex';
-		} catch (e) { console.warn('updateFocusedCharacter error', e); }
+			this.focusedCharacterName.textContent = player.name || "";
+			this.focusedCharacterTrust.textContent =
+				typeof player.trust === "number" ? `${player.trust}` : "";
+			this.focusedCharacterWrap.style.display = "flex";
+		} catch (e) {
+			console.warn("updateFocusedCharacter error", e);
+		}
 	}
 
 	/**
@@ -411,58 +512,76 @@ class UIManager {
 	 * @param {string} text - 表示するメッセージ本文
 	 * @param {string} [characterName=''] - 表示するキャラクター名 (省略可能)
 	 */
-	displayMessage(text, characterName = '') {
+	displayMessage(text, characterName = "") {
 		// Guard: ignore empty or whitespace-only messages to avoid showing
 		// an empty message window that only waits for a click.
-		if (text === null || typeof text === 'undefined') return;
+		if (text === null || typeof text === "undefined") return;
 		const txt = String(text);
-		if (txt.trim() === '') {
-			console.log('UI.displayMessage: ignoring empty message');
+		if (txt.trim() === "") {
+			console.log("UI.displayMessage: ignoring empty message");
 			return;
 		}
 
 		let finalCharacterName = characterName;
-		if (characterName === '主人公' && typeof gameManager !== 'undefined') {
-			const player = gameManager.getCharacter('player');
+		if (characterName === "主人公" && typeof gameManager !== "undefined") {
+			const player = gameManager.getCharacter("player");
 			if (player && player.name) {
 				finalCharacterName = player.name;
 			}
 		}
 
-		console.log('UI.displayMessage called:', { characterName: finalCharacterName, text: txt });
+		console.log("UI.displayMessage called:", {
+			characterName: finalCharacterName,
+			text: txt,
+		});
 		// メニューが開いている場合はメッセージウィンドウを前面に出す
 		// 常にメッセージウィンドウを前面に出しておく（overlay が残っている場合の救済策）
 		try {
 			this.messageWindow.style.zIndex = 2000; // overlay (1000) より高くしておく
-		} catch (e) { }
-		if (this.menuOverlay && !this.menuOverlay.classList.contains('hidden')) {
+		} catch (e) {}
+		if (this.menuOverlay && !this.menuOverlay.classList.contains("hidden")) {
 			// 元の zIndex を保存しておく
-			if (typeof this.messageWindow.dataset.origZ === 'undefined') {
-				this.messageWindow.dataset.origZ = this.messageWindow.style.zIndex || '';
+			if (typeof this.messageWindow.dataset.origZ === "undefined") {
+				this.messageWindow.dataset.origZ =
+					this.messageWindow.style.zIndex || "";
 			}
 			this.messageWindow.style.zIndex = 10001; // menuより前面
 			// メッセージウィンドウが非表示になっている場合は表示する
-			this.messageWindow.style.display = 'block';
+			this.messageWindow.style.display = "block";
 		}
 
 		this.characterName.textContent = finalCharacterName;
 		this.messageText.textContent = text;
 		// 追加デバッグ: メッセージDOMの内容を確認
-		try { console.log('messageText.innerHTML:', this.messageText.innerHTML, 'computed display:', window.getComputedStyle(this.messageWindow).display, 'zIndex:', this.messageWindow.style.zIndex); } catch (e) { }
+		try {
+			console.log(
+				"messageText.innerHTML:",
+				this.messageText.innerHTML,
+				"computed display:",
+				window.getComputedStyle(this.messageWindow).display,
+				"zIndex:",
+				this.messageWindow.style.zIndex,
+			);
+		} catch (e) {}
 	}
 
 	/**
 	 * メッセージをクリアする
 	 */
 	clearMessage() {
-		console.log('UI.clearMessage called');
-		this.characterName.textContent = '';
-		this.messageText.textContent = '';
+		console.log("UI.clearMessage called");
+		this.characterName.textContent = "";
+		this.messageText.textContent = "";
 		// クリックインジケーターを確実に消す
-		try { this.clickIndicator.style.display = 'none'; } catch (e) { }
+		try {
+			this.clickIndicator.style.display = "none";
+		} catch (e) {}
 		// 保存してあった zIndex を復元
-		if (this.messageWindow && typeof this.messageWindow.dataset.origZ !== 'undefined') {
-			this.messageWindow.style.zIndex = this.messageWindow.dataset.origZ || '';
+		if (
+			this.messageWindow &&
+			typeof this.messageWindow.dataset.origZ !== "undefined"
+		) {
+			this.messageWindow.style.zIndex = this.messageWindow.dataset.origZ || "";
 			delete this.messageWindow.dataset.origZ;
 		}
 		// safety: イベントフロー中に menuOverlay が誤って残っている場合は
@@ -471,12 +590,19 @@ class UIManager {
 			// Only auto-hide the overlay when it's not opened by the user and
 			// we're not in a free-action phase. If the user explicitly opened the
 			// menu (dataset.userOpened === '1'), do not auto-hide here.
-			if (this.menuOverlay && typeof GameEventManager !== 'undefined' && !GameEventManager.isInFreeAction) {
-				if (!this.menuOverlay.dataset || this.menuOverlay.dataset.userOpened !== '1') {
-					this.menuOverlay.classList.add('hidden');
+			if (
+				this.menuOverlay &&
+				typeof GameEventManager !== "undefined" &&
+				!GameEventManager.isInFreeAction
+			) {
+				if (
+					!this.menuOverlay.dataset ||
+					this.menuOverlay.dataset.userOpened !== "1"
+				) {
+					this.menuOverlay.classList.add("hidden");
 				}
 			}
-		} catch (e) { }
+		} catch (e) {}
 	}
 
 	/**
@@ -484,18 +610,21 @@ class UIManager {
 	 * @returns {Promise<void>} クリックされたら解決するPromise
 	 */
 	waitForClick() {
-		return new Promise(resolve => {
+		return new Promise((resolve) => {
 			// クリックインジケーターを表示
-			this.clickIndicator.style.display = 'block';
+			this.clickIndicator.style.display = "block";
 
 			const listener = () => {
-				console.log('UI.waitForClick: click detected, resolving');
+				console.log("UI.waitForClick: click detected, resolving");
 				// イベントリスナーを一度実行したら削除する
-				this.messageWindow.removeEventListener('click', listener);
+				this.messageWindow.removeEventListener("click", listener);
 				// インジケーターを非表示にする
-				this.clickIndicator.style.display = 'none';
+				this.clickIndicator.style.display = "none";
 				// クリック音を鳴らす（存在すれば）
-				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
+				try {
+					if (typeof soundManager !== "undefined")
+						soundManager.play("ui_action");
+				} catch (e) {}
 
 				this.clearMessage(); // メッセージをクリア
 
@@ -504,7 +633,7 @@ class UIManager {
 			};
 
 			// メッセージウィンドウにクリックイベントを設定
-			this.messageWindow.addEventListener('click', listener);
+			this.messageWindow.addEventListener("click", listener);
 		});
 	}
 
@@ -514,25 +643,33 @@ class UIManager {
 	 */
 	displayChoices(choices) {
 		// 既存の選択肢をクリア
-		this.choicesArea.innerHTML = '';
+		this.choicesArea.innerHTML = "";
 
 		if (!choices || choices.length === 0) {
 			return; // 選択肢がなければ何もしない
 		}
 
-		choices.forEach(choice => {
-			const button = document.createElement('button');
+		choices.forEach((choice) => {
+			const button = document.createElement("button");
 			button.textContent = choice.text;
-			button.className = 'choice-button';
+			button.className = "choice-button";
 			button.onclick = () => {
 				// 効果音（存在すれば）
-				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
+				try {
+					if (typeof soundManager !== "undefined")
+						soundManager.play("ui_action");
+				} catch (e) {}
 				// 選択肢をクリックしたら、選択履歴を記録
 				try {
-					if (typeof gameManager !== 'undefined' && typeof gameManager.recordChoice === 'function') {
+					if (
+						typeof gameManager !== "undefined" &&
+						typeof gameManager.recordChoice === "function"
+					) {
 						gameManager.recordChoice(choice.text);
 					}
-				} catch (e) { console.error('recordChoice error', e); }
+				} catch (e) {
+					console.error("recordChoice error", e);
+				}
 
 				// 先に既存の選択肢を消してからコールバックを実行する
 				// これにより、コールバック内で新しい選択肢を表示しても
@@ -544,17 +681,19 @@ class UIManager {
 						choice.callback();
 					}
 				} catch (e) {
-					console.error('choice callback error', e);
+					console.error("choice callback error", e);
 				}
 			};
 			this.choicesArea.appendChild(button);
 		});
 
 		// 初期選択を一つ目に設定（キーボード操作のため）
-		const buttons = Array.from(this.choicesArea.querySelectorAll('.choice-button'));
+		const buttons = Array.from(
+			this.choicesArea.querySelectorAll(".choice-button"),
+		);
 		if (buttons.length > 0) {
-			buttons.forEach(b => b.classList.remove('focused'));
-			buttons[0].classList.add('focused');
+			buttons.forEach((b) => b.classList.remove("focused"));
+			buttons[0].classList.add("focused");
 		}
 	}
 
@@ -562,7 +701,7 @@ class UIManager {
 	 * 選択肢を非表示にする
 	 */
 	clearChoices() {
-		this.choicesArea.innerHTML = '';
+		this.choicesArea.innerHTML = "";
 	}
 
 	// --- メニュー関連のメソッド ---
@@ -574,29 +713,46 @@ class UIManager {
 		const status = gameManager.getStatus();
 		if (status.menuLocked) return; // メニューがロックされているフェーズでは開けない
 		// 自由行動時間のみメニューを開ける
-		if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
+		if (
+			typeof GameEventManager === "undefined" ||
+			!GameEventManager.isInFreeAction
+		) {
 			// メニューを開けない場合は一時的なダイアログで通知（イベントメッセージの上書きは避ける）
-			try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
-			try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
-			this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
+			try {
+				if (typeof soundManager !== "undefined") soundManager.play("error");
+			} catch (e) {}
+			try {
+				if (typeof soundManager !== "undefined") soundManager.play("error");
+			} catch (e) {}
+			this.showTransientNotice("メニューは自由行動時間のみ開けます。", {
+				duration: 1200,
+			});
 			return;
 		}
 
 		// メニューを開く際、もしメッセージウィンドウが表示中であれば
 		// メニューとの重なりを防ぐため一時的に非表示にする
 		try {
-			if (this.messageWindow && window.getComputedStyle(this.messageWindow).display !== 'none') {
-				this.messageWindow.dataset.wasVisible = '1';
-				this.messageWindow.style.display = 'none';
+			if (
+				this.messageWindow &&
+				window.getComputedStyle(this.messageWindow).display !== "none"
+			) {
+				this.messageWindow.dataset.wasVisible = "1";
+				this.messageWindow.style.display = "none";
 			}
-		} catch (e) { }
-		this.menuOverlay.classList.remove('hidden');
+		} catch (e) {}
+		this.menuOverlay.classList.remove("hidden");
 		// Mark that the menu was opened by user action so automatic
 		// safety code does not hide it unexpectedly.
-		try { if (this.menuOverlay) this.menuOverlay.dataset.userOpened = '1'; } catch (e) { }
-		if (this.menuCloseFloating) this.menuCloseFloating.setAttribute('aria-visible', 'true');
+		try {
+			if (this.menuOverlay) this.menuOverlay.dataset.userOpened = "1";
+		} catch (e) {}
+		if (this.menuCloseFloating)
+			this.menuCloseFloating.setAttribute("aria-visible", "true");
 		this.updateMenuDisplay(); // メニューを開く際に最新の情報を表示
-		try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
+		try {
+			if (typeof soundManager !== "undefined") soundManager.play("ui_action");
+		} catch (e) {}
 	}
 
 	/**
@@ -605,28 +761,41 @@ class UIManager {
 	closeMenu() {
 		// Prevent closing the menu while item window (effect display) is open
 		try {
-			const itemWin = document.getElementById('menu-item-window');
-			if (itemWin && !itemWin.classList.contains('hidden')) {
+			const itemWin = document.getElementById("menu-item-window");
+			if (itemWin && !itemWin.classList.contains("hidden")) {
 				// keep menu open and notify user
-				this.showTransientNotice('アイテム効果表示中はメニューを閉じられません。', { duration: 1200 });
+				this.showTransientNotice(
+					"アイテム効果表示中はメニューを閉じられません。",
+					{ duration: 1200 },
+				);
 				// ensure close controls remain disabled
 				this._setMenuCloseEnabled(false);
 				return;
 			}
-		} catch (e) { }
+		} catch (e) {}
 		const status = gameManager.getStatus();
-		this.menuOverlay.classList.add('hidden');
-		if (this.menuCloseFloating) this.menuCloseFloating.setAttribute('aria-visible', 'false');
+		this.menuOverlay.classList.add("hidden");
+		if (this.menuCloseFloating)
+			this.menuCloseFloating.setAttribute("aria-visible", "false");
 		// メッセージウィンドウを一時的に隠していた場合は復元する
 		try {
 			if (this.messageWindow && this.messageWindow.dataset.wasVisible) {
-				this.messageWindow.style.display = 'block';
+				this.messageWindow.style.display = "block";
 				delete this.messageWindow.dataset.wasVisible;
 			}
-		} catch (e) { }
+		} catch (e) {}
 		// Clear the userOpened marker when the menu is explicitly closed
-		try { if (this.menuOverlay && this.menuOverlay.dataset && this.menuOverlay.dataset.userOpened) delete this.menuOverlay.dataset.userOpened; } catch (e) { }
-		try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
+		try {
+			if (
+				this.menuOverlay &&
+				this.menuOverlay.dataset &&
+				this.menuOverlay.dataset.userOpened
+			)
+				delete this.menuOverlay.dataset.userOpened;
+		} catch (e) {}
+		try {
+			if (typeof soundManager !== "undefined") soundManager.play("ui_action");
+		} catch (e) {}
 	}
 
 	/**
@@ -636,17 +805,18 @@ class UIManager {
 		const status = gameManager.getAllStatus(); // GameManagerから全ステータスを取得
 
 		// ラベル定義を取得（なければデフォルト）
-		const labels = (typeof CONFIG !== 'undefined' && CONFIG.LABELS) ? CONFIG.LABELS : {};
+		const labels =
+			typeof CONFIG !== "undefined" && CONFIG.LABELS ? CONFIG.LABELS : {};
 
 		// メニューの見出しなど静的ラベルを設定（存在すれば）
-		const headerEl = document.getElementById('menu-header');
-		if (headerEl) headerEl.textContent = labels.menuTitle || 'メニュー';
-		const ownedEl = document.getElementById('menu-owned-heading');
-		if (ownedEl) ownedEl.textContent = labels.ownedItems || '所持品';
-		const shopEl = document.getElementById('menu-shop-heading');
-		if (shopEl) shopEl.textContent = labels.shop || '購買';
-		const historyEl = document.getElementById('menu-history-heading');
-		if (historyEl) historyEl.textContent = labels.history || '行動履歴';
+		const headerEl = document.getElementById("menu-header");
+		if (headerEl) headerEl.textContent = labels.menuTitle || "メニュー";
+		const ownedEl = document.getElementById("menu-owned-heading");
+		if (ownedEl) ownedEl.textContent = labels.ownedItems || "所持品";
+		const shopEl = document.getElementById("menu-shop-heading");
+		if (shopEl) shopEl.textContent = labels.shop || "購買";
+		const historyEl = document.getElementById("menu-history-heading");
+		if (historyEl) historyEl.textContent = labels.history || "行動履歴";
 
 		// ステータスセクションの更新
 		this.menuAcademic.textContent = status.stats.academic;
@@ -656,45 +826,46 @@ class UIManager {
 		this.menuReportDebt.textContent = status.reportDebt;
 
 		// 個別レポートの表示（存在すれば）
-		const reportListId = 'menu-report-list';
+		const reportListId = "menu-report-list";
 		let reportList = document.getElementById(reportListId);
 		if (!reportList) {
-			reportList = document.createElement('ul');
+			reportList = document.createElement("ul");
 			reportList.id = reportListId;
-			const section = document.getElementById('menu-status-section');
+			const section = document.getElementById("menu-status-section");
 			if (section) section.appendChild(reportList);
 		}
-		reportList.innerHTML = '';
+		reportList.innerHTML = "";
 		if (status.reports && status.reports.length > 0) {
-			status.reports.forEach(r => {
-				const li = document.createElement('li');
+			status.reports.forEach((r) => {
+				const li = document.createElement("li");
 				li.textContent = `${r.title} (${r.progress}/${r.required})`;
 				reportList.appendChild(li);
 			});
 		} else {
-			const li = document.createElement('li');
-			li.textContent = (labels.noReportsMessage || '進行中のレポートはありません。');
+			const li = document.createElement("li");
+			li.textContent =
+				labels.noReportsMessage || "進行中のレポートはありません。";
 			reportList.appendChild(li);
 		}
 
 		// アイテムリストの更新
-		this.menuItemList.innerHTML = ''; // 一度クリア
+		this.menuItemList.innerHTML = ""; // 一度クリア
 		if (status.items.length === 0) {
-			const li = document.createElement('li');
-			li.textContent = (labels.noItemsMessage || 'アイテムはありません。');
+			const li = document.createElement("li");
+			li.textContent = labels.noItemsMessage || "アイテムはありません。";
 			this.menuItemList.appendChild(li);
 		} else {
-			status.items.forEach(itemId => {
+			status.items.forEach((itemId) => {
 				const item = ITEMS[itemId]; // config.jsからアイテム情報を取得
 				if (item) {
-					const li = document.createElement('li');
+					const li = document.createElement("li");
 					li.innerHTML = `<span>${item.name} - ${item.description}</span>`;
 
 					// アイテム使用ボタンの追加
-					const useButton = document.createElement('button');
-					useButton.textContent = '使用';
+					const useButton = document.createElement("button");
+					useButton.textContent = "使用";
 					useButton.onclick = async () => {
-						if (typeof gameManager === 'undefined') return;
+						if (typeof gameManager === "undefined") return;
 						if (useButton.disabled) return;
 						useButton.disabled = true;
 						try {
@@ -704,27 +875,36 @@ class UIManager {
 								this.updateMenuDisplay();
 								// Ensure item window is hidden and re-enable close controls before closing the menu
 								try {
-									const itemWin = document.getElementById('menu-item-window');
-									if (itemWin) itemWin.classList.add('hidden');
+									const itemWin = document.getElementById("menu-item-window");
+									if (itemWin) itemWin.classList.add("hidden");
 									this._setMenuCloseEnabled(true);
-								} catch (e) { }
+								} catch (e) {}
 								this.closeMenu();
-								if (typeof GameEventManager !== 'undefined' && typeof GameEventManager.showMainActions === 'function') {
+								if (
+									typeof GameEventManager !== "undefined" &&
+									typeof GameEventManager.showMainActions === "function"
+								) {
 									GameEventManager.showMainActions();
-								} else if (typeof ui !== 'undefined') {
-									ui.displayMessage('（アイテムを使用しました）');
-									if (typeof ui.waitForClick === 'function') await ui.waitForClick();
-									if (typeof GameEventManager !== 'undefined' && typeof GameEventManager.showMainActions === 'function') {
+								} else if (typeof ui !== "undefined") {
+									ui.displayMessage("（アイテムを使用しました）");
+									if (typeof ui.waitForClick === "function")
+										await ui.waitForClick();
+									if (
+										typeof GameEventManager !== "undefined" &&
+										typeof GameEventManager.showMainActions === "function"
+									) {
 										GameEventManager.showMainActions();
 									}
 								}
 							} else {
 								// 使用に失敗した場合はトーストで通知し、メニューを再描画
-								this.showTransientNotice('アイテムを所持していません。', { duration: 1200 });
+								this.showTransientNotice("アイテムを所持していません。", {
+									duration: 1200,
+								});
 								this.updateMenuDisplay();
 							}
 						} catch (e) {
-							console.error('useItem error', e);
+							console.error("useItem error", e);
 						} finally {
 							useButton.disabled = false;
 						}
@@ -736,72 +916,115 @@ class UIManager {
 		}
 
 		// 履歴表示の更新
-		const historyListId = 'menu-history-list';
+		const historyListId = "menu-history-list";
 		let historyList = document.getElementById(historyListId);
 		if (!historyList) {
-			historyList = document.createElement('ul');
+			historyList = document.createElement("ul");
 			historyList.id = historyListId;
-			const section = document.getElementById('menu-item-section');
+			const section = document.getElementById("menu-item-section");
 			if (section) {
 				// 履歴セクションはアイテムセクションの下に配置
-				const historySectionHeader = document.createElement('h3');
-				historySectionHeader.id = 'menu-history-heading';
-				historySectionHeader.textContent = labels.history || '行動履歴';
-				section.parentNode.insertBefore(historySectionHeader, section.nextSibling);
-				section.parentNode.insertBefore(historyList, historySectionHeader.nextSibling);
+				const historySectionHeader = document.createElement("h3");
+				historySectionHeader.id = "menu-history-heading";
+				historySectionHeader.textContent = labels.history || "行動履歴";
+				section.parentNode.insertBefore(
+					historySectionHeader,
+					section.nextSibling,
+				);
+				section.parentNode.insertBefore(
+					historyList,
+					historySectionHeader.nextSibling,
+				);
 			}
 		}
-		historyList.innerHTML = '';
+		historyList.innerHTML = "";
 		const history = status.history || [];
-		const unit = (CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円';
+		const unit =
+			CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit
+				? CONFIG.LABELS.currencyUnit
+				: "円";
 		if (history.length === 0) {
-			const li = document.createElement('li');
-			li.textContent = '(履歴はありません)';
+			const li = document.createElement("li");
+			li.textContent = "(履歴はありません)";
 			historyList.appendChild(li);
 		} else {
 			// 最新が最後尾に入っている想定なので逆順で表示（最新が上）
 			const entries = history.slice().reverse();
-			entries.forEach(h => {
-				const li = document.createElement('li');
-				const time = `${h.day}日目 ${h.turn || ''}`.trim();
-				let text = '';
+			entries.forEach((h) => {
+				const li = document.createElement("li");
+				const time = `${h.day}日目 ${h.turn || ""}`.trim();
+				let text = "";
 
 				// ユーザー向けのラベルを優先して取得するユーティリティ
 				const resolveShopLabel = (shopId, detail) => {
 					if (detail && detail.shopLabel) return detail.shopLabel;
-					if (shopId && CONFIG && CONFIG.SHOPS && CONFIG.SHOPS[shopId] && CONFIG.SHOPS[shopId].label) return CONFIG.SHOPS[shopId].label;
-					return shopId || '';
+					if (
+						shopId &&
+						CONFIG &&
+						CONFIG.SHOPS &&
+						CONFIG.SHOPS[shopId] &&
+						CONFIG.SHOPS[shopId].label
+					)
+						return CONFIG.SHOPS[shopId].label;
+					return shopId || "";
 				};
 
 				switch (h.type) {
-					case 'shop_visit': {
-						const shopLabel = resolveShopLabel(h.detail && h.detail.shopId, h.detail);
+					case "shop_visit": {
+						const shopLabel = resolveShopLabel(
+							h.detail && h.detail.shopId,
+							h.detail,
+						);
 						text = `${time}: ${shopLabel}に入店`;
 						break;
 					}
-					case 'shop_leave': {
-						const shopLabel = resolveShopLabel(h.detail && h.detail.shopId, h.detail);
+					case "shop_leave": {
+						const shopLabel = resolveShopLabel(
+							h.detail && h.detail.shopId,
+							h.detail,
+						);
 						if (h.detail && h.detail.purchased) {
-							const itemName = (h.detail.itemName) ? h.detail.itemName : (h.detail.itemId && ITEMS[h.detail.itemId] ? ITEMS[h.detail.itemId].name : h.detail.itemId || 'アイテム');
-							text = `${time}: ${shopLabel}で購入して退店（${itemName}、${h.detail.price || ''}${unit}）`;
+							const itemName = h.detail.itemName
+								? h.detail.itemName
+								: h.detail.itemId && ITEMS[h.detail.itemId]
+									? ITEMS[h.detail.itemId].name
+									: h.detail.itemId || "アイテム";
+							text = `${time}: ${shopLabel}で購入して退店（${itemName}、${h.detail.price || ""}${unit}）`;
 						} else {
 							text = `${time}: ${shopLabel}を訪れて何も買わず退店`;
 						}
 						break;
 					}
-					case 'purchase': {
-						const shopLabel = resolveShopLabel(h.detail && h.detail.shopId, h.detail);
-						const itemName = h.detail && h.detail.itemName ? h.detail.itemName : (h.detail && h.detail.itemId && ITEMS[h.detail.itemId] ? ITEMS[h.detail.itemId].name : h.detail && h.detail.itemId ? h.detail.itemId : 'アイテム');
-						text = `${time}: ${itemName} を ${shopLabel}で購入（${h.detail.price || ''}${unit}）`;
+					case "purchase": {
+						const shopLabel = resolveShopLabel(
+							h.detail && h.detail.shopId,
+							h.detail,
+						);
+						const itemName =
+							h.detail && h.detail.itemName
+								? h.detail.itemName
+								: h.detail && h.detail.itemId && ITEMS[h.detail.itemId]
+									? ITEMS[h.detail.itemId].name
+									: h.detail && h.detail.itemId
+										? h.detail.itemId
+										: "アイテム";
+						text = `${time}: ${itemName} を ${shopLabel}で購入（${h.detail.price || ""}${unit}）`;
 						break;
 					}
-					case 'choice': {
-						const label = h.detail && h.detail.label ? h.detail.label : '';
+					case "choice": {
+						const label = h.detail && h.detail.label ? h.detail.label : "";
 						text = `${time}: 選択 - ${label}`;
 						break;
 					}
-					case 'use_item': {
-						const itemName = h.detail && h.detail.itemName ? h.detail.itemName : (h.detail && h.detail.itemId && ITEMS[h.detail.itemId] ? ITEMS[h.detail.itemId].name : h.detail && h.detail.itemId ? h.detail.itemId : 'アイテム');
+					case "use_item": {
+						const itemName =
+							h.detail && h.detail.itemName
+								? h.detail.itemName
+								: h.detail && h.detail.itemId && ITEMS[h.detail.itemId]
+									? ITEMS[h.detail.itemId].name
+									: h.detail && h.detail.itemId
+										? h.detail.itemId
+										: "アイテム";
 						text = `${time}: アイテム使用 - ${itemName}`;
 						break;
 					}
@@ -815,90 +1038,94 @@ class UIManager {
 		}
 
 		// --- 効果表示 (effects) ---
-		const effectsSectionId = 'menu-effects-section';
+		const effectsSectionId = "menu-effects-section";
 		let effectsSection = document.getElementById(effectsSectionId);
 		if (!effectsSection) {
-			effectsSection = document.createElement('div');
+			effectsSection = document.createElement("div");
 			effectsSection.id = effectsSectionId;
-			const header = document.createElement('h3');
-			header.textContent = '効果';
+			const header = document.createElement("h3");
+			header.textContent = "効果";
 			// 場所: スクロール可能なコンテンツ領域 (.menu-scroll) に追加
-			const scroll = document.querySelector('.menu-scroll');
+			const scroll = document.querySelector(".menu-scroll");
 			if (scroll) scroll.appendChild(effectsSection);
 			else {
-				const menuContent = document.getElementById('menu-content');
+				const menuContent = document.getElementById("menu-content");
 				if (menuContent) menuContent.appendChild(effectsSection);
 			}
 		}
 
 		// --- キャラクター表示 ---
-		const charsSectionId = 'menu-characters-section';
+		const charsSectionId = "menu-characters-section";
 		let charsSection = document.getElementById(charsSectionId);
 		if (!charsSection) {
-			charsSection = document.createElement('div');
+			charsSection = document.createElement("div");
 			charsSection.id = charsSectionId;
-			const header = document.createElement('h3');
-			header.textContent = 'キャラクター';
-			const scroll = document.querySelector('.menu-scroll');
+			const header = document.createElement("h3");
+			header.textContent = "キャラクター";
+			const scroll = document.querySelector(".menu-scroll");
 			if (scroll) scroll.appendChild(charsSection);
 			else {
-				const menuContent = document.getElementById('menu-content');
+				const menuContent = document.getElementById("menu-content");
 				if (menuContent) menuContent.appendChild(charsSection);
 			}
 		}
-		charsSection.innerHTML = '';
+		charsSection.innerHTML = "";
 		// キャラクターの追加や直接編集はメニューから行わない仕様に変更。
 		// ここでは主人公(player)を除外した一覧表示と、各キャラごとに個別ウィンドウを開くボタンを表示する。
-		const ulId = 'menu-characters-list';
+		const ulId = "menu-characters-list";
 		let ul = document.getElementById(ulId);
 		if (!ul) {
-			ul = document.createElement('ul');
+			ul = document.createElement("ul");
 			ul.id = ulId;
 			charsSection.appendChild(ul);
 		}
-		ul.innerHTML = '';
-		const chars = (status.characters || []).filter(c => c.id !== 'player'); // exclude player
+		ul.innerHTML = "";
+		const chars = (status.characters || []).filter((c) => c.id !== "player"); // exclude player
 		if (chars.length === 0) {
-			const li = document.createElement('li');
-			li.textContent = '(キャラクターが登録されていません)';
+			const li = document.createElement("li");
+			li.textContent = "(キャラクターが登録されていません)";
 			ul.appendChild(li);
 		} else {
-			chars.forEach(c => {
-				const li = document.createElement('li');
-				const left = document.createElement('span');
+			chars.forEach((c) => {
+				const li = document.createElement("li");
+				const left = document.createElement("span");
 				left.textContent = `${c.name} (信頼: ${c.trust})`;
 				li.appendChild(left);
-				const btnWrap = document.createElement('span');
+				const btnWrap = document.createElement("span");
 				// キャラクター詳細表示ボタン（個別ウィンドウ）
-				const viewBtn = document.createElement('button');
-				viewBtn.textContent = '表示';
-				viewBtn.className = 'char-view-btn';
+				const viewBtn = document.createElement("button");
+				viewBtn.textContent = "表示";
+				viewBtn.className = "char-view-btn";
 				viewBtn.onclick = async () => {
 					// Open a dedicated character detail window (modal-like)
-					let win = document.getElementById('menu-character-detail-window');
+					let win = document.getElementById("menu-character-detail-window");
 					if (!win) {
-						win = document.createElement('div');
-						win.id = 'menu-character-detail-window';
-						win.className = 'menu-window';
+						win = document.createElement("div");
+						win.id = "menu-character-detail-window";
+						win.className = "menu-window";
 						win.innerHTML = `<div class="menu-window-header">キャラクター詳細<button class="menu-window-close">閉じる</button></div><div class="menu-window-body" id="menu-character-detail-body"></div>`;
-						document.getElementById('game-container').appendChild(win);
+						document.getElementById("game-container").appendChild(win);
 						// wire close
-						win.querySelector('.menu-window-close').addEventListener('click', (e) => { this.closeMenuWindow(win); });
+						win
+							.querySelector(".menu-window-close")
+							.addEventListener("click", (e) => {
+								this.closeMenuWindow(win);
+							});
 					}
-					const body = document.getElementById('menu-character-detail-body');
+					const body = document.getElementById("menu-character-detail-body");
 					if (body) {
-						body.innerHTML = '';
-						const nameEl = document.createElement('h4');
+						body.innerHTML = "";
+						const nameEl = document.createElement("h4");
 						nameEl.textContent = c.name;
-						const trustEl = document.createElement('p');
+						const trustEl = document.createElement("p");
 						trustEl.textContent = `信頼: ${c.trust}`;
-						const notes = document.createElement('p');
-						notes.textContent = c.notes || '';
+						const notes = document.createElement("p");
+						notes.textContent = c.notes || "";
 						body.appendChild(nameEl);
 						body.appendChild(trustEl);
 						body.appendChild(notes);
 					}
-					win.classList.remove('hidden');
+					win.classList.remove("hidden");
 					// While a detail window is open, prevent the menu from being closed accidentally
 					this._setMenuCloseEnabled(false);
 				};
@@ -907,17 +1134,17 @@ class UIManager {
 				ul.appendChild(li);
 			});
 		}
-		effectsSection.innerHTML = '';
+		effectsSection.innerHTML = "";
 		const effects = status.effects || {};
-		console.log('UI.updateMenuDisplay effects:', effects);
+		console.log("UI.updateMenuDisplay effects:", effects);
 		if (Object.keys(effects).length === 0) {
-			const p = document.createElement('p');
-			p.textContent = '(現在、効果はありません)';
+			const p = document.createElement("p");
+			p.textContent = "(現在、効果はありません)";
 			effectsSection.appendChild(p);
 		} else {
-			const ul = document.createElement('ul');
+			const ul = document.createElement("ul");
 			for (const key of Object.keys(effects)) {
-				const li = document.createElement('li');
+				const li = document.createElement("li");
 				const display = effects[key].displayName || key;
 				li.textContent = `${display} (${effects[key].turns}ターン)`;
 				ul.appendChild(li);
@@ -931,17 +1158,17 @@ class UIManager {
 	 * @param {string} text
 	 */
 	displayMenuMessage(text) {
-		const menuContent = document.getElementById('menu-content');
+		const menuContent = document.getElementById("menu-content");
 		if (!menuContent) return;
 		// Guard: do not show empty menu messages
-		if (text === null || typeof text === 'undefined') return;
+		if (text === null || typeof text === "undefined") return;
 		const mtxt = String(text);
-		if (mtxt.trim() === '') return;
-		let menuMsg = document.getElementById('menu-message');
+		if (mtxt.trim() === "") return;
+		let menuMsg = document.getElementById("menu-message");
 		if (!menuMsg) {
-			menuMsg = document.createElement('div');
-			menuMsg.id = 'menu-message';
-			menuMsg.className = 'menu-message';
+			menuMsg = document.createElement("div");
+			menuMsg.id = "menu-message";
+			menuMsg.className = "menu-message";
 			// メッセージはメニューの上部に表示
 			menuContent.insertBefore(menuMsg, menuContent.firstChild);
 		}
@@ -953,20 +1180,20 @@ class UIManager {
 			// be opened during自由行動 (free action) periods. If the menu is
 			// currently hidden, fall back to showing the message in the main message
 			// area so the UI does not briefly reveal the overlay.
-			if (this.menuOverlay && this.menuOverlay.classList.contains('hidden')) {
-				if (typeof this.showFloatingMessage === 'function') {
+			if (this.menuOverlay && this.menuOverlay.classList.contains("hidden")) {
+				if (typeof this.showFloatingMessage === "function") {
 					// showFloatingMessage already handles click waits and visibility.
-					this.showFloatingMessage(text).catch(() => { });
+					this.showFloatingMessage(text).catch(() => {});
 					return;
-				} else if (typeof this.displayMessage === 'function') {
-					this.displayMessage(text, 'システム');
+				} else if (typeof this.displayMessage === "function") {
+					this.displayMessage(text, "システム");
 					return;
 				}
 			}
-		} catch (e) { }
+		} catch (e) {}
 
 		menuMsg.textContent = text;
-		menuMsg.style.display = 'block';
+		menuMsg.style.display = "block";
 	}
 
 	/**
@@ -974,19 +1201,19 @@ class UIManager {
 	 * @returns {Promise<void>}
 	 */
 	waitForMenuClick() {
-		return new Promise(resolve => {
+		return new Promise((resolve) => {
 			// デフォルトはメニューのコンテンツ部分でのクリックを待つ
-			const menuContent = document.getElementById('menu-content');
+			const menuContent = document.getElementById("menu-content");
 			if (!menuContent) return resolve();
 
 			const listener = (e) => {
 				// クリックが発生したらリスナーを解除して解決
-				menuContent.removeEventListener('click', listener);
+				menuContent.removeEventListener("click", listener);
 				// preventDefault や stopPropagation はここでは不要
 				resolve();
 			};
 
-			menuContent.addEventListener('click', listener);
+			menuContent.addEventListener("click", listener);
 		});
 	}
 
@@ -994,16 +1221,16 @@ class UIManager {
 	 * メニュー内のメッセージをクリアする
 	 */
 	clearMenuMessage() {
-		const menuMsg = document.getElementById('menu-message');
+		const menuMsg = document.getElementById("menu-message");
 		if (menuMsg) {
-			menuMsg.textContent = '';
-			menuMsg.style.display = 'none';
+			menuMsg.textContent = "";
+			menuMsg.style.display = "none";
 		}
 		// restore any temporary menu overlay visibility change
 		try {
 			// No-op: do not restore or toggle menu overlay here. Menu visibility is
 			// strictly controlled via openMenu/closeMenu and GameEventManager.isInFreeAction.
-		} catch (e) { }
+		} catch (e) {}
 	}
 
 	/**
@@ -1013,31 +1240,33 @@ class UIManager {
  options
 	 */
 	showTransientNotice(text, options = {}) {
-		if (!text || ('' + text).trim() === '') return;
-		const dur = typeof options.duration === 'number' ? options.duration : 1200;
-		let el = document.getElementById('transient-notice');
+		if (!text || ("" + text).trim() === "") return;
+		const dur = typeof options.duration === "number" ? options.duration : 1200;
+		let el = document.getElementById("transient-notice");
 		if (!el) {
-			el = document.createElement('div');
-			el.id = 'transient-notice';
-			el.className = 'transient-notice';
-			document.getElementById('game-container').appendChild(el);
-			el.addEventListener('click', () => {
-				el.classList.add('fadeout');
+			el = document.createElement("div");
+			el.id = "transient-notice";
+			el.className = "transient-notice";
+			document.getElementById("game-container").appendChild(el);
+			el.addEventListener("click", () => {
+				el.classList.add("fadeout");
 				setTimeout(() => el.remove(), 220);
 			});
 		}
 		el.textContent = text;
-		el.classList.remove('fadeout');
+		el.classList.remove("fadeout");
 		// 自動で消す
 		setTimeout(() => {
 			if (el && el.parentNode) {
-				el.classList.add('fadeout');
-				setTimeout(() => { try { el.remove(); } catch (e) { } }, 220);
+				el.classList.add("fadeout");
+				setTimeout(() => {
+					try {
+						el.remove();
+					} catch (e) {}
+				}, 220);
 			}
 		}, dur);
 	}
-
-
 
 	/**
 	 * メニューの上に重ねて表示するフローティングメッセージ
@@ -1048,8 +1277,8 @@ class UIManager {
 	 * @returns {Promise<void>}
 	*/
 	async showFloatingMessage(text, options = {}) {
-		console.log('UI.showFloatingMessage called:', text);
-		const lines = ('' + text).split('\n');
+		console.log("UI.showFloatingMessage called:", text);
+		const lines = ("" + text).split("\n");
 
 		// 保持しておく既存の表示とスタイル
 		const origZ = this.messageWindow.style.zIndex;
@@ -1061,35 +1290,42 @@ class UIManager {
 		try {
 			// メッセージウィンドウを最前面に出す
 			this.messageWindow.style.zIndex = 9999;
-			this.messageWindow.style.display = 'block';
+			this.messageWindow.style.display = "block";
 
 			for (const line of lines) {
-				console.log('UI.showFloatingMessage line:', line);
-				this.characterName.textContent = 'システム';
+				console.log("UI.showFloatingMessage line:", line);
+				this.characterName.textContent = "システム";
 				this.messageText.textContent = line;
 				// クリックインジケーターを表示して、ユーザークリックで次へ進める
-				this.clickIndicator.style.display = 'block';
+				this.clickIndicator.style.display = "block";
 
 				// ローカルのクリック待ち（this.waitForClick を使わない）
-				await new Promise(resolve => {
+				await new Promise((resolve) => {
 					const listener = () => {
 						try {
 							// クリック音
-							if (typeof soundManager !== 'undefined') soundManager.play('ui_action');
-						} catch (e) { }
+							if (typeof soundManager !== "undefined")
+								soundManager.play("ui_action");
+						} catch (e) {}
 						// リスナーを外して進行
-						this.messageWindow.removeEventListener('click', listener);
+						this.messageWindow.removeEventListener("click", listener);
 						// クリックインジケーターは次行表示前に消す
-						this.clickIndicator.style.display = 'none';
+						this.clickIndicator.style.display = "none";
 						resolve();
 					};
-					this.messageWindow.addEventListener('click', listener);
+					this.messageWindow.addEventListener("click", listener);
 					// タイムアウトフォールバック: lineDelay が正の数の場合のみタイムアウトを設定する。
 					// lineDelay === 0 は「クリック待ちのみ」を意味する。
-					if (options && typeof options.lineDelay === 'number' && options.lineDelay > 0) {
+					if (
+						options &&
+						typeof options.lineDelay === "number" &&
+						options.lineDelay > 0
+					) {
 						setTimeout(() => {
-							this.messageWindow.removeEventListener('click', listener);
-							try { this.clickIndicator.style.display = 'none'; } catch (e) { }
+							this.messageWindow.removeEventListener("click", listener);
+							try {
+								this.clickIndicator.style.display = "none";
+							} catch (e) {}
 							resolve();
 						}, options.lineDelay);
 					}
@@ -1098,12 +1334,12 @@ class UIManager {
 		} finally {
 			// ループ後: 元の表示内容を復元して、メッセージウィンドウが空白になるのを防ぐ
 			try {
-				this.characterName.textContent = prevChar || '';
-				this.messageText.textContent = prevMsg || '';
-			} catch (e) { }
+				this.characterName.textContent = prevChar || "";
+				this.messageText.textContent = prevMsg || "";
+			} catch (e) {}
 			this.messageWindow.style.zIndex = origZ;
 			this.messageWindow.style.display = origDisplay;
-			this.clickIndicator.style.display = prevClick || 'none';
+			this.clickIndicator.style.display = prevClick || "none";
 		}
 	}
 
@@ -1111,136 +1347,211 @@ class UIManager {
 	 * メニューボタンと閉じるボタンのイベントリスナーを設定する
 	 */
 	initializeMenuListeners() {
-		this.menuButton.addEventListener('click', () => {
-			try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
+		this.menuButton.addEventListener("click", () => {
+			try {
+				if (typeof soundManager !== "undefined") soundManager.play("ui_action");
+			} catch (e) {}
 			this.openMenu();
 		});
-		this.menuCloseButton.addEventListener('click', () => {
-			try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
+		this.menuCloseButton.addEventListener("click", () => {
+			try {
+				if (typeof soundManager !== "undefined") soundManager.play("ui_action");
+			} catch (e) {}
 			this.closeMenu();
 		});
-		if (this.menuCloseFloating) this.menuCloseFloating.addEventListener('click', () => {
-			try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
-			this.closeMenu();
-		});
+		if (this.menuCloseFloating)
+			this.menuCloseFloating.addEventListener("click", () => {
+				try {
+					if (typeof soundManager !== "undefined")
+						soundManager.play("ui_action");
+				} catch (e) {}
+				this.closeMenu();
+			});
 
 		//折りたたみトグル
 		if (this.toggleItemsButton && this.menuItemSection) {
 			// Primary behavior: open dedicated item window when clicked
-			this.toggleItemsButton.addEventListener('click', async () => {
+			this.toggleItemsButton.addEventListener("click", async () => {
 				// If not in free action, show transient notice instead
-				if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
-					try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
-					this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
+				if (
+					typeof GameEventManager === "undefined" ||
+					!GameEventManager.isInFreeAction
+				) {
+					try {
+						if (typeof soundManager !== "undefined") soundManager.play("error");
+					} catch (e) {}
+					this.showTransientNotice("メニューは自由行動時間のみ開けます。", {
+						duration: 1200,
+					});
 					return;
 				}
-				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
-				await this.openMenuWindow('item');
+				try {
+					if (typeof soundManager !== "undefined")
+						soundManager.play("ui_action");
+				} catch (e) {}
+				await this.openMenuWindow("item");
 			});
 		}
 		if (this.toggleHistoryButton && this.menuHistorySection) {
-			this.toggleHistoryButton.addEventListener('click', async () => {
-				if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
-					try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
-					this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
+			this.toggleHistoryButton.addEventListener("click", async () => {
+				if (
+					typeof GameEventManager === "undefined" ||
+					!GameEventManager.isInFreeAction
+				) {
+					try {
+						if (typeof soundManager !== "undefined") soundManager.play("error");
+					} catch (e) {}
+					this.showTransientNotice("メニューは自由行動時間のみ開けます。", {
+						duration: 1200,
+					});
 					return;
 				}
-				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
-				await this.openMenuWindow('history');
+				try {
+					if (typeof soundManager !== "undefined")
+						soundManager.play("ui_action");
+				} catch (e) {}
+				await this.openMenuWindow("history");
 			});
 		}
 		if (this.toggleCharactersButton && this.menuCharactersSection) {
-			this.toggleCharactersButton.addEventListener('click', async () => {
-				if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
-					try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
-					this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
+			this.toggleCharactersButton.addEventListener("click", async () => {
+				if (
+					typeof GameEventManager === "undefined" ||
+					!GameEventManager.isInFreeAction
+				) {
+					try {
+						if (typeof soundManager !== "undefined") soundManager.play("error");
+					} catch (e) {}
+					this.showTransientNotice("メニューは自由行動時間のみ開けます。", {
+						duration: 1200,
+					});
 					return;
 				}
-				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
-				await this.openMenuWindow('character');
+				try {
+					if (typeof soundManager !== "undefined")
+						soundManager.play("ui_action");
+				} catch (e) {}
+				await this.openMenuWindow("character");
 			});
 		}
 
-		this.toggleReportButton = document.getElementById('toggle-report-button');
+		this.toggleReportButton = document.getElementById("toggle-report-button");
 		if (this.toggleReportButton) {
-			this.toggleReportButton.addEventListener('click', async () => {
-				if (typeof GameEventManager === 'undefined' || !GameEventManager.isInFreeAction) {
-					try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
-					this.showTransientNotice('メニューは自由行動時間のみ開けます。', { duration: 1200 });
+			this.toggleReportButton.addEventListener("click", async () => {
+				if (
+					typeof GameEventManager === "undefined" ||
+					!GameEventManager.isInFreeAction
+				) {
+					try {
+						if (typeof soundManager !== "undefined") soundManager.play("error");
+					} catch (e) {}
+					this.showTransientNotice("メニューは自由行動時間のみ開けます。", {
+						duration: 1200,
+					});
 					return;
 				}
-				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
-				await this.openMenuWindow('report');
+				try {
+					if (typeof soundManager !== "undefined")
+						soundManager.play("ui_action");
+				} catch (e) {}
+				await this.openMenuWindow("report");
 			});
 		}
 
 		// menu-window close buttons
-		const winCloses = document.querySelectorAll('.menu-window .menu-window-close');
-		winCloses.forEach(btn => {
-			btn.addEventListener('click', (e) => {
-				const win = e.target.closest('.menu-window');
-				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
+		const winCloses = document.querySelectorAll(
+			".menu-window .menu-window-close",
+		);
+		winCloses.forEach((btn) => {
+			btn.addEventListener("click", (e) => {
+				const win = e.target.closest(".menu-window");
+				try {
+					if (typeof soundManager !== "undefined")
+						soundManager.play("ui_action");
+				} catch (e) {}
 				this.closeMenuWindow(win);
 			});
 		});
 
 		// セーブ・ロードボタンのイベントリスナー
 		if (this.saveGameButton) {
-			this.saveGameButton.addEventListener('click', () => {
-				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
+			this.saveGameButton.addEventListener("click", () => {
+				try {
+					if (typeof soundManager !== "undefined")
+						soundManager.play("ui_action");
+				} catch (e) {}
 				this.handleSaveGame();
 			});
 		}
 		if (this.loadGameButton) {
-			this.loadGameButton.addEventListener('click', () => {
-				try { if (typeof soundManager !== 'undefined') soundManager.play('ui_action'); } catch (e) { }
+			this.loadGameButton.addEventListener("click", () => {
+				try {
+					if (typeof soundManager !== "undefined")
+						soundManager.play("ui_action");
+				} catch (e) {}
 				this.loadGameFileInput && this.loadGameFileInput.click();
 			});
 		}
 		if (this.loadGameFileInput) {
-			this.loadGameFileInput.addEventListener('change', (event) => this.handleLoadGame(event, false)); // メニューからは isFromTitle=false
+			this.loadGameFileInput.addEventListener("change", (event) =>
+				this.handleLoadGame(event, false),
+			); // メニューからは isFromTitle=false
 		}
 
 		// Audio controls in menu (volume slider and mute button)
-		const volEl = document.getElementById('sound-volume');
-		const muteBtn = document.getElementById('sound-mute');
+		const volEl = document.getElementById("sound-volume");
+		const muteBtn = document.getElementById("sound-mute");
 		if (volEl) {
 			// Restore saved volume if present
 			try {
-				const saved = localStorage.getItem('game_sound_volume');
+				const saved = localStorage.getItem("game_sound_volume");
 				if (saved !== null) {
 					volEl.value = String(saved);
 					const v = parseFloat(saved);
-					if (typeof soundManager !== 'undefined' && typeof soundManager.setVolume === 'function') soundManager.setVolume(v);
+					if (
+						typeof soundManager !== "undefined" &&
+						typeof soundManager.setVolume === "function"
+					)
+						soundManager.setVolume(v);
 				}
-			} catch (e) { }
+			} catch (e) {}
 
-			volEl.addEventListener('input', (e) => {
+			volEl.addEventListener("input", (e) => {
 				const v = parseFloat(e.target.value);
-				if (typeof soundManager !== 'undefined' && typeof soundManager.setVolume === 'function') {
+				if (
+					typeof soundManager !== "undefined" &&
+					typeof soundManager.setVolume === "function"
+				) {
 					soundManager.setVolume(v);
 				}
-				try { localStorage.setItem('game_sound_volume', String(v)); } catch (e) { }
+				try {
+					localStorage.setItem("game_sound_volume", String(v));
+				} catch (e) {}
 			});
 		}
 		if (muteBtn) {
 			// Restore mute state
 			try {
-				const savedMute = localStorage.getItem('game_sound_muted');
+				const savedMute = localStorage.getItem("game_sound_muted");
 				if (savedMute !== null) {
-					const m = savedMute === '1';
-					if (typeof soundManager !== 'undefined') {
+					const m = savedMute === "1";
+					if (typeof soundManager !== "undefined") {
 						soundManager.setMuted(m);
-						muteBtn.textContent = m ? 'ミュート解除' : 'ミュート';
+						muteBtn.textContent = m ? "ミュート解除" : "ミュート";
 					}
 				}
-			} catch (e) { }
+			} catch (e) {}
 
-			muteBtn.addEventListener('click', (e) => {
-				if (typeof soundManager === 'undefined') return;
+			muteBtn.addEventListener("click", (e) => {
+				if (typeof soundManager === "undefined") return;
 				soundManager.toggleMute();
-				muteBtn.textContent = soundManager.muted ? 'ミュート解除' : 'ミュート';
-				try { localStorage.setItem('game_sound_muted', soundManager.muted ? '1' : '0'); } catch (e) { }
+				muteBtn.textContent = soundManager.muted ? "ミュート解除" : "ミュート";
+				try {
+					localStorage.setItem(
+						"game_sound_muted",
+						soundManager.muted ? "1" : "0",
+					);
+				} catch (e) {}
 			});
 		}
 
@@ -1248,7 +1559,7 @@ class UIManager {
 		this._keyboardHandler = this._keyboardHandler || this._boundKeyboardHandler;
 		if (!this._boundKeyboardHandler) {
 			this._boundKeyboardHandler = this._handleGlobalKeydown.bind(this);
-			window.addEventListener('keydown', this._boundKeyboardHandler);
+			window.addEventListener("keydown", this._boundKeyboardHandler);
 		}
 	}
 
@@ -1265,55 +1576,80 @@ class UIManager {
 			if (!key) return;
 
 			// If menu is open, prefer navigating the menu's focusable elements
-			const overlay = document.getElementById('menu-overlay');
-			const menuOpen = overlay && !overlay.classList.contains('hidden');
+			const overlay = document.getElementById("menu-overlay");
+			const menuOpen = overlay && !overlay.classList.contains("hidden");
 			if (menuOpen) {
 				// If an inner menu-window (item/history/character detail) is open,
 				// Escape should close that window first instead of the whole menu.
-				if (key === 'Escape') {
-					const openWindows = Array.from(document.querySelectorAll('.menu-window')).filter(w => !w.classList.contains('hidden'));
+				if (key === "Escape") {
+					const openWindows = Array.from(
+						document.querySelectorAll(".menu-window"),
+					).filter((w) => !w.classList.contains("hidden"));
 					if (openWindows.length > 0) {
 						const last = openWindows[openWindows.length - 1];
-						try { this.closeMenuWindow(last); } catch (e) { console.warn('closeMenuWindow error', e); }
+						try {
+							this.closeMenuWindow(last);
+						} catch (e) {
+							console.warn("closeMenuWindow error", e);
+						}
 						return;
 					}
 				}
 
 				// If a dedicated menu-window (item/history/detail) is open, navigate inside it
-				const openWindows = Array.from(document.querySelectorAll('.menu-window')).filter(w => !w.classList.contains('hidden'));
-				const container = (openWindows.length > 0) ? openWindows[openWindows.length - 1] : document.getElementById('menu-content');
+				const openWindows = Array.from(
+					document.querySelectorAll(".menu-window"),
+				).filter((w) => !w.classList.contains("hidden"));
+				const container =
+					openWindows.length > 0
+						? openWindows[openWindows.length - 1]
+						: document.getElementById("menu-content");
 				if (container) {
-					const focusable = Array.from(container.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
-						.filter(el => el.offsetParent !== null); // visible only
+					const focusable = Array.from(
+						container.querySelectorAll(
+							'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+						),
+					).filter((el) => el.offsetParent !== null); // visible only
 					if (focusable.length > 0) {
-						let idx = focusable.findIndex(el => el === document.activeElement);
-						if (key === 'ArrowDown' || key === 'ArrowRight') {
+						const idx = focusable.findIndex(
+							(el) => el === document.activeElement,
+						);
+						if (key === "ArrowDown" || key === "ArrowRight") {
 							e.preventDefault();
-							const next = (idx + 1) >= focusable.length ? 0 : idx + 1;
+							const next = idx + 1 >= focusable.length ? 0 : idx + 1;
 							focusable[next].focus();
 							// visual sync
-							focusable.forEach((el, i) => { if (i === next) el.classList.add('focused'); else el.classList.remove('focused'); });
+							focusable.forEach((el, i) => {
+								if (i === next) el.classList.add("focused");
+								else el.classList.remove("focused");
+							});
 							return;
 						}
-						if (key === 'ArrowUp' || key === 'ArrowLeft') {
+						if (key === "ArrowUp" || key === "ArrowLeft") {
 							e.preventDefault();
-							const prev = (idx - 1) < 0 ? focusable.length - 1 : idx - 1;
+							const prev = idx - 1 < 0 ? focusable.length - 1 : idx - 1;
 							focusable[prev].focus();
-							focusable.forEach((el, i) => { if (i === prev) el.classList.add('focused'); else el.classList.remove('focused'); });
+							focusable.forEach((el, i) => {
+								if (i === prev) el.classList.add("focused");
+								else el.classList.remove("focused");
+							});
 							return;
 						}
-						if (key === 'Enter') {
+						if (key === "Enter") {
 							e.preventDefault();
-							const target = (idx >= 0) ? focusable[idx] : focusable[0];
+							const target = idx >= 0 ? focusable[idx] : focusable[0];
 							if (target) target.click();
 							// ensure focused class on activation
-							focusable.forEach((el, i) => { if (el === target) el.classList.add('focused'); else el.classList.remove('focused'); });
+							focusable.forEach((el, i) => {
+								if (el === target) el.classList.add("focused");
+								else el.classList.remove("focused");
+							});
 							return;
 						}
 					}
 				}
 				// allow closing menu with Escape/M even if no focusables
-				if (key === 'Escape' || key === 'm' || key === 'M') {
+				if (key === "Escape" || key === "m" || key === "M") {
 					this.closeMenu();
 					return;
 				}
@@ -1321,26 +1657,28 @@ class UIManager {
 			}
 
 			// If choices are visible, handle navigation
-			const choices = Array.from(document.querySelectorAll('#choices-area .choice-button'));
+			const choices = Array.from(
+				document.querySelectorAll("#choices-area .choice-button"),
+			);
 			if (choices && choices.length > 0) {
 				// Find currently focused index
-				let idx = choices.findIndex(b => b.classList.contains('focused'));
-				if (key === 'ArrowDown' || key === 'ArrowRight') {
+				const idx = choices.findIndex((b) => b.classList.contains("focused"));
+				if (key === "ArrowDown" || key === "ArrowRight") {
 					e.preventDefault();
-					const next = (idx + 1) >= choices.length ? 0 : idx + 1;
+					const next = idx + 1 >= choices.length ? 0 : idx + 1;
 					this._setChoiceFocus(choices, next);
 					return;
 				}
-				if (key === 'ArrowUp' || key === 'ArrowLeft') {
+				if (key === "ArrowUp" || key === "ArrowLeft") {
 					e.preventDefault();
-					let prev = (idx - 1) < 0 ? choices.length - 1 : idx - 1;
+					const prev = idx - 1 < 0 ? choices.length - 1 : idx - 1;
 					this._setChoiceFocus(choices, prev);
 					return;
 				}
-				if (key === 'Enter') {
+				if (key === "Enter") {
 					e.preventDefault();
 					// Activate focused or first
-					const target = (idx >= 0) ? choices[idx] : choices[0];
+					const target = idx >= 0 ? choices[idx] : choices[0];
 					if (target) target.click();
 					return;
 				}
@@ -1349,74 +1687,96 @@ class UIManager {
 			// If no choices are present, allow Enter to advance message (unless typing in an input)
 			try {
 				const active = document.activeElement;
-				const tag = active ? (active.tagName || '').toUpperCase() : '';
-				const isEditable = active && (active.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT');
-				if (!isEditable && key === 'Enter') {
+				const tag = active ? (active.tagName || "").toUpperCase() : "";
+				const isEditable =
+					active &&
+					(active.isContentEditable ||
+						tag === "INPUT" ||
+						tag === "TEXTAREA" ||
+						tag === "SELECT");
+				if (!isEditable && key === "Enter") {
 					// If a message window is visible and waiting for click, emulate click to advance
-					if (this.messageWindow && window.getComputedStyle(this.messageWindow).display !== 'none') {
+					if (
+						this.messageWindow &&
+						window.getComputedStyle(this.messageWindow).display !== "none"
+					) {
 						// If clickIndicator is visible or messageText not empty, dispatch click
 						try {
 							const indicator = this.clickIndicator;
-							const msgText = this.messageText && this.messageText.textContent ? this.messageText.textContent.trim() : '';
-							const showIndicator = indicator && window.getComputedStyle(indicator).display !== 'none';
-							if (showIndicator || msgText !== '') {
+							const msgText =
+								this.messageText && this.messageText.textContent
+									? this.messageText.textContent.trim()
+									: "";
+							const showIndicator =
+								indicator &&
+								window.getComputedStyle(indicator).display !== "none";
+							if (showIndicator || msgText !== "") {
 								e.preventDefault();
 								// trigger the same path as a user click
 								this.messageWindow.click();
 								return;
 							}
-						} catch (e) { }
+						} catch (e) {}
 					}
 				}
-			} catch (e) { console.warn('enter-advance guard error', e); }
+			} catch (e) {
+				console.warn("enter-advance guard error", e);
+			}
 
 			// Toggle menu with Escape or 'm'/'M'
 			// If title screen is visible, handle title navigation first
-			const titleVisible = this.titleScreen && window.getComputedStyle(this.titleScreen).display !== 'none';
+			const titleVisible =
+				this.titleScreen &&
+				window.getComputedStyle(this.titleScreen).display !== "none";
 			if (titleVisible) {
-				const titleButtons = Array.from(document.querySelectorAll('#title-screen .title-buttons button'));
+				const titleButtons = Array.from(
+					document.querySelectorAll("#title-screen .title-buttons button"),
+				);
 				if (titleButtons.length > 0) {
-					let tIdx = titleButtons.findIndex(b => b === document.activeElement || b.classList.contains('focused'));
-					if (key === 'ArrowDown' || key === 'ArrowRight') {
+					const tIdx = titleButtons.findIndex(
+						(b) =>
+							b === document.activeElement || b.classList.contains("focused"),
+					);
+					if (key === "ArrowDown" || key === "ArrowRight") {
 						e.preventDefault();
-						const next = (tIdx + 1) >= titleButtons.length ? 0 : tIdx + 1;
+						const next = tIdx + 1 >= titleButtons.length ? 0 : tIdx + 1;
 						this._setTitleButtonFocus(titleButtons, next);
 						return;
 					}
-					if (key === 'ArrowUp' || key === 'ArrowLeft') {
+					if (key === "ArrowUp" || key === "ArrowLeft") {
 						e.preventDefault();
-						const prev = (tIdx - 1) < 0 ? titleButtons.length - 1 : tIdx - 1;
+						const prev = tIdx - 1 < 0 ? titleButtons.length - 1 : tIdx - 1;
 						this._setTitleButtonFocus(titleButtons, prev);
 						return;
 					}
-					if (key === 'Enter') {
+					if (key === "Enter") {
 						e.preventDefault();
 						// If protagonist name input is focused, pressing Enter should start game
 						const active = document.activeElement;
-						if (active && active.id === 'protagonist-name') {
-							const btn = document.getElementById('new-game-button');
+						if (active && active.id === "protagonist-name") {
+							const btn = document.getElementById("new-game-button");
 							if (btn) btn.click();
 							return;
 						}
-						const target = (tIdx >= 0) ? titleButtons[tIdx] : titleButtons[0];
+						const target = tIdx >= 0 ? titleButtons[tIdx] : titleButtons[0];
 						if (target) target.click();
 						return;
 					}
 				}
 			}
 
-			if (key === 'Escape' || key === 'm' || key === 'M') {
+			if (key === "Escape" || key === "m" || key === "M") {
 				// If menu is open, close it; otherwise try to open it (respecting free action)
-				const overlay = document.getElementById('menu-overlay');
+				const overlay = document.getElementById("menu-overlay");
 				if (!overlay) return;
-				if (!overlay.classList.contains('hidden')) {
+				if (!overlay.classList.contains("hidden")) {
 					this.closeMenu();
 				} else {
 					this.openMenu();
 				}
 			}
 		} catch (err) {
-			console.error('keyboard handler error', err);
+			console.error("keyboard handler error", err);
 		}
 	}
 
@@ -1428,11 +1788,13 @@ class UIManager {
 	_setChoiceFocus(choices, index) {
 		choices.forEach((b, i) => {
 			if (i === index) {
-				b.classList.add('focused');
+				b.classList.add("focused");
 				// ensure visible
-				try { b.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { }
+				try {
+					b.scrollIntoView({ block: "nearest", inline: "nearest" });
+				} catch (e) {}
 			} else {
-				b.classList.remove('focused');
+				b.classList.remove("focused");
 			}
 		});
 	}
@@ -1441,12 +1803,14 @@ class UIManager {
 	 * ゲームのセーブ処理
 	 */
 	handleSaveGame() {
-		if (typeof gameManager === 'undefined') return;
+		if (typeof gameManager === "undefined") return;
 		const saveData = gameManager.getAllStatus(); // 全ステータスを取得
 		const dataStr = JSON.stringify(saveData, null, 2); // 整形してJSON文字列に変換
 
-		this.createDownloadLink(dataStr, 'game_save.json', 'application/json');
-		this.displayMenuMessage('ゲームデータをセーブしました。ダウンロードリンクを確認してください。');
+		this.createDownloadLink(dataStr, "game_save.json", "application/json");
+		this.displayMenuMessage(
+			"ゲームデータをセーブしました。ダウンロードリンクを確認してください。",
+		);
 	}
 
 	/**
@@ -1460,29 +1824,42 @@ class UIManager {
 		// - Called as handleLoadGame(true) from title screen (legacy call). In that
 		//   case we create a temporary file input, open the picker and delegate to
 		//   this function when a file is chosen.
-		if (typeof eventOrIsFromTitle === 'boolean') {
+		if (typeof eventOrIsFromTitle === "boolean") {
 			isFromTitle = eventOrIsFromTitle;
 			// create temporary input
-			const tempInput = document.createElement('input');
-			tempInput.type = 'file';
-			tempInput.accept = '.json,application/json';
-			tempInput.style.display = 'none';
+			const tempInput = document.createElement("input");
+			tempInput.type = "file";
+			tempInput.accept = ".json,application/json";
+			tempInput.style.display = "none";
 			document.body.appendChild(tempInput);
-			const cleanup = () => { try { tempInput.remove(); } catch (e) { /* ignore */ } };
-			tempInput.addEventListener('change', (ev) => {
-				this.handleLoadGame(ev, isFromTitle);
-				setTimeout(cleanup, 500);
-			}, { once: true });
+			const cleanup = () => {
+				try {
+					tempInput.remove();
+				} catch (e) {
+					/* ignore */
+				}
+			};
+			tempInput.addEventListener(
+				"change",
+				(ev) => {
+					this.handleLoadGame(ev, isFromTitle);
+					setTimeout(cleanup, 500);
+				},
+				{ once: true },
+			);
 			// trigger file picker
 			tempInput.click();
 			return;
 		}
 
 		const event = eventOrIsFromTitle;
-		const file = event && event.target && event.target.files ? event.target.files[0] : null;
+		const file =
+			event && event.target && event.target.files
+				? event.target.files[0]
+				: null;
 		if (!file) {
 			if (!isFromTitle) {
-				this.displayMenuMessage('ファイルが選択されていません。');
+				this.displayMenuMessage("ファイルが選択されていません。");
 			}
 			return;
 		}
@@ -1494,18 +1871,20 @@ class UIManager {
 
 				// ロード直後にゲームを開始または再開する共通ロジック
 				const startGameAfterLoad = (loadedStatus) => {
-					const playerName = (loadedStatus.characters && loadedStatus.characters.find(c => c.id === 'player'))
-						? loadedStatus.characters.find(c => c.id === 'player').name
-						: '主人公';
+					const playerName =
+						loadedStatus.characters &&
+						loadedStatus.characters.find((c) => c.id === "player")
+							? loadedStatus.characters.find((c) => c.id === "player").name
+							: "主人公";
 
 					// グローバルな gameManager/ui がなければ初期化
-					if (typeof initializeGame !== 'function') {
-						console.error('initializeGame is not defined');
+					if (typeof initializeGame !== "function") {
+						console.error("initializeGame is not defined");
 						return;
 					}
 					initializeGame(playerName);
 					gameManager.loadGame(loadedStatus);
-					this.showTransientNotice('ゲームデータをロードしました。');
+					this.showTransientNotice("ゲームデータをロードしました。");
 					GameEventManager.showMainActions();
 				};
 
@@ -1514,14 +1893,17 @@ class UIManager {
 				} else {
 					// メニューからのロード
 					gameManager.loadGame(loadedData);
-					this.displayMenuMessage('ゲームデータをロードしました。');
+					this.displayMenuMessage("ゲームデータをロードしました。");
 					this.closeMenu();
 					GameEventManager.showMainActions();
 				}
 			} catch (error) {
-				console.error('Failed to load game data:', error);
-				const message = 'ゲームデータのロードに失敗しました。ファイルが破損しているか、形式が正しくありません。';
-				try { if (typeof soundManager !== 'undefined') soundManager.play('error'); } catch (e) { }
+				console.error("Failed to load game data:", error);
+				const message =
+					"ゲームデータのロードに失敗しました。ファイルが破損しているか、形式が正しくありません。";
+				try {
+					if (typeof soundManager !== "undefined") soundManager.play("error");
+				} catch (e) {}
 				if (isFromTitle) {
 					this.showTransientNotice(message);
 				} else {
@@ -1541,19 +1923,21 @@ class UIManager {
 	createDownloadLink(data, filename, type) {
 		const blob = new Blob([data], { type: type });
 		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
+		const a = document.createElement("a");
 		a.href = url;
 		a.download = filename;
 		a.textContent = `セーブデータをダウンロード (${filename})`;
-		a.style.display = 'block';
-		a.style.marginTop = '10px';
-		a.style.color = '#87CEEB';
-		a.style.textDecoration = 'underline';
+		a.style.display = "block";
+		a.style.marginTop = "10px";
+		a.style.color = "#87CEEB";
+		a.style.textDecoration = "underline";
 
-		const menuSaveLoadSection = document.getElementById('menu-save-load-section');
+		const menuSaveLoadSection = document.getElementById(
+			"menu-save-load-section",
+		);
 		if (menuSaveLoadSection) {
 			// 既存のダウンロードリンクがあれば削除
-			const existingLink = menuSaveLoadSection.querySelector('a[download]');
+			const existingLink = menuSaveLoadSection.querySelector("a[download]");
 			if (existingLink) {
 				existingLink.remove();
 			}
@@ -1561,7 +1945,7 @@ class UIManager {
 		}
 
 		// オブジェクトURLは不要になったら解放する
-		a.addEventListener('click', () => {
+		a.addEventListener("click", () => {
 			setTimeout(() => URL.revokeObjectURL(url), 100);
 		});
 	}

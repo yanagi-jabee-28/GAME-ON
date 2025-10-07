@@ -4,7 +4,10 @@
  * プレイヤーのステータス、時間、フラグなどを一元管理します。
  */
 
-class GameManager {
+import { CONFIG } from "./config.js";
+import { ITEMS } from "./items.js";
+
+export class GameManager {
 	/**
 	 * GameManagerのコンストラクタ
 	 * @param {object} initialStatus - プレイヤーの初期ステータス
@@ -17,17 +20,24 @@ class GameManager {
 		// 変更リスナー (UIやイベントが購読可能)
 		this._listeners = [];
 		// STAT_DEFS に基づいて stats の欠損キーを初期化する
-		if (typeof CONFIG !== 'undefined' && CONFIG.STAT_DEFS && this.playerStatus.stats) {
+		if (
+			typeof CONFIG !== "undefined" &&
+			CONFIG.STAT_DEFS &&
+			this.playerStatus.stats
+		) {
 			for (const key of Object.keys(CONFIG.STAT_DEFS)) {
-				if (typeof this.playerStatus.stats[key] === 'undefined') {
+				if (typeof this.playerStatus.stats[key] === "undefined") {
 					this.playerStatus.stats[key] = CONFIG.STAT_DEFS[key].default || 0;
 				}
 			}
 		}
 		// 念のため stats オブジェクトが無い旧データに対応
 		if (!this.playerStatus.stats) this.playerStatus.stats = {};
-		['academic', 'physical', 'mental', 'technical'].forEach(k => {
-			if (typeof this.playerStatus.stats[k] === 'undefined' && CONFIG.STAT_DEFS[k]) {
+		["academic", "physical", "mental", "technical"].forEach((k) => {
+			if (
+				typeof this.playerStatus.stats[k] === "undefined" &&
+				CONFIG.STAT_DEFS[k]
+			) {
 				this.playerStatus.stats[k] = CONFIG.STAT_DEFS[k].default || 0;
 			}
 		});
@@ -55,30 +65,35 @@ class GameManager {
 			this.changeStats(changes.stats, { suppressUpdateCondition: true });
 			mutated = true;
 			console.log("Stats changes applied:", changes.stats); // デバッグ用ログ
-			console.log("Current player stats after changes:", this.playerStatus.stats); // デバッグ用ログ
+			console.log(
+				"Current player stats after changes:",
+				this.playerStatus.stats,
+			); // デバッグ用ログ
 		}
 
-		if (typeof changes.money === 'number') {
+		if (typeof changes.money === "number") {
 			this.playerStatus.money += changes.money;
 			mutated = true;
 		}
 
-		if (typeof changes.cp === 'number') {
+		if (typeof changes.cp === "number") {
 			this.playerStatus.cp += changes.cp;
 			mutated = true;
 		}
 
-		if (typeof changes.reportDebt === 'number') {
+		if (typeof changes.reportDebt === "number") {
 			this.playerStatus.reportDebt += changes.reportDebt;
 			mutated = true;
 		}
 
 		if (Array.isArray(changes.itemsAdd)) {
-			changes.itemsAdd.forEach(itemId => this.playerStatus.items.push(itemId));
+			changes.itemsAdd.forEach((itemId) =>
+				this.playerStatus.items.push(itemId),
+			);
 			mutated = true;
 		}
 
-		if (typeof changes.menuLocked === 'boolean') {
+		if (typeof changes.menuLocked === "boolean") {
 			this.playerStatus.menuLocked = changes.menuLocked;
 			mutated = true;
 		}
@@ -94,49 +109,70 @@ class GameManager {
 
 			// stats の差分（physical/mental/technical/academic を個別に表示）
 			if (before.stats && after.stats) {
-				const map = { academic: '学力', physical: '体力', mental: '精神力', technical: '技術力', condition: 'コンディション' };
+				const map = {
+					academic: "学力",
+					physical: "体力",
+					mental: "精神力",
+					technical: "技術力",
+					condition: "コンディション",
+				};
 				for (const key of Object.keys(after.stats)) {
 					const delta = after.stats[key] - (before.stats[key] || 0);
 					if (delta !== 0) {
-						const sign = delta > 0 ? '+' : '';
+						const sign = delta > 0 ? "+" : "";
 						messages.push(`${map[key] || key}: ${sign}${delta}`);
 					}
 				}
 			}
 
 			// money
-			if (typeof after.money === 'number' && after.money !== before.money) {
+			if (typeof after.money === "number" && after.money !== before.money) {
 				const delta = after.money - (before.money || 0);
-				const sign = delta > 0 ? '+' : '';
-				const unit = (typeof CONFIG !== 'undefined' && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : '円';
+				const sign = delta > 0 ? "+" : "";
+				const unit =
+					typeof CONFIG !== "undefined" &&
+					CONFIG.LABELS &&
+					CONFIG.LABELS.currencyUnit
+						? CONFIG.LABELS.currencyUnit
+						: "円";
 				messages.push(`所持金: ${sign}${delta}${unit}`);
 			}
 
 			// cp
-			if (typeof after.cp === 'number' && after.cp !== before.cp) {
+			if (typeof after.cp === "number" && after.cp !== before.cp) {
 				const delta = after.cp - (before.cp || 0);
-				const sign = delta > 0 ? '+' : '';
+				const sign = delta > 0 ? "+" : "";
 				messages.push(`人脈: ${sign}${delta}`);
 			}
 
 			// reportDebt
-			if (typeof after.reportDebt === 'number' && after.reportDebt !== before.reportDebt) {
+			if (
+				typeof after.reportDebt === "number" &&
+				after.reportDebt !== before.reportDebt
+			) {
 				const delta = after.reportDebt - (before.reportDebt || 0);
-				const sign = delta > 0 ? '+' : '';
+				const sign = delta > 0 ? "+" : "";
 				messages.push(`レポート負債: ${sign}${delta}`);
 			}
 
 			// itemsAdd: show added items
 			if (Array.isArray(changes.itemsAdd) && changes.itemsAdd.length > 0) {
-				const itemNames = changes.itemsAdd.map(id => (ITEMS[id] && ITEMS[id].name) ? ITEMS[id].name : id);
-				messages.push(`アイテム入手: ${itemNames.join(', ')}`);
+				const itemNames = changes.itemsAdd.map((id) =>
+					ITEMS[id] && ITEMS[id].name ? ITEMS[id].name : id,
+				);
+				messages.push(`アイテム入手: ${itemNames.join(", ")}`);
 				// play item get sound
-				try { if (typeof soundManager !== 'undefined') soundManager.play('item_get'); } catch (e) { }
+				try {
+					if (typeof soundManager !== "undefined")
+						soundManager.play("item_get");
+				} catch (e) {}
 			}
 
 			// menuLocked
-			if (typeof changes.menuLocked === 'boolean') {
-				messages.push(`メニューロック: ${changes.menuLocked ? '有効' : '解除'}`);
+			if (typeof changes.menuLocked === "boolean") {
+				messages.push(
+					`メニューロック: ${changes.menuLocked ? "有効" : "解除"}`,
+				);
 			}
 
 			// Play sounds based on deltas
@@ -146,31 +182,38 @@ class GameManager {
 					for (const key of Object.keys(after.stats)) {
 						const delta = after.stats[key] - (before.stats[key] || 0);
 						if (delta > 0) {
-							if (typeof soundManager !== 'undefined') soundManager.play('stat_up');
+							if (typeof soundManager !== "undefined")
+								soundManager.play("stat_up");
 						} else if (delta < 0) {
-							if (typeof soundManager !== 'undefined') soundManager.play('stat_down');
+							if (typeof soundManager !== "undefined")
+								soundManager.play("stat_down");
 						}
 					}
 				}
 				// money
-				if (typeof after.money === 'number' && after.money !== before.money) {
+				if (typeof after.money === "number" && after.money !== before.money) {
 					const delta = after.money - (before.money || 0);
 					if (delta > 0) {
-						if (typeof soundManager !== 'undefined') soundManager.play('money_up');
+						if (typeof soundManager !== "undefined")
+							soundManager.play("money_up");
 					} else if (delta < 0) {
-						if (typeof soundManager !== 'undefined') soundManager.play('money_down');
+						if (typeof soundManager !== "undefined")
+							soundManager.play("money_down");
 					}
 				}
 				// cp
-				if (typeof after.cp === 'number' && after.cp !== before.cp) {
+				if (typeof after.cp === "number" && after.cp !== before.cp) {
 					const delta = after.cp - (before.cp || 0);
 					if (delta > 0) {
-						if (typeof soundManager !== 'undefined') soundManager.play('cp_up');
+						if (typeof soundManager !== "undefined") soundManager.play("cp_up");
 					} else if (delta < 0) {
-						if (typeof soundManager !== 'undefined') soundManager.play('cp_down');
+						if (typeof soundManager !== "undefined")
+							soundManager.play("cp_down");
 					}
 				}
-			} catch (e) { /* ignore sound errors */ }
+			} catch (e) {
+				/* ignore sound errors */
+			}
 
 			return messages;
 		}
@@ -182,16 +225,18 @@ class GameManager {
 	 * @param {function} listener - (newStatus) => void
 	 */
 	subscribe(listener) {
-		if (typeof listener === 'function') this._listeners.push(listener);
+		if (typeof listener === "function") this._listeners.push(listener);
 	}
 
 	_notifyListeners() {
-		console.log(`_notifyListeners: notifying ${this._listeners.length} listeners`);
-		this._listeners.forEach(fn => {
+		console.log(
+			`_notifyListeners: notifying ${this._listeners.length} listeners`,
+		);
+		this._listeners.forEach((fn) => {
 			try {
 				fn(this.getStatus());
 			} catch (e) {
-				console.error('Listener error', e);
+				console.error("Listener error", e);
 			}
 		});
 	}
@@ -203,13 +248,25 @@ class GameManager {
 		// character は少なくとも { id?, name, trust?, status? } を想定
 		if (!character) return null;
 		if (!this.playerStatus.characters) this.playerStatus.characters = [];
-		const id = character.id || (`char_${Date.now()}_${Math.floor(Math.random() * 1000)}`);
-		const entry = Object.assign({ id: id, name: character.name || '名無し', trust: typeof character.trust === 'number' ? character.trust : 50, status: character.status || {} }, character);
+		const id =
+			character.id || `char_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+		const entry = Object.assign(
+			{
+				id: id,
+				name: character.name || "名無し",
+				trust: typeof character.trust === "number" ? character.trust : 50,
+				status: character.status || {},
+			},
+			character,
+		);
 		// trust を 0-100 にクランプ
 		entry.trust = Math.max(0, Math.min(100, Number(entry.trust) || 0));
 		this.playerStatus.characters.push(entry);
 		this._notifyListeners();
-		this.addHistory({ type: 'add_character', detail: { id: entry.id, name: entry.name } });
+		this.addHistory({
+			type: "add_character",
+			detail: { id: entry.id, name: entry.name },
+		});
 		return entry.id;
 	}
 
@@ -219,7 +276,7 @@ class GameManager {
 
 	getCharacter(id) {
 		if (!this.playerStatus.characters) return null;
-		return this.playerStatus.characters.find(c => c.id === id) || null;
+		return this.playerStatus.characters.find((c) => c.id === id) || null;
 	}
 
 	updateCharacterTrust(id, delta) {
@@ -228,7 +285,10 @@ class GameManager {
 		const before = Number(c.trust || 0);
 		c.trust = Math.max(0, Math.min(100, before + Number(delta || 0)));
 		this._notifyListeners();
-		this.addHistory({ type: 'trust_change', detail: { id, delta, before, after: c.trust } });
+		this.addHistory({
+			type: "trust_change",
+			detail: { id, delta, before, after: c.trust },
+		});
 		return c.trust;
 	}
 
@@ -240,7 +300,10 @@ class GameManager {
 			c.status[k] = statusChanges[k];
 		}
 		this._notifyListeners();
-		this.addHistory({ type: 'char_status_change', detail: { id, changes: statusChanges } });
+		this.addHistory({
+			type: "char_status_change",
+			detail: { id, changes: statusChanges },
+		});
 		return true;
 	}
 
@@ -251,7 +314,8 @@ class GameManager {
 	getWeekdayName() {
 		// dayは1始まり。START_WEEKDAY_INDEXはWEEKDAYS配列のインデックスでday=1が何曜日か
 		const startIndex = CONFIG.START_WEEKDAY_INDEX || 0;
-		const weekdayIndex = (startIndex + (this.playerStatus.day - 1)) % CONFIG.WEEKDAYS.length;
+		const weekdayIndex =
+			(startIndex + (this.playerStatus.day - 1)) % CONFIG.WEEKDAYS.length;
 		return CONFIG.WEEKDAYS[weekdayIndex];
 	}
 
@@ -312,36 +376,70 @@ class GameManager {
 
 		// suppressUpdateCondition が真の場合は低レベルで直接変更する
 		console.log("Entering changeStats. Changes:", changes); // デバッグ用ログ
-		console.log("Current playerStatus.stats before change:", this.playerStatus.stats); // デバッグ用ログ
+		console.log(
+			"Current playerStatus.stats before change:",
+			this.playerStatus.stats,
+		); // デバッグ用ログ
 
 		for (const key in changes) {
 			if (key in this.playerStatus.stats) {
-				console.log(`Changing ${key}: ${this.playerStatus.stats[key]} + ${changes[key]}`); // デバッグ用ログ
+				console.log(
+					`Changing ${key}: ${this.playerStatus.stats[key]} + ${changes[key]}`,
+				); // デバッグ用ログ
 				this.playerStatus.stats[key] += changes[key];
 
 				// clamp using STAT_DEFS if available
-				if (typeof CONFIG !== 'undefined' && CONFIG.STAT_DEFS && CONFIG.STAT_DEFS[key]) {
+				if (
+					typeof CONFIG !== "undefined" &&
+					CONFIG.STAT_DEFS &&
+					CONFIG.STAT_DEFS[key]
+				) {
 					const def = CONFIG.STAT_DEFS[key];
-					if (typeof def.min === 'number') this.playerStatus.stats[key] = Math.max(def.min, this.playerStatus.stats[key]);
-					if (typeof def.max === 'number') this.playerStatus.stats[key] = Math.min(def.max, this.playerStatus.stats[key]);
+					if (typeof def.min === "number")
+						this.playerStatus.stats[key] = Math.max(
+							def.min,
+							this.playerStatus.stats[key],
+						);
+					if (typeof def.max === "number")
+						this.playerStatus.stats[key] = Math.min(
+							def.max,
+							this.playerStatus.stats[key],
+						);
 				} else {
-					if (this.playerStatus.stats[key] < 0) this.playerStatus.stats[key] = 0;
-					if (this.playerStatus.stats[key] > 100) this.playerStatus.stats[key] = 100;
+					if (this.playerStatus.stats[key] < 0)
+						this.playerStatus.stats[key] = 0;
+					if (this.playerStatus.stats[key] > 100)
+						this.playerStatus.stats[key] = 100;
 				}
 				console.log(`New value for ${key}: ${this.playerStatus.stats[key]}`); // デバッグ用ログ
-			} else if (typeof CONFIG !== 'undefined' && CONFIG.STAT_DEFS && CONFIG.STAT_DEFS[key]) {
+			} else if (
+				typeof CONFIG !== "undefined" &&
+				CONFIG.STAT_DEFS &&
+				CONFIG.STAT_DEFS[key]
+			) {
 				// 未定義だが STAT_DEFS にあれば新しく作る
 				const def = CONFIG.STAT_DEFS[key];
 				this.playerStatus.stats[key] = def.default || 0;
 				this.playerStatus.stats[key] += changes[key];
-				if (typeof def.min === 'number') this.playerStatus.stats[key] = Math.max(def.min, this.playerStatus.stats[key]);
-				if (typeof def.max === 'number') this.playerStatus.stats[key] = Math.min(def.max, this.playerStatus.stats[key]);
+				if (typeof def.min === "number")
+					this.playerStatus.stats[key] = Math.max(
+						def.min,
+						this.playerStatus.stats[key],
+					);
+				if (typeof def.max === "number")
+					this.playerStatus.stats[key] = Math.min(
+						def.max,
+						this.playerStatus.stats[key],
+					);
 				console.log(`Created and set ${key}: ${this.playerStatus.stats[key]}`);
 			} else {
 				console.warn(`Attempted to change unknown stat: ${key}`); // デバッグ用ログ
 			}
 		}
-		console.log("Exiting changeStats. Final playerStatus.stats:", this.playerStatus.stats); // デバッグ用ログ
+		console.log(
+			"Exiting changeStats. Final playerStatus.stats:",
+			this.playerStatus.stats,
+		); // デバッグ用ログ
 	}
 
 	/**
@@ -350,7 +448,7 @@ class GameManager {
 	async nextTurn() {
 		// ゲームオーバーであればこれ以上進めない
 		if (this.playerStatus && this.playerStatus.gameOver) {
-			console.log('Game is over. nextTurn aborted.');
+			console.log("Game is over. nextTurn aborted.");
 			return;
 		}
 		// ターンインデックスを進める
@@ -361,20 +459,21 @@ class GameManager {
 			this.playerStatus.turnIndex = 0; // 午前から
 			this.playerStatus.day++;
 		}
-		console.log(`Turn advanced to: Day ${this.playerStatus.day}, ${this.getCurrentTurnName()}`);
+		console.log(
+			`Turn advanced to: Day ${this.playerStatus.day}, ${this.getCurrentTurnName()}`,
+		);
 		// ターンが進んだことを購読者に通知してUIを最新化する
 		try {
 			this._notifyListeners();
 		} catch (e) {
-			console.warn('Failed to notify listeners after nextTurn', e);
+			console.warn("Failed to notify listeners after nextTurn", e);
 		}
-
 
 		// 日付が進んだ直後に期末試験の判定が必要かを確認
 		try {
 			await this.runExamIfNeeded();
 		} catch (e) {
-			console.error('runExamIfNeeded error', e);
+			console.error("runExamIfNeeded error", e);
 		}
 
 		// --- ターン経過に伴う持続効果のデクリメント処理 ---
@@ -382,11 +481,14 @@ class GameManager {
 			if (this.playerStatus.effects) {
 				for (const key of Object.keys(this.playerStatus.effects)) {
 					const ef = this.playerStatus.effects[key];
-					if (ef && typeof ef.turns === 'number') {
+					if (ef && typeof ef.turns === "number") {
 						ef.turns = Math.max(0, ef.turns - 1);
 						if (ef.turns === 0) {
 							delete this.playerStatus.effects[key];
-							this.addHistory({ type: 'effect_expired', detail: { effect: key } });
+							this.addHistory({
+								type: "effect_expired",
+								detail: { effect: key },
+							});
 						}
 					}
 				}
@@ -394,10 +496,9 @@ class GameManager {
 				this._notifyListeners();
 			}
 		} catch (e) {
-			console.warn('Effect decrement error', e);
+			console.warn("Effect decrement error", e);
 		}
 	}
-
 
 	/**
 	 * 指定日（CONFIG.EXAM.day）の到来時に学力を評価し、合否を判定する。
@@ -408,11 +509,19 @@ class GameManager {
 			if (!CONFIG || !CONFIG.EXAM) return;
 			// 週次繰り返し設定がある場合は曜日ベースで判定
 			const examDay = Number(CONFIG.EXAM.day) || 7;
-			const repeatWeekly = (CONFIG.EXAM_EXT && CONFIG.EXAM_EXT.repeatWeekly) ? true : false;
-			const targetWeekday = (CONFIG.EXAM_EXT && CONFIG.EXAM_EXT.weekday) ? CONFIG.EXAM_EXT.weekday : null;
+			const repeatWeekly =
+				CONFIG.EXAM_EXT && CONFIG.EXAM_EXT.repeatWeekly ? true : false;
+			const targetWeekday =
+				CONFIG.EXAM_EXT && CONFIG.EXAM_EXT.weekday
+					? CONFIG.EXAM_EXT.weekday
+					: null;
 
 			// 既にその日で試験を実行済みなら二重実行を防止
-			if (this.playerStatus.lastExamRunDay && Number(this.playerStatus.lastExamRunDay) === Number(this.playerStatus.day)) {
+			if (
+				this.playerStatus.lastExamRunDay &&
+				Number(this.playerStatus.lastExamRunDay) ===
+					Number(this.playerStatus.day)
+			) {
 				return;
 			}
 
@@ -427,7 +536,10 @@ class GameManager {
 			if (!shouldRun) return;
 
 			// 学力・閾値を取得
-			const academic = (this.playerStatus.stats && Number(this.playerStatus.stats.academic)) ? Number(this.playerStatus.stats.academic) : 0;
+			const academic =
+				this.playerStatus.stats && Number(this.playerStatus.stats.academic)
+					? Number(this.playerStatus.stats.academic)
+					: 0;
 			const threshold = Number(CONFIG.EXAM.passThreshold) || 50;
 
 			// ヘッダーメッセージ（いつ試験が実施されたかを明確にする）
@@ -435,19 +547,42 @@ class GameManager {
 			const header = `【期末試験実施】 ${when} に期末試験が行われました。学力を評価します。`;
 
 			// 合否判定と eventData の組立
-			let eventData = { name: '試験官', message: header, changes: {}, afterMessage: '' };
+			const eventData = {
+				name: "試験官",
+				message: header,
+				changes: {},
+				afterMessage: "",
+			};
 			if (academic >= threshold) {
-				const rewards = (CONFIG.EXAM_REWARDS && CONFIG.EXAM_REWARDS.pass) ? CONFIG.EXAM_REWARDS.pass : { money: 500, cp: 0 };
-				const detail = `判定: 合格\n学力: ${academic} / 合格基準: ${threshold}\n報酬: 所持金 ${rewards.money >= 0 ? '+' : ''}${rewards.money}円、人脈 ${rewards.cp >= 0 ? '+' : ''}${rewards.cp}`;
-				eventData.message = header + '\n' + detail;
-				eventData.changes = { money: Number(rewards.money) || 0, cp: Number(rewards.cp) || 0 };
-				this.addHistory({ type: 'exam', detail: { result: 'pass', academic, threshold } });
+				const rewards =
+					CONFIG.EXAM_REWARDS && CONFIG.EXAM_REWARDS.pass
+						? CONFIG.EXAM_REWARDS.pass
+						: { money: 500, cp: 0 };
+				const detail = `判定: 合格\n学力: ${academic} / 合格基準: ${threshold}\n報酬: 所持金 ${rewards.money >= 0 ? "+" : ""}${rewards.money}円、人脈 ${rewards.cp >= 0 ? "+" : ""}${rewards.cp}`;
+				eventData.message = header + "\n" + detail;
+				eventData.changes = {
+					money: Number(rewards.money) || 0,
+					cp: Number(rewards.cp) || 0,
+				};
+				this.addHistory({
+					type: "exam",
+					detail: { result: "pass", academic, threshold },
+				});
 			} else {
-				const punish = (CONFIG.EXAM_REWARDS && CONFIG.EXAM_REWARDS.fail) ? CONFIG.EXAM_REWARDS.fail : { money: -200, cp: 0 };
-				const detail = `判定: 不合格\n学力: ${academic} / 合格基準: ${threshold}\nペナルティ: 所持金 ${punish.money >= 0 ? '+' : ''}${punish.money}円、人脈 ${punish.cp >= 0 ? '+' : ''}${punish.cp}\n留年の可能性が発生しました。`;
-				eventData.message = header + '\n' + detail;
-				eventData.changes = { money: Number(punish.money) || 0, cp: Number(punish.cp) || 0 };
-				this.addHistory({ type: 'exam', detail: { result: 'fail', academic, threshold } });
+				const punish =
+					CONFIG.EXAM_REWARDS && CONFIG.EXAM_REWARDS.fail
+						? CONFIG.EXAM_REWARDS.fail
+						: { money: -200, cp: 0 };
+				const detail = `判定: 不合格\n学力: ${academic} / 合格基準: ${threshold}\nペナルティ: 所持金 ${punish.money >= 0 ? "+" : ""}${punish.money}円、人脈 ${punish.cp >= 0 ? "+" : ""}${punish.cp}\n留年の可能性が発生しました。`;
+				eventData.message = header + "\n" + detail;
+				eventData.changes = {
+					money: Number(punish.money) || 0,
+					cp: Number(punish.cp) || 0,
+				};
+				this.addHistory({
+					type: "exam",
+					detail: { result: "fail", academic, threshold },
+				});
 				// 留年フラグ・回数を明確に保持 (失敗時のみ)
 				this.playerStatus.examFailed = (this.playerStatus.examFailed || 0) + 1;
 			}
@@ -456,14 +591,25 @@ class GameManager {
 			try {
 				await GameEventManager.performChangesEvent(eventData);
 			} catch (e) {
-				console.warn('performChangesEvent failed', e);
-				const applied = this.applyChanges(eventData.changes, { suppressDisplay: true }) || [];
-				const combined = eventData.message + (applied.length ? '\n---\n' + applied.join('\n') : '');
-				if (typeof ui !== 'undefined' && typeof ui.showFloatingMessage === 'function') {
-					await ui.showFloatingMessage(combined).catch(e => console.warn('showFloatingMessage failed', e));
-				} else if (typeof ui !== 'undefined' && typeof ui.displayMessage === 'function') {
-					ui.displayMessage(combined, eventData.name || '試験官');
-					if (typeof ui.waitForClick === 'function') await ui.waitForClick();
+				console.warn("performChangesEvent failed", e);
+				const applied =
+					this.applyChanges(eventData.changes, { suppressDisplay: true }) || [];
+				const combined =
+					eventData.message +
+					(applied.length ? "\n---\n" + applied.join("\n") : "");
+				if (
+					typeof ui !== "undefined" &&
+					typeof ui.showFloatingMessage === "function"
+				) {
+					await ui
+						.showFloatingMessage(combined)
+						.catch((e) => console.warn("showFloatingMessage failed", e));
+				} else if (
+					typeof ui !== "undefined" &&
+					typeof ui.displayMessage === "function"
+				) {
+					ui.displayMessage(combined, eventData.name || "試験官");
+					if (typeof ui.waitForClick === "function") await ui.waitForClick();
 				}
 			}
 
@@ -473,11 +619,16 @@ class GameManager {
 			// 試験が目的なので終了処理を行う（合否に関わらずゲーム終了）
 			this.playerStatus.gameOver = true;
 			// 統一のゲームオーバー処理へ委譲
-			if (typeof GameEventManager !== 'undefined' && typeof GameEventManager.triggerGameOver === 'function') {
-				await GameEventManager.triggerGameOver('試験が終了しました。これで本作のプレイは終了します。お疲れさまでした。');
+			if (
+				typeof GameEventManager !== "undefined" &&
+				typeof GameEventManager.triggerGameOver === "function"
+			) {
+				await GameEventManager.triggerGameOver(
+					"試験が終了しました。これで本作のプレイは終了します。お疲れさまでした。",
+				);
 			}
 		} catch (e) {
-			console.error('Error during exam evaluation', e);
+			console.error("Error during exam evaluation", e);
 		}
 	}
 
@@ -504,13 +655,19 @@ class GameManager {
 		const currentTurnName = this.getCurrentTurnName();
 		const currentWeekdayName = this.getWeekdayName();
 
-		const availableEvents = Object.values(RANDOM_EVENTS).filter(event => {
+		const availableEvents = Object.values(RANDOM_EVENTS).filter((event) => {
 			// ターンの条件チェック
-			if (event.conditions.turn && !event.conditions.turn.includes(currentTurnName)) {
+			if (
+				event.conditions.turn &&
+				!event.conditions.turn.includes(currentTurnName)
+			) {
 				return false;
 			}
 			// 曜日の条件チェック (平日/休日など)
-			if (event.conditions.weekday && !['月', '火', '水', '木', '金'].includes(currentWeekdayName)) {
+			if (
+				event.conditions.weekday &&
+				!["月", "火", "水", "木", "金"].includes(currentWeekdayName)
+			) {
 				return false;
 			}
 			// TODO: その他の条件（ステータス、フラグなど）を追加
@@ -546,7 +703,10 @@ class GameManager {
 	 */
 	addReport(report) {
 		if (!report || !report.id) return;
-		const r = Object.assign({ title: report.title || report.id, progress: 0, required: 1 }, report);
+		const r = Object.assign(
+			{ title: report.title || report.id, progress: 0, required: 1 },
+			report,
+		);
 		this.playerStatus.reports.push(r);
 		// reportDebt を互換性のために更新
 		this.playerStatus.reportDebt = this.playerStatus.reports.length;
@@ -563,20 +723,25 @@ class GameManager {
 			{
 				timestamp: Date.now(),
 				day: this.playerStatus.day, // 現在の日付を自動で追加
-				turn: CONFIG.TURNS[this.playerStatus.turnIndex] // 現在のターンを自動で追加
+				turn: CONFIG.TURNS[this.playerStatus.turnIndex], // 現在のターンを自動で追加
 			},
-			entry
+			entry,
 		);
 
 		// Generate a human-readable label for common internal types to avoid
 		// showing raw internal IDs like 'effect_applied' in the history UI.
 		try {
 			switch (e.type) {
-				case 'effect_applied': {
+				case "effect_applied": {
 					const flag = e.detail && e.detail.effect;
-					let name = flag || '';
+					let name = flag || "";
 					// Try to read displayName from current effects (if already registered)
-					if (flag && this.playerStatus.effects && this.playerStatus.effects[flag] && this.playerStatus.effects[flag].displayName) {
+					if (
+						flag &&
+						this.playerStatus.effects &&
+						this.playerStatus.effects[flag] &&
+						this.playerStatus.effects[flag].displayName
+					) {
 						name = this.playerStatus.effects[flag].displayName;
 					} else {
 						// Fallback: search ITEMS for an effect with matching flagId
@@ -588,13 +753,22 @@ class GameManager {
 							}
 						}
 					}
-					e._label = `効果付与: ${name}` + (e.detail && typeof e.detail.turns === 'number' ? ` (${e.detail.turns}ターン)` : '');
+					e._label =
+						`効果付与: ${name}` +
+						(e.detail && typeof e.detail.turns === "number"
+							? ` (${e.detail.turns}ターン)`
+							: "");
 					break;
 				}
-				case 'effect_expired': {
+				case "effect_expired": {
 					const flag = e.detail && e.detail.effect;
-					let name = flag || '';
-					if (flag && this.playerStatus.effects && this.playerStatus.effects[flag] && this.playerStatus.effects[flag].displayName) {
+					let name = flag || "";
+					if (
+						flag &&
+						this.playerStatus.effects &&
+						this.playerStatus.effects[flag] &&
+						this.playerStatus.effects[flag].displayName
+					) {
 						name = this.playerStatus.effects[flag].displayName;
 					} else {
 						for (const id of Object.keys(ITEMS || {})) {
@@ -608,41 +782,77 @@ class GameManager {
 					e._label = `効果終了: ${name}`;
 					break;
 				}
-				case 'use_item': {
-					const itemName = e.detail && (e.detail.itemName || (e.detail.itemId && ITEMS[e.detail.itemId] ? ITEMS[e.detail.itemId].name : e.detail.itemId));
-					e._label = itemName ? `アイテム使用 - ${itemName}` : 'アイテム使用';
+				case "use_item": {
+					const itemName =
+						e.detail &&
+						(e.detail.itemName ||
+							(e.detail.itemId && ITEMS[e.detail.itemId]
+								? ITEMS[e.detail.itemId].name
+								: e.detail.itemId));
+					e._label = itemName ? `アイテム使用 - ${itemName}` : "アイテム使用";
 					break;
 				}
-				case 'add_character': {
-					e._label = e.detail && e.detail.name ? `キャラクター追加 - ${e.detail.name}` : 'キャラクター追加';
+				case "add_character": {
+					e._label =
+						e.detail && e.detail.name
+							? `キャラクター追加 - ${e.detail.name}`
+							: "キャラクター追加";
 					break;
 				}
-				case 'trust_change': {
+				case "trust_change": {
 					const ch = e.detail || {};
-					const who = ch.id && this.getCharacter(ch.id) ? this.getCharacter(ch.id).name : (ch.id || 'キャラクター');
-					e._label = `信頼度変動 - ${who}: ${ch.delta > 0 ? '+' + ch.delta : ch.delta}`;
+					const who =
+						ch.id && this.getCharacter(ch.id)
+							? this.getCharacter(ch.id).name
+							: ch.id || "キャラクター";
+					e._label = `信頼度変動 - ${who}: ${ch.delta > 0 ? "+" + ch.delta : ch.delta}`;
 					break;
 				}
-				case 'choice': {
-					e._label = e.detail && e.detail.label ? `選択 - ${e.detail.label}` : '選択';
+				case "choice": {
+					e._label =
+						e.detail && e.detail.label ? `選択 - ${e.detail.label}` : "選択";
 					break;
 				}
-				case 'shop_visit': {
-					e._label = e.detail && e.detail.shopLabel ? `${e.detail.shopLabel}に入店` : '店に入店';
+				case "shop_visit": {
+					e._label =
+						e.detail && e.detail.shopLabel
+							? `${e.detail.shopLabel}に入店`
+							: "店に入店";
 					break;
 				}
-				case 'purchase': {
-					const itemName = e.detail && (e.detail.itemName || (e.detail.itemId && ITEMS[e.detail.itemId] ? ITEMS[e.detail.itemId].name : e.detail.itemId));
-					e._label = itemName ? `購入 - ${itemName}` : '購入';
+				case "purchase": {
+					const itemName =
+						e.detail &&
+						(e.detail.itemName ||
+							(e.detail.itemId && ITEMS[e.detail.itemId]
+								? ITEMS[e.detail.itemId].name
+								: e.detail.itemId));
+					e._label = itemName ? `購入 - ${itemName}` : "購入";
 					break;
 				}
-				case 'shop_leave': {
+				case "shop_leave": {
 					const shopId = e.detail && e.detail.shopId;
 					const purchased = e.detail && !!e.detail.purchased;
-					let shopLabel = (e.detail && e.detail.shopLabel) ? e.detail.shopLabel : (shopId && CONFIG && CONFIG.SHOPS && CONFIG.SHOPS[shopId] && CONFIG.SHOPS[shopId].label ? CONFIG.SHOPS[shopId].label : shopId || '店');
+					const shopLabel =
+						e.detail && e.detail.shopLabel
+							? e.detail.shopLabel
+							: shopId &&
+									CONFIG &&
+									CONFIG.SHOPS &&
+									CONFIG.SHOPS[shopId] &&
+									CONFIG.SHOPS[shopId].label
+								? CONFIG.SHOPS[shopId].label
+								: shopId || "店";
 					if (purchased) {
-						const itemName = e.detail && (e.detail.itemName || (e.detail.itemId && ITEMS[e.detail.itemId] ? ITEMS[e.detail.itemId].name : e.detail.itemId));
-						e._label = itemName ? `${shopLabel}で購入して退店（${itemName}、${e.detail.price || ''}${(CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit) ? CONFIG.LABELS.currencyUnit : ''}）` : `${shopLabel}で購入して退店`;
+						const itemName =
+							e.detail &&
+							(e.detail.itemName ||
+								(e.detail.itemId && ITEMS[e.detail.itemId]
+									? ITEMS[e.detail.itemId].name
+									: e.detail.itemId));
+						e._label = itemName
+							? `${shopLabel}で購入して退店（${itemName}、${e.detail.price || ""}${CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit ? CONFIG.LABELS.currencyUnit : ""}）`
+							: `${shopLabel}で購入して退店`;
 					} else {
 						e._label = `${shopLabel}を訪れて何も買わず退店`;
 					}
@@ -653,7 +863,7 @@ class GameManager {
 				}
 			}
 		} catch (err) {
-			console.warn('addHistory label generation failed', err);
+			console.warn("addHistory label generation failed", err);
 		}
 
 		this.playerStatus.history.push(e);
@@ -668,17 +878,24 @@ class GameManager {
 	 * @param {string} [message]
 	 */
 	async triggerInlineChanges(changes, name, message) {
-		const eventData = { name: name || 'システム', message: message || '', changes: changes };
+		const eventData = {
+			name: name || "システム",
+			message: message || "",
+			changes: changes,
+		};
 		try {
 			await GameEventManager.performChangesEvent(eventData);
 		} catch (e) {
-			console.warn('performChangesEvent fallback', e);
+			console.warn("performChangesEvent fallback", e);
 			// フォールバックは直接 applyChanges して UI を表示
 			const msgs = this.applyChanges(changes, { suppressDisplay: true }) || [];
-			const combined = (message ? message + '\n' : '') + (msgs.length ? msgs.join('\n') : '');
-			if (typeof ui !== 'undefined') {
-				if (typeof ui.showFloatingMessage === 'function') await ui.showFloatingMessage(combined).catch(() => { });
-				else if (typeof ui.displayMessage === 'function') ui.displayMessage(combined, name || 'システム');
+			const combined =
+				(message ? message + "\n" : "") + (msgs.length ? msgs.join("\n") : "");
+			if (typeof ui !== "undefined") {
+				if (typeof ui.showFloatingMessage === "function")
+					await ui.showFloatingMessage(combined).catch(() => {});
+				else if (typeof ui.displayMessage === "function")
+					ui.displayMessage(combined, name || "システム");
 			}
 		}
 	}
@@ -688,7 +905,14 @@ class GameManager {
 	 * @param {string} label - 選んだ選択肢の表示テキスト
 	 */
 	recordChoice(label) {
-		this.addHistory({ type: 'choice', detail: { label, day: this.playerStatus.day, turn: CONFIG.TURNS[this.playerStatus.turnIndex] } });
+		this.addHistory({
+			type: "choice",
+			detail: {
+				label,
+				day: this.playerStatus.day,
+				turn: CONFIG.TURNS[this.playerStatus.turnIndex],
+			},
+		});
 	}
 
 	/**
@@ -697,7 +921,7 @@ class GameManager {
 	 * @param {number} amount
 	 */
 	progressReport(id, amount = 1) {
-		const idx = this.playerStatus.reports.findIndex(r => r.id === id);
+		const idx = this.playerStatus.reports.findIndex((r) => r.id === id);
 		if (idx === -1) return null; // 何も起きなかった
 
 		const report = this.playerStatus.reports[idx];
@@ -710,10 +934,11 @@ class GameManager {
 		// If the report defines 'changes', apply them each time progress is made
 		if (report.changes) {
 			try {
-				const msgs = this.applyChanges(report.changes, { suppressDisplay: true }) || [];
+				const msgs =
+					this.applyChanges(report.changes, { suppressDisplay: true }) || [];
 				if (msgs && msgs.length) outMsgs.push(...msgs);
 			} catch (e) {
-				console.warn('report.changes apply failed', e);
+				console.warn("report.changes apply failed", e);
 			}
 		}
 
@@ -721,20 +946,26 @@ class GameManager {
 			// Completion: optionally apply completeChanges and use completeMessage
 			if (report.completeChanges) {
 				try {
-					const msgs2 = this.applyChanges(report.completeChanges, { suppressDisplay: true }) || [];
+					const msgs2 =
+						this.applyChanges(report.completeChanges, {
+							suppressDisplay: true,
+						}) || [];
 					if (msgs2 && msgs2.length) outMsgs.push(...msgs2);
 				} catch (e) {
-					console.warn('report.completeChanges apply failed', e);
+					console.warn("report.completeChanges apply failed", e);
 				}
 			}
 
-			const completeMsg = report.completeMessage || `${report.title} を提出した！`;
+			const completeMsg =
+				report.completeMessage || `${report.title} を提出した！`;
 			// show completion message first
 			outMsgs.unshift(completeMsg);
 			// 完了扱い: レポート配列から削除
 			this.playerStatus.reports.splice(idx, 1);
 		} else {
-			const progMsg = report.progressMessage || `${report.title} の進捗が ${report.progress}/${report.required} になりました。`;
+			const progMsg =
+				report.progressMessage ||
+				`${report.title} の進捗が ${report.progress}/${report.required} になりました。`;
 			outMsgs.unshift(progMsg);
 		}
 
@@ -743,7 +974,7 @@ class GameManager {
 		this._notifyListeners();
 
 		// 戻り値をオブジェクトにして、表示側で「本文」と「差分メッセージ」を分けて扱えるようにする
-		const message = outMsgs.length > 0 ? outMsgs.shift() : '';
+		const message = outMsgs.length > 0 ? outMsgs.shift() : "";
 		const changeMsgs = outMsgs; // 残りは差分メッセージ
 		return { message: message, changeMsgs: changeMsgs };
 	}
@@ -758,7 +989,8 @@ class GameManager {
 	 * アイテムを使用する
 	 * @param {string} itemId - 使用するアイテムのID
 	 */
-	async useItem(itemId) { // ここに async を追加
+	async useItem(itemId) {
+		// ここに async を追加
 		const item = ITEMS[itemId];
 		if (!item) {
 			console.error(`Item not found: ${itemId}`);
@@ -778,82 +1010,120 @@ class GameManager {
 			// 汎用イベントデータを作成してイベントフローで実行する
 			const eventData = {
 				name: item.name,
-				message: `${item.name} を使用した！\n${item.description || ''}`,
+				message: `${item.name} を使用した！\n${item.description || ""}`,
 				changes: item.effect.changes,
-				afterMessage: ''
+				afterMessage: "",
 			};
 
 			try {
 				// If the menu is currently open, show the item message inside the menu
 				// instead of using the main message window. This prevents the main
 				// message window from being pulled above the menu overlay.
-				if (typeof ui !== 'undefined' && ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden') && typeof GameEventManager !== 'undefined' && GameEventManager.isInFreeAction) {
+				if (
+					typeof ui !== "undefined" &&
+					ui.menuOverlay &&
+					!ui.menuOverlay.classList.contains("hidden") &&
+					typeof GameEventManager !== "undefined" &&
+					GameEventManager.isInFreeAction
+				) {
 					// Menu is open: apply changes silently and show a floating overlay above the menu.
-					const messages = this.applyChanges(item.effect.changes, { suppressDisplay: true }) || [];
-					const combined = [eventData.message, ...messages].join('\n');
+					const messages =
+						this.applyChanges(item.effect.changes, { suppressDisplay: true }) ||
+						[];
+					const combined = [eventData.message, ...messages].join("\n");
 					try {
-						if (typeof ui.showFloatingMessage === 'function') {
+						if (typeof ui.showFloatingMessage === "function") {
 							await ui.showFloatingMessage(combined, { lineDelay: 0 });
-						} else if (typeof ui.displayMenuMessage === 'function') {
+						} else if (typeof ui.displayMenuMessage === "function") {
 							// Fallback: show inside the menu area.
 							ui.displayMenuMessage(combined);
-							if (typeof ui.waitForMenuClick === 'function') {
+							if (typeof ui.waitForMenuClick === "function") {
 								await ui.waitForMenuClick();
-							} else if (typeof ui.waitForClick === 'function') {
+							} else if (typeof ui.waitForClick === "function") {
 								await ui.waitForClick();
 							}
-							if (typeof ui.clearMenuMessage === 'function') ui.clearMenuMessage();
+							if (typeof ui.clearMenuMessage === "function")
+								ui.clearMenuMessage();
 						}
 					} catch (innerErr) {
-						console.warn('Menu-display item use flow failed', innerErr);
+						console.warn("Menu-display item use flow failed", innerErr);
 					}
 				} else {
 					// Default: use the normal event flow which shows messages in the main window
 					await GameEventManager.performChangesEvent(eventData);
 				}
 			} catch (e) {
-				console.warn('performChangesEvent failed for useItem', e);
+				console.warn("performChangesEvent failed for useItem", e);
 				// フォールバック: 直接適用して差分をまとめて表示
-				const messages = this.applyChanges(item.effect.changes, { suppressDisplay: true }) || [];
-				const combined = [`${item.name} を使用した！`, ...messages].join('\n');
-				if (typeof ui !== 'undefined') {
-					if (ui.menuOverlay && !ui.menuOverlay.classList.contains('hidden') && typeof GameEventManager !== 'undefined' && GameEventManager.isInFreeAction) {
-						if (typeof ui.showFloatingMessage === 'function') {
+				const messages =
+					this.applyChanges(item.effect.changes, { suppressDisplay: true }) ||
+					[];
+				const combined = [`${item.name} を使用した！`, ...messages].join("\n");
+				if (typeof ui !== "undefined") {
+					if (
+						ui.menuOverlay &&
+						!ui.menuOverlay.classList.contains("hidden") &&
+						typeof GameEventManager !== "undefined" &&
+						GameEventManager.isInFreeAction
+					) {
+						if (typeof ui.showFloatingMessage === "function") {
 							await ui.showFloatingMessage(combined, { lineDelay: 800 });
-						} else if (typeof ui.displayMenuMessage === 'function') {
+						} else if (typeof ui.displayMenuMessage === "function") {
 							ui.displayMenuMessage(combined);
-							if (typeof ui.waitForMenuClick === 'function') {
+							if (typeof ui.waitForMenuClick === "function") {
 								await ui.waitForMenuClick();
-							} else if (typeof ui.waitForClick === 'function') {
+							} else if (typeof ui.waitForClick === "function") {
 								await ui.waitForClick();
 							}
 							ui.clearMenuMessage && ui.clearMenuMessage();
 						}
-					} else if (typeof ui.displayMessage === 'function') {
-						ui.displayMessage(combined, 'システム');
-						if (typeof ui.waitForClick === 'function') await ui.waitForClick();
+					} else if (typeof ui.displayMessage === "function") {
+						ui.displayMessage(combined, "システム");
+						if (typeof ui.waitForClick === "function") await ui.waitForClick();
 					}
 				}
 			}
 
 			// 持続効果（duration / flagId）が定義されていれば登録する
 			try {
-				if (item.effect && typeof item.effect.duration === 'number' && item.effect.flagId) {
-					this.playerStatus.effects[item.effect.flagId] = { turns: Number(item.effect.duration), displayName: item.effect.displayName || item.name };
-					this.addHistory({ type: 'effect_applied', detail: { effect: item.effect.flagId, turns: Number(item.effect.duration) } });
+				if (
+					item.effect &&
+					typeof item.effect.duration === "number" &&
+					item.effect.flagId
+				) {
+					this.playerStatus.effects[item.effect.flagId] = {
+						turns: Number(item.effect.duration),
+						displayName: item.effect.displayName || item.name,
+					};
+					this.addHistory({
+						type: "effect_applied",
+						detail: {
+							effect: item.effect.flagId,
+							turns: Number(item.effect.duration),
+						},
+					});
 					this._notifyListeners();
-					console.log('Effect applied:', item.effect.flagId, this.playerStatus.effects[item.effect.flagId]);
+					console.log(
+						"Effect applied:",
+						item.effect.flagId,
+						this.playerStatus.effects[item.effect.flagId],
+					);
 				}
 			} catch (e) {
-				console.warn('Failed to apply item effect flag', e);
+				console.warn("Failed to apply item effect flag", e);
 			}
 		} else {
 			console.warn(`Item ${itemId} has no defined effect.`);
 		}
 		// 履歴に使用を記録
-		this.addHistory({ type: 'use_item', detail: { itemId: itemId, itemName: item.name } });
+		this.addHistory({
+			type: "use_item",
+			detail: { itemId: itemId, itemName: item.name },
+		});
 		this._notifyListeners(); // ステータス変更を通知
-		try { if (typeof soundManager !== 'undefined') soundManager.play('item_use'); } catch (e) { }
+		try {
+			if (typeof soundManager !== "undefined") soundManager.play("item_use");
+		} catch (e) {}
 		return true;
 	}
 
@@ -863,19 +1133,30 @@ class GameManager {
 	 */
 	updateCondition() {
 		// 新仕様: 体力(physical)と精神力(mental)の平均からコンディションを推定
-		const p = this.playerStatus.stats && typeof this.playerStatus.stats.physical === 'number' ? this.playerStatus.stats.physical : undefined;
-		const m = this.playerStatus.stats && typeof this.playerStatus.stats.mental === 'number' ? this.playerStatus.stats.mental : undefined;
-		let cond = undefined;
-		if (typeof p === 'number' && typeof m === 'number') {
+		const p =
+			this.playerStatus.stats &&
+			typeof this.playerStatus.stats.physical === "number"
+				? this.playerStatus.stats.physical
+				: undefined;
+		const m =
+			this.playerStatus.stats &&
+			typeof this.playerStatus.stats.mental === "number"
+				? this.playerStatus.stats.mental
+				: undefined;
+		let cond;
+		if (typeof p === "number" && typeof m === "number") {
 			cond = Math.round((p + m) / 2);
-		} else if (typeof p === 'number') {
+		} else if (typeof p === "number") {
 			cond = p;
-		} else if (typeof m === 'number') {
+		} else if (typeof m === "number") {
 			cond = m;
 		} else {
 			// 後方互換: 旧 stats.condition or 既存の condition を使用
-			const legacy = this.playerStatus.stats ? this.playerStatus.stats.condition : undefined;
-			cond = typeof legacy === 'number' ? legacy : (this.playerStatus.condition || 0);
+			const legacy = this.playerStatus.stats
+				? this.playerStatus.stats.condition
+				: undefined;
+			cond =
+				typeof legacy === "number" ? legacy : this.playerStatus.condition || 0;
 		}
 		this.playerStatus.condition = Math.max(0, Math.min(100, cond));
 	}
@@ -899,6 +1180,6 @@ class GameManager {
 		this.updateCondition();
 		// UIに状態の変更を通知
 		this._notifyListeners();
-		console.log('Game data loaded successfully.');
+		console.log("Game data loaded successfully.");
 	}
 }
