@@ -49,7 +49,8 @@ function setShadowsEnabled(enabled) {
 	directionalLight.castShadow = enabled;
 	// 既存メッシュの影設定を反映
 	scene.traverse((obj) => {
-		if (obj.isMesh) {
+		// 型チェック：Object3D に対して isMesh がない場合があるため instanceof で絞る
+		if (obj instanceof THREE.Mesh) {
 			obj.castShadow = enabled;
 			obj.receiveShadow = enabled;
 		}
@@ -64,8 +65,9 @@ const world = new CANNON.World({
 // 物理シミュレーションの安定性を向上
 world.defaultContactMaterial.contactEquationStiffness = 1e7;
 world.defaultContactMaterial.contactEquationRelaxation = 3;
-world.solver.iterations = 10;
-world.solver.tolerance = 0.01;
+// cannon-es の型定義が完全でない場合があるため、一時的に any 経由で設定
+(world.solver as any).iterations = 10;
+(world.solver as any).tolerance = 0.01;
 
 // --- マテリアル ---
 const ballMaterial = new CANNON.Material("ballMaterial");
@@ -321,8 +323,9 @@ function addBall(startY = 22) {
 	ballBody.position.set(randomX, startY, randomZ);
 	world.addBody(ballBody);
 
-	ballBody.isBall = true;
-	ballBody.mesh = ballMesh;
+	// 型定義に存在しないランタイム拡張プロパティは any にキャストして扱う
+	(ballBody as any).isBall = true;
+	(ballBody as any).mesh = ballMesh;
 	balls.push({ mesh: ballMesh, body: ballBody });
 }
 
@@ -381,8 +384,8 @@ function animate() {
 		const velocity = ball.body.velocity;
 		const speed = Math.sqrt(
 			velocity.x * velocity.x +
-				velocity.y * velocity.y +
-				velocity.z * velocity.z,
+			velocity.y * velocity.y +
+			velocity.z * velocity.z,
 		);
 		if (speed < 0.1 && ball.body.position.y > -5) {
 			// 停止したボールに少し力を加える

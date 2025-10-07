@@ -12,17 +12,17 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import * as Tone from "tone";
 
 // =================================================================================
-// DOM要素の取得
+// DOM要素の取得 (型注釈を追加して .disabled/.value 等を安全に使えるようにする)
 // =================================================================================
-const canvasContainer = document.getElementById("canvas-container"); // キャンバスコンテナ要素
-const rollButton = document.getElementById("rollButton"); // サイコロを振るボタン
-const nudgeButton = document.getElementById("nudgeButton"); // サイコロを揺らすボタン
-const rearrangeButton = document.getElementById("rearrangeButton"); // サイコロを再配置するボタン
-const diceTypeSelector = document.getElementById("diceTypeSelector"); // サイコロの種類選択セレクタ
-const resultTitle = document.getElementById("result-title"); // 結果タイトルの表示要素
-const resultDescription = document.getElementById("result-description"); // 結果説明の表示要素
-const powerMeterContainer = document.getElementById("power-meter-container"); // パワーメーターコンテナ
-const powerMeterBar = document.getElementById("power-meter-bar"); // パワーメーターバー
+const canvasContainer = document.getElementById("canvas-container") as HTMLElement; // キャンバスコンテナ要素
+const rollButton = document.getElementById("rollButton") as HTMLButtonElement; // サイコロを振るボタン
+const nudgeButton = document.getElementById("nudgeButton") as HTMLButtonElement; // サイコロを揺らすボタン
+const rearrangeButton = document.getElementById("rearrangeButton") as HTMLButtonElement; // サイコロを再配置するボタン
+const diceTypeSelector = document.getElementById("diceTypeSelector") as HTMLSelectElement; // サイコロの種類選択セレクタ
+const resultTitle = document.getElementById("result-title") as HTMLElement; // 結果タイトルの表示要素
+const resultDescription = document.getElementById("result-description") as HTMLElement; // 結果説明の表示要素
+const powerMeterContainer = document.getElementById("power-meter-container") as HTMLElement; // パワーメーターコンテナ
+const powerMeterBar = document.getElementById("power-meter-bar") as HTMLElement; // パワーメーターバー
 
 // =================================================================================
 // グローバル状態と定数
@@ -54,6 +54,18 @@ let powerAnimationId = null; // パワーメーターアニメーションのID
  * 音声システムの関心をゲームの主要なロジックから分離します。これにより、コードの整理、保守、拡張が容易になります。
  */
 class SoundManager {
+	// Fields (explicitly declared for TypeScript)
+	isInitialized: boolean;
+	clinkSynth: any;
+	winSynth: any;
+	pairSynth: any;
+	loseSynth: any;
+	foulSynth: any;
+	clickSynth: any;
+	_lastPlay: Record<string, number>;
+	MAX_IMPACT_VELOCITY_DICE: number;
+	MAX_IMPACT_VELOCITY_BOWL: number;
+
 	constructor() {
 		this.isInitialized = false; // 初期化済みフラグ
 		this.clinkSynth = null; // 衝突音シンセサイザー
@@ -97,31 +109,31 @@ class SoundManager {
 			console.warn("SoundManager: Tone.start() failed.", e);
 		}
 		// 各シンセサイザーの初期化
-		this.clinkSynth = new Tone.PolySynth(Tone.MetalSynth, {
-			frequency: 350,
+		// Cast synth option objects/results to any to avoid strict option type mismatches
+		this.clinkSynth = (new Tone.PolySynth(Tone.MetalSynth, {
 			envelope: { attack: 0.001, decay: 0.1, release: 0.08 },
 			harmonicity: 4.1,
 			modulationIndex: 22,
 			resonance: 3000,
 			octaves: 1.2,
-		}).toDestination();
+		} as any).toDestination()) as any;
 		if (this.clinkSynth.volume) this.clinkSynth.volume.value = -9; // ボリューム調整
-		this.winSynth = new Tone.PolySynth(Tone.Synth, {
+		this.winSynth = (new Tone.PolySynth(Tone.Synth, {
 			oscillator: { type: "triangle" },
 			envelope: { attack: 0.01, decay: 0.2, sustain: 0.45, release: 1.2 },
-		}).toDestination();
+		} as any).toDestination()) as any;
 		if (this.winSynth.volume) this.winSynth.volume.value = -2;
-		this.pairSynth = new Tone.PolySynth(Tone.Synth, {
+		this.pairSynth = (new Tone.PolySynth(Tone.Synth, {
 			oscillator: { type: "sine" },
 			envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.3 },
-		}).toDestination();
+		} as any).toDestination()) as any;
 		if (this.pairSynth.volume) this.pairSynth.volume.value = -6;
-		this.loseSynth = new Tone.PolySynth(Tone.Synth, {
+		this.loseSynth = (new Tone.PolySynth(Tone.Synth, {
 			oscillator: { type: "sawtooth" },
 			envelope: { attack: 0.003, decay: 0.18, sustain: 0.06, release: 0.22 },
-		}).toDestination();
+		} as any).toDestination()) as any;
 		if (this.loseSynth.volume) this.loseSynth.volume.value = -10;
-		this.foulSynth = new Tone.MonoSynth({
+		this.foulSynth = (new Tone.MonoSynth({
 			oscillator: { type: "square" },
 			filter: { Q: 6, type: "lowpass", rolloff: -24 },
 			envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 1 },
@@ -133,11 +145,11 @@ class SoundManager {
 				baseFrequency: 200,
 				octaves: 2,
 			},
-		}).toDestination();
-		this.clickSynth = new Tone.Synth({
+		} as any).toDestination()) as any;
+		this.clickSynth = (new Tone.Synth({
 			oscillator: { type: "sine" },
 			envelope: { attack: 0.001, decay: 0.06, sustain: 0.02, release: 0.06 },
-		}).toDestination();
+		} as any).toDestination()) as any;
 		if (this.clickSynth.volume) this.clickSynth.volume.value = -3;
 		this.isInitialized = true;
 		console.log("SoundManager initialized.");
@@ -257,7 +269,15 @@ let soundManager;
  * @description 視覚的なフィードバックのためのシンプルなパーティクル効果を作成します。
  */
 class ParticleEmitter {
-	constructor(scene, count = 100) {
+	// Fields
+	scene: any;
+	particles: Array<{ position: THREE.Vector3; velocity: THREE.Vector3; life: number }>;
+	positions: Float32Array;
+	colors: Float32Array;
+	points: THREE.Points;
+	tempVec: THREE.Vector3;
+
+	constructor(scene: THREE.Scene, count = 100) {
 		this.scene = scene;
 		this.particles = [];
 		const geometry = new THREE.BufferGeometry();
@@ -271,10 +291,7 @@ class ParticleEmitter {
 		});
 		this.positions = new Float32Array(count * 3);
 		this.colors = new Float32Array(count * 3);
-		geometry.setAttribute(
-			"position",
-			new THREE.BufferAttribute(this.positions, 3),
-		);
+		geometry.setAttribute("position", new THREE.BufferAttribute(this.positions, 3));
 		geometry.setAttribute("color", new THREE.BufferAttribute(this.colors, 3));
 		this.points = new THREE.Points(geometry, material);
 		this.points.frustumCulled = false;
@@ -287,9 +304,7 @@ class ParticleEmitter {
 				life: 0,
 			});
 		}
-		// Why: 計算用の一時的なベクトルを予め生成し、使い回すことで、
-		// アニメーションループ内でのオブジェクト生成を防ぎ、ガベージコレクションによる
-		// フレームレートの低下を回避します。
+		// Preallocate temp vector to avoid allocations in the loop
 		this.tempVec = new THREE.Vector3();
 	}
 	// パーティクルをトリガーして発生させる
@@ -342,7 +357,7 @@ class ParticleEmitter {
 			this.particles[0] && typeof this.particles[0].life === "number"
 				? this.particles[0].life
 				: 0;
-		this.points.material.opacity = Math.max(0, life0); // 不透明度設定
+		(this.points.material as THREE.PointsMaterial).opacity = Math.max(0, life0); // 不透明度設定
 		this.points.geometry.attributes.position.needsUpdate = true;
 		this.points.geometry.attributes.color.needsUpdate = true;
 		if (aliveParticles === 0) this.points.visible = false; // 非表示
@@ -517,7 +532,8 @@ function setupEventListeners() {
 		// クリック音の再生
 		soundManager.playClickSound();
 		// サイコロタイプの更新
-		diceType = e.target.value;
+		const target = e.target as HTMLSelectElement;
+		diceType = target.value;
 		// マテリアルの更新
 		updateDiceMaterials();
 	});
@@ -646,9 +662,10 @@ function createDice(dicePhysicsMaterial) {
 		// 衝突応答の有効化
 		body.collisionResponse = true;
 		// CCD速度閾値の設定
-		body.ccdSpeedThreshold = 0.01;
+		// Some cannon-es builds add CCD props dynamically; cast to any to assign
+		(body as any).ccdSpeedThreshold = 0.01;
 		// CCDモーション閾値の設定
-		body.ccdMotionThreshold = diceSize / 4;
+		(body as any).ccdMotionThreshold = diceSize / 4;
 
 		// 衝突イベントリスナーの追加
 		body.addEventListener("collide", (event) => {

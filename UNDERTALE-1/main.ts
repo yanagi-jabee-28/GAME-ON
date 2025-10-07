@@ -1,7 +1,8 @@
 import nipplejs from "nipplejs";
 
-const canvas = document.getElementById("battle-canvas");
-const ctx = canvas.getContext("2d");
+// Canvas element must be an HTMLCanvasElement for .getContext and width/height
+const canvas = document.getElementById("battle-canvas") as HTMLCanvasElement;
+const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 
 // Read CSS dimension variables and convert to numbers
 const cssVar = (name) =>
@@ -80,15 +81,15 @@ const keys = {
 const joystickVector = { x: 0, y: 0 };
 
 // --- DOM Elements ---
-const hpBar = document.getElementById("hp-bar");
-const hpValue = document.getElementById("hp-value");
-const gameOverText = document.getElementById("game-over");
-const fightButton = document.getElementById("fight");
-const attackButton = document.getElementById("attack-button");
+const hpBar = document.getElementById("hp-bar") as HTMLElement;
+const hpValue = document.getElementById("hp-value") as HTMLElement;
+const gameOverText = document.getElementById("game-over") as HTMLElement;
+const fightButton = document.getElementById("fight") as HTMLElement;
+const attackButton = document.getElementById("attack-button") as HTMLElement;
 
 // Enemy DOM refs
-const enemyHpBar = document.getElementById("enemy-hp-bar");
-const enemyHpValue = document.getElementById("enemy-hp-value");
+const enemyHpBar = document.getElementById("enemy-hp-bar") as HTMLElement;
+const enemyHpValue = document.getElementById("enemy-hp-value") as HTMLElement;
 
 // --- Enemy data ---
 const enemy = {
@@ -533,12 +534,13 @@ fightButton.addEventListener("click", () => {
 attackButton.addEventListener("click", triggerAttack);
 
 // --- Message window helpers ---
-const messageWindow = document.getElementById("message-window");
+const messageWindow = document.getElementById("message-window") as HTMLElement;
 let messageTimer = null;
 let messageActive = false; // input lock
 let messageVisible = false; // visual state
 
-function showMessage(text, optsOrMs = 3000) {
+type ShowMessageOptions = { duration?: number; blockInput?: boolean; persistent?: boolean };
+function showMessage(text: string, optsOrMs: number | ShowMessageOptions = 3000) {
 	if (!messageWindow) return;
 	messageWindow.textContent = text;
 	messageWindow.style.display = "block";
@@ -552,11 +554,10 @@ function showMessage(text, optsOrMs = 3000) {
 	if (typeof optsOrMs === "number") {
 		duration = optsOrMs;
 	} else if (typeof optsOrMs === "object" && optsOrMs !== null) {
-		if (typeof optsOrMs.duration === "number") duration = optsOrMs.duration;
-		if (typeof optsOrMs.blockInput === "boolean")
-			blockInput = optsOrMs.blockInput;
-		if (typeof optsOrMs.persistent === "boolean")
-			persistent = optsOrMs.persistent;
+		const opts = optsOrMs as ShowMessageOptions;
+		if (typeof opts.duration === "number") duration = opts.duration;
+		if (typeof opts.blockInput === "boolean") blockInput = opts.blockInput;
+		if (typeof opts.persistent === "boolean") persistent = opts.persistent;
 	}
 
 	messageActive = !!blockInput;
@@ -601,13 +602,13 @@ document.getElementById("mercy").addEventListener("click", () => {
 
 // --- Initialization ---
 try {
-	const joystickManager = nipplejs.create({
+	const joystickManager = (nipplejs.create({
 		zone: document.getElementById("joystick-container"),
 		mode: "static",
 		position: { right: "75px", bottom: "105px" },
 		color: "white",
 		size: 120,
-	});
+	}) as any);
 	joystickManager
 		.on("move", (evt, data) => {
 			if (messageActive) return;
