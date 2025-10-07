@@ -5,29 +5,29 @@ const handSVG = `
 </svg>`;
 
 // --- DOM Elements ---
-const playerScoreEl = document.getElementById('player-score');
-const cpuScoreEl = document.getElementById('cpu-score');
-const cpuHandLeftEl = document.getElementById('cpu-hand-left');
-const cpuHandRightEl = document.getElementById('cpu-hand-right');
-const playerHandLeftEl = document.getElementById('player-hand-left');
-const playerHandRightEl = document.getElementById('player-hand-right');
-const turnIndicator = document.getElementById('turn-indicator');
-const chantText = document.getElementById('chant-text');
-const cpuCallText = document.getElementById('cpu-call-text');
-const playButton = document.getElementById('play-button');
-const controlsArea = document.getElementById('controls-area');
-const thumbsControls = document.getElementById('thumbs-controls');
-const callControls = document.getElementById('call-controls');
-const gameOverScreen = document.getElementById('game-over-screen');
-const gameOverText = document.getElementById('game-over-text');
-const restartButton = document.getElementById('restart-button');
-const thumbsButtons = document.querySelectorAll('.thumbs-btn');
-const callButtons = document.querySelectorAll('.call-btn');
+const playerScoreEl = document.getElementById('player-score') as HTMLElement;
+const cpuScoreEl = document.getElementById('cpu-score') as HTMLElement;
+const cpuHandLeftEl = document.getElementById('cpu-hand-left') as HTMLElement;
+const cpuHandRightEl = document.getElementById('cpu-hand-right') as HTMLElement;
+const playerHandLeftEl = document.getElementById('player-hand-left') as HTMLElement;
+const playerHandRightEl = document.getElementById('player-hand-right') as HTMLElement;
+const turnIndicator = document.getElementById('turn-indicator') as HTMLElement;
+const chantText = document.getElementById('chant-text') as HTMLElement;
+const cpuCallText = document.getElementById('cpu-call-text') as HTMLElement;
+const playButton = document.getElementById('play-button') as HTMLButtonElement;
+const controlsArea = document.getElementById('controls-area') as HTMLElement;
+const thumbsControls = document.getElementById('thumbs-controls') as HTMLElement;
+const callControls = document.getElementById('call-controls') as HTMLElement;
+const gameOverScreen = document.getElementById('game-over-screen') as HTMLElement;
+const gameOverText = document.getElementById('game-over-text') as HTMLElement;
+const restartButton = document.getElementById('restart-button') as HTMLButtonElement;
+const thumbsButtons = document.querySelectorAll<HTMLButtonElement>('.thumbs-btn');
+const callButtons = document.querySelectorAll<HTMLButtonElement>('.call-btn');
 
 // --- Game State ---
 let playerScore = 0;
 let cpuScore = 0;
-let playerChoice = { thumbs: null, call: null };
+let playerChoice: { thumbs: number | null; call: number | null } = { thumbs: null, call: null };
 let gameState = 'playing'; // 'playing', 'revealing', 'gameover'
 let currentTurn = 'player'; // 'player' or 'cpu'
 
@@ -62,7 +62,7 @@ function updateControlsAndHands() {
     cpuHandLeftEl.style.visibility = cpuHands > 0 ? 'visible' : 'hidden';
 
     // Update controls visibility based on turn
-    if(playerHands > 0) {
+    if (playerHands > 0) {
         thumbsControls.style.display = 'block';
         callControls.style.display = currentTurn === 'player' ? 'block' : 'none';
     } else {
@@ -111,7 +111,7 @@ thumbsButtons.forEach(button => {
         playerChoice.thumbs = parseInt(button.dataset.value);
         thumbsButtons.forEach(btn => btn.classList.remove('selected'));
         button.classList.add('selected');
-        updatePlayerHands(playerChoice.thumbs);
+        updatePlayerHands(parseInt(button.dataset.value));
         checkCanPlay();
     });
 });
@@ -141,14 +141,18 @@ function checkCanPlay() {
 }
 
 // --- Update Visual Hands ---
-function updatePlayerHands(count) {
-    playerHandLeftEl.querySelector('.hand-svg').classList.toggle('thumb-up', count >= 1);
-    playerHandRightEl.querySelector('.hand-svg').classList.toggle('thumb-up', count === 2);
+function updatePlayerHands(count: number) {
+    const leftHand = playerHandLeftEl.querySelector('.hand-svg')!;
+    const rightHand = playerHandRightEl.querySelector('.hand-svg')!;
+    leftHand.classList.toggle('thumb-up', count >= 1);
+    rightHand.classList.toggle('thumb-up', count === 2);
 }
 
-function updateCpuHands(count) {
-    cpuHandLeftEl.querySelector('.hand-svg').classList.toggle('thumb-up', count >= 1);
-    cpuHandRightEl.querySelector('.hand-svg').classList.toggle('thumb-up', count === 2);
+function updateCpuHands(count: number) {
+    const leftHand = cpuHandLeftEl.querySelector('.hand-svg')!;
+    const rightHand = cpuHandRightEl.querySelector('.hand-svg')!;
+    leftHand.classList.toggle('thumb-up', count >= 1);
+    rightHand.classList.toggle('thumb-up', count === 2);
 }
 
 // --- Main Game Logic ---
@@ -191,12 +195,13 @@ playButton.addEventListener('click', () => {
 
         // Reveal calls
         if (cpuCall !== null) {
-            cpuCallText.querySelector('span').textContent = cpuCall;
+            const span = cpuCallText.querySelector('span')!;
+            span.textContent = String(cpuCall);
             cpuCallText.classList.remove('opacity-0');
         }
 
         // Calculate result
-        const totalThumbs = playerChoice.thumbs + cpuThumbs;
+        const totalThumbs = (playerChoice.thumbs ?? 0) + cpuThumbs;
         const playerGuessed = playerCall === totalThumbs;
         const cpuGuessed = cpuCall === totalThumbs;
 
@@ -223,8 +228,8 @@ playButton.addEventListener('click', () => {
         } else if (roundWinner === 'cpu') {
             cpuScore++;
         }
-        playerScoreEl.textContent = playerScore;
-        cpuScoreEl.textContent = cpuScore;
+        playerScoreEl.textContent = String(playerScore);
+        cpuScoreEl.textContent = String(cpuScore);
 
         setTimeout(() => {
             if (playerScore >= 2 || cpuScore >= 2) {
@@ -256,8 +261,8 @@ function endGame() {
 restartButton.addEventListener('click', () => {
     playerScore = 0;
     cpuScore = 0;
-    playerScoreEl.textContent = playerScore;
-    cpuScoreEl.textContent = cpuScore;
+    playerScoreEl.textContent = String(playerScore);
+    cpuScoreEl.textContent = String(cpuScore);
     currentTurn = 'player';
     gameState = 'playing';
     resetRound();
