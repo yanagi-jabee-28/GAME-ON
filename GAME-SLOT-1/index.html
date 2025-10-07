@@ -26,7 +26,7 @@
 <body>
 
       <nav style="position:fixed;left:12px;top:12px;z-index:999;">
-            <a href="../index.html"
+            <a href="/GAME-ON/"
                   style="background:#fff;padding:8px 10px;border-radius:6px;text-decoration:none;color:#333;box-shadow:0 2px 6px rgba(0,0,0,0.12);">ポータルへ戻る</a>
       </nav>
       <!-- ゲームのメインタイトル -->
@@ -95,22 +95,12 @@
             <div id="payoutTable">(読み込み中...)</div>
       </div>
 
-      <!-- 
+      <!--
       外部JavaScriptファイルの読み込み:
       defer属性は、HTMLの解析完了後にスクリプトを実行させるための重要な属性です。
       これにより、ページの表示速度が向上します。
-
-      重要: スクリプトの読み込み順序は非常に重要です。
-            config.js には script.js が依存する設定値が定義されているため、
-            必ず config.js を先に読み込む必要があります。
-            この順序を変更すると、ゲームが正常に動作しなくなる可能性があります。
     -->
-      <!-- config.js: ゲームの基本設定（リールの絵柄、速度など）を定義します -->
-      <script src="config.js" defer></script>
-      <!-- audio.js: サウンド管理（マスター音量/種別音量対応） -->
-      <script src="audio.js" defer></script>
-      <!-- script.js: ゲームのメインロジック（開始、停止、モード切替など）を制御します -->
-      <script src="script.js" defer></script>
+      <script type="module" src="script.js" defer></script>
 
 </body>
 

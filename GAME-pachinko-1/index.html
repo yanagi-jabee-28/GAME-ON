@@ -14,7 +14,7 @@
 <body>
 	<!-- Portal Back Button -->
 	<div class="topbar">
-		<a class="back-to-portal" href="../index.html" aria-label="ポータルに戻る">← ポータルに戻る</a>
+		<a class="back-to-portal" href="/GAME-ON/" aria-label="ポータルに戻る">← ポータルに戻る</a>
 	</div>
 	<!-- ゲームタイトル -->
 	<h1></h1>
@@ -40,38 +40,12 @@
 		</div>
 	</div>
 
-	<!-- 物理エンジンライブラリ -->
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-	<!-- 凹多角形の分解ライブラリ（Matter.jsのBodies.fromVerticesで必要） -->
-	<script src="https://cdn.jsdelivr.net/npm/poly-decomp@0.3.0/build/decomp.min.js"></script>
-
-	<!-- poly-decompをMatter.jsに登録 -->
-	<script>
-		(function () {
-			var ok = false;
-			// ライブラリが正しく読み込まれているか確認
-			if (window.decomp && window.Matter && window.Matter.Common) {
-				// 凹多角形を扱えるように設定
-				window.Matter.Common.setDecomp(window.decomp);
-				ok = true;
-			}
-			if (!ok) {
-				console.warn('[topPlate] poly-decomp の登録に失敗しました。複雑な頂点形状が凸包化される可能性があります。');
-			}
-		})();
-	</script>
-
 	<!-- ゲームスクリプト（読み込み順序が重要） -->
-	<script src="js/config.js"></script> <!-- 設定ファイル -->
-	<script src="js/objects.js"></script> <!-- ゲームオブジェクト定義 -->
-	<script src="js/dev-tools.js"></script> <!-- 開発用ツール -->
-	<script src="js/main.js"></script> <!-- メインロジック -->
+	<script type="module" src="js/dev-tools.js"></script> <!-- 開発用ツール -->
+	<script type="module" src="js/main.js"></script> <!-- メインロジック -->
 	<!-- Slot adapter (optional embedding of GAME-SLOT-1) -->
-	<script src="../GAME-SLOT-1/config.js"></script>
-	<!-- New: slot audio manager must be loaded before script.js to enable sounds -->
-	<script src="../GAME-SLOT-1/audio.js"></script>
-	<script src="../GAME-SLOT-1/script.js"></script>
-	<script src="js/slot-adapter.js"></script>
+	<script type="module" src="../GAME-SLOT-1/script.js"></script>
+	<script type="module" src="js/slot-adapter.js"></script>
 </body>
 
 </html>

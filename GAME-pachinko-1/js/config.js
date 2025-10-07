@@ -216,3 +216,5 @@ function getMaterialInteraction(materialA, materialB) {
 	const key = [materialA, materialB].sort().join(':'); // 例: ['metal','tama'] -> 'metal:tama'
 	return MATERIAL_INTERACTIONS[key] || MATERIAL_INTERACTIONS.default; // フォールバック
 }
+
+export {GAME_CONFIG, GAME_MATERIALS, getMaterialInteraction};
