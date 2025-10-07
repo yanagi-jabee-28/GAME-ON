@@ -166,7 +166,8 @@ function createCruun(position, stageIndex) {
 	);
 	cruunBody.addShape(diskShape);
 
-	world.addBody(cruunBody); // 3. 外壁 (物理ボディのみ) - クルーン縁に沿った連続壁を生成
+	// 3. 外壁 (物理ボディのみ) - クルーン縁に沿った連続壁を生成
+	world.addBody(cruunBody);
 	const wallHeight = cruunThickness + 1.2; // 壁の高さ（少し低く）
 	const wallThickness = 0.5; // 壁の厚さ(半径方向)
 	const numWallSegments = 12; // セグメント数をさらに増やして滑らかに
