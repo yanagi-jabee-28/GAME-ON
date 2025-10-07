@@ -4,6 +4,11 @@
  *'#ffffffff'
 */
 
+// 静的アセットのURLをインポート
+// 参照: https://ja.vite.dev/guide/assets
+import objectsPresetsUrl from "../objects-presets/default.json?url";
+import pegsPresetsUrl from "../pegs-presets/pegs4.json?url";
+
 // ゲームに登場する材質を定義します。
 // この定義は他のどのファイルよりも先に読み込まれる必要があります。
 const GAME_MATERIALS = {
@@ -118,7 +123,7 @@ const GAME_CONFIG = {
 
 	// ------------------ 開発者用設定 / プリセット ------------------
 	dev: { enabled: true, hotkeys: { toggle: 'F1', wire: 'F2', collide: 'F3', bounds: 'F4' } },
-	presets: { pegs: 'pegs-presets/pegs4.json', objects: 'objects-presets/default.json' },
+	presets: { pegs: pegsPresetsUrl, objects: objectsPresetsUrl },
 	sensorCounters: { enabled: true, counters: {} },
 
 	// ------------------ 天板 (topPlate) の描画/形状設定 ------------------
