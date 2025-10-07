@@ -131,19 +131,21 @@ const API = {
 		// Show embedded area if requested
 		if (opts.show !== false) area.style.display = "";
 		injectSlotHtml();
-		// If the slot script exposed instance (SLOT_GAME_INSTANCE), use it; otherwise try to wait until available.
-		API._instance = window.SLOT_GAME_INSTANCE || null;
+
+		// Try existing global instance first
+		API._instance = /** @type {any} */ (window).SLOT_GAME_INSTANCE || null;
 		if (!API._instance) {
 			// attempt to find after a short delay
 			setTimeout(() => {
-				API._instance = window.SLOT_GAME_INSTANCE || null;
+				API._instance = /** @type {any} */ (window).SLOT_GAME_INSTANCE || null;
 			}, 200);
 		}
+
 		// If still not instantiated, and createSlotIn exists, try to create immediately
-		if (!API._instance && typeof window.createSlotIn === "function") {
+		if (!API._instance && typeof /** @type {any} */ (window).createSlotIn === "function") {
 			console.debug("EmbeddedSlot: attempting createSlotIn fallback");
 			try {
-				const created = window.createSlotIn("#slot-machine");
+				const created = /** @type {any} */ (window).createSlotIn("#slot-machine");
 				if (created) {
 					API._instance = created;
 					console.debug("EmbeddedSlot: createSlotIn succeeded", created);
@@ -154,34 +156,31 @@ const API = {
 				console.warn("EmbeddedSlot: createSlotIn error", e);
 			}
 		}
+
 		// If the SlotGame class is available but its DOMContentLoaded handler didn't run
 		// (e.g. scripts loaded after DOMContentLoaded), instantiate it here as a fallback.
 		try {
-			if (!API._instance && typeof window.SlotGame === "function") {
+			if (!API._instance && typeof /** @type {any} */ (window).SlotGame === "function") {
 				const slotEl = document.getElementById("slot-machine");
 				const cfg = { ...gameConfig };
 
 				try {
 					if (slotEl) {
 						// prefer embedder-friendly helper if available
-						if (typeof window.createSlotIn === "function") {
-							const created = window.createSlotIn(slotEl, cfg);
+						if (typeof /** @type {any} */ (window).createSlotIn === "function") {
+							const created = /** @type {any} */ (window).createSlotIn(slotEl, cfg);
 							if (created) {
 								API._instance = created;
 								window.SLOT_GAME_INSTANCE = created;
 							}
 						} else {
 							try {
-								window.SLOT_GAME_INSTANCE = new window.SlotGame(slotEl, cfg);
+								window.SLOT_GAME_INSTANCE = new (/** @type {any} */ (window).SlotGame)(slotEl, cfg);
 								API._instance = window.SLOT_GAME_INSTANCE;
 							} catch (instErr) {
 								window.__EmbeddedSlotLastError =
-									instErr &&
-									(instErr.stack || instErr.message || String(instErr));
-								console.warn(
-									"EmbeddedSlot: SlotGame instantiation failed:",
-									instErr,
-								);
+									instErr && (instErr.stack || instErr.message || String(instErr));
+								console.warn("EmbeddedSlot: SlotGame instantiation failed:", instErr);
 							}
 						}
 					} else {
@@ -198,15 +197,15 @@ const API = {
 		}
 		return true;
 	},
+
 	startSpin: () => {
 		if (!API._instance) {
 			// attempt to initialize on-demand
 			try {
 				API.init({ show: true });
-				API._instance = window.SLOT_GAME_INSTANCE || API._instance;
+				API._instance = /** @type {any} */ (window).SLOT_GAME_INSTANCE || API._instance;
 			} catch (e) {
-				window.__EmbeddedSlotLastError =
-					e && (e.stack || e.message || String(e));
+				window.__EmbeddedSlotLastError = e && (e.stack || e.message || String(e));
 				console.warn("EmbeddedSlot: lazy init failed in startSpin:", e);
 			}
 			if (!API._instance) {
@@ -215,20 +214,17 @@ const API = {
 				const maxAttempts = 20; // ~20 * 150ms = 3s
 				const iv = setInterval(() => {
 					attempts++;
-					API._instance = window.SLOT_GAME_INSTANCE || API._instance;
+					API._instance = /** @type {any} */ (window).SLOT_GAME_INSTANCE || API._instance;
 					if (API._instance) {
 						clearInterval(iv);
 						try {
 							API._instance.startGame();
 						} catch (e) {
-							window.__EmbeddedSlotLastError =
-								e && (e.stack || e.message || String(e));
+							window.__EmbeddedSlotLastError = e && (e.stack || e.message || String(e));
 						}
 					} else if (attempts >= maxAttempts) {
 						clearInterval(iv);
-						console.warn(
-							"EmbeddedSlot: instance not available after polling attempts",
-						);
+						console.warn("EmbeddedSlot: instance not available after polling attempts");
 					}
 				}, 150);
 				// return true to indicate a start was scheduled
@@ -244,6 +240,7 @@ const API = {
 			return false;
 		}
 	},
+
 	stopSpin: () => {
 		if (!API._instance) return false;
 		try {
@@ -262,6 +259,7 @@ const API = {
 			return false;
 		}
 	},
+
 	getInstance: () => API._instance,
 	_instance: null,
 };
@@ -286,16 +284,16 @@ API.diagnose = () => {
 		);
 		console.log(
 			"window.createSlotIn:",
-			typeof window.createSlotIn === "function",
+			typeof /** @type {any} */ (window).createSlotIn === "function",
 		);
 		if (!slotEl) console.warn("no #slot-machine found inside embed container.");
 		if (
 			!window.SLOT_GAME_INSTANCE &&
-			typeof window.createSlotIn === "function" &&
+			typeof /** @type {any} */ (window).createSlotIn === "function" &&
 			slotEl
 		) {
 			console.log("Attempting to instantiate via createSlotIn...");
-			const inst = window.createSlotIn(slotEl, { ...gameConfig });
+			const inst = /** @type {any} */ (window).createSlotIn(slotEl, { ...gameConfig });
 			console.log("createSlotIn returned:", inst);
 		}
 		console.groupEnd && console.groupEnd();
@@ -379,7 +377,7 @@ function ensureLampPanel() {
 			) {
 				sliderInfo.parentNode.insertBefore(panel, sliderInfo);
 			}
-		} catch (_) {}
+		} catch (_) { }
 	}
 	return panel;
 }
@@ -433,10 +431,10 @@ try {
 		try {
 			__outstandingHits++;
 			updateLampDisplay(__outstandingHits);
-		} catch (_) {}
+		} catch (_) { }
 		__tryStartOrQueueSpin("pachi:hit");
 	});
-} catch (_) {}
+} catch (_) { }
 
 // when slot fully stops, consume one queued spin if any
 try {
@@ -452,35 +450,24 @@ try {
 				__pendingQueuedSpins--;
 				API.startSpin();
 			}
-		} catch (_) {}
+		} catch (_) { }
 	});
-} catch (_) {}
+} catch (_) { }
 
 // Override slot's own win overlay with config-based message and adjusted amount
 try {
 	window.addEventListener("slot:win", (ev) => {
 		try {
-			const amount = Number(ev?.detail?.amount) || 0;
-			const mult = Number(
-				(window.GAME_CONFIG &&
-					GAME_CONFIG.rewards &&
-					GAME_CONFIG.rewards.slotWinAmmoMultiplier) ||
-					0,
-			);
-			const adjusted =
-				amount > 0 && mult > 0 && Number.isFinite(mult)
-					? Math.floor(amount * mult)
-					: amount;
-			const templ =
-				(window.GAME_CONFIG &&
-					GAME_CONFIG.rewards &&
-					GAME_CONFIG.rewards.slotWinMessageTemplate) ||
-				"";
+			const detail = /** @type {CustomEvent|null} */ (/** @type {any} */ (ev) || {}).detail || null;
+			const amount = Number(detail?.amount) || 0;
+			const mult = Number((gameConfig && gameConfig.rewards && gameConfig.rewards.slotWinAmmoMultiplier) || 0);
+			const adjusted = amount > 0 && mult > 0 && Number.isFinite(mult) ? Math.floor(amount * mult) : amount;
+			const templ = (gameConfig && gameConfig.rewards && gameConfig.rewards.slotWinMessageTemplate) || "";
 			const msg = templ
 				? String(templ)
-						.replaceAll("{amount}", String(amount))
-						.replaceAll("{mult}", String(mult))
-						.replaceAll("{adjusted}", String(adjusted))
+					.replaceAll("{amount}", String(amount))
+					.replaceAll("{mult}", String(mult))
+					.replaceAll("{adjusted}", String(adjusted))
 				: "";
 			const wm = document.getElementById("winMessage");
 			if (wm) {
@@ -540,7 +527,7 @@ try {
  * Reads volume settings from GAME_CONFIG and applies them to the slot's sound manager.
  */
 function applyPachinkoVolumeSettings() {
-	const pachiCfg = window.GAME_CONFIG;
+	const pachiCfg = gameConfig;
 	const slotAudioCfg = pachiCfg && pachiCfg.slotAudio;
 	const slotInstance = window.SLOT_GAME_INSTANCE;
 	const soundManager = slotInstance && slotInstance.soundManager;

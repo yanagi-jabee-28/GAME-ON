@@ -20,6 +20,17 @@
 
 import Matter from "matter-js";
 import { GAME_CONFIG, getMaterialInteraction } from "./config";
+/** @type {any} */
+const __GAME_CONFIG__any = GAME_CONFIG;
+// --- Lightweight ambient helpers to reduce tsserver noise ---
+// Declare common functions/vars that are defined elsewhere at runtime so editor doesn't complain
+/** @type {any} */
+var initParticlePool;
+/** @type {any} */
+var updateParticles;
+// safe alias placeholder if needed
+/** @type {any} */
+var __RenderAny = /** @type {any} */ (typeof Matter !== 'undefined' && Matter.Render ? Matter.Render : {});
 import { addBoundsToWorld, createBall, createBounds, createDecorPolygon, createDecorRectangle, createLaunchPadBody, createParticleBurst, createPolygon, createRectangle, createRotatingYakumono, createSensorCounter, createSensorCounterPolygon, getOffsets, loadPegs } from "./objects";
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -61,9 +72,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// If this sensor is configured to trigger the embedded slot, start it
 	try {
-		const cfgEntry2 = GAME_CONFIG.sensorCounters.counters[counterId] || {};
-		if (cfgEntry2.slotTrigger && window.EmbeddedSlot && typeof window.EmbeddedSlot.startSpin === 'function') {
-			try { window.EmbeddedSlot.startSpin(); } catch (_) { /* no-op */ }
+		// prefer a window-scoped counterId if present; avoid referencing a possibly-undefined local symbol
+		const runtimeCounterId = (typeof window !== 'undefined' && /** @type {any} */ (window).counterId) || null;
+		if (runtimeCounterId) {
+			const cfgEntry2 = GAME_CONFIG.sensorCounters.counters[runtimeCounterId] || {};
+			if (cfgEntry2.slotTrigger && window.EmbeddedSlot && typeof window.EmbeddedSlot.startSpin === 'function') {
+				try { window.EmbeddedSlot.startSpin(); } catch (_) { /* no-op */ }
+			}
 		}
 	} catch (_) { /* no-op */ }
 	// ========================
@@ -77,7 +92,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	// 動きの停止した物体をスリープさせ、計算負荷を軽減
 	engine.enableSleeping = true;
 	// スリープ閾値を少し下げて微小振動を抑止し、負荷を軽減
-	engine.timing.isFixed = true; // Matterの内部補間を固定化
+	// engine.timing may have custom properties; cast to any to avoid tsserver property errors
+	try { /** @type {any} */ (engine.timing).isFixed = true; } catch (_) { /** no-op */ }
 	engine.positionIterations = Number(GAME_CONFIG.physics?.positionIterations ?? 12);
 	engine.velocityIterations = Number(GAME_CONFIG.physics?.velocityIterations ?? 8);
 	engine.constraintIterations = Number(GAME_CONFIG.physics?.constraintIterations ?? 6);
@@ -107,7 +123,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	// DOMレイヤリングのため relative を付与
 	if (!container.style.position) container.style.position = 'relative';
 
-	const render = Render.create({ element: container, engine, options: { width, height, pixelRatio: 'auto', ...renderOptions, showSleeping: false } });
+	// cast options/pixelRatio to any to satisfy TS types (pixelRatio may be 'auto' at runtime)
+	const render = Render.create({ element: container, engine, options: /** @type {any} */ ({ width, height, pixelRatio: 'auto', ...renderOptions, showSleeping: false }) });
 
 	// dev-tools へ Engine/Render を通知（UI 拡張で利用）
 	try {
@@ -131,8 +148,9 @@ document.addEventListener('DOMContentLoaded', () => {
 			const v = b && b.render && typeof b.render.layer === 'number' ? b.render.layer : (b && b.render && b.render.layer != null ? Number(b.render.layer) : 1);
 			return Number.isFinite(v) ? v : 1;
 		};
-		const origBodies = Render.bodies;
-		Render.bodies = function (render, bodies, context) {
+		// use any-cast on Render to avoid type complaints when adding .bodies override
+		const origBodies = /** @type {any} */ (Render).bodies;
+	/** @type {any} */ (Render).bodies = function (render, bodies, context) {
 			try {
 				const sorted = Array.isArray(bodies) ? bodies.slice().sort((a, b) => {
 					const la = getLayer(a), lb = getLayer(b);
@@ -155,7 +173,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	// --- Adaptive physics/performance manager ---
 	(function setupAdaptivePhysics() {
 		// device memory hint (Chrome/Edge support)
-		const deviceMem = (typeof navigator !== 'undefined' && navigator.deviceMemory) ? Number(navigator.deviceMemory) : null;
+		// navigator.deviceMemory is a non-standard hint; guard and cast to any
+		const deviceMem = (typeof navigator !== 'undefined' && /** @type {any} */ (navigator).deviceMemory) ? Number(/** @type {any} */(navigator).deviceMemory) : null;
 		const lowMemDevice = (deviceMem != null) ? (deviceMem <= 4) : false;
 		if (lowMemDevice) {
 			// apply conservative defaults for low-memory devices
@@ -394,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						}
 					} else {
 						const angle = (rot.anglePerSecond || 0) * rotDeltaSec;
-						if (angle) Body.rotate(rot.body, angle, rot.pivot);
+						if (angle) Body.rotate(rot.body, angle);
 					}
 				}
 			}
@@ -512,7 +531,28 @@ document.addEventListener('DOMContentLoaded', () => {
 		let delta = targetAngleRad - cur;
 		// wrap small numerical noise
 		if (Math.abs(delta) < 1e-6) return;
-		Body.rotate(body, delta, pivot);
+		// Rotate the body's position around the pivot by delta, then set the body's angle.
+		// This ensures the compound body rotates visually around the pivot point.
+		try {
+			const px = pivot.x || 0;
+			const py = pivot.y || 0;
+			const cx = body.position?.x || 0;
+			const cy = body.position?.y || 0;
+			const dx = cx - px;
+			const dy = cy - py;
+			const cos = Math.cos(delta);
+			const sin = Math.sin(delta);
+			const nx = dx * cos - dy * sin;
+			const ny = dx * sin + dy * cos;
+			const newX = px + nx;
+			const newY = py + ny;
+			// move body to new position and set angle
+			Matter.Body.setPosition(body, { x: newX, y: newY });
+			Matter.Body.setAngle(body, cur + delta);
+		} catch (_) {
+			// fallback to simple rotate if anything goes wrong
+			try { Matter.Body.rotate(body, delta); } catch (_) { /* no-op */ }
+		}
 	}
 
 	// プリセットから回転役物（風車等）を作成し、rotators 配列へ登録する
@@ -814,7 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// helper: compute spawn start coords based on GAME_CONFIG and offsets
 	function computeSpawnCoords() {
-		const spawnCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.spawn) || {};
+		const spawnCfg = /** @type {any} */ ((GAME_CONFIG.launch && GAME_CONFIG.launch.spawn) || {});
 		const { xOffset: sxOff, yOffset: syOff } = (typeof getOffsets === 'function') ? getOffsets() : { xOffset: 0, yOffset: 0 };
 		const startX = (typeof spawnCfg.x === 'number') ? (spawnCfg.x + sxOff) : (40 + sxOff);
 		const startY = (typeof spawnCfg.y === 'number') ? (spawnCfg.y + syOff) : (height - (spawnCfg.yOffsetFromBottom || 40) + syOff);
@@ -826,7 +866,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	if (legacyPad) legacyPad.style.display = 'none';
 
 	// キャンバス側の発射台ボディを生成して追加
-	const padCfg0 = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
+	const padCfg0 = /** @type {any} */ ((GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {});
 	const launchPadBody = createLaunchPadBody({
 		width: padCfg0.width || 64,
 		height: padCfg0.height || 14,
@@ -837,7 +877,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	World.add(world, launchPadBody);
 
 	function applyPadConfig() {
-		const padCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
+		const padCfg = /** @type {any} */ ((GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {});
 		// サイズ・見た目はボディ生成時のまま。必要なら再生成やスケール対応を追加可能。
 		// レイヤー変更のみ反映
 		const layer = Number(padCfg.layer ?? 1);
@@ -847,13 +887,16 @@ document.addEventListener('DOMContentLoaded', () => {
 	function updateLaunchPadPosition() {
 		const p = computeSpawnCoords();
 		const padCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
-		const padW = Number(padCfg.width || 64);
-		const padH = Number(padCfg.height || 14);
+		const padCfgAny = /** @type {any} */ (padCfg);
+		const padW = Number(padCfgAny.width || 64);
+		const padH = Number(padCfgAny.height || 14);
 		const longIsWidth = padW >= padH;
 		const originX = longIsWidth ? 0 : (padW / 2);
 		const originY = longIsWidth ? (padH / 2) : 0;
-		const angleDeg = Number((document.getElementById('angle-slider') || { value: GAME_CONFIG.launch?.defaultAngle || 90 }).value);
-		const offsetY = padCfg.offsetY || 0;
+		// read slider value via typed element to avoid TS complaining about .value on HTMLElement
+		const angleEl = /** @type {HTMLInputElement|null} */ (document.getElementById('angle-slider'));
+		const angleDeg = Number((angleEl ? angleEl.value : (GAME_CONFIG.launch?.defaultAngle || 90)));
+		const offsetY = padCfgAny.offsetY || 0;
 		// 近端中心を原点にする: launch point からのオフセットを回転座標に沿って適用
 		Matter.Body.setPosition(launchPadBody, { x: p.x - originX, y: p.y - originY });
 		Matter.Body.setAngle(launchPadBody, (90 - angleDeg) * Math.PI / 180);
@@ -875,18 +918,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// UI（スライダー/ラベル）
 
-	const angleSlider = document.getElementById('angle-slider');
-	const speedSlider = document.getElementById('speed-slider');
+	/** @type {HTMLInputElement | null} */
+	const angleSlider = /** @type {HTMLInputElement | null} */ (document.getElementById('angle-slider'));
+	/** @type {HTMLInputElement | null} */
+	const speedSlider = /** @type {HTMLInputElement | null} */ (document.getElementById('speed-slider'));
+	/** @type {HTMLElement | null} */
 	const angleVal = document.getElementById('angle-val');
+	/** @type {HTMLElement | null} */
 	const speedVal = document.getElementById('speed-val');
 
 	// angle slider configuration from config.js
 	if (GAME_CONFIG.launch) {
 		// angle UI は無い可能性があるため速度のみ設定
 		// speed slider: 0..100 を 0.01 刻みに
-		speedSlider.min = 0;
-		speedSlider.max = 100;
-		speedSlider.step = 0.01;
+		if (speedSlider) {
+			speedSlider.min = '0';
+			speedSlider.max = '100';
+			speedSlider.step = '0.01';
+		}
 	}
 
 	// 天板UIは削除
@@ -898,7 +947,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	// 数値が詰まり過ぎて視認性が落ちるのを防ぐ
 	speedActual.style.marginLeft = '6px';
 	// スピードスライダー初期値は 0 に固定
-	speedSlider.value = 0;
+	if (speedSlider) speedSlider.value = '0';
 
 	// Apply label color from config if provided
 	try {
@@ -995,7 +1044,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	try {
 		window.addEventListener('slot:win', (ev) => {
 			try {
-				const amount = Number(ev?.detail?.amount) || 0;
+				const ce = /** @type {CustomEvent} */ (ev);
+				const amount = Number(ce?.detail?.amount) || 0;
 				const mult = Number(GAME_CONFIG?.rewards?.slotWinAmmoMultiplier);
 				if (!(amount > 0 && Number.isFinite(mult) && mult > 0)) return;
 				const gain = Math.floor(amount * mult);
@@ -1040,7 +1090,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				el.style.color = '#fff';
 				el.style.borderRadius = '8px';
 				el.style.fontSize = '14px';
-				el.style.zIndex = 10000;
+				el.style.zIndex = '10000';
 				el.style.pointerEvents = 'none';
 				el.style.opacity = '0';
 				el.style.transition = 'opacity 220ms ease, transform 220ms ease';
@@ -1051,8 +1101,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			el.textContent = msg;
 			el.style.display = '';
 			// 既存タイマーをクリア
-			clearTimeout(showToastMessage._hideTimer);
-			clearTimeout(showToastMessage._fadeTimer);
+			clearTimeout(/** @type {any} */(showToastMessage)._hideTimer);
+			clearTimeout(/** @type {any} */(showToastMessage)._fadeTimer);
 			// フェードイン（次フレームで）
 			requestAnimationFrame(() => {
 				el.style.opacity = '1';
@@ -1062,10 +1112,10 @@ document.addEventListener('DOMContentLoaded', () => {
 			const total = Math.max(400, Number(durationMs || 2000));
 			const fadeMs = 220;
 			const fadeOutDelay = Math.max(0, total - fadeMs);
-			showToastMessage._fadeTimer = setTimeout(() => {
+			(/** @type {any} */ (showToastMessage))._fadeTimer = setTimeout(() => {
 				try { el.style.opacity = '0'; el.style.transform = 'translate(-50%, -6px)'; } catch (_) { }
 			}, fadeOutDelay);
-			showToastMessage._hideTimer = setTimeout(() => {
+			(/** @type {any} */ (showToastMessage))._hideTimer = setTimeout(() => {
 				try { el.style.display = 'none'; } catch (_) { }
 			}, total + 10);
 		} catch (_) { /* no-op */ }
@@ -1126,11 +1176,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// スライダー長押し連射モード（設定で有効化時のみ）
 	(function wireHoldToFire() {
+		/** @type {any} */
 		const launchCfg = GAME_CONFIG.launch || {};
-		if (!launchCfg.holdToFireEnabled) return;
+		if (!launchCfg || !launchCfg.holdToFireEnabled) return;
 		injectHoldUiStyles();
-		speedSlider.classList.add('hold-ui');
-		speedVal.classList.add('hold-ui');
+		if (speedSlider) speedSlider.classList.add('hold-ui');
+		if (speedVal) speedVal.classList.add('hold-ui');
 		holdIntervalMsCfg = Number(launchCfg.holdIntervalMs) || holdIntervalMsCfg;
 		holdFirstDelayMsCfg = Number(launchCfg.holdFirstShotDelayMs) || 0;
 		function startHold() {
@@ -1147,7 +1198,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			holdAccumMs = 0;
 			holdFirstShotPending = false;
 			// 離したら強さを0へ
-			speedSlider.value = 0;
+			if (speedSlider) speedSlider.value = '0';
 			updateArrow();
 			speedSlider.classList.remove('active');
 		}
@@ -1223,8 +1274,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			// 床とボールの衝突判定（パーティクル発生のオプション対応）
 			const ballLabel = GAME_CONFIG.objects.ball.label;
 			const floorLabel = GAME_CONFIG.objects.floor.label;
-			const eff = (GAME_CONFIG.effects && GAME_CONFIG.effects.floor) || {};
-			const particleCfg = eff.particle || {};
+			const eff = /** @type {any} */ ((GAME_CONFIG.effects && GAME_CONFIG.effects.floor) || {});
+			const particleCfg = /** @type {any} */ ((eff && eff.particle) ? eff.particle : {});
 			function handleFloorHit(ballBody) {
 				if (!ballBody) return;
 				try {
@@ -1235,7 +1286,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						createParticleBurst(world, ballBody.position.x, ballBody.position.y, pColor, cnt, life);
 					}
 				} catch (_) { /* no-op */ }
-				if (eff.removeBall !== false) {
+				if (!(eff && eff.removeBall === false)) {
 					World.remove(world, ballBody);
 					if (typeof window !== 'undefined' && window.dispatchEvent) {
 						window.dispatchEvent(new CustomEvent('devtools:ball-removed', { detail: { ballId: ballBody.id, trigger: 'floor' } }));

@@ -17,24 +17,6 @@
 		},
 		{
 			"type": "windmill",
-			"x": 100,
-			"y": 0,
-			"enabled": true,
-			"rotation": {
-				"mode": "inertial",
-				"restDeg": 0
-			},
-			"bladeColor": "hsl(35,100%,60%)",
-			"centerColor": "#333333",
-			"shape": {
-				"numBlades": 5,
-				"bladeLength": 15,
-				"bladeWidth": 5,
-				"centerRadius": 6
-			}
-		},
-		{
-			"type": "windmill",
 			"x": 313,
 			"y": 320,
 			"rps": 1,

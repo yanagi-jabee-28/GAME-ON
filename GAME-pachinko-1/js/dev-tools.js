@@ -44,10 +44,10 @@ import { GAME_CONFIG } from "./config";
 	// .controls がまだ無い場合に待ち受けて注入
 	function waitControlsAndInject(engineRef) {
 		if (!devEnabled()) return;
-		if (ensureDevPanel()) { injectTimeScaleSlider(engineRef); return; }
+		if (ensureDevPanel()) { injectTimeScaleSlider(); return; }
 		const obs = new MutationObserver(() => {
 			if (ensureDevPanel()) {
-				try { injectTimeScaleSlider(engineRef); } catch (_) { /* no-op */ }
+				try { injectTimeScaleSlider(); } catch (_) { /* no-op */ }
 				obs.disconnect();
 			}
 		});
@@ -82,7 +82,8 @@ import { GAME_CONFIG } from "./config";
 		const label = document.createElement('label');
 		label.textContent = 'タイムスケール:';
 		label.style.marginRight = '8px';
-		const input = document.createElement('input');
+		/** @type {HTMLInputElement} */
+		const input = /** @type {HTMLInputElement} */ (document.createElement('input'));
 		input.type = 'range';
 		input.id = 'dev-timescale';
 		input.min = '0';
@@ -215,12 +216,13 @@ import { GAME_CONFIG } from "./config";
 
 	// main.js から Engine/Render が準備できたら受け取ってバインド
 	window.addEventListener('devtools:engine-ready', (e) => {
-		const engine = e?.detail?.engine;
+		const ce = /** @type {CustomEvent} */ (e);
+		const engine = ce?.detail?.engine;
 		CURRENT_ENGINE = engine || CURRENT_ENGINE;
 		// UI が未生成なら生成
 		if (!document.getElementById('dev-timescale')) injectTimeScaleSlider();
 		// 現在のUI値をエンジンへ反映
-		const input = document.getElementById('dev-timescale');
+		const input = /** @type {HTMLInputElement | null} */ (document.getElementById('dev-timescale'));
 		if (input && engine && engine.timing) {
 			const v = Number(input.value);
 			const cfgNow = getCfg();

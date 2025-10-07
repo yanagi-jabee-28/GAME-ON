@@ -171,7 +171,6 @@ const MATERIAL_INTERACTIONS = {
 	// 金属系
 	'metal:metal': { restitution: 0.7, friction: 0.1 },
 	'metal:metal2': { restitution: 0.7, friction: 0 },
-	'metal:metal2': { restitution: 0.7, friction: 0 },
 	'metal:plastic': { restitution: 0.5, friction: 0.3 },
 	'metal:tama': { restitution: 0.5, friction: 0.1 },
 	'metal:top_plate': { restitution: 0, friction: 0 },
@@ -222,4 +221,4 @@ function getMaterialInteraction(materialA, materialB) {
 	return MATERIAL_INTERACTIONS[key] || MATERIAL_INTERACTIONS.default; // フォールバック
 }
 
-export {GAME_CONFIG, GAME_MATERIALS, getMaterialInteraction};
+export { GAME_CONFIG, GAME_MATERIALS, getMaterialInteraction };
