@@ -136,6 +136,58 @@ function pachiInit() {
 
 	// レイアウトが確定するまで描画を開始しないためのフラグ
 	let sizedReady = false;
+	let readyCandidateTs = 0;
+	const minReadyDelayMs = 600; // 少し長めに待ってから初回描画（左上寄りのチラつき対策）
+
+	// ロード用オーバーレイを表示/非表示
+	let loadingOverlay: HTMLElement | null = null;
+	function showLoadingOverlay() {
+		try {
+			if (loadingOverlay) return;
+			const ov = document.createElement('div');
+			ov.id = 'pachi-loading-overlay';
+			ov.setAttribute('aria-busy', 'true');
+			ov.style.position = 'absolute';
+			ov.style.inset = '0';
+			ov.style.display = 'flex';
+			ov.style.alignItems = 'center';
+			ov.style.justifyContent = 'center';
+			ov.style.background = 'rgba(0,0,0,0.25)';
+			ov.style.color = '#fff';
+			ov.style.fontFamily = 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+			ov.style.fontSize = '14px';
+			ov.style.letterSpacing = '0.02em';
+			ov.style.backdropFilter = 'blur(1px)';
+			ov.style.transition = 'opacity 180ms ease';
+			ov.style.zIndex = '10';
+			ov.innerHTML = `
+				<div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+					<div style="width:22px;height:22px;border-radius:50%;border:3px solid rgba(255,255,255,0.5);border-top-color:#fff;animation:pachi-spin 0.9s linear infinite"></div>
+					<div>読み込み中…</div>
+				</div>
+			`;
+			// スピナーの keyframes を一時的に追加
+			try {
+				const style = document.createElement('style');
+				style.textContent = '@keyframes pachi-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}';
+				ov.appendChild(style);
+			} catch (__) { /* no-op */ }
+			container.appendChild(ov);
+			loadingOverlay = ov;
+		} catch (_) { /* no-op */ }
+	}
+	function hideLoadingOverlay() {
+		try {
+			if (!loadingOverlay) return;
+			loadingOverlay.style.opacity = '0';
+			const toRemove = loadingOverlay;
+			loadingOverlay = null;
+			setTimeout(() => { try { toRemove.remove(); } catch (_) { /* no-op */ } }, 200);
+		} catch (_) { /* no-op */ }
+	}
+
+	// 初期はオーバーレイを表示しておく
+	showLoadingOverlay();
 
 	// Ensure canvas internal pixel size matches container (fixes mobile sizing/raster issues)
 	function ensureCanvasSized() {
@@ -178,8 +230,17 @@ function pachiInit() {
 				console.debug('[PACHINKO] ensureCanvasSized ->', { cw, ch, dpr, logicalW, logicalH, pw, ph, renderOptions: (render && render.options) ? Object.assign({}, render.options) : null });
 			}
 
-			// サイズが有効になったら描画を許可
-			sizedReady = (cw > 0 && ch > 0 && c.width > 0 && c.height > 0);
+			// サイズが有効になったら、最小待ち時間を設けてから描画を許可
+			const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+			const readyNow = (cw > 0 && ch > 0 && c.width > 0 && c.height > 0);
+			if (readyNow) {
+				if (!readyCandidateTs) readyCandidateTs = now;
+				if (now - readyCandidateTs >= minReadyDelayMs) {
+					sizedReady = true;
+					try { container.style.visibility = ''; } catch (_) { }
+					hideLoadingOverlay();
+				}
+			}
 		} catch (e) { console.warn('[PACHINKO] ensureCanvasSized error', e); }
 	}
 
