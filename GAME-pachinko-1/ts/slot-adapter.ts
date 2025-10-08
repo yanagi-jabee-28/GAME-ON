@@ -123,7 +123,7 @@ function injectSlotHtml() {
 }
 
 // Public API
-const API = {
+const API: any = {
 	init: (opts) => {
 		opts = opts || {};
 		const area = document.getElementById(EMBED_AREA_ID);

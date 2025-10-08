@@ -19,7 +19,7 @@
  */
 
 import Matter from "matter-js";
-import { GAME_CONFIG, getMaterialInteraction } from "./config";
+import { GAME_CONFIG, getMaterialInteraction } from "../ts/config";
 /** @type {any} */
 const __GAME_CONFIG__any = GAME_CONFIG;
 // --- Lightweight ambient helpers to reduce tsserver noise ---
@@ -31,7 +31,7 @@ var updateParticles;
 // safe alias placeholder if needed
 /** @type {any} */
 var __RenderAny = /** @type {any} */ (typeof Matter !== 'undefined' && Matter.Render ? Matter.Render : {});
-import { addBoundsToWorld, createBall, createBounds, createDecorPolygon, createDecorRectangle, createLaunchPadBody, createParticleBurst, createPolygon, createRectangle, createRotatingYakumono, createSensorCounter, createSensorCounterPolygon, getOffsets, loadPegs } from "./objects";
+import { addBoundsToWorld, createBall, createBounds, createDecorPolygon, createDecorRectangle, createLaunchPadBody, createParticleBurst, createPolygon, createRectangle, createRotatingYakumono, createSensorCounter, createSensorCounterPolygon, getOffsets, loadPegs } from "../ts/objects";
 
 // Guard to prevent double initialization
 let __pachi_initialized = false;
@@ -132,7 +132,10 @@ function pachiInit() {
 	if (!container.style.position) container.style.position = 'relative';
 
 	// cast options/pixelRatio to any to satisfy TS types (pixelRatio may be 'auto' at runtime)
-	const render = Render.create({ element: container, engine, options: /** @type {any} */ ({ width, height, pixelRatio: 'auto', ...renderOptions, showSleeping: false }) });
+	const render = Render.create({ element: container, engine, options: { width, height, pixelRatio: 'auto' as any, ...renderOptions, showSleeping: false } });
+
+	// レイアウトが確定するまで描画を開始しないためのフラグ
+	let sizedReady = false;
 
 	// Ensure canvas internal pixel size matches container (fixes mobile sizing/raster issues)
 	function ensureCanvasSized() {
@@ -174,6 +177,9 @@ function pachiInit() {
 				try { if (render && render.canvas) { render.canvas.width = pw; render.canvas.height = ph; } } catch (_) { }
 				console.debug('[PACHINKO] ensureCanvasSized ->', { cw, ch, dpr, logicalW, logicalH, pw, ph, renderOptions: (render && render.options) ? Object.assign({}, render.options) : null });
 			}
+
+			// サイズが有効になったら描画を許可
+			sizedReady = (cw > 0 && ch > 0 && c.width > 0 && c.height > 0);
 		} catch (e) { console.warn('[PACHINKO] ensureCanvasSized error', e); }
 	}
 
@@ -216,9 +222,11 @@ function pachiInit() {
 	})();
 
 	// ========================
-	// 3. 物理演算と描画の開始（標準 Runner）
+	// 3. 物理演算と描画の開始
 	// ========================
-	Render.run(render);
+	// 注意: 初期レイアウトが未確定のまま Render.run すると、
+	// デフォルトの 300x150 で 0,0 に要素が集まる描画が行われる場合がある。
+	// 本実装では独自 rAF ループで Render.world を呼ぶため、Render.run は使用しない。
 	const runner = Runner.create();
 
 	// --- Adaptive physics/performance manager ---
@@ -505,6 +513,13 @@ function pachiInit() {
 				updateParticles(rotDeltaMs);
 			}
 
+			// レイアウト未確定時は描画をスキップ
+			if (!sizedReady) {
+				try { ensureCanvasSized(); } catch (_) { }
+				// ensureCanvasSized 内で ready 判定されるまで描画せず待機
+				requestAnimationFrame(loop);
+				return;
+			}
 			Render.world(render);
 			requestAnimationFrame(loop);
 		}
@@ -905,7 +920,7 @@ function pachiInit() {
 
 	// helper: compute spawn start coords based on GAME_CONFIG and offsets
 	function computeSpawnCoords() {
-		const spawnCfg = /** @type {any} */ ((GAME_CONFIG.launch && GAME_CONFIG.launch.spawn) || {});
+		const spawnCfg: any = (GAME_CONFIG.launch && GAME_CONFIG.launch.spawn) || {};
 		const { xOffset: sxOff, yOffset: syOff } = (typeof getOffsets === 'function') ? getOffsets() : { xOffset: 0, yOffset: 0 };
 		const startX = (typeof spawnCfg.x === 'number') ? (spawnCfg.x + sxOff) : (40 + sxOff);
 		const startY = (typeof spawnCfg.y === 'number') ? (spawnCfg.y + syOff) : (height - (spawnCfg.yOffsetFromBottom || 40) + syOff);
@@ -917,7 +932,7 @@ function pachiInit() {
 	if (legacyPad) legacyPad.style.display = 'none';
 
 	// キャンバス側の発射台ボディを生成して追加
-	const padCfg0 = /** @type {any} */ ((GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {});
+	const padCfg0: any = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
 	const launchPadBody = createLaunchPadBody({
 		width: padCfg0.width || 64,
 		height: padCfg0.height || 14,
@@ -928,7 +943,7 @@ function pachiInit() {
 	World.add(world, launchPadBody);
 
 	function applyPadConfig() {
-		const padCfg = /** @type {any} */ ((GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {});
+		const padCfg: any = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
 		// サイズ・見た目はボディ生成時のまま。必要なら再生成やスケール対応を追加可能。
 		// レイヤー変更のみ反映
 		const layer = Number(padCfg.layer ?? 1);
@@ -937,8 +952,8 @@ function pachiInit() {
 
 	function updateLaunchPadPosition() {
 		const p = computeSpawnCoords();
-		const padCfg = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
-		const padCfgAny = /** @type {any} */ (padCfg);
+		const padCfg: any = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
+		const padCfgAny: any = padCfg;
 		const padW = Number(padCfgAny.width || 64);
 		const padH = Number(padCfgAny.height || 14);
 		const longIsWidth = padW >= padH;
@@ -997,7 +1012,7 @@ function pachiInit() {
 			try {
 				const ro = new ResizeObserver((entries) => {
 					for (const e of entries) {
-						const cr = e && e.contentRect ? e.contentRect : {};
+						const cr: any = e && e.contentRect ? e.contentRect : {};
 						const w = Number(cr.width || 0);
 						const h = Number(cr.height || 0);
 						if (w > 0 && h > 0) {
@@ -1054,7 +1069,7 @@ function pachiInit() {
 	/** @type {HTMLInputElement | null} */
 	const angleSlider = /** @type {HTMLInputElement | null} */ (document.getElementById('angle-slider'));
 	/** @type {HTMLInputElement | null} */
-	const speedSlider = /** @type {HTMLInputElement | null} */ (document.getElementById('speed-slider'));
+	const speedSlider: HTMLInputElement | null = document.getElementById('speed-slider') as HTMLInputElement | null;
 	/** @type {HTMLElement | null} */
 	const angleVal = document.getElementById('angle-val');
 	/** @type {HTMLElement | null} */
@@ -1234,8 +1249,8 @@ function pachiInit() {
 			el.textContent = msg;
 			el.style.display = '';
 			// 既存タイマーをクリア
-			clearTimeout(/** @type {any} */(showToastMessage)._hideTimer);
-			clearTimeout(/** @type {any} */(showToastMessage)._fadeTimer);
+			clearTimeout((showToastMessage as any)._hideTimer);
+			clearTimeout((showToastMessage as any)._fadeTimer);
 			// フェードイン（次フレームで）
 			requestAnimationFrame(() => {
 				el.style.opacity = '1';
@@ -1245,10 +1260,10 @@ function pachiInit() {
 			const total = Math.max(400, Number(durationMs || 2000));
 			const fadeMs = 220;
 			const fadeOutDelay = Math.max(0, total - fadeMs);
-			(/** @type {any} */ (showToastMessage))._fadeTimer = setTimeout(() => {
+			(showToastMessage as any)._fadeTimer = setTimeout(() => {
 				try { el.style.opacity = '0'; el.style.transform = 'translate(-50%, -6px)'; } catch (_) { }
 			}, fadeOutDelay);
-			(/** @type {any} */ (showToastMessage))._hideTimer = setTimeout(() => {
+			(showToastMessage as any)._hideTimer = setTimeout(() => {
 				try { el.style.display = 'none'; } catch (_) { }
 			}, total + 10);
 		} catch (_) { /* no-op */ }
@@ -1310,7 +1325,7 @@ function pachiInit() {
 	// スライダー長押し連射モード（設定で有効化時のみ）
 	(function wireHoldToFire() {
 		/** @type {any} */
-		const launchCfg = GAME_CONFIG.launch || {};
+		const launchCfg: any = GAME_CONFIG.launch || {};
 		if (!launchCfg || !launchCfg.holdToFireEnabled) return;
 		injectHoldUiStyles();
 		if (speedSlider) speedSlider.classList.add('hold-ui');
@@ -1407,7 +1422,7 @@ function pachiInit() {
 			// 床とボールの衝突判定（パーティクル発生のオプション対応）
 			const ballLabel = GAME_CONFIG.objects.ball.label;
 			const floorLabel = GAME_CONFIG.objects.floor.label;
-			const eff = /** @type {any} */ ((GAME_CONFIG.effects && GAME_CONFIG.effects.floor) || {});
+			const eff: any = (GAME_CONFIG.effects && GAME_CONFIG.effects.floor) || {};
 			const particleCfg = /** @type {any} */ ((eff && eff.particle) ? eff.particle : {});
 			function handleFloorHit(ballBody) {
 				if (!ballBody) return;

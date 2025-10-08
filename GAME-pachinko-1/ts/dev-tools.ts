@@ -1,4 +1,4 @@
-import { GAME_CONFIG } from "./config";
+import { GAME_CONFIG } from "../ts/config";
 
 // 開発者向けツール集: UI 拡張やデバッグ操作をここに集約
 (function setupDevTools() {
@@ -42,7 +42,7 @@ import { GAME_CONFIG } from "./config";
 	}
 
 	// .controls がまだ無い場合に待ち受けて注入
-	function waitControlsAndInject(engineRef) {
+	function waitControlsAndInject(engineRef?: any) {
 		if (!devEnabled()) return;
 		if (ensureDevPanel()) { injectTimeScaleSlider(); return; }
 		const obs = new MutationObserver(() => {

@@ -1,49 +1,25 @@
+const PRIME_POOL = [2, 3, 5, 7];
+
 type GameState = {
-	originalFactors: number[]; // primes provided as the pool
 	current: number; // current value being divided
-	remainingFactors: number[]; // remaining factors available (counts tracked)
+	original: number; // original number
 	steps: number;
 };
 
-// Utility: pick some prime factors to present to the user
-function pickPrimePool(): number[] {
-	// Make a small pool of primes. We'll choose 2..19
-	const primes = [2, 3, 5, 7, 11, 13, 17, 19];
-	// choose 2-4 primes randomly
-	const count = 2 + Math.floor(Math.random() * 3);
-	const pool: number[] = [];
-	while (pool.length < count) {
-		const p = primes[Math.floor(Math.random() * primes.length)];
-		if (!pool.includes(p)) pool.push(p);
-	}
-	return pool;
-}
-
-// Generate a number that is product of selected prime factors only.
-// We will multiply each chosen prime by a random exponent between 1 and 3.
-function generateNumberFromPrimes(primes: number[]): { n: number, factors: number[] } {
-	const factors: number[] = [];
-	let n = 1;
-	for (const p of primes) {
-		const exp = 1 + Math.floor(Math.random() * 3); // 1..3
-		for (let i = 0; i < exp; i++) {
-			n *= p;
-			factors.push(p);
+// Generate a number that is product of PRIME_POOL primes.
+// Each prime gets a random exponent between 1 and 3, but ensure n <= 1000.
+function generateNumber(): number {
+	let n: number;
+	do {
+		n = 1;
+		for (const p of PRIME_POOL) {
+			const exp = 1 + Math.floor(Math.random() * 3); // 1..3
+			for (let i = 0; i < exp; i++) {
+				n *= p;
+			}
 		}
-	}
-	// shuffle factors so order is not grouped by prime
-	for (let i = factors.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		[factors[i], factors[j]] = [factors[j], factors[i]];
-	}
-	return { n, factors };
-}
-
-// Count occurrences of factors
-function counts(arr: number[]): Map<number, number> {
-	const m = new Map<number, number>();
-	for (const x of arr) m.set(x, (m.get(x) || 0) + 1);
-	return m;
+	} while (n > 1000);
+	return n;
 }
 
 // DOM helpers
@@ -61,17 +37,12 @@ function render() {
 	stepsEl.textContent = `ステップ: ${state.steps}`;
 	logEl.textContent = '';
 
-	// show factor buttons with remaining counts
+	// show factor buttons, always enabled
 	factorsEl.innerHTML = '';
-	const c = counts(state.remainingFactors);
-	const unique = Array.from(new Set(state.originalFactors));
-	unique.sort((a, b) => a - b);
-	for (const p of unique) {
+	for (const p of PRIME_POOL) {
 		const btn = document.createElement('button');
 		btn.className = 'factor';
-		const available = c.get(p) || 0;
-		btn.textContent = `${p} × ${available}`;
-		btn.disabled = available === 0;
+		btn.textContent = String(p);
 		btn.addEventListener('click', () => onFactorClick(p));
 		factorsEl.appendChild(btn);
 	}
@@ -83,13 +54,6 @@ function onFactorClick(p: number) {
 		appendLog(`${p} では割り切れません。`);
 		return;
 	}
-	// remove one occurrence of p from remainingFactors
-	const idx = state.remainingFactors.indexOf(p);
-	if (idx === -1) {
-		appendLog(`${p} はもう使えません。`);
-		return;
-	}
-	state.remainingFactors.splice(idx, 1);
 	state.current = Math.floor(state.current / p);
 	state.steps += 1;
 	appendLog(`${p} で割った → ${state.current}`);
@@ -107,22 +71,19 @@ function appendLog(s: string) {
 }
 
 function newProblem() {
-	const pool = pickPrimePool();
-	const { n, factors } = generateNumberFromPrimes(pool);
+	const n = generateNumber();
 	state = {
-		originalFactors: factors.slice(),
 		current: n,
-		remainingFactors: factors.slice(),
+		original: n,
 		steps: 0
 	};
-	appendLog(`新しい問題: ${n}（素因数プール: ${Array.from(new Set(pool)).join(', ')}）`);
+	appendLog(`新しい問題: ${n}`);
 	render();
 }
 
 function resetProblem() {
 	if (!state) return;
-	state.current = state.originalFactors.reduce((a, b) => a * b, 1);
-	state.remainingFactors = state.originalFactors.slice();
+	state.current = state.original;
 	state.steps = 0;
 	appendLog('リセットしました');
 	render();

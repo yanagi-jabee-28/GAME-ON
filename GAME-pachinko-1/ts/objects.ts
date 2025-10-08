@@ -16,7 +16,7 @@
 
 import Matter from "matter-js";
 import decomp from "poly-decomp"; // Matter.jsのBodies.fromVerticesで必要
-import { GAME_CONFIG, GAME_MATERIALS } from "./config";
+import { GAME_CONFIG, GAME_MATERIALS } from "../ts/config";
 
 Matter.Common.setDecomp(decomp); // 凹多角形を扱えるように設定
 
@@ -28,7 +28,7 @@ function getObjectDef(key) {
 
 // Matter.Body 生成用オプションを、GAME_CONFIG のデフォルト + 呼び出し元の上書きで合成する
 // Matter.Body 作成時のオプションを GAME_CONFIG の定義と呼び出し側の上書きで合成して返す
-function makeBodyOptions(key, overrides = {}) {
+function makeBodyOptions(key, overrides: any = {}) {
 	const def = getObjectDef(key);
 	const baseOpts = Object.assign({}, def.options || {});
 	const baseRender = Object.assign({ layer: 1 }, def.render || {});
@@ -79,7 +79,7 @@ function normalizeMaterialId(m) {
  */
 
 // 新しいボール（動的円形ボディ）を作成して返す
-export function createBall(x, y, options = {}) {
+export function createBall(x, y, options: any = {}) {
 	const ballConfig = getObjectDef('ball');
 	const optionFill = options && options.render && options.render.fillStyle;
 	const useRandom = (typeof ballConfig.randomColor === 'undefined') ? true : Boolean(ballConfig.randomColor);
@@ -312,7 +312,7 @@ export function addBoundsToWorld(bounds, world) {
  * spec: { x, y, width, height, angleDeg?, isStatic?, material?, color?, label?, layer?, anchor? }
  */
 // 任意長方形ボディを作成するヘルパー（anchor により座標基準を処理）
-export function createRectangle(spec = {}) {
+export function createRectangle(spec: any = {}) {
 	let x = Number(spec.x) || 0;
 	let y = Number(spec.y) || 0;
 	const w = Math.max(1, Number(spec.width) || 1);
@@ -331,7 +331,7 @@ export function createRectangle(spec = {}) {
 	const label = spec.label || getObjectDef('rect').label;
 	const color = (spec.color || spec.fill || spec.fillStyle || getObjectDef('rect').render?.fillStyle);
 	const layer = (spec.layer != null ? Number(spec.layer) : (getObjectDef('rect').render?.layer ?? 1));
-	const renderOverride = {};
+	const renderOverride: any = {};
 	if (color) renderOverride.fillStyle = color;
 	renderOverride.layer = layer;
 	const opts = makeBodyOptions('rect', Object.assign({}, mat ? { material: mat } : {}, label ? { label } : {},
@@ -354,7 +354,7 @@ export function createRectangle(spec = {}) {
  * 描画専用（非干渉）長方形
  */
 // 描画専用（物理干渉しない）長方形を作成する
-export function createDecorRectangle(spec = {}) {
+export function createDecorRectangle(spec: any = {}) {
 	const base = Object.assign({ material: getObjectDef('decor').material, layer: (spec.layer != null ? Number(spec.layer) : (getObjectDef('decor').render?.layer ?? 1)) }, spec);
 	// isSensor/static はオプション合成により付与される
 	const body = createRectangle(base);
@@ -374,7 +374,7 @@ export function createDecorRectangle(spec = {}) {
  * - 角度/位置オフセット、任意ピボットを用いた回転にも対応
  */
 // 任意多角形ボディを生成する。world/local 座標モードと回転オフセットをサポート
-export function createPolygon(spec = {}) {
+export function createPolygon(spec: any = {}) {
 	const pts = Array.isArray(spec.points) ? spec.points : [];
 	if (pts.length < 3) return null; // 要三点以上
 	const angleDeg = Number(spec.angleDeg || spec.angle || 0);
@@ -475,7 +475,7 @@ export function createPolygon(spec = {}) {
  * 描画専用多角形（非干渉）
  */
 // 描画専用の多角形（センサー/静的）を作るラッパー
-export function createDecorPolygon(spec = {}) {
+export function createDecorPolygon(spec: any = {}) {
 	const base = Object.assign({ material: getObjectDef('decorPolygon').material, isStatic: true }, spec);
 	const body = createPolygon(base);
 	if (!body) return body;
@@ -490,7 +490,7 @@ export function createDecorPolygon(spec = {}) {
  * 発射台（キャンバス描画用、非干渉）
  */
 // 発射台用の非干渉ボディ（描画のみ）を生成する
-export function createLaunchPadBody(spec = {}) {
+export function createLaunchPadBody(spec: any = {}) {
 	const padW = Math.max(1, Number(spec.width || 64));
 	const padH = Math.max(1, Number(spec.height || 14));
 	const color = spec.color || spec.background || '#444';
@@ -668,7 +668,7 @@ export function createRotatingYakumono(blueprint) {
  * - 物理干渉せず、通過イベントをカウントする領域を定義
  * - カウントデータは GAME_CONFIG.sensorCounters.counters に保存
  */
-export function createSensorCounter(spec = {}) {
+export function createSensorCounter(spec: any = {}) {
 	const counterId = spec.id || 'default_counter';
 	const x = Number(spec.x) || 0;
 	const y = Number(spec.y) || 0;
@@ -776,7 +776,7 @@ export function createSensorCounter(spec = {}) {
  * - 物理干渉せず、通過イベントをカウントする任意形状の領域を定義
  * - カウントデータは GAME_CONFIG.sensorCounters.counters に保存
  */
-export function createSensorCounterPolygon(spec = {}) {
+export function createSensorCounterPolygon(spec: any = {}) {
 	const counterId = spec.id || 'default_polygon_counter';
 	const pts = Array.isArray(spec.points) ? spec.points : [];
 	if (pts.length < 3) return null; // 要三点以上

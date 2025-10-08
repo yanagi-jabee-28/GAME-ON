@@ -10,6 +10,9 @@ type ConfigType = typeof import("../Novel-games/js/config.js").CONFIG;
 import "matter-js";
 
 declare global {
+	interface Navigator {
+		deviceMemory?: number;
+	}
 	interface Window {
 		activeSlotGame?: any;
 		createSlotIn?: any;
@@ -38,6 +41,9 @@ declare global {
 		setRotatorEnabledByIndex?: any;
 		setAllRotatorsEnabled?: any;
 		toggleRotatorEnabled?: any;
+
+		counterId?: any;
+		__pachi_init_logged__?: boolean;
 	}
 
 	var window: Window & typeof globalThis;
@@ -48,6 +54,8 @@ declare global {
 	const gameManager: GameManagerType;
 	const ui: UIManagerType;
 	function initializeGame(protagonistName?: string): void;
+
+	var showToastMessage: any;
 
 	interface Element {
 		focus?(): void;
@@ -62,6 +70,17 @@ declare global {
 		value?: string | number | null;
 	}
 
+	interface HTMLInputElement extends HTMLElement {
+		value: string;
+		min?: string;
+		max?: string;
+		step?: string;
+	}
+
+	interface Event {
+		detail?: any;
+	}
+
 	interface EventTarget {
 		value?: string | number | null;
 		closest?(selectors: string): Element | null;
@@ -69,6 +88,9 @@ declare global {
 
 	interface HTMLInputElement extends HTMLElement {
 		value: string;
+		min?: string;
+		max?: string;
+		step?: string;
 	}
 
 	namespace Matter {
@@ -85,6 +107,15 @@ declare global {
 			lineWidth?: number;
 			visible?: boolean;
 			layer?: number;
+		}
+		interface IEngineTimingOptions {
+			isFixed?: boolean;
+		}
+		interface IRendererOptions {
+			pixelRatio?: number | string;
+		}
+		namespace Render {
+			function bodies(render: any, bodies: any, context: any): void;
 		}
 	}
 }
