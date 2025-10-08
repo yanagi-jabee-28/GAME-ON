@@ -66,7 +66,9 @@ button {
 }
 
 /* Keep controls visible near bottom and avoid extra margin pushing them off-screen */
-.controls { margin-bottom: 12px; }
+.controls {
+    margin-bottom: 12px;
+}
 
 .controls input[type="range"] {
     width: min(600px, 92vw);
