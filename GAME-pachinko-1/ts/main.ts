@@ -138,6 +138,12 @@ function pachiInit() {
 	let sizedReady = false;
 	let readyCandidateTs = 0;
 	const minReadyDelayMs = 600; // 少し長めに待ってから初回描画（左上寄りのチラつき対策）
+	const stableWindowMs = 250; // この時間連続でコンテナサイズが安定したらOK
+	const maxInitWaitMs = 4000; // 最長待機（安全弁）
+	const initStartTs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+	let layoutStableSince = 0;
+	let lastCw = 0, lastCh = 0;
+	let fontsReady = false;
 
 	// ロード用オーバーレイを表示/非表示
 	let loadingOverlay: HTMLElement | null = null;
@@ -186,6 +192,15 @@ function pachiInit() {
 		} catch (_) { /* no-op */ }
 	}
 
+	// フォント読み込みの完了も待機条件に加える
+	try {
+		if (document && (document as any).fonts && typeof (document as any).fonts.ready !== 'undefined') {
+			(document as any).fonts.ready.then(() => { fontsReady = true; }).catch(() => { fontsReady = true; });
+		} else {
+			fontsReady = true;
+		}
+	} catch (_) { fontsReady = true; }
+
 	// 初期はオーバーレイを表示しておく
 	showLoadingOverlay();
 
@@ -196,8 +211,9 @@ function pachiInit() {
 			if (!c) return;
 			const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? (window.devicePixelRatio || 1) : 1;
 			// CSS size: let the canvas fill the container element
-			const cw = Math.max(0, Math.round(container.clientWidth || container.getBoundingClientRect().width || 0));
-			const ch = Math.max(0, Math.round(container.clientHeight || container.getBoundingClientRect().height || 0));
+			const rect = container.getBoundingClientRect();
+			const cw = Math.max(0, Math.round(container.clientWidth || rect.width || 0));
+			const ch = Math.max(0, Math.round(container.clientHeight || rect.height || 0));
 			if (cw <= 0 || ch <= 0) return;
 			c.style.width = '100%';
 			c.style.height = '100%';
@@ -230,12 +246,23 @@ function pachiInit() {
 				console.debug('[PACHINKO] ensureCanvasSized ->', { cw, ch, dpr, logicalW, logicalH, pw, ph, renderOptions: (render && render.options) ? Object.assign({}, render.options) : null });
 			}
 
-			// サイズが有効になったら、最小待ち時間を設けてから描画を許可
+			// サイズの安定判定：一定時間連続で変化しないこと
 			const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-			const readyNow = (cw > 0 && ch > 0 && c.width > 0 && c.height > 0);
-			if (readyNow) {
+			const sizeChanged = (Math.abs(cw - lastCw) > 0.5) || (Math.abs(ch - lastCh) > 0.5);
+			if (sizeChanged) {
+				layoutStableSince = now;
+				lastCw = cw; lastCh = ch;
+			} else if (!layoutStableSince) {
+				layoutStableSince = now;
+			}
+			const stableOk = layoutStableSince && (now - layoutStableSince >= stableWindowMs);
+
+			// 全条件が整ったら最小待機を消化してから描画許可
+			const readyNow = (cw > 0 && ch > 0 && c.width > 0 && c.height > 0) && !!stableOk && !!fontsReady;
+			const timedOut = (now - initStartTs) >= maxInitWaitMs; // 安全弁
+			if (readyNow || timedOut) {
 				if (!readyCandidateTs) readyCandidateTs = now;
-				if (now - readyCandidateTs >= minReadyDelayMs) {
+				if ((now - readyCandidateTs >= minReadyDelayMs) || timedOut) {
 					sizedReady = true;
 					try { container.style.visibility = ''; } catch (_) { }
 					hideLoadingOverlay();
