@@ -33,7 +33,13 @@ var updateParticles;
 var __RenderAny = /** @type {any} */ (typeof Matter !== 'undefined' && Matter.Render ? Matter.Render : {});
 import { addBoundsToWorld, createBall, createBounds, createDecorPolygon, createDecorRectangle, createLaunchPadBody, createParticleBurst, createPolygon, createRectangle, createRotatingYakumono, createSensorCounter, createSensorCounterPolygon, getOffsets, loadPegs } from "./objects";
 
-document.addEventListener('DOMContentLoaded', () => {
+// Guard to prevent double initialization
+let __pachi_initialized = false;
+
+function pachiInit() {
+	if (__pachi_initialized) return;
+	__pachi_initialized = true;
+	// original DOMContentLoaded callback body follows
 	// Matter.jsの主要モジュールを取得
 	const { Engine, Render, Runner, World, Events, Body, Constraint } = Matter;
 
@@ -118,6 +124,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		console.error('Game container element (#game-container) not found.');
 		return; // 以降の処理はコンテナがないと成立しないため早期終了
 	}
+	// 初期レイアウトが安定するまで視覚的に隠しておく（モバイルで左上に集まる現象対策）
+	try { container.style.visibility = 'hidden'; } catch (_) { /* no-op */ }
 	// レスポンシブ対応: コンテナのサイズは CSS に委ね、キャンバスは等比でスケールさせる
 	// （内部の物理演算・描画解像度は width/height で維持）
 	// DOMレイヤリングのため relative を付与
@@ -125,6 +133,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// cast options/pixelRatio to any to satisfy TS types (pixelRatio may be 'auto' at runtime)
 	const render = Render.create({ element: container, engine, options: /** @type {any} */ ({ width, height, pixelRatio: 'auto', ...renderOptions, showSleeping: false }) });
+
+	// Ensure canvas internal pixel size matches container (fixes mobile sizing/raster issues)
+	function ensureCanvasSized() {
+		try {
+			const c = render && render.canvas;
+			if (!c) return;
+			const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? (window.devicePixelRatio || 1) : 1;
+			// CSS size: let the canvas fill the container element
+			const cw = Math.max(0, Math.round(container.clientWidth || container.getBoundingClientRect().width || 0));
+			const ch = Math.max(0, Math.round(container.clientHeight || container.getBoundingClientRect().height || 0));
+			if (cw <= 0 || ch <= 0) return;
+			c.style.width = '100%';
+			c.style.height = '100%';
+			// Important: the renderer was created with logical dimensions `width`/`height` (GAME_CONFIG.dimensions).
+			// The canvas backing buffer must match those logical dimensions multiplied by devicePixelRatio
+			// so Matter.js maps world coordinates correctly to pixels. Use logical width/height here,
+			// and compute the scale that maps logical->backing pixels for the context transform.
+			const logicalW = Number(width || 0) || 0;
+			const logicalH = Number(height || 0) || 0;
+			if (logicalW <= 0 || logicalH <= 0) return;
+			const pw = Math.round(logicalW * dpr);
+			const ph = Math.round(logicalH * dpr);
+			if (c.width !== pw || c.height !== ph) {
+				// ensure render.options.pixelRatio matches device pixel ratio to keep coordinate mapping correct
+				try { if (render && render.options) render.options.pixelRatio = dpr; } catch (_) { }
+				// set backing buffer to logical size * dpr
+				c.width = pw;
+				c.height = ph;
+				// update context transform to map logical coordinates -> backing buffer pixels
+				try {
+					const ctx = c.getContext('2d');
+					if (ctx && typeof ctx.setTransform === 'function') {
+						const scaleX = pw / logicalW;
+						const scaleY = ph / logicalH;
+						ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+					}
+				} catch (_) { /* no-op */ }
+				// also update render.canvas dimensions if present
+				try { if (render && render.canvas) { render.canvas.width = pw; render.canvas.height = ph; } } catch (_) { }
+				console.debug('[PACHINKO] ensureCanvasSized ->', { cw, ch, dpr, logicalW, logicalH, pw, ph, renderOptions: (render && render.options) ? Object.assign({}, render.options) : null });
+			}
+		} catch (e) { console.warn('[PACHINKO] ensureCanvasSized error', e); }
+	}
 
 	// dev-tools へ Engine/Render を通知（UI 拡張で利用）
 	try {
@@ -911,7 +962,89 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// apply initial pad config and position
 	applyPadConfig();
-	updateLaunchPadPosition();
+	// Try to set initial positions, but the container size may not be stable
+	// immediately after DOMContentLoaded (CSS or font loading may still affect layout).
+	// If the container size is invalid (width/height === 0), retry a few times with delays.
+	function tryInitPosition(retries = 6, delayMs = 80) {
+		try {
+			const c = container.getBoundingClientRect();
+			const valid = c && c.width > 0 && c.height > 0;
+			// debug dump (one-shot) to help diagnose mobile init timing
+			try {
+				const gw = /** @type {any} */ (window);
+				if (!gw.__pachi_init_logged__) {
+					gw.__pachi_init_logged__ = true;
+					console.debug('[PACHINKO] init dbg', {
+						rect: c,
+						client: { w: container.clientWidth, h: container.clientHeight },
+						renderedCanvas: render && render.canvas ? { w: render.canvas.width, h: render.canvas.height, styleW: render.canvas.style.width, styleH: render.canvas.style.height } : null
+					});
+				}
+			} catch (_) { }
+			if (valid) {
+				try {
+					updateLaunchPadPosition();
+					updateArrow();
+					ensureCanvasSized();
+				} catch (_) { /* no-op */ }
+				try { container.style.visibility = ''; } catch (_) { }
+				return true;
+			}
+		} catch (_) { /* no-op */ }
+
+		// If ResizeObserver is available, observe until container receives non-zero size
+		if (typeof ResizeObserver !== 'undefined') {
+			try {
+				const ro = new ResizeObserver((entries) => {
+					for (const e of entries) {
+						const cr = e && e.contentRect ? e.contentRect : {};
+						const w = Number(cr.width || 0);
+						const h = Number(cr.height || 0);
+						if (w > 0 && h > 0) {
+							try { updateLaunchPadPosition(); updateArrow(); ensureCanvasSized(); } catch (_) { }
+							try { container.style.visibility = ''; } catch (_) { }
+							try { ro.disconnect(); } catch (_) { }
+							return;
+						}
+					}
+				});
+				ro.observe(container);
+				// give it a short grace period and continue retry polling as well
+			} catch (_) { /* no-op */ }
+		}
+
+		if (retries <= 0) {
+			// last resort: call once (may result in slight visual glitch but avoids leaving things unpositioned)
+			try { updateLaunchPadPosition(); updateArrow(); } catch (_) { }
+			try { container.style.visibility = ''; } catch (_) { }
+			return false;
+		}
+		setTimeout(() => tryInitPosition(retries - 1, delayMs), delayMs);
+		return false;
+	}
+	tryInitPosition();
+	// best-effort ensure canvas is sized right away in addition to the retry/observer
+	try { ensureCanvasSized(); } catch (_) { }
+
+	// ensure canvas updates on resize as well (mobile orientation changes etc.)
+	try {
+		window.addEventListener('resize', () => { try { ensureCanvasSized(); updateLaunchPadPosition(); } catch (_) { } });
+	} catch (_) { }
+
+	// Also try again after full load (images/fonts applied) as a fallback for some mobile browsers
+	try { window.addEventListener('load', () => tryInitPosition(2, 120)); } catch (_) { }
+	// If Font loading can delay layout, re-run sizing once fonts are ready (some mobile browsers behave oddly)
+	try {
+		if (document && document.fonts && typeof document.fonts.ready !== 'undefined') {
+			document.fonts.ready.then(() => {
+				console.debug('[PACHINKO] fonts.ready fired, re-checking layout');
+				tryInitPosition(3, 80);
+				try { ensureCanvasSized(); } catch (_) { }
+			}).catch(() => { /* no-op */ });
+		}
+	} catch (_) { }
+	// Extra delayed fallback: sometimes layout stabilizes a bit later; run one last check after 600ms
+	try { setTimeout(() => { console.debug('[PACHINKO] delayed fallback sizing'); tryInitPosition(1, 120); try { ensureCanvasSized(); } catch (_) { } }, 600); } catch (_) { }
 
 	// update when window resizes or when topPlate recreated
 	window.addEventListener('resize', updateLaunchPadPosition);
@@ -1440,4 +1573,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 
 
-});
+}
+
+// Prefer full window load to avoid layout races caused by fonts/images/CSSOM
+try {
+	window.addEventListener('load', pachiInit);
+} catch (_) { }
+// If already fully loaded, run immediately
+try {
+	if (document && document.readyState === 'complete') pachiInit();
+} catch (_) { }

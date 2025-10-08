@@ -488,18 +488,30 @@ try {
 if (typeof window !== "undefined" && window.addEventListener) {
 	window.addEventListener("DOMContentLoaded", () => {
 		try {
-			// show embedded area and init
+			// show embedded area and init (retry-friendly)
 			const area = document.getElementById("embedded-slot-area");
 			if (area) area.style.display = "";
+			// Try immediate init; if slot scripts haven't finished, schedule a couple of retries.
 			API.init({ show: true });
-			// make injected action button visible for quick manual testing
-			const ab = document.getElementById("actionBtn");
-			if (ab) ab.style.display = "";
-			// prepare lamps
-			ensureLampPanel();
-		} catch (_) {
-			/* no-op */
-		}
+			const makeVisible = () => {
+				const ab = document.getElementById("actionBtn");
+				if (ab) ab.style.display = "";
+				ensureLampPanel();
+			};
+			makeVisible();
+			// If init didn't find an instance, poll briefly
+			if (!API.getInstance()) {
+				let attempts = 0;
+				const iv = setInterval(() => {
+					attempts++;
+					API.init({ show: true });
+					if (API.getInstance() || attempts >= 10) {
+						clearInterval(iv);
+						makeVisible();
+					}
+				}, 150);
+			}
+		} catch (_) { /* no-op */ }
 	});
 }
 
