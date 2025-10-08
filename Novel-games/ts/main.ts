@@ -4,12 +4,12 @@
  * このゲームの司令塔です。
  */
 
-import { CONFIG } from "./config.js";
-import { GameEventManager } from "./events.js";
-import { GameManager } from "./gameManager.js";
-import { ITEMS } from "./items.js";
-import { SoundManager } from "./soundManager.js";
-import { UIManager } from "./ui.js";
+import { CONFIG } from "./config.ts";
+import { GameEventManager } from "./events.ts";
+import { GameManager } from "./gameManager.ts";
+import { ITEMS } from "./items.ts";
+import { SoundManager } from "./soundManager.ts";
+import { UIManager } from "./ui.ts";
 
 // グローバル変数として各マネージャーのインスタンスを保持
 let gameManager;
@@ -39,7 +39,8 @@ try {
 // グローバルスコープに公開（他のモジュールから参照できるように）
 // 注意: gameManagerとuiは初期化後に再度割り当てる
 window.soundManager = soundManager;
-window.GameEventManager = GameEventManager;
+// Assign as-is; window typing is augmented in global.d.ts
+window.GameEventManager = GameEventManager as any;
 window.ITEMS = ITEMS;
 window.CONFIG = CONFIG;
 
@@ -96,53 +97,53 @@ function initializeGame(protagonistName) {
 
 	// CONFIG.LABELS が定義されていれば、固定テキストラベルを差し替える
 	try {
-		if (CONFIG && CONFIG.LABELS) {
+		if (CONFIG && (CONFIG as any).LABELS) {
 			// ステータス表示の静的ラベルを置換
 			const statusDisplay = document.getElementById("status-display");
 			if (statusDisplay) {
 				// トップ行のラベル
 				const labelDate = document.getElementById("label-date");
 				if (labelDate)
-					labelDate.textContent = CONFIG.LABELS.date || labelDate.textContent;
+					labelDate.textContent = (CONFIG as any).LABELS.date || labelDate.textContent;
 				const labelTime = document.getElementById("label-time");
 				if (labelTime)
 					labelTime.textContent =
-						CONFIG.LABELS.timeOfDay || labelTime.textContent;
+						(CONFIG as any).LABELS.timeOfDay || labelTime.textContent;
 
 				// 下段のチップのラベル
 				const labelPhysical = document.getElementById("label-physical");
 				if (labelPhysical)
 					labelPhysical.textContent =
-						CONFIG.LABELS.physical || labelPhysical.textContent;
+						(CONFIG as any).LABELS.physical || labelPhysical.textContent;
 				const labelMental = document.getElementById("label-mental");
 				if (labelMental)
 					labelMental.textContent =
-						CONFIG.LABELS.mental || labelMental.textContent;
+						(CONFIG as any).LABELS.mental || labelMental.textContent;
 				const labelTechnical = document.getElementById("label-technical");
 				if (labelTechnical)
 					labelTechnical.textContent =
-						CONFIG.LABELS.technical || labelTechnical.textContent;
+						(CONFIG as any).LABELS.technical || labelTechnical.textContent;
 				const labelMoney = document.getElementById("label-money");
 				if (labelMoney)
 					labelMoney.textContent =
-						CONFIG.LABELS.money || labelMoney.textContent;
+						(CONFIG as any).LABELS.money || labelMoney.textContent;
 				const labelCp = document.getElementById("label-cp");
 				if (labelCp)
-					labelCp.textContent = CONFIG.LABELS.cp || labelCp.textContent;
+					labelCp.textContent = (CONFIG as any).LABELS.cp || labelCp.textContent;
 			}
 
 			// メニュー内の見出し
 			const menuTitle = document.querySelector("#menu-content h2");
 			if (menuTitle)
-				menuTitle.textContent = CONFIG.LABELS.menu || menuTitle.textContent;
+				menuTitle.textContent = (CONFIG as any).LABELS.menu || menuTitle.textContent;
 			const itemSectionH3 = document.querySelector("#menu-item-section h3");
 			if (itemSectionH3)
 				itemSectionH3.textContent =
-					CONFIG.LABELS.items || itemSectionH3.textContent;
+					(CONFIG as any).LABELS.items || itemSectionH3.textContent;
 			const saveLoadH3 = document.querySelector("#menu-save-load-section h3");
 			if (saveLoadH3)
 				saveLoadH3.textContent =
-					CONFIG.LABELS.saveLoad || saveLoadH3.textContent;
+					(CONFIG as any).LABELS.saveLoad || saveLoadH3.textContent;
 		}
 	} catch (e) {
 		console.warn("Label injection failed", e);

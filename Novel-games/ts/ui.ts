@@ -4,10 +4,65 @@
  * HTML要素の操作はすべてここで行い、他のロジックから分離します。
  */
 
-import { CONFIG } from "./config.js";
-import { ITEMS } from "./items.js";
+import { CONFIG } from "./config.ts";
+import { ITEMS } from "./items.ts";
 
 export class UIManager {
+	// Screen containers
+	private titleScreen: HTMLElement;
+	private gameScreen: HTMLElement;
+
+	// Status displays
+	private dateDisplay: HTMLElement;
+	private timeOfDayDisplay: HTMLElement;
+	private physicalDisplay: HTMLElement;
+	private mentalDisplay: HTMLElement;
+	private technicalDisplay: HTMLElement;
+	private academicDisplay: HTMLElement; // may be attached dynamically
+	private moneyDisplay: HTMLElement;
+	private cpDisplay: HTMLElement;
+
+	// Message window
+	private messageWindow: HTMLElement;
+	private characterName: HTMLElement;
+	private messageText: HTMLElement;
+	private clickIndicator: HTMLElement;
+
+	// Choices
+	private choicesArea: HTMLElement;
+
+	// Menu elements
+	private menuButton: HTMLElement;
+	private menuCloseButton: HTMLElement & { disabled?: boolean };
+	public menuOverlay: HTMLElement & { dataset?: DOMStringMap };
+	private menuAcademic: HTMLElement;
+	private menuPhysical: HTMLElement;
+	private menuMental: HTMLElement;
+	private menuTechnical: HTMLElement;
+	private menuReportDebt: HTMLElement;
+	private menuItemList: HTMLElement;
+	private menuCloseFloating: HTMLElement;
+	private menuItemSection: HTMLElement;
+	private menuHistorySection: HTMLElement;
+	private toggleItemsButton: HTMLElement;
+	private toggleHistoryButton: HTMLElement;
+	private toggleCharactersButton: HTMLElement;
+	private menuCharactersSection: HTMLElement;
+
+	// Character focused area
+	private focusedCharacterWrap: HTMLElement;
+	private focusedCharacterName: HTMLElement;
+	private focusedCharacterTrust: HTMLElement;
+
+	// Save/Load
+	private saveGameButton: HTMLElement;
+	private loadGameButton: HTMLElement;
+	private loadGameFileInput: HTMLElement;
+
+	// Keyboard handler
+	private _boundKeyboardHandler?: (e: KeyboardEvent) => void;
+	private _keyboardHandler?: (e: KeyboardEvent) => void;
+	private toggleReportButton?: HTMLElement | null;
 	/**
 	 * UIManagerのコンストラクタ
 	 */
@@ -479,10 +534,7 @@ export class UIManager {
 					? status.stats.technical
 					: "";
 		// 通貨単位は CONFIG.LABELS.currencyUnit を優先
-		const unit =
-			CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit
-				? CONFIG.LABELS.currencyUnit
-				: "円";
+		const unit = (CONFIG as any)?.LABELS?.currencyUnit ?? "円";
 		this.moneyDisplay.textContent = `${status.money}${unit}`;
 		this.cpDisplay.textContent = status.cp;
 	}
@@ -609,8 +661,8 @@ export class UIManager {
 	 * ユーザーのクリックを待つ
 	 * @returns {Promise<void>} クリックされたら解決するPromise
 	 */
-	waitForClick() {
-		return new Promise((resolve) => {
+	waitForClick(): Promise<void> {
+		return new Promise<void>((resolve) => {
 			// クリックインジケーターを表示
 			this.clickIndicator.style.display = "block";
 
@@ -805,8 +857,7 @@ export class UIManager {
 		const status = gameManager.getAllStatus(); // GameManagerから全ステータスを取得
 
 		// ラベル定義を取得（なければデフォルト）
-		const labels =
-			typeof CONFIG !== "undefined" && CONFIG.LABELS ? CONFIG.LABELS : {};
+		const labels: any = (CONFIG as any)?.LABELS ?? {};
 
 		// メニューの見出しなど静的ラベルを設定（存在すれば）
 		const headerEl = document.getElementById("menu-header");
@@ -939,10 +990,7 @@ export class UIManager {
 		}
 		historyList.innerHTML = "";
 		const history = status.history || [];
-		const unit =
-			CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit
-				? CONFIG.LABELS.currencyUnit
-				: "円";
+		const unit = (CONFIG as any)?.LABELS?.currencyUnit ?? "円";
 		if (history.length === 0) {
 			const li = document.createElement("li");
 			li.textContent = "(履歴はありません)";
@@ -960,12 +1008,12 @@ export class UIManager {
 					if (detail && detail.shopLabel) return detail.shopLabel;
 					if (
 						shopId &&
-						CONFIG &&
-						CONFIG.SHOPS &&
-						CONFIG.SHOPS[shopId] &&
-						CONFIG.SHOPS[shopId].label
+						(CONFIG as any) &&
+						(CONFIG as any).SHOPS &&
+						(CONFIG as any).SHOPS[shopId] &&
+						(CONFIG as any).SHOPS[shopId].label
 					)
-						return CONFIG.SHOPS[shopId].label;
+						return (CONFIG as any).SHOPS[shopId].label;
 					return shopId || "";
 				};
 
@@ -1201,7 +1249,7 @@ export class UIManager {
 	 * @returns {Promise<void>}
 	 */
 	waitForMenuClick() {
-		return new Promise((resolve) => {
+		return new Promise<void>((resolve) => {
 			// デフォルトはメニューのコンテンツ部分でのクリックを待つ
 			const menuContent = document.getElementById("menu-content");
 			if (!menuContent) return resolve();
@@ -1240,8 +1288,11 @@ export class UIManager {
  options
 	 */
 	showTransientNotice(text, options = {}) {
+		/** @type {{ duration?: number }} */
+		// @ts-ignore - widen options type for TS
+		options = options || {};
 		if (!text || ("" + text).trim() === "") return;
-		const dur = typeof options.duration === "number" ? options.duration : 1200;
+		const dur = typeof (options as any).duration === "number" ? (options as any).duration : 1200;
 		let el = document.getElementById("transient-notice");
 		if (!el) {
 			el = document.createElement("div");
@@ -1276,7 +1327,7 @@ export class UIManager {
  [options]
 	 * @returns {Promise<void>}
 	*/
-	async showFloatingMessage(text, options = {}) {
+	async showFloatingMessage(text, options: { lineDelay?: number } = {}) {
 		console.log("UI.showFloatingMessage called:", text);
 		const lines = ("" + text).split("\n");
 
@@ -1300,7 +1351,7 @@ export class UIManager {
 				this.clickIndicator.style.display = "block";
 
 				// ローカルのクリック待ち（this.waitForClick を使わない）
-				await new Promise((resolve) => {
+				await new Promise<void>((resolve) => {
 					const listener = () => {
 						try {
 							// クリック音

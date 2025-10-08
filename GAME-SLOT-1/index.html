@@ -100,7 +100,8 @@
       defer属性は、HTMLの解析完了後にスクリプトを実行させるための重要な属性です。
       これにより、ページの表示速度が向上します。
     -->
-      <script type="module" src="script.js" defer></script>
+      <!-- Load TypeScript sources during development (Vite/dev server will handle .ts ESM) -->
+      <script type="module" src="./script.ts" defer></script>
 
 </body>
 

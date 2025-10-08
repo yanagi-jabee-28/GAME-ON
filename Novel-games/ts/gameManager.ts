@@ -4,17 +4,98 @@
  * プレイヤーのステータス、時間、フラグなどを一元管理します。
  */
 
-import { CONFIG } from "./config.js";
-import { ITEMS } from "./items.js";
-import { RANDOM_EVENTS } from "./eventsData.js";
+import { CONFIG } from "./config.ts";
+import { ITEMS } from "./items.ts";
+import { RANDOM_EVENTS } from "./eventsData.ts";
+
+// ----------------------
+// Type definitions (TS)
+// ----------------------
+type Stats = {
+	academic: number;
+	physical: number;
+	mental: number;
+	technical: number;
+	// legacy for interoperability
+	condition?: number;
+};
+
+type ChangeSet = {
+	stats?: Partial<Stats>;
+	money?: number;
+	cp?: number;
+	reportDebt?: number;
+	itemsAdd?: string[];
+	menuLocked?: boolean;
+};
+
+type ApplyOptions = {
+	suppressDisplay?: boolean;
+};
+
+type EffectMap = Record<string, { turns: number; displayName?: string } | undefined>;
+
+type Character = {
+	id?: string;
+	name?: string;
+	trust?: number;
+	status?: Record<string, unknown>;
+};
+
+type Report = {
+	id: string;
+	title?: string;
+	progress: number;
+	required: number;
+	changes?: ChangeSet;
+	progressMessage?: string;
+	completeChanges?: ChangeSet;
+	completeMessage?: string;
+};
+
+type HistoryEntry = {
+	type: string;
+	actionId?: string;
+	eventId?: string;
+	choiceId?: string;
+	result?: string;
+	changes?: object;
+	detail?: any;
+	_label?: string;
+	timestamp?: number;
+	day?: number;
+	turn?: string;
+};
+
+type PlayerStatus = {
+	day: number;
+	turnIndex: number;
+	condition: number;
+	money: number;
+	cp: number;
+	stats: Stats;
+	items: string[];
+	history: HistoryEntry[];
+	reportDebt: number;
+	reports: Report[];
+	menuLocked: boolean;
+	effects?: EffectMap;
+	lastExamRunDay?: number;
+	examFailed?: number;
+	gameOver?: boolean;
+	characters?: Character[];
+};
 
 export class GameManager {
+	playerStatus: PlayerStatus;
+	private _listeners: Array<(newStatus: PlayerStatus) => void>;
 	/**
 	 * GameManagerのコンストラクタ
 	 * @param {object} initialStatus - プレイヤーの初期ステータス
 	 */
 	constructor(initialStatus) {
 		// config.jsから受け取った初期ステータスをディープコピーして設定
+		// Deep-copy initial status so mutations don't affect callers
 		this.playerStatus = JSON.parse(JSON.stringify(initialStatus));
 		// 持続効果を管理するためのオブジェクト（例: { energy_boost: { turns: 3 } } ）
 		if (!this.playerStatus.effects) this.playerStatus.effects = {};
@@ -32,8 +113,14 @@ export class GameManager {
 				}
 			}
 		}
-		// 念のため stats オブジェクトが無い旧データに対応
-		if (!this.playerStatus.stats) this.playerStatus.stats = {};
+		// 念のため stats オブジェクトが無い旧データに対応（必須キーを初期化）
+		if (!this.playerStatus.stats)
+			this.playerStatus.stats = {
+				academic: 0,
+				physical: 0,
+				mental: 0,
+				technical: 0,
+			};
 		["academic", "physical", "mental", "technical"].forEach((k) => {
 			if (
 				typeof this.playerStatus.stats[k] === "undefined" &&
@@ -56,7 +143,7 @@ export class GameManager {
 	 * }
 	 * @param {object} changes
 	 */
-	applyChanges(changes = {}, options = {}) {
+	applyChanges(changes: ChangeSet = {}, options: ApplyOptions = {}) {
 		// スナップショットを取り、差分を計算してメッセージを生成する
 		const before = JSON.parse(JSON.stringify(this.playerStatus));
 		let mutated = false;
@@ -130,12 +217,8 @@ export class GameManager {
 			if (typeof after.money === "number" && after.money !== before.money) {
 				const delta = after.money - (before.money || 0);
 				const sign = delta > 0 ? "+" : "";
-				const unit =
-					typeof CONFIG !== "undefined" &&
-						CONFIG.LABELS &&
-						CONFIG.LABELS.currencyUnit
-						? CONFIG.LABELS.currencyUnit
-						: "円";
+				// Access LABELS in a type-safe, optional way (config.ts adds it later)
+				const unit = (CONFIG as any)?.LABELS?.currencyUnit ?? "円";
 				messages.push(`所持金: ${sign}${delta}${unit}`);
 			}
 
@@ -245,7 +328,7 @@ export class GameManager {
 	/**
 	 * キャラクター管理関連のユーティリティ
 	 */
-	addCharacter(character) {
+	addCharacter(character: Character) {
 		// character は少なくとも { id?, name, trust?, status? } を想定
 		if (!character) return null;
 		if (!this.playerStatus.characters) this.playerStatus.characters = [];
@@ -275,12 +358,12 @@ export class GameManager {
 		return this.playerStatus.characters || [];
 	}
 
-	getCharacter(id) {
+	getCharacter(id: string) {
 		if (!this.playerStatus.characters) return null;
 		return this.playerStatus.characters.find((c) => c.id === id) || null;
 	}
 
-	updateCharacterTrust(id, delta) {
+	updateCharacterTrust(id: string, delta: number) {
 		const c = this.getCharacter(id);
 		if (!c) return null;
 		const before = Number(c.trust || 0);
@@ -293,7 +376,7 @@ export class GameManager {
 		return c.trust;
 	}
 
-	setCharacterStatus(id, statusChanges) {
+	setCharacterStatus(id: string, statusChanges: Record<string, unknown>) {
 		const c = this.getCharacter(id);
 		if (!c) return false;
 		if (!c.status) c.status = {};
@@ -324,7 +407,7 @@ export class GameManager {
 	 * 現在のプレイヤーのステータスを取得する
 	 * @returns {object} プレイヤーのステータスオブジェクト
 	 */
-	getStatus() {
+	getStatus(): PlayerStatus {
 		return this.playerStatus;
 	}
 
@@ -332,7 +415,7 @@ export class GameManager {
 	 * プレイヤーの全ステータスを返す
 	 * @returns {object} プレイヤーの全ステータスオブジェクト
 	 */
-	getAllStatus() {
+	getAllStatus(): PlayerStatus {
 		return this.playerStatus;
 	}
 
@@ -341,12 +424,12 @@ export class GameManager {
 	 * @param {string} key - 更新するステータスのキー (例: 'money', 'condition')
 	 * @param {any} value - 新しい値
 	 */
-	updateStatus(key, value) {
+	updateStatus<K extends keyof PlayerStatus>(key: K, value: PlayerStatus[K]) {
 		if (key in this.playerStatus) {
 			this.playerStatus[key] = value;
-			console.log(`Status updated: ${key} = ${value}`);
+			console.log(`Status updated: ${String(key)} = ${String(value)}`);
 		} else {
-			console.error(`Error: Invalid status key '${key}'`);
+			console.error(`Error: Invalid status key '${String(key)}'`);
 		}
 	}
 
@@ -354,7 +437,7 @@ export class GameManager {
 	 * プレイヤーの所持金を増減させる
 	 * @param {number} amount - 増減させる金額
 	 */
-	addMoney(amount) {
+	addMoney(amount: number) {
 		this.applyChanges({ money: amount });
 	}
 
@@ -368,7 +451,7 @@ export class GameManager {
 	 * @param {object} changes
 	 * @param {object} options
 	 */
-	changeStats(changes, options = {}) {
+	changeStats(changes: Partial<Stats>, options: { suppressUpdateCondition?: boolean } = {}) {
 		// 可能なら applyChanges による一元管理へ委譲
 		if (!options.suppressUpdateCondition) {
 			this.applyChanges({ stats: changes });
@@ -637,7 +720,7 @@ export class GameManager {
 	 * 現在のターン名を取得する
 	 * @returns {string} 現在のターン名 (例: '午前')
 	 */
-	getCurrentTurnName() {
+	getCurrentTurnName(): string {
 		return CONFIG.TURNS[this.playerStatus.turnIndex];
 	}
 
@@ -645,7 +728,7 @@ export class GameManager {
 	 * ランダムイベントの発生をチェックし、条件に合致すればトリガーする
 	 * @returns {Promise<boolean>} イベントが発生したかどうか
 	 */
-	async checkAndTriggerRandomEvent() {
+	async checkAndTriggerRandomEvent(): Promise<boolean> {
 		// ここにランダムイベントの発生判定ロジックを記述
 		// - 現在のターン、曜日、ステータスなどを取得
 		// - RANDOM_EVENTS から条件に合致するイベントをフィルタリング
@@ -656,19 +739,14 @@ export class GameManager {
 		const currentTurnName = this.getCurrentTurnName();
 		const currentWeekdayName = this.getWeekdayName();
 
-		const availableEvents = Object.values(RANDOM_EVENTS).filter((event) => {
+		const availableEvents = Object.values(RANDOM_EVENTS as any).filter((event: any) => {
 			// ターンの条件チェック
-			if (
-				event.conditions.turn &&
-				!event.conditions.turn.includes(currentTurnName)
-			) {
+			const cond = (event && event.conditions) || {};
+			if (cond.turn && !cond.turn.includes(currentTurnName)) {
 				return false;
 			}
 			// 曜日の条件チェック (平日/休日など)
-			if (
-				event.conditions.weekday &&
-				!["月", "火", "水", "木", "金"].includes(currentWeekdayName)
-			) {
+			if (cond.weekday && !["月", "火", "水", "木", "金"].includes(currentWeekdayName)) {
 				return false;
 			}
 			// TODO: その他の条件（ステータス、フラグなど）を追加
@@ -679,9 +757,9 @@ export class GameManager {
 		if (availableEvents.length > 0) {
 			// 発生可能なイベントの中からランダムに一つ選択
 			const randomIndex = Math.floor(Math.random() * availableEvents.length);
-			const selectedEvent = availableEvents[randomIndex];
+			const selectedEvent = availableEvents[randomIndex] as any;
 
-			console.log(`Random event triggered: ${selectedEvent.name}`);
+			console.log(`Random event triggered: ${selectedEvent?.name ?? "unknown"}`);
 			// TODO: GameEventManager を使ってイベントを実行する
 			// await GameEventManager.handleRandomEvent(selectedEvent);
 			return true;
@@ -693,7 +771,7 @@ export class GameManager {
 	 * アイテムを追加する
 	 * @param {string} itemId - 追加するアイテムのID
 	 */
-	addItem(itemId) {
+	addItem(itemId: string) {
 		this.playerStatus.items.push(itemId);
 		console.log(`Item added: ${itemId}`);
 	}
@@ -702,7 +780,7 @@ export class GameManager {
 	 * レポート（個別）の追加
 	 * @param {object} report - { id: string, title?: string, progress: number, required: number }
 	 */
-	addReport(report) {
+	addReport(report: Report) {
 		if (!report || !report.id) return;
 		const r = Object.assign(
 			{ title: report.title || report.id, progress: 0, required: 1 },
@@ -718,7 +796,7 @@ export class GameManager {
 	 * 履歴を追加するユーティリティ
 	 * @param {{ type: string, actionId?: string, eventId?: string, choiceId?: string, result?: string, changes?: object, detail?: object, _label?: string }} entry
 	 */
-	addHistory(entry) {
+	addHistory(entry: HistoryEntry) {
 		if (!this.playerStatus.history) this.playerStatus.history = [];
 		const e = Object.assign(
 			{
@@ -838,11 +916,11 @@ export class GameManager {
 						e.detail && e.detail.shopLabel
 							? e.detail.shopLabel
 							: shopId &&
-								CONFIG &&
-								CONFIG.SHOPS &&
-								CONFIG.SHOPS[shopId] &&
-								CONFIG.SHOPS[shopId].label
-								? CONFIG.SHOPS[shopId].label
+								(CONFIG as any) &&
+								(CONFIG as any).SHOPS &&
+								(CONFIG as any).SHOPS[shopId] &&
+								(CONFIG as any).SHOPS[shopId].label
+								? (CONFIG as any).SHOPS[shopId].label
 								: shopId || "店";
 					if (purchased) {
 						const itemName =
@@ -852,7 +930,7 @@ export class GameManager {
 									? ITEMS[e.detail.itemId].name
 									: e.detail.itemId));
 						e._label = itemName
-							? `${shopLabel}で購入して退店（${itemName}、${e.detail.price || ""}${CONFIG && CONFIG.LABELS && CONFIG.LABELS.currencyUnit ? CONFIG.LABELS.currencyUnit : ""}）`
+							? `${shopLabel}で購入して退店（${itemName}、${e.detail.price || ""}${(CONFIG as any)?.LABELS?.currencyUnit ?? ""}）`
 							: `${shopLabel}で購入して退店`;
 					} else {
 						e._label = `${shopLabel}を訪れて何も買わず退店`;
@@ -878,7 +956,7 @@ export class GameManager {
 	 * @param {string} [name]
 	 * @param {string} [message]
 	 */
-	async triggerInlineChanges(changes, name, message) {
+	async triggerInlineChanges(changes: ChangeSet, name?: string, message?: string) {
 		const eventData = {
 			name: name || "システム",
 			message: message || "",
@@ -905,7 +983,7 @@ export class GameManager {
 	 * 選択肢の選択を記録する
 	 * @param {string} label - 選んだ選択肢の表示テキスト
 	 */
-	recordChoice(label) {
+	recordChoice(label: string) {
 		this.addHistory({
 			type: "choice",
 			detail: {
@@ -921,7 +999,7 @@ export class GameManager {
 	 * @param {string} id
 	 * @param {number} amount
 	 */
-	progressReport(id, amount = 1) {
+	progressReport(id: string, amount: number = 1) {
 		const idx = this.playerStatus.reports.findIndex((r) => r.id === id);
 		if (idx === -1) return null; // 何も起きなかった
 
@@ -975,7 +1053,7 @@ export class GameManager {
 		this._notifyListeners();
 
 		// 戻り値をオブジェクトにして、表示側で「本文」と「差分メッセージ」を分けて扱えるようにする
-		const message = outMsgs.length > 0 ? outMsgs.shift() : "";
+		const message = outMsgs.length > 0 ? outMsgs.shift() as string : "";
 		const changeMsgs = outMsgs; // 残りは差分メッセージ
 		return { message: message, changeMsgs: changeMsgs };
 	}
@@ -990,7 +1068,7 @@ export class GameManager {
 	 * アイテムを使用する
 	 * @param {string} itemId - 使用するアイテムのID
 	 */
-	async useItem(itemId) {
+	async useItem(itemId: string) {
 		// ここに async を追加
 		const item = ITEMS[itemId];
 		if (!item) {
@@ -1166,7 +1244,7 @@ export class GameManager {
 	 * ゲームデータをロードする
 	 * @param {object} loadedData - ロードされたゲームデータオブジェクト
 	 */
-	loadGame(loadedData) {
+	loadGame(loadedData: PlayerStatus) {
 		// ロードされたデータを現在のプレイヤーの状態に適用
 		this.playerStatus = loadedData;
 		// 履歴がなければ空の配列を初期化（古いセーブデータとの互換性のため）

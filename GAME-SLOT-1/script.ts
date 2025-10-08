@@ -4,19 +4,19 @@
  *        リールの生成、回転アニメーション、停止制御、ゲームモードの切り替えなどを担当します。
  */
 
-import { SlotSoundManager } from "./audio.js";
-import { gameConfig } from "./config.js";
+import { SlotSoundManager } from "./audio.ts";
+import { gameConfig } from "./config.ts";
 
 // --- 共通ユーティリティ（純粋関数群） --------------------------------------
 /** 数値を[min,max]にクランプ */
-function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+function clamp(v: number, min: number, max: number): number { return Math.min(Math.max(v, min), max); }
 
 /**
  * 重み付き乱択。
  * @param {Array<{key:any, weight:number}>} items - weight>0 の要素のみ考慮
  * @returns any 選択された key（候補が無い場合はnull）
  */
-function weightedChoice(items) {
+function weightedChoice(items: Array<{ key: any; weight: number; }>) {
 	const valid = items.filter(it => (it && typeof it.weight === 'number' && it.weight > 0));
 	if (valid.length === 0) return null;
 	const total = valid.reduce((s, it) => s + it.weight, 0);
@@ -68,7 +68,7 @@ class UIManager {
 	 * - 副作用: DOM を探索し、主要要素を this.elements にキャッシュします。
 	 * 注意: セレクタ変更時は HTML 側と必ず同期し、null 参照による TypeError を防止してください。
 	 */
-	constructor(config) {
+	constructor(config: any) {
 		this.config = config;
 		this.elements = {}; // 取得したDOM要素を格納するオブジェクト
 		this.getElements();
@@ -124,7 +124,7 @@ class UIManager {
 	 * 新しいリール要素（div.reel）を作成します。
 	 * @returns {HTMLElement} 作成されたリール要素
 	 */
-	createReelElement() {
+	createReelElement(): HTMLElement {
 		const reelElement = document.createElement('div');
 		reelElement.className = 'reel';
 		return reelElement;
@@ -134,7 +134,7 @@ class UIManager {
 	 * シンボルを格納するコンテナ要素（div.symbols）を作成します。
 	 * @returns {HTMLElement} 作成されたシンボルコンテナ要素
 	 */
-	createSymbolsElement() {
+	createSymbolsElement(): HTMLElement {
 		const symbolsElement = document.createElement('div');
 		symbolsElement.className = 'symbols';
 		return symbolsElement;
@@ -145,7 +145,7 @@ class UIManager {
 	 * @param {string} symbol - 表示するシンボルのテキスト
 	 * @returns {HTMLElement} 作成されたシンボル要素
 	 */
-	createSymbolElement(symbol) {
+	createSymbolElement(symbol: string): HTMLElement {
 		const symbolElement = document.createElement('div');
 		symbolElement.className = 'symbol';
 		symbolElement.textContent = symbol;
@@ -159,7 +159,7 @@ class UIManager {
 	 * リール要素をスロットコンテナに追加します。
 	 * @param {HTMLElement} reelElement - 追加するリール要素
 	 */
-	appendReelToSlotContainer(reelElement) {
+	appendReelToSlotContainer(reelElement: HTMLElement) {
 		this.elements.slotContainer.appendChild(reelElement);
 	}
 
@@ -168,7 +168,7 @@ class UIManager {
 	 * @param {HTMLElement} element - スタイルを設定するリール要素
 	 * @param {number} yPosition - 設定するY軸の位置（ピクセル単位）
 	 */
-	setReelTransform(element, yPosition) {
+	setReelTransform(element: HTMLElement, yPosition: number) {
 		element.style.transform = `translateY(${yPosition}px)`;
 	}
 
@@ -181,7 +181,7 @@ class UIManager {
 	 * アクションボタンのテキストを設定します。
 	 * @param {string} text - 設定するテキスト
 	 */
-	setActionBtnText(text) {
+	setActionBtnText(text: string) {
 		this.elements.actionBtn.textContent = text;
 	}
 
@@ -189,7 +189,7 @@ class UIManager {
 	 * デバッグ向け: メッセージを簡易表示する（存在すれば呼び出されることを想定）
 	 * @param {string} msg
 	 */
-	displayMessage(msg) {
+	displayMessage(msg: string) {
 		// 実装は UI 上の toast 等で行われるが、存在することで checkJs の警告を避ける
 		try { const t = document.getElementById('toast'); if (t) t.textContent = msg; } catch (e) { }
 	}
@@ -205,7 +205,7 @@ class UIManager {
 	 * アクションボタンのdisabledプロパティを設定します。
 	 * @param {boolean} disabled - trueの場合ボタンを無効化、falseの場合有効化
 	 */
-	setActionBtnDisabled(disabled) {
+	setActionBtnDisabled(disabled: boolean) {
 		this.elements.actionBtn.disabled = disabled;
 	}
 
@@ -213,7 +213,7 @@ class UIManager {
 	 * モードボタンのテキストを設定します。
 	 * @param {string} text - 設定するテキスト
 	 */
-	setModeBtnText(text) {
+	setModeBtnText(text: string) {
 		this.elements.modeBtn.textContent = text;
 	}
 
@@ -223,7 +223,7 @@ class UIManager {
 	 * @param {HTMLElement} element - Y軸変位量を取得する対象のHTML要素
 	 * @returns {number} Y軸の変位量 (ピクセル単位)。transformが設定されていない場合は0を返します。
 	 */
-	getCurrentTranslateY(element) {
+	getCurrentTranslateY(element: HTMLElement): number {
 		const style = window.getComputedStyle(element);
 		const matrix = new DOMMatrix(style.transform);
 		return matrix.m42;
@@ -284,7 +284,7 @@ class SlotGame {
 	 * - 出力: reels 配列やフラグ類を初期化し、DOM構築とイベント登録を完了します。
 	 * 注意: selectors への依存が強いため、element ベースのクエリへ段階的に移行するとテスタビリティが向上します。
 	 */
-	constructor(element, config) {
+	constructor(element: HTMLElement, config: any) {
 		/** @type {any} */
 		this._toastTimer = null;
 		/** @type {HTMLElement|null} */
@@ -1429,7 +1429,7 @@ class SlotGame {
 	 * @param {number} index - 回転を開始するリールのインデックス番号
 	 * @param {number} speed - リールの回転速度 (ピクセル/フレーム)
 	 */
-	startReel(index, speed) {
+	startReel(index: number, speed: number) {
 		const reel = this.reels[index];
 		reel.spinning = true; // このリールが回転中であることを示すフラグを立てる
 		reel.element.classList.add('spinning'); // リールが回転中であることを示すクラスを追加
@@ -1477,7 +1477,7 @@ class SlotGame {
 	 * @param {number} index - 停止させるリールのインデックス番号
 	 * @param {object} [target=null] - 停止目標オブジェクト。自動モードの狙い撃ち停止時に使用。
 	 */
-	stopReel(index, target = null) {
+	stopReel(index: number, target: any = null) {
 		const reel = this.reels[index];
 		if (!reel.spinning) return; // 既に停止している場合は何もしない
 
@@ -1843,7 +1843,7 @@ class SlotGame {
 	 * シンプル実装: 横一列（top/middle/bottom）で同一シンボルが揃えば配当。
 	 * @returns {number} payout (0 なら外れ)
 	 */
-	evaluatePayout() {
+	evaluatePayout(): number {
 		// 先に各リールの top インデックスを1回ずつ計算して使い回す
 		const topIdxPerReel = this.reels.map(r => {
 			const y = this.ui.getCurrentTranslateY(r.element);
@@ -1912,7 +1912,7 @@ class SlotGame {
 	 * @param {number} amount - 支払われた金額（整数）
 	 * @param {number} [duration=2000] - 表示時間（ms）
 	 */
-	showWinMessage(amount, duration = 2000) {
+	showWinMessage(amount: number, duration: number = 2000) {
 		const el = document.getElementById('winMessage');
 		if (!el) return;
 		const amt = el.querySelector('.amount');
@@ -2029,7 +2029,7 @@ class SlotGame {
 	 * @param {number} n
 	 * @returns {string}
 	 */
-	formatCurrency(n) {
+	formatCurrency(n: number): string {
 		const v = Number(n) || 0;
 		return v.toLocaleString();
 	}
@@ -2038,7 +2038,7 @@ class SlotGame {
 	 * 設定された確率に基づいて、次に狙うシンボルを抽選します。
 	 * @returns {string} 抽選されたシンボルの文字（例: '🍒'）
 	 */
-	chooseSymbolByProbability() {
+	chooseSymbolByProbability(): string {
 		// 推奨: winSymbolWeights = { '7️⃣': 1.0, 'BAR': 0.5, '🍒': 0.2, ... }
 		const weights = this.config.winSymbolWeights;
 		if (weights && Object.keys(weights).length > 0) {
@@ -2064,14 +2064,14 @@ class SlotGame {
 	 * 各リールでのシンボル出現確率マップを返す。
 	 * @returns {Array<Record<string, number>>}
 	 */
-	getPerReelSymbolProbs() {
+	getPerReelSymbolProbs(): Array<Record<string, number>> {
 		return this.reels.map(r => {
 			/** @type {Record<string, number>} */
-			const counts = /** @type {Record<string, number>} */ ({});
+			const counts: Record<string, number> = /** @type {Record<string, number>} */ ({});
 			for (const s of r.symbols) counts[s] = (counts[s] || 0) + 1;
 			const total = r.symbols.length;
 			/** @type {Record<string, number>} */
-			const probs = /** @type {Record<string, number>} */ ({});
+			const probs: Record<string, number> = /** @type {Record<string, number>} */ ({});
 			Object.keys(counts).forEach(k => probs[k] = counts[k] / total);
 			return probs;
 		});
@@ -2083,7 +2083,7 @@ class SlotGame {
 	 * @param {number} distance - 次のシンボル位置までの残り距離 (ピクセル単位)
 	 * @returns {number} アニメーション時間 (ミリ秒)。設定された最小・最大値の範囲内に収まります。
 	 */
-	calculateStopDuration(distance) {
+	calculateStopDuration(distance: number): number {
 		// 現在のモードに応じた速度（px/frame）
 		const speed = this.isAutoMode ? this.config.autoSpeed : this.config.manualSpeed;
 		// rAF 60fps を想定して px/frame → px/ms に換算し、イージング導関数(0)でスケール
@@ -2134,14 +2134,14 @@ class SlotGame {
 	 * @param {number} t - 進行度 (0.0 - 1.0)
 	 * @returns {number} 補間された値
 	 */
-	easeInCubic(t) { return t * t * t; }
+	easeInCubic(t: number): number { return t * t * t; }
 
 	/**
 	 * キュービックイーズアウト関数。アニメーションの開始を速くし、徐々に減速させます。
 	 * @param {number} t - 進行度 (0.0 - 1.0)
 	 * @returns {number} 補間された値
 	 */
-	easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+	easeOutCubic(t: number): number { return 1 - Math.pow(1 - t, 3); }
 
 	/**
 	 * クアドラティック（2次）イーズアウト。
@@ -2167,7 +2167,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	const slotMachineElement = document.querySelector(gameConfig.selectors.slotMachine);
 	if (slotMachineElement) {
 		// expose the created instance so external code can drive the slot programmatically
-		const _el = /** @type {HTMLElement} */ (slotMachineElement);
+		const _el = slotMachineElement as HTMLElement;
 		window.SLOT_GAME_INSTANCE = new SlotGame(_el, gameConfig);
 	} else {
 		// Non-fatal: when embedded into another app the slot HTML may be injected later by an adapter.
@@ -2189,7 +2189,7 @@ Win.createSlotIn = function (container, cfg) {
 			typeof cfg === "object" && cfg && typeof cfg.selectors === "object";
 		const conf = isConfValid ? { ...gameConfig, ...cfg } : { ...gameConfig };
 
-		const inst = new SlotGame(el, conf);
+		const inst = new SlotGame(el as HTMLElement, conf);
 		window.SLOT_GAME_INSTANCE = inst;
 		return inst;
 	} catch (e) {

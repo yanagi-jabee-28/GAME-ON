@@ -5,7 +5,7 @@
  */
 
 // ゲームの定数を定義
-export const CONFIG = {
+export const CONFIG: any = {
 	// 1日のターン名
 	TURNS: ["午前", "放課後", "夜"],
 

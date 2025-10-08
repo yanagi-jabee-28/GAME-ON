@@ -4,9 +4,9 @@
  * シナリオイベントやランダムイベントなどを関数として定義します。
  */
 
-import { CONFIG } from "./config.js";
-import { EVENTS, RANDOM_EVENTS } from "./eventsData.js";
-import { ITEMS } from "./items.js";
+import { CONFIG } from "./config.ts";
+import { EVENTS, RANDOM_EVENTS } from "./eventsData.ts";
+import { ITEMS } from "./items.ts";
 
 export const GameEventManager = {
 	lastCheckedDay: 1, // 日付変更時の回復メッセージ表示用
@@ -279,8 +279,8 @@ export const GameEventManager = {
 		// 追加: 土日午前でもスーパーに行けるようにする
 		if (turnName === "午前" && ["土", "日"].includes(weekday)) {
 			const shop =
-				CONFIG && CONFIG.SHOPS && CONFIG.SHOPS["supermarket"]
-					? CONFIG.SHOPS["supermarket"]
+				CONFIG && (CONFIG as any).SHOPS && (CONFIG as any).SHOPS["supermarket"]
+					? (CONFIG as any).SHOPS["supermarket"]
 					: null;
 			const shopLabel = shop && shop.label ? shop.label : "スーパー";
 			choices.push({
@@ -295,10 +295,10 @@ export const GameEventManager = {
 			const shopId = ["土", "日"].includes(weekday) ? "supermarket" : "school";
 			const shopLabel =
 				CONFIG &&
-				CONFIG.SHOPS &&
-				CONFIG.SHOPS[shopId] &&
-				CONFIG.SHOPS[shopId].label
-					? CONFIG.SHOPS[shopId].label
+					(CONFIG as any).SHOPS &&
+					(CONFIG as any).SHOPS[shopId] &&
+					(CONFIG as any).SHOPS[shopId].label
+					? (CONFIG as any).SHOPS[shopId].label
 					: "購買";
 			choices.push({
 				text: `${shopLabel}に行く`,
@@ -331,8 +331,8 @@ export const GameEventManager = {
 	openShop: async function (shopId) {
 		this.isInFreeAction = false;
 		const shop =
-			CONFIG && CONFIG.SHOPS && CONFIG.SHOPS[shopId]
-				? CONFIG.SHOPS[shopId]
+			CONFIG && (CONFIG as any).SHOPS && (CONFIG as any).SHOPS[shopId]
+				? (CONFIG as any).SHOPS[shopId]
 				: null;
 		if (!shop) {
 			ui.displayMessage("そのお店は現在利用できません。", "システム");
@@ -358,9 +358,9 @@ export const GameEventManager = {
 		const items = shop.items || [];
 		const unit =
 			typeof CONFIG !== "undefined" &&
-			CONFIG.LABELS &&
-			CONFIG.LABELS.currencyUnit
-				? CONFIG.LABELS.currencyUnit
+				(CONFIG as any).LABELS &&
+				(CONFIG as any).LABELS.currencyUnit
+				? (CONFIG as any).LABELS.currencyUnit
 				: "円";
 		const choices = items.map((id) => ({
 			text: `${ITEMS[id].name} - ${ITEMS[id].price}${unit}`,

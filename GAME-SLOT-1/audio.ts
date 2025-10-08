@@ -56,11 +56,11 @@ export class SlotSoundManager {
 	_clampVol(x) { return Math.max(0, Math.min(1, Number(x) || 0)); }
 	_finalVol(kind) { return this._clampVol(this.masterVolume * (this.perVolume?.[kind] ?? 1)); }
 
-	_playBuffer(buf, finalVol) {
+	_playBuffer(buf: AudioBuffer, finalVol: number): void {
 		if (!this.enabled || !this.ctx) return;
-		const src = this.ctx.createBufferSource();
+		const src: AudioBufferSourceNode = this.ctx.createBufferSource();
 		src.buffer = buf;
-		const gain = this.ctx.createGain();
+		const gain: GainNode = this.ctx.createGain();
 		gain.gain.value = this._clampVol(finalVol);
 		src.connect(gain).connect(this.ctx.destination);
 		src.start();

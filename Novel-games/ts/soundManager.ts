@@ -8,6 +8,13 @@
  */
 
 export class SoundManager {
+	private sounds: Record<string, HTMLAudioElement>;
+	private synthetic: Record<string, () => void>;
+	private variations: Record<string, Array<(() => void) | string>>;
+	private volume: number;
+	public muted: boolean;
+	private ctx: AudioContext | null;
+	// _prepareSynthetic is defined as a method below
 	constructor() {
 		this.sounds = {}; // key -> HTMLAudioElement (if loaded)
 		this.synthetic = {}; // key -> function to play via WebAudio
@@ -84,7 +91,7 @@ export class SoundManager {
 		if (audio) {
 			try {
 				// Use clone to allow overlapping playback; ensure volume reflects manager volume
-				const clone = audio.cloneNode(true);
+				const clone = audio.cloneNode(true) as HTMLAudioElement;
 				try {
 					clone.volume = this.volume;
 				} catch (e) { }
