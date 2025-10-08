@@ -25,6 +25,22 @@ try {
 const EMBED_CONTAINER_ID = "embedded-slot-container";
 const EMBED_AREA_ID = "embedded-slot-area";
 
+// Exported helper so other pachinko modules (main.ts) can ensure the slot is initialized
+// without directly touching window. This is a small convenience for tests.
+export function ensureEmbeddedSlotVisible() {
+	try {
+		const area = document.getElementById(EMBED_AREA_ID);
+		if (area) area.style.display = "";
+		// try to init adapter if not present
+		API.init({ show: true });
+		// show action button if injected
+		const ab = document.getElementById("actionBtn");
+		if (ab) ab.style.display = "";
+		ensureLampPanel();
+		return true;
+	} catch (_) { return false; }
+}
+
 // Spin queue: when pachinko hits while slot is spinning, queue and spin after stop
 let __pendingQueuedSpins = 0;
 let __outstandingHits = 0; // ランプ点灯で表す「未消化のヒット数」（進行中スピン含む）

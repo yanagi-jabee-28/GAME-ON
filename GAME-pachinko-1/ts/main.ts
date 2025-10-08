@@ -87,6 +87,20 @@ function pachiInit() {
 			}
 		}
 	} catch (_) { /* no-op */ }
+
+	// Ensure embedded slot is visible and initialized (if adapter is present)
+	try {
+		// prefer dynamic import/style: adapter exports ensureEmbeddedSlotVisible
+		if (typeof (window as any).EmbeddedSlot === 'undefined') {
+			// adapter module may be loaded as module script; attempt to call exported helper if available on window
+			// fallback: call window.EmbeddedSlot.init via adapter's global if present
+			if (typeof (window as any).ensureEmbeddedSlotVisible === 'function') {
+				try { (window as any).ensureEmbeddedSlotVisible(); } catch (_) { /* no-op */ }
+			}
+		} else {
+			try { (window as any).EmbeddedSlot.init({ show: false }); } catch (_) { /* no-op */ }
+		}
+	} catch (_) { /* no-op */ }
 	// ========================
 	// 1. エンジンの初期化（低レベル設定）
 	// ========================
@@ -204,6 +218,54 @@ function pachiInit() {
 	// 初期はオーバーレイを表示しておく
 	showLoadingOverlay();
 
+	// Stability counters: require several consecutive stable frames in addition to a time window
+	let stableFrameCount = 0;
+	const stableFramesRequired = 4; // require N consecutive frames of stable size
+
+	// Require full window load for extra safety on initial layout (fonts/images/styles)
+	let windowLoaded = (typeof document !== 'undefined' && document.readyState === 'complete');
+	try {
+		if (typeof window !== 'undefined' && window.addEventListener) {
+			window.addEventListener('load', () => { windowLoaded = true; });
+		}
+	} catch (_) { /* no-op */ }
+
+	// Wait for stylesheets to finish loading (protect against late-inserted or slow CSS)
+	let stylesLoaded = false;
+	try {
+		const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]')) as HTMLLinkElement[];
+		if (!links.length) {
+			stylesLoaded = true;
+		} else {
+			let remaining = links.length;
+			const markLoaded = () => { remaining--; if (remaining <= 0) stylesLoaded = true; };
+			const timer = setTimeout(() => { stylesLoaded = true; try { (window as any).__pachi_stylesheetTimeout = true; } catch (_) { } }, 3000);
+			for (const l of links) {
+				try {
+					if ((l as any).sheet) { markLoaded(); continue; }
+					if (l.sheet) { markLoaded(); continue; }
+					l.addEventListener('load', () => { try { markLoaded(); } catch (_) { } });
+					l.addEventListener('error', () => { try { markLoaded(); } catch (_) { } });
+				} catch (_) { markLoaded(); }
+			}
+			// when done, clear timer
+			const poll = setInterval(() => { if (stylesLoaded) { clearInterval(poll); clearTimeout(timer); try { (window as any).__pachi_stylesLoaded = true; } catch (_) { } } }, 50);
+		}
+	} catch (_) { stylesLoaded = true; }
+
+	// Observe DOM mutations that may affect layout; reset stability counters when changes occur
+	let layoutObserver: MutationObserver | null = null;
+	try {
+		if (typeof MutationObserver !== 'undefined' && document && document.body) {
+			layoutObserver = new MutationObserver(() => {
+				// reset so ensureCanvasSized will wait for a stable period again
+				layoutStableSince = 0;
+				stableFrameCount = 0;
+			});
+			layoutObserver.observe(document.body, { childList: true, subtree: true, attributes: true });
+		}
+	} catch (_) { layoutObserver = null; }
+
 	// Ensure canvas internal pixel size matches container (fixes mobile sizing/raster issues)
 	function ensureCanvasSized() {
 		try {
@@ -215,8 +277,9 @@ function pachiInit() {
 			const cw = Math.max(0, Math.round(container.clientWidth || rect.width || 0));
 			const ch = Math.max(0, Math.round(container.clientHeight || rect.height || 0));
 			if (cw <= 0 || ch <= 0) return;
-			c.style.width = '100%';
-			c.style.height = '100%';
+			// set CSS pixel size to container dimensions (avoid relative % rounding issues)
+			c.style.width = String(cw) + 'px';
+			c.style.height = String(ch) + 'px';
 			// Important: the renderer was created with logical dimensions `width`/`height` (GAME_CONFIG.dimensions).
 			// The canvas backing buffer must match those logical dimensions multiplied by devicePixelRatio
 			// so Matter.js maps world coordinates correctly to pixels. Use logical width/height here,
@@ -242,7 +305,7 @@ function pachiInit() {
 					}
 				} catch (_) { /* no-op */ }
 				// also update render.canvas dimensions if present
-				try { if (render && render.canvas) { render.canvas.width = pw; render.canvas.height = ph; } } catch (_) { }
+				try { if (render && render.canvas) { render.canvas.width = pw; render.canvas.height = ph; render.canvas.style.width = String(cw) + 'px'; render.canvas.style.height = String(ch) + 'px'; } } catch (_) { }
 				console.debug('[PACHINKO] ensureCanvasSized ->', { cw, ch, dpr, logicalW, logicalH, pw, ph, renderOptions: (render && render.options) ? Object.assign({}, render.options) : null });
 			}
 
@@ -250,22 +313,36 @@ function pachiInit() {
 			const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 			const sizeChanged = (Math.abs(cw - lastCw) > 0.5) || (Math.abs(ch - lastCh) > 0.5);
 			if (sizeChanged) {
+				// size changed -> reset stability counters and record new baseline
 				layoutStableSince = now;
 				lastCw = cw; lastCh = ch;
-			} else if (!layoutStableSince) {
-				layoutStableSince = now;
+				stableFrameCount = 0;
+			} else {
+				// size unchanged this frame -> increment consecutive stable frames
+				if (!layoutStableSince) layoutStableSince = now;
+				stableFrameCount = Math.min(stableFramesRequired, stableFrameCount + 1);
 			}
-			const stableOk = layoutStableSince && (now - layoutStableSince >= stableWindowMs);
+			const stableOk = layoutStableSince && (now - layoutStableSince >= stableWindowMs) && (stableFrameCount >= stableFramesRequired);
 
 			// 全条件が整ったら最小待機を消化してから描画許可
-			const readyNow = (cw > 0 && ch > 0 && c.width > 0 && c.height > 0) && !!stableOk && !!fontsReady;
+			const readyNow = (cw > 0 && ch > 0 && c.width > 0 && c.height > 0) && !!stableOk && !!fontsReady && !!windowLoaded && !!stylesLoaded;
 			const timedOut = (now - initStartTs) >= maxInitWaitMs; // 安全弁
 			if (readyNow || timedOut) {
 				if (!readyCandidateTs) readyCandidateTs = now;
 				if ((now - readyCandidateTs >= minReadyDelayMs) || timedOut) {
 					sizedReady = true;
+					// expose for debugging
+					try { (window as any).__pachi_sizedReady = true; } catch (_) { }
 					try { container.style.visibility = ''; } catch (_) { }
 					hideLoadingOverlay();
+					// stop observing DOM mutations once ready
+					try { if (layoutObserver) { layoutObserver.disconnect(); layoutObserver = null; } } catch (_) { }
+					// force a couple of render passes to ensure the context transform and rendering are stable
+					try {
+						Render.world(render);
+						setTimeout(() => { try { Render.world(render); } catch (_) { } }, 50);
+						setTimeout(() => { try { Render.world(render); } catch (_) { } }, 120);
+					} catch (_) { }
 				}
 			}
 		} catch (e) { console.warn('[PACHINKO] ensureCanvasSized error', e); }
