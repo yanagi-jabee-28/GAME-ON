@@ -1,5 +1,6 @@
 /* Extracted styles from index.html - Number-BATTLE-3 */
 @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap');
+@import "tailwindcss";
 
 :root {
 	/* Layout tokens - avoid magic numbers */
