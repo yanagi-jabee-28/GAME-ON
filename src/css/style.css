@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /* Portal stylesheet (consolidated) */
 :root {
 	--bg: #111218;
