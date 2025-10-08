@@ -4,7 +4,8 @@ body {
     text-align: center;
     background-color: #f0f0f0;
     margin: 0;
-    padding: 16px;
+    /* Reduce padding to give more vertical space for the game */
+    padding: 8px 12px;
 }
 
 h1 {
@@ -18,14 +19,18 @@ h1 {
     - デスクトップでは最大幅を制限
 */
 #game-container {
-    margin: 16px auto;
+    /* Bring game container higher on the page */
+    margin: 8px auto 6px auto;
     border: 1px solid #ccc;
     position: relative;
     /* 矢印などの絶対配置要素の基準となります */
     width: min(95vw, 650px);
-    /* 650x900 の想定比 (約 0.722) を維持するため、aspect-ratio を使用 */
+    /* Maintain aspect ratio but constrain height so slider fits on screen */
     aspect-ratio: 650 / 900;
     background: #fff;
+    /* Ensure container doesn't exceed viewport height minus controls (header + slider area) */
+    max-height: calc(100vh - 140px);
+    overflow: hidden;
 }
 
 canvas {
@@ -59,6 +64,9 @@ button {
     align-items: center;
     gap: 6px;
 }
+
+/* Keep controls visible near bottom and avoid extra margin pushing them off-screen */
+.controls { margin-bottom: 12px; }
 
 .controls input[type="range"] {
     width: min(600px, 92vw);
@@ -140,11 +148,12 @@ button {
 /* モバイル向け微調整 */
 @media (max-width: 480px) {
     body {
-        padding: 12px;
+        padding: 8px;
     }
 
     #game-container {
         width: 96vw;
+        max-height: calc(100vh - 130px);
     }
 
     .controls label {
