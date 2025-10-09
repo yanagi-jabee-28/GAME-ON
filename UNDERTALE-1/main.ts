@@ -87,15 +87,16 @@ const gameOverText = document.getElementById("game-over") as HTMLElement;
 const fightButton = document.getElementById("fight") as HTMLElement;
 const attackButton = document.getElementById("attack-button") as HTMLElement;
 const messageWindow = document.getElementById("message-window") as HTMLElement;
-const messageContent = document.getElementById("message-content") as HTMLElement;
+const messageContent = document.getElementById(
+	"message-content",
+) as HTMLElement;
 
 // Enemy DOM refs
 const enemyHpBar = document.getElementById("enemy-hp-bar") as HTMLElement;
 const enemyHpValue = document.getElementById("enemy-hp-value") as HTMLElement;
 
-
 // --- 複数敵データ ---
-let enemies = [
+const enemies = [
 	{ name: "SKELETON", maxHp: 30, hp: 30 },
 	// 今後追加可能: { name: "GHOST", maxHp: 20, hp: 20 }
 ];
@@ -365,7 +366,7 @@ function handlePlayerAttack() {
 	if (enemy.hp <= 0) {
 		showMessage(`${enemy.name} を倒した！`);
 		// 全ての敵が倒されたらVICTORY
-		if (enemies.every(e => e.hp <= 0)) {
+		if (enemies.every((e) => e.hp <= 0)) {
 			setTimeout(() => setGameState("VICTORY"), 800);
 		} else {
 			setTimeout(() => setGameState("ENEMY_TURN"), 1000);
@@ -385,7 +386,9 @@ function handlePlayerAttack() {
 	const optionsContainer = document.getElementById("options-container");
 
 	// 攻撃対象選択UI表示制御
-	const targetSelectContainer = document.getElementById("target-select-container");
+	const targetSelectContainer = document.getElementById(
+		"target-select-container",
+	);
 	if (gameState === "SELECT_TARGET") {
 		targetSelectContainer.style.display = "flex";
 	} else {
@@ -423,7 +426,9 @@ function setGameState(newState) {
 	attackButton.style.display = "none";
 
 	const optionsContainer = document.getElementById("options-container");
-	const targetSelectContainer = document.getElementById("target-select-container");
+	const targetSelectContainer = document.getElementById(
+		"target-select-container",
+	);
 	if (gameState === "SELECT_TARGET") {
 		// show target select and hide heart icon
 		targetSelectContainer && (targetSelectContainer.style.display = "flex");
@@ -546,13 +551,15 @@ window.addEventListener("keydown", (e) => {
 		if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
 			selectedEnemyIndex = Math.max(0, selectedEnemyIndex - 1);
 			// if message window contains the selection UI, update it; otherwise update the persistent container
-			if (messageContent && messageContent.childElementCount) updateMessageWindowSelection();
+			if (messageContent && messageContent.childElementCount)
+				updateMessageWindowSelection();
 			else updateTargetSelectUI();
 			return;
 		}
 		if (e.key === "ArrowRight" || e.key === "ArrowDown") {
 			selectedEnemyIndex = Math.min(enemies.length - 1, selectedEnemyIndex + 1);
-			if (messageContent && messageContent.childElementCount) updateMessageWindowSelection();
+			if (messageContent && messageContent.childElementCount)
+				updateMessageWindowSelection();
 			else updateTargetSelectUI();
 			return;
 		}
@@ -612,7 +619,8 @@ function updateTargetSelectUI() {
 	enemies.forEach((enemy, i) => {
 		const btn = document.createElement("button");
 		btn.textContent = `${enemy.name} (${enemy.hp} / ${enemy.maxHp})`;
-		btn.className = "target-select-btn" + (i === selectedEnemyIndex ? " selected" : "");
+		btn.className =
+			"target-select-btn" + (i === selectedEnemyIndex ? " selected" : "");
 		btn.disabled = enemy.hp <= 0;
 		btn.onclick = () => {
 			selectedEnemyIndex = i;
@@ -642,7 +650,8 @@ function showTargetSelectionInMessage() {
 	enemies.forEach((enemy, i) => {
 		const btn = document.createElement("button");
 		btn.textContent = `${enemy.name} (${enemy.hp} / ${enemy.maxHp})`;
-		btn.className = "target-select-btn" + (i === selectedEnemyIndex ? " selected" : "");
+		btn.className =
+			"target-select-btn" + (i === selectedEnemyIndex ? " selected" : "");
 		btn.disabled = enemy.hp <= 0;
 		btn.onclick = () => {
 			selectedEnemyIndex = i;
@@ -665,9 +674,14 @@ function showTargetSelectionInMessage() {
 // message window 側の選択表示を更新する (キーボードで選択を反映させるため)
 function updateMessageWindowSelection() {
 	if (!messageContent) return;
-	const buttons = Array.from(messageContent.querySelectorAll(".target-select-btn"));
+	const buttons = Array.from(
+		messageContent.querySelectorAll(".target-select-btn"),
+	);
 	buttons.forEach((btn, idx) => {
-		(btn as HTMLElement).classList.toggle("selected", idx === selectedEnemyIndex);
+		(btn as HTMLElement).classList.toggle(
+			"selected",
+			idx === selectedEnemyIndex,
+		);
 	});
 }
 
@@ -687,7 +701,10 @@ function clearMessageTimer() {
 	}
 }
 
-function setFrameMode(mode: FrameMode, opts: { immediate?: boolean; force?: boolean } = {}) {
+function setFrameMode(
+	mode: FrameMode,
+	opts: { immediate?: boolean; force?: boolean } = {},
+) {
 	if (!messageWindow) return;
 	const { immediate = false, force = false } = opts;
 	if (!force && frameMode === mode) return;
@@ -704,12 +721,21 @@ function setFrameMode(mode: FrameMode, opts: { immediate?: boolean; force?: bool
 	}
 	frameMode = mode;
 	if (immediate) {
-		requestAnimationFrame(() => messageWindow.classList.remove("no-transition"));
+		requestAnimationFrame(() =>
+			messageWindow.classList.remove("no-transition"),
+		);
 	}
 }
 
-type ShowMessageOptions = { duration?: number; blockInput?: boolean; persistent?: boolean };
-function showMessage(text: string, optsOrMs: number | ShowMessageOptions = 3000) {
+type ShowMessageOptions = {
+	duration?: number;
+	blockInput?: boolean;
+	persistent?: boolean;
+};
+function showMessage(
+	text: string,
+	optsOrMs: number | ShowMessageOptions = 3000,
+) {
 	if (!messageWindow || !messageContent) return;
 	setFrameMode("message");
 	messageWindow.classList.remove("hidden");
@@ -774,13 +800,13 @@ document.getElementById("mercy").addEventListener("click", () => {
 
 // --- Initialization ---
 try {
-	const joystickManager = (nipplejs.create({
+	const joystickManager = nipplejs.create({
 		zone: document.getElementById("joystick-container"),
 		mode: "static",
 		position: { right: "75px", bottom: "105px" },
 		color: "white",
 		size: 120,
-	}) as any);
+	}) as any;
 	joystickManager
 		.on("move", (evt, data) => {
 			if (messageActive) return;
@@ -796,7 +822,6 @@ try {
 } catch (e) {
 	// joystick init failed (silent)
 }
-
 
 // 攻撃対象選択UI関数をグローバルに
 

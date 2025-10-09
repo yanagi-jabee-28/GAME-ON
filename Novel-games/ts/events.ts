@@ -295,9 +295,9 @@ export const GameEventManager = {
 			const shopId = ["土", "日"].includes(weekday) ? "supermarket" : "school";
 			const shopLabel =
 				CONFIG &&
-					(CONFIG as any).SHOPS &&
-					(CONFIG as any).SHOPS[shopId] &&
-					(CONFIG as any).SHOPS[shopId].label
+				(CONFIG as any).SHOPS &&
+				(CONFIG as any).SHOPS[shopId] &&
+				(CONFIG as any).SHOPS[shopId].label
 					? (CONFIG as any).SHOPS[shopId].label
 					: "購買";
 			choices.push({
@@ -358,8 +358,8 @@ export const GameEventManager = {
 		const items = shop.items || [];
 		const unit =
 			typeof CONFIG !== "undefined" &&
-				(CONFIG as any).LABELS &&
-				(CONFIG as any).LABELS.currencyUnit
+			(CONFIG as any).LABELS &&
+			(CONFIG as any).LABELS.currencyUnit
 				? (CONFIG as any).LABELS.currencyUnit
 				: "円";
 		const choices = items.map((id) => ({

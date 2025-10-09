@@ -1,4 +1,3 @@
-
 // =================================================================================
 // チンチロリン - 3D
 //
@@ -14,14 +13,24 @@ import * as Tone from "tone";
 // =================================================================================
 // DOM要素の取得 (型注釈を追加して .disabled/.value 等を安全に使えるようにする)
 // =================================================================================
-const canvasContainer = document.getElementById("canvas-container") as HTMLElement; // キャンバスコンテナ要素
+const canvasContainer = document.getElementById(
+	"canvas-container",
+) as HTMLElement; // キャンバスコンテナ要素
 const rollButton = document.getElementById("rollButton") as HTMLButtonElement; // サイコロを振るボタン
 const nudgeButton = document.getElementById("nudgeButton") as HTMLButtonElement; // サイコロを揺らすボタン
-const rearrangeButton = document.getElementById("rearrangeButton") as HTMLButtonElement; // サイコロを再配置するボタン
-const diceTypeSelector = document.getElementById("diceTypeSelector") as HTMLSelectElement; // サイコロの種類選択セレクタ
+const rearrangeButton = document.getElementById(
+	"rearrangeButton",
+) as HTMLButtonElement; // サイコロを再配置するボタン
+const diceTypeSelector = document.getElementById(
+	"diceTypeSelector",
+) as HTMLSelectElement; // サイコロの種類選択セレクタ
 const resultTitle = document.getElementById("result-title") as HTMLElement; // 結果タイトルの表示要素
-const resultDescription = document.getElementById("result-description") as HTMLElement; // 結果説明の表示要素
-const powerMeterContainer = document.getElementById("power-meter-container") as HTMLElement; // パワーメーターコンテナ
+const resultDescription = document.getElementById(
+	"result-description",
+) as HTMLElement; // 結果説明の表示要素
+const powerMeterContainer = document.getElementById(
+	"power-meter-container",
+) as HTMLElement; // パワーメーターコンテナ
 const powerMeterBar = document.getElementById("power-meter-bar") as HTMLElement; // パワーメーターバー
 
 // =================================================================================
@@ -110,30 +119,30 @@ class SoundManager {
 		}
 		// 各シンセサイザーの初期化
 		// Cast synth option objects/results to any to avoid strict option type mismatches
-		this.clinkSynth = (new Tone.PolySynth(Tone.MetalSynth, {
+		this.clinkSynth = new Tone.PolySynth(Tone.MetalSynth, {
 			envelope: { attack: 0.001, decay: 0.1, release: 0.08 },
 			harmonicity: 4.1,
 			modulationIndex: 22,
 			resonance: 3000,
 			octaves: 1.2,
-		} as any).toDestination()) as any;
+		} as any).toDestination() as any;
 		if (this.clinkSynth.volume) this.clinkSynth.volume.value = -9; // ボリューム調整
-		this.winSynth = (new Tone.PolySynth(Tone.Synth, {
+		this.winSynth = new Tone.PolySynth(Tone.Synth, {
 			oscillator: { type: "triangle" },
 			envelope: { attack: 0.01, decay: 0.2, sustain: 0.45, release: 1.2 },
-		} as any).toDestination()) as any;
+		} as any).toDestination() as any;
 		if (this.winSynth.volume) this.winSynth.volume.value = -2;
-		this.pairSynth = (new Tone.PolySynth(Tone.Synth, {
+		this.pairSynth = new Tone.PolySynth(Tone.Synth, {
 			oscillator: { type: "sine" },
 			envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.3 },
-		} as any).toDestination()) as any;
+		} as any).toDestination() as any;
 		if (this.pairSynth.volume) this.pairSynth.volume.value = -6;
-		this.loseSynth = (new Tone.PolySynth(Tone.Synth, {
+		this.loseSynth = new Tone.PolySynth(Tone.Synth, {
 			oscillator: { type: "sawtooth" },
 			envelope: { attack: 0.003, decay: 0.18, sustain: 0.06, release: 0.22 },
-		} as any).toDestination()) as any;
+		} as any).toDestination() as any;
 		if (this.loseSynth.volume) this.loseSynth.volume.value = -10;
-		this.foulSynth = (new Tone.MonoSynth({
+		this.foulSynth = new Tone.MonoSynth({
 			oscillator: { type: "square" },
 			filter: { Q: 6, type: "lowpass", rolloff: -24 },
 			envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 1 },
@@ -145,11 +154,11 @@ class SoundManager {
 				baseFrequency: 200,
 				octaves: 2,
 			},
-		} as any).toDestination()) as any;
-		this.clickSynth = (new Tone.Synth({
+		} as any).toDestination() as any;
+		this.clickSynth = new Tone.Synth({
 			oscillator: { type: "sine" },
 			envelope: { attack: 0.001, decay: 0.06, sustain: 0.02, release: 0.06 },
-		} as any).toDestination()) as any;
+		} as any).toDestination() as any;
 		if (this.clickSynth.volume) this.clickSynth.volume.value = -3;
 		this.isInitialized = true;
 		console.log("SoundManager initialized.");
@@ -271,7 +280,11 @@ let soundManager;
 class ParticleEmitter {
 	// Fields
 	scene: any;
-	particles: Array<{ position: THREE.Vector3; velocity: THREE.Vector3; life: number }>;
+	particles: Array<{
+		position: THREE.Vector3;
+		velocity: THREE.Vector3;
+		life: number;
+	}>;
 	positions: Float32Array;
 	colors: Float32Array;
 	points: THREE.Points;
@@ -291,7 +304,10 @@ class ParticleEmitter {
 		});
 		this.positions = new Float32Array(count * 3);
 		this.colors = new Float32Array(count * 3);
-		geometry.setAttribute("position", new THREE.BufferAttribute(this.positions, 3));
+		geometry.setAttribute(
+			"position",
+			new THREE.BufferAttribute(this.positions, 3),
+		);
 		geometry.setAttribute("color", new THREE.BufferAttribute(this.colors, 3));
 		this.points = new THREE.Points(geometry, material);
 		this.points.frustumCulled = false;

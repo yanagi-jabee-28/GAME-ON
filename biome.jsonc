@@ -20,7 +20,7 @@
 			// 次の理由でerror→warnに変更
 			// - JS由来の既存コードとの互換性を保つ
 			// - コードの変更・追加時に修正を促す
-			"suspicious":{
+			"suspicious": {
 				"useIterableCallbackReturn": "warn",
 				"noImplicitAnyLet": "warn",
 				"noAssignInExpressions": "warn"

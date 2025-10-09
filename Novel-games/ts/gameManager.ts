@@ -33,7 +33,10 @@ type ApplyOptions = {
 	suppressDisplay?: boolean;
 };
 
-type EffectMap = Record<string, { turns: number; displayName?: string } | undefined>;
+type EffectMap = Record<
+	string,
+	{ turns: number; displayName?: string } | undefined
+>;
 
 type Character = {
 	id?: string;
@@ -249,7 +252,7 @@ export class GameManager {
 				try {
 					if (typeof soundManager !== "undefined")
 						soundManager.play("item_get");
-				} catch (e) { }
+				} catch (e) {}
 			}
 
 			// menuLocked
@@ -451,7 +454,10 @@ export class GameManager {
 	 * @param {object} changes
 	 * @param {object} options
 	 */
-	changeStats(changes: Partial<Stats>, options: { suppressUpdateCondition?: boolean } = {}) {
+	changeStats(
+		changes: Partial<Stats>,
+		options: { suppressUpdateCondition?: boolean } = {},
+	) {
 		// 可能なら applyChanges による一元管理へ委譲
 		if (!options.suppressUpdateCondition) {
 			this.applyChanges({ stats: changes });
@@ -604,7 +610,7 @@ export class GameManager {
 			if (
 				this.playerStatus.lastExamRunDay &&
 				Number(this.playerStatus.lastExamRunDay) ===
-				Number(this.playerStatus.day)
+					Number(this.playerStatus.day)
 			) {
 				return;
 			}
@@ -739,27 +745,34 @@ export class GameManager {
 		const currentTurnName = this.getCurrentTurnName();
 		const currentWeekdayName = this.getWeekdayName();
 
-		const availableEvents = Object.values(RANDOM_EVENTS as any).filter((event: any) => {
-			// ターンの条件チェック
-			const cond = (event && event.conditions) || {};
-			if (cond.turn && !cond.turn.includes(currentTurnName)) {
-				return false;
-			}
-			// 曜日の条件チェック (平日/休日など)
-			if (cond.weekday && !["月", "火", "水", "木", "金"].includes(currentWeekdayName)) {
-				return false;
-			}
-			// TODO: その他の条件（ステータス、フラグなど）を追加
+		const availableEvents = Object.values(RANDOM_EVENTS as any).filter(
+			(event: any) => {
+				// ターンの条件チェック
+				const cond = (event && event.conditions) || {};
+				if (cond.turn && !cond.turn.includes(currentTurnName)) {
+					return false;
+				}
+				// 曜日の条件チェック (平日/休日など)
+				if (
+					cond.weekday &&
+					!["月", "火", "水", "木", "金"].includes(currentWeekdayName)
+				) {
+					return false;
+				}
+				// TODO: その他の条件（ステータス、フラグなど）を追加
 
-			return true; // 一旦、条件に合致するものを全て返す
-		});
+				return true; // 一旦、条件に合致するものを全て返す
+			},
+		);
 
 		if (availableEvents.length > 0) {
 			// 発生可能なイベントの中からランダムに一つ選択
 			const randomIndex = Math.floor(Math.random() * availableEvents.length);
 			const selectedEvent = availableEvents[randomIndex] as any;
 
-			console.log(`Random event triggered: ${selectedEvent?.name ?? "unknown"}`);
+			console.log(
+				`Random event triggered: ${selectedEvent?.name ?? "unknown"}`,
+			);
 			// TODO: GameEventManager を使ってイベントを実行する
 			// await GameEventManager.handleRandomEvent(selectedEvent);
 			return true;
@@ -916,10 +929,10 @@ export class GameManager {
 						e.detail && e.detail.shopLabel
 							? e.detail.shopLabel
 							: shopId &&
-								(CONFIG as any) &&
-								(CONFIG as any).SHOPS &&
-								(CONFIG as any).SHOPS[shopId] &&
-								(CONFIG as any).SHOPS[shopId].label
+									(CONFIG as any) &&
+									(CONFIG as any).SHOPS &&
+									(CONFIG as any).SHOPS[shopId] &&
+									(CONFIG as any).SHOPS[shopId].label
 								? (CONFIG as any).SHOPS[shopId].label
 								: shopId || "店";
 					if (purchased) {
@@ -956,7 +969,11 @@ export class GameManager {
 	 * @param {string} [name]
 	 * @param {string} [message]
 	 */
-	async triggerInlineChanges(changes: ChangeSet, name?: string, message?: string) {
+	async triggerInlineChanges(
+		changes: ChangeSet,
+		name?: string,
+		message?: string,
+	) {
 		const eventData = {
 			name: name || "システム",
 			message: message || "",
@@ -972,7 +989,7 @@ export class GameManager {
 				(message ? message + "\n" : "") + (msgs.length ? msgs.join("\n") : "");
 			if (typeof ui !== "undefined") {
 				if (typeof ui.showFloatingMessage === "function")
-					await ui.showFloatingMessage(combined).catch(() => { });
+					await ui.showFloatingMessage(combined).catch(() => {});
 				else if (typeof ui.displayMessage === "function")
 					ui.displayMessage(combined, name || "システム");
 			}
@@ -1053,7 +1070,7 @@ export class GameManager {
 		this._notifyListeners();
 
 		// 戻り値をオブジェクトにして、表示側で「本文」と「差分メッセージ」を分けて扱えるようにする
-		const message = outMsgs.length > 0 ? outMsgs.shift() as string : "";
+		const message = outMsgs.length > 0 ? (outMsgs.shift() as string) : "";
 		const changeMsgs = outMsgs; // 残りは差分メッセージ
 		return { message: message, changeMsgs: changeMsgs };
 	}
@@ -1202,7 +1219,7 @@ export class GameManager {
 		this._notifyListeners(); // ステータス変更を通知
 		try {
 			if (typeof soundManager !== "undefined") soundManager.play("item_use");
-		} catch (e) { }
+		} catch (e) {}
 		return true;
 	}
 
@@ -1214,12 +1231,12 @@ export class GameManager {
 		// 新仕様: 体力(physical)と精神力(mental)の平均からコンディションを推定
 		const p =
 			this.playerStatus.stats &&
-				typeof this.playerStatus.stats.physical === "number"
+			typeof this.playerStatus.stats.physical === "number"
 				? this.playerStatus.stats.physical
 				: undefined;
 		const m =
 			this.playerStatus.stats &&
-				typeof this.playerStatus.stats.mental === "number"
+			typeof this.playerStatus.stats.mental === "number"
 				? this.playerStatus.stats.mental
 				: undefined;
 		let cond;

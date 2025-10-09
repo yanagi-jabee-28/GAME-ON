@@ -1,164 +1,242 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>CCレモン リズムバトル</title>
+		<link
+			href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			@import "tailwindcss";
 
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>CCレモン リズムバトル</title>
-	<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-	<style>
-		@import "tailwindcss";
+			body {
+				font-family: "Press Start 2P", cursive;
+				touch-action: manipulation;
+				/* ダブルタップズームを無効化 */
+			}
 
-		body {
-			font-family: 'Press Start 2P', cursive;
-			touch-action: manipulation;
-			/* ダブルタップズームを無効化 */
-		}
+			.action-button {
+				transition: all 0.1s ease;
+			}
 
-		.action-button {
-			transition: all 0.1s ease;
-		}
+			.action-button:active {
+				transform: scale(0.95);
+			}
 
-		.action-button:active {
-			transform: scale(0.95);
-		}
+			.action-button:disabled {
+				opacity: 0.5;
+				cursor: not-allowed;
+			}
 
-		.action-button:disabled {
-			opacity: 0.5;
-			cursor: not-allowed;
-		}
+			.beat-indicator.active {
+				transform: scale(1.2);
+				background-color: #fef08a;
+				/* yellow-200 */
+				color: #1f2937;
+				/* gray-800 */
+			}
 
-		.beat-indicator.active {
-			transform: scale(1.2);
-			background-color: #fef08a;
-			/* yellow-200 */
-			color: #1f2937;
-			/* gray-800 */
-		}
+			.player-action-display,
+			.cpu-action-display {
+				transition:
+					transform 0.2s ease-out,
+					opacity 0.2s ease-out,
+					color 0.2s ease-out;
+			}
 
-		.player-action-display,
-		.cpu-action-display {
-			transition: transform 0.2s ease-out, opacity 0.2s ease-out, color 0.2s ease-out;
-		}
+			.player-panel,
+			.cpu-panel {
+				transition:
+					border-color 0.2s ease-in-out,
+					background-color 0.2s ease-in-out;
+			}
 
-		.player-panel,
-		.cpu-panel {
-			transition: border-color 0.2s ease-in-out, background-color 0.2s ease-in-out;
-		}
-
-		.action-enter {
-			transform: scale(1.5);
-			opacity: 1;
-		}
-
-		.status-update {
-			animation: flash 0.5s ease-out;
-		}
-
-		@keyframes flash {
-
-			0%,
-			100% {
+			.action-enter {
+				transform: scale(1.5);
 				opacity: 1;
 			}
 
-			50% {
-				opacity: 0.5;
+			.status-update {
+				animation: flash 0.5s ease-out;
 			}
-		}
-	</style>
-</head>
 
-<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
-	<div id="game-container" class="w-full max-w-4xl mx-auto p-4 md:p-6">
-		<div class="text-center mb-4">
-			<h1 class="text-4xl md:text-5xl font-bold text-yellow-300">CC LEMON</h1>
-			<p class="text-gray-400">Rhythm Battle</p>
-		</div>
+			@keyframes flash {
+				0%,
+				100% {
+					opacity: 1;
+				}
 
-		<!-- ゲーム画面 -->
-		<div id="game-screen" class="space-y-4 hidden">
-			<!-- 拍子インジケーター -->
-			<div class="flex justify-center space-x-2 md:space-x-4 my-4">
-				<div id="beat-1"
-					class="beat-indicator w-12 h-12 md:w-16 md:h-16 rounded-full border-2 border-gray-600 flex items-center justify-center text-xl md:text-2xl transition-transform">
-					1</div>
-				<div id="beat-2"
-					class="beat-indicator w-12 h-12 md:w-16 md:h-16 rounded-full border-2 border-gray-600 flex items-center justify-center text-xl md:text-2xl transition-transform">
-					2</div>
-				<div id="beat-3"
-					class="beat-indicator w-12 h-12 md:w-16 md:h-16 rounded-full border-2 border-yellow-400 flex items-center justify-center text-xl md:text-2xl transition-transform">
-					3</div>
-				<div id="beat-4"
-					class="beat-indicator w-12 h-12 md:w-16 md:h-16 rounded-full border-2 border-gray-600 flex items-center justify-center text-xl md:text-2xl transition-transform">
-					4</div>
+				50% {
+					opacity: 0.5;
+				}
+			}
+		</style>
+	</head>
+
+	<body
+		class="bg-gray-900 text-white flex items-center justify-center min-h-screen"
+	>
+		<div id="game-container" class="w-full max-w-4xl mx-auto p-4 md:p-6">
+			<div class="text-center mb-4">
+				<h1 class="text-4xl md:text-5xl font-bold text-yellow-300">CC LEMON</h1>
+				<p class="text-gray-400">Rhythm Battle</p>
 			</div>
 
-			<!-- メッセージエリア -->
-			<div class="h-12 text-center flex items-center justify-center">
-				<p id="message-text" class="text-lg md:text-xl text-yellow-300">&nbsp;</p>
-			</div>
-
-			<!-- プレイヤー vs CPU -->
-			<div class="grid grid-cols-2 gap-4 md:gap-8 items-center">
-				<!-- プレイヤーエリア -->
-				<div id="player-panel" class="player-panel bg-gray-800/50 p-4 rounded-lg border-2 border-gray-300">
-					<h2 class="text-2xl text-center mb-4">PLAYER</h2>
-					<div class="text-lg">HP: <span id="player-hp" class="font-bold text-green-400">3</span></div>
-					<div class="text-lg">CHARGE: <span id="player-charge" class="font-bold text-yellow-400">0</span>
+			<!-- ゲーム画面 -->
+			<div id="game-screen" class="space-y-4 hidden">
+				<!-- 拍子インジケーター -->
+				<div class="flex justify-center space-x-2 md:space-x-4 my-4">
+					<div
+						id="beat-1"
+						class="beat-indicator w-12 h-12 md:w-16 md:h-16 rounded-full border-2 border-gray-600 flex items-center justify-center text-xl md:text-2xl transition-transform"
+					>
+						1
 					</div>
-					<div class="h-20 flex items-center justify-center mt-4">
-						<span id="player-action-display"
-							class="player-action-display text-4xl font-bold opacity-0"></span>
+					<div
+						id="beat-2"
+						class="beat-indicator w-12 h-12 md:w-16 md:h-16 rounded-full border-2 border-gray-600 flex items-center justify-center text-xl md:text-2xl transition-transform"
+					>
+						2
+					</div>
+					<div
+						id="beat-3"
+						class="beat-indicator w-12 h-12 md:w-16 md:h-16 rounded-full border-2 border-yellow-400 flex items-center justify-center text-xl md:text-2xl transition-transform"
+					>
+						3
+					</div>
+					<div
+						id="beat-4"
+						class="beat-indicator w-12 h-12 md:w-16 md:h-16 rounded-full border-2 border-gray-600 flex items-center justify-center text-xl md:text-2xl transition-transform"
+					>
+						4
+					</div>
+				</div>
+
+				<!-- メッセージエリア -->
+				<div class="h-12 text-center flex items-center justify-center">
+					<p id="message-text" class="text-lg md:text-xl text-yellow-300">
+						&nbsp;
+					</p>
+				</div>
+
+				<!-- プレイヤー vs CPU -->
+				<div class="grid grid-cols-2 gap-4 md:gap-8 items-center">
+					<!-- プレイヤーエリア -->
+					<div
+						id="player-panel"
+						class="player-panel bg-gray-800/50 p-4 rounded-lg border-2 border-gray-300"
+					>
+						<h2 class="text-2xl text-center mb-4">PLAYER</h2>
+						<div class="text-lg">
+							HP: <span id="player-hp" class="font-bold text-green-400">3</span>
+						</div>
+						<div class="text-lg">
+							CHARGE:
+							<span id="player-charge" class="font-bold text-yellow-400"
+								>0</span
+							>
+						</div>
+						<div class="h-20 flex items-center justify-center mt-4">
+							<span
+								id="player-action-display"
+								class="player-action-display text-4xl font-bold opacity-0"
+							></span>
+						</div>
+					</div>
+
+					<!-- CPUエリア -->
+					<div
+						id="cpu-panel"
+						class="cpu-panel bg-gray-800/50 p-4 rounded-lg border-2 border-gray-300"
+					>
+						<h2 class="text-2xl text-center mb-4">CPU</h2>
+						<div class="text-lg">
+							HP: <span id="cpu-hp" class="font-bold text-green-400">3</span>
+						</div>
+						<div class="text-lg">
+							CHARGE:
+							<span id="cpu-charge" class="font-bold text-yellow-400">0</span>
+						</div>
+						<div class="h-20 flex items-center justify-center mt-4">
+							<span
+								id="cpu-action-display"
+								class="cpu-action-display text-4xl font-bold opacity-0"
+							></span>
+						</div>
 					</div>
 				</div>
 
-				<!-- CPUエリア -->
-				<div id="cpu-panel" class="cpu-panel bg-gray-800/50 p-4 rounded-lg border-2 border-gray-300">
-					<h2 class="text-2xl text-center mb-4">CPU</h2>
-					<div class="text-lg">HP: <span id="cpu-hp" class="font-bold text-green-400">3</span></div>
-					<div class="text-lg">CHARGE: <span id="cpu-charge" class="font-bold text-yellow-400">0</span></div>
-					<div class="h-20 flex items-center justify-center mt-4">
-						<span id="cpu-action-display" class="cpu-action-display text-4xl font-bold opacity-0"></span>
-					</div>
+				<!-- アクションボタン -->
+				<div class="grid grid-cols-3 gap-2 md:gap-4 pt-4">
+					<button
+						id="charge-button"
+						data-action="CHARGE"
+						class="action-button bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-4 md:py-6 rounded-lg text-lg md:text-2xl"
+					>
+						CHARGE
+					</button>
+					<button
+						id="guard-button"
+						data-action="GUARD"
+						class="action-button bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 md:py-6 rounded-lg text-lg md:text-2xl"
+					>
+						GUARD
+					</button>
+					<button
+						id="attack-button"
+						data-action="ATTACK"
+						class="action-button bg-red-500 hover:bg-red-600 text-white font-bold py-4 md:py-6 rounded-lg text-lg md:text-2xl"
+					>
+						ATTACK
+					</button>
 				</div>
 			</div>
 
-			<!-- アクションボタン -->
-			<div class="grid grid-cols-3 gap-2 md:gap-4 pt-4">
-				<button id="charge-button" data-action="CHARGE"
-					class="action-button bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-4 md:py-6 rounded-lg text-lg md:text-2xl">CHARGE</button>
-				<button id="guard-button" data-action="GUARD"
-					class="action-button bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 md:py-6 rounded-lg text-lg md:text-2xl">GUARD</button>
-				<button id="attack-button" data-action="ATTACK"
-					class="action-button bg-red-500 hover:bg-red-600 text-white font-bold py-4 md:py-6 rounded-lg text-lg md:text-2xl">ATTACK</button>
+			<!-- スタート画面 -->
+			<div id="start-screen" class="text-center">
+				<h2 class="text-2xl mb-4">HOW TO PLAY</h2>
+				<p class="mb-2">1,2拍目でリズムを取り、3拍目で行動を選択！</p>
+				<div
+					class="text-left max-w-md mx-auto space-y-2 mb-6 bg-gray-800 p-4 rounded-lg"
+				>
+					<p>
+						<span class="text-yellow-400 font-bold">CHARGE (Shift):</span>
+						攻撃用のエネルギーを1つ溜める。
+					</p>
+					<p>
+						<span class="text-blue-400 font-bold">GUARD (Space):</span>
+						相手のATTACKを完全に防ぐ。
+					</p>
+					<p class="text-gray-400 text-sm pl-4">- 連続では使用できない。</p>
+					<p>
+						<span class="text-red-400 font-bold">ATTACK (Enter):</span>
+						CHARGEを1つ消費して攻撃。CHARGE中の相手に有効。
+					</p>
+				</div>
+				<p class="mb-8 text-gray-400">
+					※音声が出ます。最初に画面をクリックしてください。
+				</p>
+				<button
+					id="start-button"
+					class="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-lg text-2xl animate-pulse"
+				>
+					START GAME
+				</button>
+			</div>
+
+			<!-- ゲームオーバー画面 -->
+			<div id="game-over-screen" class="text-center hidden">
+				<h2 id="game-over-message" class="text-5xl mb-8"></h2>
+				<button
+					id="restart-button"
+					class="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-lg text-2xl"
+				>
+					RESTART
+				</button>
 			</div>
 		</div>
-
-		<!-- スタート画面 -->
-		<div id="start-screen" class="text-center">
-			<h2 class="text-2xl mb-4">HOW TO PLAY</h2>
-			<p class="mb-2">1,2拍目でリズムを取り、3拍目で行動を選択！</p>
-			<div class="text-left max-w-md mx-auto space-y-2 mb-6 bg-gray-800 p-4 rounded-lg">
-				<p><span class="text-yellow-400 font-bold">CHARGE (Shift):</span> 攻撃用のエネルギーを1つ溜める。</p>
-				<p><span class="text-blue-400 font-bold">GUARD (Space):</span> 相手のATTACKを完全に防ぐ。</p>
-				<p class="text-gray-400 text-sm pl-4">- 連続では使用できない。</p>
-				<p><span class="text-red-400 font-bold">ATTACK (Enter):</span> CHARGEを1つ消費して攻撃。CHARGE中の相手に有効。</p>
-			</div>
-			<p class="mb-8 text-gray-400">※音声が出ます。最初に画面をクリックしてください。</p>
-			<button id="start-button"
-				class="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-lg text-2xl animate-pulse">START
-				GAME</button>
-		</div>
-
-		<!-- ゲームオーバー画面 -->
-		<div id="game-over-screen" class="text-center hidden">
-			<h2 id="game-over-message" class="text-5xl mb-8"></h2>
-			<button id="restart-button"
-				class="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-lg text-2xl">RESTART</button>
-		</div>
-	</div>
-	<script type="module" src="./main.ts"></script>
-</body>
-
+		<script type="module" src="./main.ts"></script>
+	</body>
 </html>

@@ -23,27 +23,28 @@ function generateNumber(): number {
 }
 
 // DOM helpers
-const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
+const el = <T extends HTMLElement>(id: string) =>
+	document.getElementById(id) as T | null;
 
 let state: GameState | null = null;
 
 function render() {
-	const currentEl = el<HTMLDivElement>('current')!;
-	const factorsEl = el<HTMLDivElement>('factors')!;
-	const stepsEl = el<HTMLDivElement>('steps')!;
-	const logEl = el<HTMLDivElement>('log')!;
+	const currentEl = el<HTMLDivElement>("current")!;
+	const factorsEl = el<HTMLDivElement>("factors")!;
+	const stepsEl = el<HTMLDivElement>("steps")!;
+	const logEl = el<HTMLDivElement>("log")!;
 	if (!state) return;
 	currentEl.textContent = String(state.current);
 	stepsEl.textContent = `ステップ: ${state.steps}`;
-	logEl.textContent = '';
+	logEl.textContent = "";
 
 	// show factor buttons, always enabled
-	factorsEl.innerHTML = '';
+	factorsEl.innerHTML = "";
 	for (const p of PRIME_POOL) {
-		const btn = document.createElement('button');
-		btn.className = 'factor';
+		const btn = document.createElement("button");
+		btn.className = "factor";
 		btn.textContent = String(p);
-		btn.addEventListener('click', () => onFactorClick(p));
+		btn.addEventListener("click", () => onFactorClick(p));
 		factorsEl.appendChild(btn);
 	}
 }
@@ -64,8 +65,8 @@ function onFactorClick(p: number) {
 }
 
 function appendLog(s: string) {
-	const logEl = el<HTMLDivElement>('log')!;
-	const p = document.createElement('div');
+	const logEl = el<HTMLDivElement>("log")!;
+	const p = document.createElement("div");
 	p.textContent = s;
 	logEl.prepend(p);
 }
@@ -75,7 +76,7 @@ function newProblem() {
 	state = {
 		current: n,
 		original: n,
-		steps: 0
+		steps: 0,
 	};
 	appendLog(`新しい問題: ${n}`);
 	render();
@@ -85,16 +86,16 @@ function resetProblem() {
 	if (!state) return;
 	state.current = state.original;
 	state.steps = 0;
-	appendLog('リセットしました');
+	appendLog("リセットしました");
 	render();
 }
 
 // Wire controls
-document.addEventListener('DOMContentLoaded', () => {
-	const newBtn = el<HTMLButtonElement>('new')!;
-	const resetBtn = el<HTMLButtonElement>('reset')!;
-	newBtn.addEventListener('click', newProblem);
-	resetBtn.addEventListener('click', resetProblem);
+document.addEventListener("DOMContentLoaded", () => {
+	const newBtn = el<HTMLButtonElement>("new")!;
+	const resetBtn = el<HTMLButtonElement>("reset")!;
+	newBtn.addEventListener("click", newProblem);
+	resetBtn.addEventListener("click", resetProblem);
 	// start first problem
 	newProblem();
 });

@@ -1,5 +1,5 @@
 /* Extracted styles from index.html - Number-BATTLE-3 */
-@import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -16,7 +16,7 @@
 }
 
 body {
-	font-family: 'M PLUS Rounded 1c', sans-serif;
+	font-family: "M PLUS Rounded 1c", sans-serif;
 	touch-action: manipulation;
 	padding: var(--page-padding);
 	display: flex;
@@ -89,7 +89,9 @@ body {
 
 .move-to-target {
 	position: absolute;
-	transition: transform 0.5s ease, opacity 0.5s ease;
+	transition:
+		transform 0.5s ease,
+		opacity 0.5s ease;
 	z-index: 10;
 }
 
@@ -108,7 +110,7 @@ body {
 	margin: 0 auto;
 }
 
-.overflow-x-auto>.flex {
+.overflow-x-auto > .flex {
 	gap: var(--control-bar-gap);
 	align-items: center;
 	padding: 0.4rem 0.6rem;
@@ -130,8 +132,7 @@ body {
 }
 
 /* Extra-small screens and short viewports: ensure everything fits and becomes scrollable if needed */
-@media (max-width: 380px),
-(max-height: 700px) {
+@media (max-width: 380px), (max-height: 700px) {
 	#game-container {
 		margin-top: 0;
 		max-height: calc(100vh - 88px);
@@ -162,14 +163,14 @@ body {
 	}
 
 	/* Let the top controls flow into the document so they don't overlap small cards */
-	.relative>.absolute {
+	.relative > .absolute {
 		position: static !important;
 		transform: none !important;
 		margin: 0.4rem auto 0.6rem;
 	}
 
 	/* Ensure split modal fits on small screens */
-	#split-modal>div {
+	#split-modal > div {
 		max-height: calc(100vh - 80px);
 		overflow: auto;
 		margin: 0 1rem;
@@ -179,7 +180,7 @@ body {
 
 /* Aspect-ratio specific tweaks for common smartphones */
 /* 21:9 very tall/narrow phones (e.g., some modern tall devices) */
-@media (min-aspect-ratio: 21/9) and (max-width: 500px) {
+@media (min-aspect-ratio: 21 / 9) and (max-width: 500px) {
 	#game-container {
 		max-height: calc(100vh - 110px);
 		padding: 10px;
@@ -193,7 +194,7 @@ body {
 }
 
 /* 19.5:9 (typical modern phones like many iPhones) */
-@media (min-aspect-ratio: 195/90) and (max-width: 600px) {
+@media (min-aspect-ratio: 195 / 90) and (max-width: 600px) {
 	#game-container {
 		max-height: calc(100vh - 100px);
 	}
@@ -202,7 +203,7 @@ body {
 }
 
 /* 16:9 (older phones / many Android landscape cases) */
-@media (min-aspect-ratio: 16/9) and (max-width: 700px) {
+@media (min-aspect-ratio: 16 / 9) and (max-width: 700px) {
 	#game-container {
 		max-height: calc(100vh - 90px);
 	}
@@ -228,7 +229,7 @@ body {
 }
 
 /* Center split modal internals and options */
-#split-modal>div {
+#split-modal > div {
 	display: flex;
 	flex-direction: column;
 	align-items: center;

@@ -17,7 +17,7 @@ body {
 	min-height: 100vh;
 	background: var(--bg);
 	color: #fff;
-	font-family: 'Segoe UI', system-ui, -apple-system, "Helvetica Neue", Arial;
+	font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial;
 	margin: 0;
 }
 
@@ -41,7 +41,9 @@ h1 {
 	border-radius: 1rem;
 	padding: 1.25rem;
 	text-align: center;
-	transition: transform 0.2s, box-shadow 0.2s;
+	transition:
+		transform 0.2s,
+		box-shadow 0.2s;
 	height: 220px;
 	/* unified height */
 	min-height: 180px;
