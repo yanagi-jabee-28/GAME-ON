@@ -403,17 +403,25 @@ function handlePlayerAttack() {
 function setGameState(newState) {
 	if (gameState === newState) return;
 
-	// If a message is currently active, postpone enemy turn until it clears
-	if (
-		newState === "ENEMY_TURN" &&
-		typeof messageActive !== "undefined" &&
-		messageActive
-	) {
-		setTimeout(() => setGameState(newState), 200);
-		return;
-	}
-
 	const previousState = gameState;
+	gameState = newState;
+
+	const battleBoxContainer = document.getElementById("battle-box-container");
+	const messageWindow = document.getElementById("message-window");
+
+	if (gameState === "GAME_OVER") {
+		battleBoxContainer.style.display = "none";
+		messageWindow.classList.add("hidden");
+		setTimeout(() => {
+			document.getElementById("game-over").style.display = "block";
+		}, 500);
+	} else if (gameState === "VICTORY") {
+		battleBoxContainer.style.display = "none";
+		messageWindow.classList.add("hidden");
+		setTimeout(() => {
+			document.getElementById("game-clear").style.display = "block";
+		}, 500);
+	}
 
 	clearTimeout(enemyTurnTimer);
 	clearInterval(bulletSpawnInterval);
