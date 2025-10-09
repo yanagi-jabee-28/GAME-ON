@@ -11,10 +11,10 @@
 // Implementation notes: handlers are installed in the capture phase so they
 // can intercept clicks before the normal player handlers in main.js.
 
-import * as Game from './game.js';
-import * as UI from './ui.js';
-import { getAIMovesAnalysisFromPlayerView } from './ai.js';
-import CONFIG from './config.js';
+import * as Game from '../ts/game';
+import * as UI from '../ts/ui';
+import { getAIMovesAnalysisFromPlayerView } from '../ts/ai';
+import CONFIG from '../ts/config';
 
 let debugSelected = null; // index of selected AI hand or null
 

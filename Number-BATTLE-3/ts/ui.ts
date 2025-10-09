@@ -1,9 +1,9 @@
-// ui.js - DOM/アニメーション/表示更新
+// ui.ts - DOM/アニメーション/表示更新
 // UI の役割:
 //  - DOM 要素のキャッシュ
 //  - 盤面の描画更新（数値・disabled 表示など）
 //  - アニメーションの補助（攻撃エフェクト、分割エフェクト）
-// 注意: UI はゲーム状態を直接変更しない（状態変更は `game.js` が担当）。
+// 注意: UI はゲーム状態を直接変更しない（状態変更は `game.ts` が担当）。
 
 let playerHandElements; // プレイヤーの手を表す DOM 要素配列
 let aiHandElements;     // AI の手を表す DOM 要素配列
@@ -211,16 +211,29 @@ export function displayPlayerHints(analysis, mode = 'full', selection = null) {
 
 // Helper: clear any action highlight classes we added to hand elements and split buttons
 export function clearActionHighlights() {
-	if (playerHandElements) playerHandElements.forEach(el => {
-		el.classList.remove('hint-win', 'hint-draw', 'hint-loss', 'border-4', 'border-green-400', 'border-blue-400', 'border-red-400');
-	});
-	if (aiHandElements) aiHandElements.forEach(el => {
-		el.classList.remove('hint-win', 'hint-draw', 'hint-loss', 'border-4', 'border-green-400', 'border-blue-400', 'border-red-400');
-	});
+	// typed local alias for clarity
+	type HandElement = HTMLElement | null;
+
+	if (Array.isArray(playerHandElements)) {
+		(playerHandElements as HandElement[]).forEach((el) => {
+			if (!el) return;
+			el.classList.remove('hint-win', 'hint-draw', 'hint-loss', 'border-4', 'border-green-400', 'border-blue-400', 'border-red-400');
+			// remove any inline border styles we may have applied
+			try { el.style.borderWidth = ''; el.style.borderStyle = ''; el.style.borderColor = ''; } catch (e) { }
+		});
+	}
+	if (Array.isArray(aiHandElements)) {
+		(aiHandElements as HandElement[]).forEach((el: HandElement) => {
+			if (!el) return;
+			el.classList.remove('hint-win', 'hint-draw', 'hint-loss', 'border-4', 'border-green-400', 'border-blue-400', 'border-red-400');
+			try { el.style.borderWidth = ''; el.style.borderStyle = ''; el.style.borderColor = ''; } catch (e) { }
+		});
+	}
 	// clear split option coloring if present
 	if (splitOptionsContainer) {
 		splitOptionsContainer.querySelectorAll('button').forEach(b => {
 			b.classList.remove('border-4', 'border-green-400', 'border-blue-400', 'border-red-400');
+			try { b.style.borderWidth = ''; b.style.borderStyle = ''; b.style.borderColor = ''; } catch (e) { }
 		});
 	}
 }
@@ -241,14 +254,18 @@ export function applyActionHighlights(analysis, selection) {
 			const toIdx = a.move.toIndex;
 			const el = aiHandElements[toIdx];
 			if (!el) return;
-			el.classList.add('border-4');
-			if (a.outcome === 'WIN') {
-				el.classList.add('border-green-400');
-			} else if (a.outcome === 'DRAW') {
-				el.classList.add('border-blue-400');
-			} else {
-				el.classList.add('border-red-400');
-			}
+			// Apply inline border styles to avoid relying on compiled Tailwind utility classes
+			try {
+				el.style.borderWidth = '4px';
+				el.style.borderStyle = 'solid';
+				if (a.outcome === 'WIN') {
+					el.style.borderColor = '#34D399'; // green-400-ish
+				} else if (a.outcome === 'DRAW') {
+					el.style.borderColor = '#60A5FA'; // blue-400-ish
+				} else {
+					el.style.borderColor = '#FB7185'; // red-400-ish
+				}
+			} catch (e) { /* ignore style errors */ }
 		});
 	}
 	// Also color split options inside modal if open (main will pass analysis to openSplitModal)

@@ -1,11 +1,11 @@
 // main.js - 初期化とイベントバインド
 // このファイルはゲームの初期化、イベントの登録、ターン管理のオーケストレーションを担当します。
 // 実際のゲーム状態は `game.js`、表示/アニメーションは `ui.js`、AI ロジックは `ai.js` に委譲します。
-import * as Game from './game.js';
-import * as AI from './ai.js';
-import * as UI from './ui.js';
-import { initDebug } from './debug.js';
-import CONFIG from './config.js';
+import * as Game from '../ts/game';
+import * as AI from '../ts/ai';
+import * as UI from '../ts/ui';
+import { initDebug } from '../ts/debug';
+import CONFIG from '../ts/config';
 
 /**
  * @param {string} id

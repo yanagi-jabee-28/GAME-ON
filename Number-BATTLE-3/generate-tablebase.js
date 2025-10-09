@@ -1,4 +1,4 @@
-import { generateMoves } from './js/game.js';
+import { generateMoves } from './ts/game';
 import fs from 'fs';
 
 // --- 定数 ---
@@ -43,24 +43,27 @@ console.log('Starting final robust retrograde analysis...');
 const allStates = new Map();
 console.log('Generating all state nodes...');
 for (let p1 = 0; p1 <= 4; p1++) {
-for (let p2 = p1; p2 <= 4; p2++) {
-for (let a1 = 0; a1 <= 4; a1++) {
-for (let a2 = a1; a2 <= 4; a2++) {
-    const state = { playerHands: [p1, p2], aiHands: [a1, a2] };
-    ['player', 'ai'].forEach(turn => {
-        const key = getStateKey(state, turn);
-        allStates.set(key, {
-            key: key,
-            state: state,
-            turn: turn,
-            outcome: OUTCOME.UNKNOWN,
-            distance: Infinity,
-            successors: [],
-            predecessors: [],
-            unknown_successors_count: 0,
-        });
-    });
-}}}}
+    for (let p2 = p1; p2 <= 4; p2++) {
+        for (let a1 = 0; a1 <= 4; a1++) {
+            for (let a2 = a1; a2 <= 4; a2++) {
+                const state = { playerHands: [p1, p2], aiHands: [a1, a2] };
+                ['player', 'ai'].forEach(turn => {
+                    const key = getStateKey(state, turn);
+                    allStates.set(key, {
+                        key: key,
+                        state: state,
+                        turn: turn,
+                        outcome: OUTCOME.UNKNOWN,
+                        distance: Infinity,
+                        successors: [],
+                        predecessors: [],
+                        unknown_successors_count: 0,
+                    });
+                });
+            }
+        }
+    }
+}
 console.log(`Generated ${allStates.size} total state nodes.`);
 
 // 2. 各ノードの遷移先(successors)と遷移元(predecessors)を計算
@@ -73,7 +76,7 @@ for (const node of allStates.values()) {
         const nextState = applyMove(node.state, move);
         const nextTurn = node.turn === 'player' ? 'ai' : 'player';
         const successorKey = getStateKey(nextState, nextTurn);
-        
+
         if (allStates.has(successorKey)) {
             const successorNode = allStates.get(successorKey);
             node.successors.push(successorNode);

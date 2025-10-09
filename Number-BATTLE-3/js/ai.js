@@ -22,9 +22,9 @@ import {
 	simulateMove,
 	getStateKey,
 	invertOutcomeLabel
-} from './game.js';
-import CONFIG from './config.js';
-import { performAiAttackAnim, performAiSplitAnim } from './ui.js';
+} from '../ts/game';
+import CONFIG from '../ts/config';
+import { performAiAttackAnim, performAiSplitAnim } from '../ts/ui';
 
 import TABLEBASE_URL from '../chopsticks-tablebase.json?url';
 
