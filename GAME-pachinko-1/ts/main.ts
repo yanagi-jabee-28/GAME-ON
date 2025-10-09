@@ -79,7 +79,7 @@ function pachiInit() {
 	// If this sensor is configured to trigger the embedded slot, start it
 	try {
 		// prefer a window-scoped counterId if present; avoid referencing a possibly-undefined local symbol
-		const runtimeCounterId = (typeof window !== 'undefined' && /** @type {any} */ (window).counterId) || null;
+		const runtimeCounterId = (typeof window !== 'undefined' && (window as any).counterId) || null;
 		if (runtimeCounterId) {
 			const cfgEntry2 = GAME_CONFIG.sensorCounters.counters[runtimeCounterId] || {};
 			if (cfgEntry2.slotTrigger && window.EmbeddedSlot && typeof window.EmbeddedSlot.startSpin === 'function') {
@@ -113,7 +113,7 @@ function pachiInit() {
 	engine.enableSleeping = true;
 	// スリープ閾値を少し下げて微小振動を抑止し、負荷を軽減
 	// engine.timing may have custom properties; cast to any to avoid tsserver property errors
-	try { /** @type {any} */ (engine.timing).isFixed = true; } catch (_) { /** no-op */ }
+	try { (engine.timing as any).isFixed = true; } catch (_) { /** no-op */ }
 	engine.positionIterations = Number(GAME_CONFIG.physics?.positionIterations ?? 12);
 	engine.velocityIterations = Number(GAME_CONFIG.physics?.velocityIterations ?? 8);
 	engine.constraintIterations = Number(GAME_CONFIG.physics?.constraintIterations ?? 6);
@@ -351,8 +351,8 @@ function pachiInit() {
 	// dev-tools へ Engine/Render を通知（UI 拡張で利用）
 	try {
 		// 開発者ツール向けに参照を公開し、イベントも通知
-		window.__engine_for_devtools__ = engine;
-		window.__render_for_devtools__ = render;
+		 (window as any).__engine_for_devtools__ = engine;
+		 (window as any).__render_for_devtools__ = render;
 		window.dispatchEvent(new CustomEvent('devtools:engine-ready', { detail: { engine, render } }));
 	} catch (_) { /* no-op */ }
 
@@ -371,8 +371,8 @@ function pachiInit() {
 			return Number.isFinite(v) ? v : 1;
 		};
 		// use any-cast on Render to avoid type complaints when adding .bodies override
-		const origBodies = /** @type {any} */ (Render).bodies;
-	/** @type {any} */ (Render).bodies = function (render, bodies, context) {
+		const origBodies = (Render as any).bodies;
+	 (Render as any).bodies = function (render, bodies, context) {
 			try {
 				const sorted = Array.isArray(bodies) ? bodies.slice().sort((a, b) => {
 					const la = getLayer(a), lb = getLayer(b);
@@ -398,7 +398,7 @@ function pachiInit() {
 	(function setupAdaptivePhysics() {
 		// device memory hint (Chrome/Edge support)
 		// navigator.deviceMemory is a non-standard hint; guard and cast to any
-		const deviceMem = (typeof navigator !== 'undefined' && /** @type {any} */ (navigator).deviceMemory) ? Number(/** @type {any} */(navigator).deviceMemory) : null;
+		const deviceMem = (typeof navigator !== 'undefined' && (navigator as any).deviceMemory) ? Number((navigator as any).deviceMemory) : null;
 		const lowMemDevice = (deviceMem != null) ? (deviceMem <= 4) : false;
 		if (lowMemDevice) {
 			// apply conservative defaults for low-memory devices
@@ -420,7 +420,7 @@ function pachiInit() {
 		function avgMs() { if (!samples.length) return 0; return samples.reduce((a, b) => a + b, 0) / samples.length; }
 
 		// Expose a lightweight recorder called from the rAF loop
-		window.__recordPhysicsPerf__ = function (frameMs) {
+		 (window as any).__recordPhysicsPerf__ = function (frameMs) {
 			try {
 				pushSample(frameMs);
 				const avg = avgMs();
@@ -461,7 +461,7 @@ function pachiInit() {
 			last = now;
 			const paused = Boolean(GAME_CONFIG.physics?.paused);
 			// record elapsed to adaptive physics manager (if present)
-			try { if (typeof window.__recordPhysicsPerf__ === 'function') window.__recordPhysicsPerf__(elapsed); } catch (_) { /* no-op */ }
+			 try { if (typeof (window as any).__recordPhysicsPerf__ === 'function') (window as any).__recordPhysicsPerf__(elapsed); } catch (_) { /* no-op */ }
 			const tsCfg = Number(GAME_CONFIG.physics?.timeScale ?? 1); // UIが管理するワールド倍率
 			const ts = paused ? 0 : tsCfg;
 			// タイムスケール適用: 停止時はアキュムリセット、それ以外は実時間を蓄積
@@ -969,6 +969,7 @@ function pachiInit() {
 				y: (p.y || 0) + globalYOffset,
 				coordMode: coordMode
 			}));
+
 		}).filter(Boolean);
 		if (bodies.length) World.add(world, bodies);
 	}
@@ -1112,7 +1113,7 @@ function pachiInit() {
 		// サイズ・見た目はボディ生成時のまま。必要なら再生成やスケール対応を追加可能。
 		// レイヤー変更のみ反映
 		const layer = Number(padCfg.layer ?? 1);
-		launchPadBody.render.layer = Number.isFinite(layer) ? layer : 1;
+		 (launchPadBody.render as any).layer = Number.isFinite(layer) ? layer : 1;
 	}
 
 	function updateLaunchPadPosition() {
@@ -1126,7 +1127,7 @@ function pachiInit() {
 		const originY = longIsWidth ? (padH / 2) : 0;
 		// read slider value via typed element to avoid TS complaining about .value on HTMLElement
 		const angleEl = /** @type {HTMLInputElement|null} */ (document.getElementById('angle-slider'));
-		const angleDeg = Number((angleEl ? angleEl.value : (GAME_CONFIG.launch?.defaultAngle || 90)));
+		 const angleDeg = Number((angleEl ? (angleEl as HTMLInputElement).value : (GAME_CONFIG.launch?.defaultAngle || 90)));
 		const offsetY = padCfgAny.offsetY || 0;
 		// 近端中心を原点にする: launch point からのオフセットを回転座標に沿って適用
 		Matter.Body.setPosition(launchPadBody, { x: p.x - originX, y: p.y - originY });
@@ -1152,8 +1153,8 @@ function pachiInit() {
 			// debug dump (one-shot) to help diagnose mobile init timing
 			try {
 				const gw = /** @type {any} */ (window);
-				if (!gw.__pachi_init_logged__) {
-					gw.__pachi_init_logged__ = true;
+				 if (!(window as any).__pachi_init_logged__) {
+					 (window as any).__pachi_init_logged__ = true;
 					console.debug('[PACHINKO] init dbg', {
 						rect: c,
 						client: { w: container.clientWidth, h: container.clientHeight },
@@ -1299,7 +1300,7 @@ function pachiInit() {
 	function updateArrow() {
 		const launchArrow = document.getElementById('launch-arrow');
 		if (!launchArrow) return; // arrow removed via CSS/HTML — no-op
-		const angle = Number(angleSlider?.value ?? GAME_CONFIG.launch?.defaultAngle ?? 90);
+		 const angle = Number((angleSlider as HTMLInputElement)?.value ?? GAME_CONFIG.launch?.defaultAngle ?? 90);
 		const sliderValue = Number(speedSlider.value);
 		const speed = computeSpeedFromSlider(sliderValue);
 		const decimals = Number.isFinite(GAME_CONFIG.launch?.speedPrecision)
@@ -1358,7 +1359,7 @@ function pachiInit() {
 		window.addEventListener('slot:win', (ev) => {
 			try {
 				const ce = /** @type {CustomEvent} */ (ev);
-				const amount = Number(ce?.detail?.amount) || 0;
+				 const amount = Number((ce as CustomEvent)?.detail?.amount) || 0;
 				const mult = Number(GAME_CONFIG?.rewards?.slotWinAmmoMultiplier);
 				if (!(amount > 0 && Number.isFinite(mult) && mult > 0)) return;
 				const gain = Math.floor(amount * mult);
@@ -1444,7 +1445,7 @@ function pachiInit() {
 		// 弾数がなければ発射しない
 		if (typeof launchAmmo === 'number' && launchAmmo <= 0) return;
 		const start = computeSpawnCoords();
-		let angleDeg = Number((angleSlider && angleSlider.value) || GAME_CONFIG.launch?.defaultAngle || 90);
+		 let angleDeg = Number((angleSlider && (angleSlider as HTMLInputElement).value) || GAME_CONFIG.launch?.defaultAngle || 90);
 		const angleRandomness = GAME_CONFIG.launch?.angleRandomness || 0;
 		if (angleRandomness > 0) {
 			const randomAngleOffset = (Math.random() * 2 - 1) * angleRandomness;
@@ -1553,10 +1554,10 @@ function pachiInit() {
 			} catch (_) { /* no-op */ }
 
 			// 材質に基づいた物理係数の動的適用
-			if (bodyA.material && bodyB.material) {
-				const interaction = getMaterialInteraction(bodyA.material, bodyB.material);
-				pair.restitution = interaction.restitution;
-				pair.friction = interaction.friction;
+			 if ((bodyA as any).material && (bodyB as any).material) {
+				 const interaction = getMaterialInteraction((bodyA as any).material, (bodyB as any).material);
+				 pair.restitution = interaction.restitution;
+				 pair.friction = interaction.friction;
 			}
 
 			// --- 軽量: 衝突で回転体へ角運動量を簡易伝達 ---
