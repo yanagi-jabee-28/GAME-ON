@@ -20,6 +20,7 @@ export default defineConfig({
 				"UNDERTALE-1": resolve(__dirname, "UNDERTALE-1/index.html"),
 				"Finger-smash-1": resolve(__dirname, "Finger-smash-1/index.html"),
 				"Number-BATTLE-3": resolve(__dirname, "Number-BATTLE-3/index.html"),
+				"Division-Game-1": resolve(__dirname, "Division-Game-1/index.html"),
 			},
 		},
 	},
