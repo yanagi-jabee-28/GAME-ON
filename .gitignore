@@ -1,7 +1,8 @@
+.idea
 node_modules
 dist
 .env
-legacy
+legacy/
 .tmp.driveupload
 .tmp.driveupload/47240
 .tmp.driveupload/47242
