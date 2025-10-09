@@ -195,10 +195,12 @@
 		}
 
 		#options-container {
-			display: grid;
-			grid-template-columns: repeat(2, 1fr);
-			gap: 20px;
+			display: flex;
+			flex-direction: row;
+			justify-content: center;
+			gap: 24px;
 			width: var(--game-width);
+			align-items: center;
 		}
 
 		@media (max-width: 640px) {
@@ -217,6 +219,9 @@
 			#options-container {
 				gap: 10px;
 				padding: 0 10px;
+				/* on mobile, stack vertically */
+				display: grid;
+				grid-template-columns: 2fr;
 			}
 
 			.option-button {
@@ -244,12 +249,25 @@
 		}
 
 		/* 選択中のオプションにハートマークを表示 */
-		.option-button.selected::before {
-			content: '❤️';
+		/* ハート用の固定スペースを確保（非選択時は透明） */
+		.option-button::before {
+			content: '';
 			display: inline-block;
+			width: 28px; /* 固定幅で文字が動かないようにする */
 			margin-right: 10px;
 			font-size: 20px;
 			line-height: 1;
+			text-align: center;
+		}
+
+		.option-button.selected::before {
+			content: '❤️';
+			/* display は継続して inline-block */
+		}
+
+		.hide-heart .option-button.selected::before {
+			content: '';
+			display: none;
 		}
 
 		.heart-icon {
@@ -337,6 +355,44 @@
 			pointer-events: auto;
 			font-family: var(--font-family);
 		}
+
+		/* メッセージウィンドウ内のターゲット選択レイアウト */
+		#message-window > div {
+			display: flex;
+			justify-content: center;
+			gap: 12px;
+		}
+
+		/* 攻撃対象選択ボタンのスタイル */
+		.target-select-btn {
+			background: #222;
+			color: #fff;
+			border: 2px solid #fff;
+			font-family: var(--font-family);
+			font-size: 18px;
+			margin: 0 8px;
+			padding: 8px 16px;
+			border-radius: 6px;
+			cursor: pointer;
+		}
+		.target-select-btn.selected {
+			background: #ff0;
+			color: #000;
+			border-color: #ff0;
+		}
+
+		/* 選択中ターゲットの左にハートを表示 */
+		.target-select-btn.selected::before {
+			content: '❤️';
+			display: inline-block;
+			margin-right: 8px;
+			font-size: 18px;
+			line-height: 1;
+		}
+		.target-select-btn:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
 	</style>
 </head>
 
@@ -387,6 +443,7 @@
 			* MERCY
 		</button>
 	</div>
+	<div id="target-select-container" style="display:none; justify-content:center; gap:16px; margin:12px 0;"></div>
 
 	<div id="joystick-container"></div>
 

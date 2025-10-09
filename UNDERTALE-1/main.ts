@@ -91,17 +91,26 @@ const attackButton = document.getElementById("attack-button") as HTMLElement;
 const enemyHpBar = document.getElementById("enemy-hp-bar") as HTMLElement;
 const enemyHpValue = document.getElementById("enemy-hp-value") as HTMLElement;
 
-// --- Enemy data ---
-const enemy = {
-	name: "SKELETON",
-	maxHp: 30,
-	hp: 30,
-};
+
+// --- 複数敵データ ---
+let enemies = [
+	{ name: "SKELETON", maxHp: 30, hp: 30 },
+	// 今後追加可能: { name: "GHOST", maxHp: 20, hp: 20 }
+];
+let selectedEnemyIndex = 0;
+
+function getSelectedEnemy() {
+	return enemies[selectedEnemyIndex];
+}
+
+// 既存のenemy参照箇所は getSelectedEnemy() に置換
 
 function updateEnemyHPDisplay() {
+	const enemy = getSelectedEnemy();
 	const pct = (Math.max(0, enemy.hp) / enemy.maxHp) * 100;
 	enemyHpBar.style.width = pct + "%";
 	enemyHpValue.textContent = `${enemy.hp} / ${enemy.maxHp}`;
+	document.getElementById("enemy-name").textContent = enemy.name;
 }
 
 // --- Option selection (keyboard D-pad) ---
@@ -346,17 +355,19 @@ function handlePlayerAttack() {
 	const targetCenter = battleBox.x + battleBox.width / 2;
 	const distance = Math.abs(attackBar.markerX - targetCenter);
 	const damage = Math.max(0, 10 - Math.floor(distance / 5));
-	console.log(`Damage: ${damage}`);
-	// Apply damage to enemy
+	const enemy = getSelectedEnemy();
 	enemy.hp -= damage;
 	if (enemy.hp < 0) enemy.hp = 0;
 	updateEnemyHPDisplay();
-	showMessage(`敵に ${damage} のダメージ！`);
+	showMessage(`${enemy.name} に ${damage} のダメージ！`);
 	if (enemy.hp <= 0) {
-		// Enemy defeated
-		showMessage("敵を倒した！");
-		// Go to VICTORY state (ゲームクリア)
-		setTimeout(() => setGameState("VICTORY"), 800);
+		showMessage(`${enemy.name} を倒した！`);
+		// 全ての敵が倒されたらVICTORY
+		if (enemies.every(e => e.hp <= 0)) {
+			setTimeout(() => setGameState("VICTORY"), 800);
+		} else {
+			setTimeout(() => setGameState("ENEMY_TURN"), 1000);
+		}
 	} else {
 		setTimeout(() => setGameState("ENEMY_TURN"), 1000);
 	}
@@ -367,6 +378,24 @@ function handlePlayerAttack() {
 		.classList.remove("bring-front");
 	document.getElementById("attack-button").classList.remove("bring-front");
 	attackButton.style.display = "none";
+
+	// ENEMY_TURN/PLAYER_ATTACK時は選択肢のハートマークを非表示
+	const optionsContainer = document.getElementById("options-container");
+
+	// 攻撃対象選択UI表示制御
+	const targetSelectContainer = document.getElementById("target-select-container");
+	if (gameState === "SELECT_TARGET") {
+		targetSelectContainer.style.display = "flex";
+	} else {
+		targetSelectContainer.style.display = "none";
+	}
+
+	// ハートマーク表示制御
+	if (gameState === "ENEMY_TURN" || gameState === "PLAYER_ATTACK") {
+		optionsContainer?.classList.add("hide-heart");
+	} else {
+		optionsContainer?.classList.remove("hide-heart");
+	}
 }
 
 function setGameState(newState) {
@@ -391,6 +420,23 @@ function setGameState(newState) {
 
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	attackButton.style.display = "none";
+
+	// ハート表示・ターゲット選択UIの更新
+	const optionsContainer = document.getElementById("options-container");
+	const targetSelectContainer = document.getElementById("target-select-container");
+	if (gameState === "SELECT_TARGET") {
+		// 显示ターゲット選択、行動側ハートは非表示
+		targetSelectContainer && (targetSelectContainer.style.display = "flex");
+		optionsContainer?.classList.add("hide-heart");
+	} else if (gameState === "ENEMY_TURN" || gameState === "PLAYER_ATTACK") {
+		// 敵の攻撃中または自分の攻撃ミニゲーム中は行動側ハートを非表示
+		optionsContainer?.classList.add("hide-heart");
+		if (targetSelectContainer) targetSelectContainer.style.display = "none";
+	} else {
+		// default: ensure target select hidden and restore hearts
+		targetSelectContainer && (targetSelectContainer.style.display = "none");
+		optionsContainer?.classList.remove("hide-heart");
+	}
 
 	if (gameState === "ENEMY_TURN") {
 		bullets.length = 0;
@@ -481,16 +527,39 @@ function triggerAttack() {
 }
 
 window.addEventListener("keydown", (e) => {
-	if (messageActive) return; // ignore inputs while message displayed
+	// ignore inputs while message displayed, except when we're actively selecting a target
+	if (messageActive && gameState !== "SELECT_TARGET") return;
 	// Arrow key behavior depends on current game state
+
 	if (gameState === "PLAYER_TURN") {
-		// In player turn, use arrows to navigate options
+		// 行動選択
 		if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
 			setSelection(selectionIndex - 1);
 			return;
 		}
 		if (e.key === "ArrowDown" || e.key === "ArrowRight") {
 			setSelection(selectionIndex + 1);
+			return;
+		}
+	} else if (gameState === "SELECT_TARGET") {
+		// 攻撃対象選択
+		if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+			selectedEnemyIndex = Math.max(0, selectedEnemyIndex - 1);
+			// if message window contains the selection UI, update it; otherwise update the persistent container
+			if (document.getElementById("message-window")?.firstElementChild) updateMessageWindowSelection();
+			else updateTargetSelectUI();
+			return;
+		}
+		if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+			selectedEnemyIndex = Math.min(enemies.length - 1, selectedEnemyIndex + 1);
+			if (document.getElementById("message-window")?.firstElementChild) updateMessageWindowSelection();
+			else updateTargetSelectUI();
+			return;
+		}
+		if (e.code === "Space" || e.key === "Enter") {
+			// confirm selection: hide message then enter attack
+			hideMessage();
+			setGameState("PLAYER_ATTACK");
 			return;
 		}
 	} else {
@@ -506,7 +575,9 @@ window.addEventListener("keydown", (e) => {
 			if (!btn) return;
 			const id = btn.id;
 			if (id === "fight") {
-				setGameState("PLAYER_ATTACK");
+				// show target selection instead of jumping straight to attack
+				showTargetSelectionInMessage();
+				setGameState("SELECT_TARGET");
 			} else if (id === "act") {
 				showMessage("You try to ACT...");
 			} else if (id === "item") {
@@ -527,9 +598,81 @@ window.addEventListener("keyup", (e) => {
 fightButton.addEventListener("click", () => {
 	if (messageActive) return;
 	if (gameState === "PLAYER_TURN") {
-		setGameState("PLAYER_ATTACK");
+		// Show target selection inside message window
+		showTargetSelectionInMessage();
+		setGameState("SELECT_TARGET");
 	}
 });
+
+// 攻撃対象選択UI生成・更新
+function updateTargetSelectUI() {
+	const container = document.getElementById("target-select-container");
+	if (!container) return;
+	container.innerHTML = "";
+	enemies.forEach((enemy, i) => {
+		const btn = document.createElement("button");
+		btn.textContent = `${enemy.name} (${enemy.hp} / ${enemy.maxHp})`;
+		btn.className = "target-select-btn" + (i === selectedEnemyIndex ? " selected" : "");
+		btn.disabled = enemy.hp <= 0;
+		btn.onclick = () => {
+			selectedEnemyIndex = i;
+			updateTargetSelectUI();
+		};
+		btn.ondblclick = () => {
+			selectedEnemyIndex = i;
+			setGameState("PLAYER_ATTACK");
+		};
+		container.appendChild(btn);
+	});
+}
+
+// メッセージウィンドウ内に攻撃対象選択を表示する
+function showTargetSelectionInMessage() {
+	const mw = document.getElementById("message-window");
+	if (!mw) return;
+	// reuse the existing container for non-modal display, but render into message window
+	mw.innerHTML = "";
+	mw.style.display = "block";
+	mw.style.opacity = "1";
+	// create container
+	const container = document.createElement("div");
+	container.style.display = "flex";
+	container.style.justifyContent = "center";
+	container.style.gap = "12px";
+	enemies.forEach((enemy, i) => {
+		const btn = document.createElement("button");
+		btn.textContent = `${enemy.name} (${enemy.hp} / ${enemy.maxHp})`;
+		btn.className = "target-select-btn" + (i === selectedEnemyIndex ? " selected" : "");
+		btn.disabled = enemy.hp <= 0;
+		btn.onclick = () => {
+			selectedEnemyIndex = i;
+			// update visual selection
+			Array.from(container.children).forEach((c, idx) => {
+				(c as HTMLElement).classList.toggle("selected", idx === selectedEnemyIndex);
+			});
+		};
+		btn.ondblclick = () => {
+			selectedEnemyIndex = i;
+			hideMessage();
+			setGameState("PLAYER_ATTACK");
+		};
+		container.appendChild(btn);
+	});
+	mw.appendChild(container);
+	// mark message active to block other inputs; SELECT_TARGET handler allows keyboard navigation
+	messageActive = true;
+	messageVisible = true;
+}
+
+// message window 側の選択表示を更新する (キーボードで選択を反映させるため)
+function updateMessageWindowSelection() {
+	const mw = document.getElementById("message-window");
+	if (!mw || !mw.firstElementChild) return;
+	const container = mw.firstElementChild as HTMLElement;
+	Array.from(container.children).forEach((c, idx) => {
+		(c as HTMLElement).classList.toggle("selected", idx === selectedEnemyIndex);
+	});
+}
 
 attackButton.addEventListener("click", triggerAttack);
 
@@ -624,6 +767,9 @@ try {
 } catch (e) {
 	console.log("Could not initialize joystick.");
 }
+
+
+// 攻撃対象選択UI関数をグローバルに
 
 updateHPDisplay();
 setGameState("PLAYER_TURN"); // Start with player's turn
