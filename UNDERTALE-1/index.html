@@ -24,6 +24,7 @@
 			/* canvas size & message-window height */
 			--battle-inner-size: 150px;
 			/* playable square inside the canvas */
+			--attack-mode-width: calc(var(--battle-size) * 0.9);
 			--attack-bar-height: 20px;
 			--player-size: 20px;
 			--hp-bar-width: 120px;
@@ -365,10 +366,10 @@
 			bottom: var(--message-bottom);
 			transform: translate(-50%, 0);
 			width: calc(100% - 40px);
-			height: var(--battle-inner-size);
+			height: var(--battle-size);
 			background: rgba(0, 0, 0, 0.9);
 			border: var(--border-style);
-			padding: 10px 12px;
+			padding: 12px;
 			text-align: center;
 			z-index: 40;
 			font-size: 14px;
@@ -398,32 +399,32 @@
 			top: auto;
 			transform: translate(-50%, 0);
 			width: calc(100% - 40px);
-			height: var(--battle-inner-size);
-			padding: 10px 12px;
+			height: var(--battle-size);
+			padding: 12px;
 			background: rgba(0, 0, 0, 0.9);
 			pointer-events: auto;
 		}
 
 		#message-window.mode-attack {
-			bottom: calc(var(--message-bottom) + 16px);
+			bottom: var(--message-bottom);
 			top: auto;
 			transform: translate(-50%, 0);
-			width: var(--battle-inner-size);
-			height: 96px;
+			width: var(--attack-mode-width);
+			height: var(--battle-size);
 			padding: 12px;
 			background: rgba(0, 0, 0, 0.9);
 			pointer-events: none;
 		}
 
 		#message-window.mode-battle {
-			top: 50%;
-			bottom: auto;
-			transform: translate(-50%, -50%);
+			bottom: var(--message-bottom);
+			top: auto;
+			transform: translate(-50%, 0);
 			width: var(--battle-size);
 			height: var(--battle-size);
 			padding: 0;
-			border: none;
-			background: transparent;
+			border: var(--border-style);
+			background: rgba(0, 0, 0, 0.92);
 			pointer-events: none;
 		}
 
