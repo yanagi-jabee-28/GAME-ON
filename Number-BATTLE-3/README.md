@@ -58,6 +58,46 @@ Number-BATTLE-3/
 - `ts/ai.ts` の `getPlayerMovesAnalysis` はヒント表示のほか、デバッグコンソールからの局面検証にも便利です。
 - テーブルベースを更新する場合は `generate-tablebase.js` を参照してください。
 
+### すぐに動かす（開発用）
+
+このリポジトリでは TypeScript ソースを `ts/` に置いています。開発中は Vite を使うと便利です。
+
+1. ルートで依存をインストールします（既にやっている場合は不要）：
+
+```bash
+npm install
+```
+
+2. 開発サーバを起動します（プロジェクトルートで実行）：
+
+```bash
+npm run dev
+```
+
+3. ブラウザで http://localhost:5173/Number-BATTLE-3/ を開くと、Vite が TypeScript を自動でバンドルしてくれます。
+
+注意: 直接 `file://` で開く場合や Vite を使わない場合、`index.html` が `ts/` のままでは動かないので、事前に TypeScript をトランスパイルして `js/` に出力するか、Vite のようなバンドラを使って下さい。
+
+### generate-tablebase の実行について
+
+`generate-tablebase.js` は局面テーブルを生成するための Node スクリプトです。リポジトリ内のゲームロジックは TypeScript に移行しているため、直接 `ts/` を import している場合は次のいずれかの方法で実行してください。
+
+- ts-node を使う（手軽。事前にインストールが必要）:
+
+```bash
+npx ts-node Number-BATTLE-3/generate-tablebase.js
+```
+
+- あるいは先に TypeScript をトランスパイルしてから Node で実行する:
+
+```bash
+# プロジェクトルートで
+npx tsc
+node Number-BATTLE-3/generate-tablebase.js
+```
+
+上記どちらかを選べば、スクリプト内で `ts/` のモジュールを利用してテーブルを生成できます。
+
 ---
 何か不具合や改善アイデアがあれば issue やコメントで共有してください。
 

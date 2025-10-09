@@ -1,4 +1,4 @@
-// ai.js - AI の行動決定（テーブルベース参照型）
+// ai.ts - AI の行動決定（テーブルベース参照型）
 //
 // Summary:
 // - 本モジュールは局面テーブル（chopsticks-tablebase.json）を参照して

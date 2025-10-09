@@ -134,7 +134,7 @@ export function displayPlayerHints(analysis, mode = 'full', selection = null) {
 	// If analysis is null it means the tablebase isn't loaded yet.
 	// To avoid flicker on reload/initial render, leave the hint area empty instead of showing "計算中...".
 	if (!analysis) {
-		// Do not display any message to avoid flicker; main.js will request a re-render when data is ready.
+		// Do not display any message to avoid flicker; main.ts will request a re-render when data is ready.
 		hintAreaEl.innerHTML = '';
 		// clear any action highlights when analysis not available
 		clearActionHighlights();

@@ -1,5 +1,5 @@
-// debug.js removed: export a minimal no-op initDebug so any dynamic import is harmless
-// debug.js
+// debug.ts removed: export a minimal no-op initDebug so any dynamic import is harmless
+// debug.ts
 // Debug helper: allow the human player to control the AI during the AI's turn.
 // Behavior:
 // - When Game.currentPlayer === 'ai', clicking AI hands will allow the player
@@ -9,7 +9,7 @@
 //   the split modal (reusing UI.openSplitModal) and allow choosing a split
 //   to apply to the AI (animating with performAiSplitAnim then applySplit).
 // Implementation notes: handlers are installed in the capture phase so they
-// can intercept clicks before the normal player handlers in main.js.
+// can intercept clicks before the normal player handlers in main.ts.
 
 import * as Game from './game';
 import * as UI from './ui';
@@ -49,7 +49,7 @@ function handleContainerClick(e) {
 	const target = rawTarget instanceof HTMLElement ? rawTarget : null;
 	if (!target) return; // not a hand click
 
-	// Intercept and prevent main.js player handler from running
+	// Intercept and prevent main.ts player handler from running
 	e.stopPropagation();
 	e.preventDefault();
 
