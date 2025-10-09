@@ -40,6 +40,8 @@
 			/* mobile */
 			--message-bottom: 100px;
 			--message-height: var(--battle-inner-size);
+			/* cached half game height for placement calculations */
+			--game-half: calc(var(--game-height) / 2);
 			/* message window equals playable square height */
 		}
 
@@ -47,12 +49,8 @@
 			background-color: #000;
 			color: var(--font-color);
 			font-family: var(--font-family);
-			display: flex;
-			justify-content: center;
-			align-items: center;
 			height: 100vh;
 			margin: 0;
-			flex-direction: column;
 			overflow: hidden;
 			/* スクロールバーを非表示 */
 		}
@@ -70,7 +68,10 @@
 			align-items: center;
 			/* 左右中央寄せ */
 			padding: 20px;
-			position: relative;
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
 		}
 
 		@media (max-width: 640px) {
@@ -150,18 +151,20 @@
 			text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
 		}
 
+		/* プレイヤー情報を常にゲームコンテナの下に表示する（画面左上に流れないよう固定） */
 		#player-info {
+			position: absolute;
+			left: 50%;
+			transform: translateX(-50%);
+			top: calc(50% + var(--game-half) + 36px);
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			/* 中央寄せに変更 */
 			gap: 20px;
 			font-size: 18px;
 			width: var(--game-width);
-			margin-top: 20px;
-			/* game-containerとの間隔 */
-			margin-bottom: 20px;
-			/* options-containerとの間隔 */
+			text-align: center;
+			z-index: 10;
 		}
 
 		#hp-bar-container {
@@ -195,12 +198,17 @@
 		}
 
 		#options-container {
+			position: absolute;
+			left: 50%;
+			transform: translateX(-50%);
+			top: calc(50% + var(--game-half) + 92px);
 			display: flex;
 			flex-direction: row;
 			justify-content: center;
 			gap: 24px;
 			width: var(--game-width);
 			align-items: center;
+			z-index: 10;
 		}
 
 		@media (max-width: 640px) {
@@ -208,6 +216,8 @@
 			#player-info,
 			#options-container {
 				width: 100vw;
+				left: 50%;
+				transform: translateX(-50%);
 			}
 
 			#player-info {
@@ -266,8 +276,12 @@
 		}
 
 		.hide-heart .option-button.selected::before {
+			/* keep placeholder space but hide the heart glyph so layout doesn't shift */
 			content: '';
-			display: none;
+			display: inline-block;
+			visibility: hidden;
+			width: 28px; /* match default placeholder width */
+			margin-right: 10px;
 		}
 
 		.heart-icon {
@@ -351,9 +365,23 @@
 			font-size: 14px;
 			display: none;
 			color: var(--font-color);
-			/* メッセージ表示中はウィンドウがクリックを受け取って裏の操作を防ぐ */
+			box-sizing: border-box;
+			overflow: auto;
+			display: flex;
+			align-items: center;
+			justify-content: center;
 			pointer-events: auto;
 			font-family: var(--font-family);
+		}
+
+		/* メッセージウィンドウ内のボタンコンテナ */
+		#message-window > div {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: center;
+			gap: 8px;
+			align-items: center;
+			max-width: 100%;
 		}
 
 		/* メッセージウィンドウ内のターゲット選択レイアウト */

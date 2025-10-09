@@ -401,6 +401,8 @@ function handlePlayerAttack() {
 function setGameState(newState) {
 	if (gameState === newState) return;
 
+	console.log(`Game state changing from ${gameState} to ${newState}`);
+
 	// If a message is currently active, don't start the enemy turn yet.
 	// Defer entering ENEMY_TURN until messages are cleared.
 	if (
@@ -425,6 +427,7 @@ function setGameState(newState) {
 	const optionsContainer = document.getElementById("options-container");
 	const targetSelectContainer = document.getElementById("target-select-container");
 	if (gameState === "SELECT_TARGET") {
+		console.log("Entering SELECT_TARGET state");
 		// 显示ターゲット選択、行動側ハートは非表示
 		targetSelectContainer && (targetSelectContainer.style.display = "flex");
 		optionsContainer?.classList.add("hide-heart");
@@ -630,13 +633,19 @@ function updateTargetSelectUI() {
 function showTargetSelectionInMessage() {
 	const mw = document.getElementById("message-window");
 	if (!mw) return;
+	console.log("Before showing target selection:");
+	console.log("Message window rect:", mw.getBoundingClientRect());
+	const gameContainer = document.getElementById("game-container");
+	if (gameContainer) console.log("Game container rect:", gameContainer.getBoundingClientRect());
 	// reuse the existing container for non-modal display, but render into message window
 	mw.innerHTML = "";
-	mw.style.display = "block";
+	// Use flex so the container centers without affecting layout
+	mw.style.display = "flex";
 	mw.style.opacity = "1";
 	// create container
 	const container = document.createElement("div");
 	container.style.display = "flex";
+	container.style.flexWrap = "wrap";
 	container.style.justifyContent = "center";
 	container.style.gap = "12px";
 	enemies.forEach((enemy, i) => {
@@ -659,6 +668,9 @@ function showTargetSelectionInMessage() {
 		container.appendChild(btn);
 	});
 	mw.appendChild(container);
+	console.log("After adding buttons:");
+	console.log("Message window rect:", mw.getBoundingClientRect());
+	if (gameContainer) console.log("Game container rect:", gameContainer.getBoundingClientRect());
 	// mark message active to block other inputs; SELECT_TARGET handler allows keyboard navigation
 	messageActive = true;
 	messageVisible = true;
