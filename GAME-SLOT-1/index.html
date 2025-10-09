@@ -2,7 +2,7 @@
 <!--
   ファイル概要: 3x3スロットゲームの基本的なHTML構造を定義します。
   このファイルは、ゲームの骨格となる部分です。
-  見た目の装飾はCSS (style.css) で、ゲームの複雑な動作はJavaScript (script.js) で制御されます。
+      見た目の装飾はCSS (style.css) で、ゲームの複雑な動作はTypeScript (script.ts) で制御されます。
 -->
 <html lang="ja">
 
@@ -35,15 +35,15 @@
       <!--
             スロットマシンのコンテナ:
             この <div> の中に、JavaScript によってスロットのリールが動的に生成・配置されます。
-            注意: id="slot-machine" は script.js 内でリールを配置する基準点として使用されています。
-            この id を変更する場合は、必ず script.js 内の関連記述も修正してください。
+            注意: id="slot-machine" は script.ts 内でリールを配置する基準点として使用されています。
+            この id を変更する場合は、必ず script.ts 内の関連記述も修正してください。
       -->
       <!-- inline small transparent favicon to avoid /favicon.ico 404 in dev server -->
       <link rel="icon"
             href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEElEQVR42mP8z8BQz0AEYBxVSFIAAAQABJREFU"
             type="image/png">
       <div class="slot-container" id="slot-machine">
-            <!-- リールはJavaScript (script.js) によって、このコメント部分に動的に追加されます -->
+            <!-- リールはTypeScript (script.ts) によって、このコメント部分に動的に追加されます -->
       </div>
 
       <!-- 右側レバー（棒+球の図形描画）: 本体は動かさず、右横に固定表示 -->

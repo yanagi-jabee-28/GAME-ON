@@ -138,15 +138,30 @@ function pachiInit() {
 		console.error('Game container element (#game-container) not found.');
 		return; // 以降の処理はコンテナがないと成立しないため早期終了
 	}
+	// --- 初期レイアウト厳密化: CSSを強制指定 ---
+	container.style.position = 'relative';
+	container.style.width = width + 'px';
+	container.style.height = height + 'px';
+	container.style.maxWidth = '100vw';
+	container.style.maxHeight = '100vh';
+	container.style.margin = '0 auto';
+	container.style.boxSizing = 'border-box';
+	container.style.overflow = 'hidden';
 	// 初期レイアウトが安定するまで視覚的に隠しておく（モバイルで左上に集まる現象対策）
 	try { container.style.visibility = 'hidden'; } catch (_) { /* no-op */ }
-	// レスポンシブ対応: コンテナのサイズは CSS に委ね、キャンバスは等比でスケールさせる
-	// （内部の物理演算・描画解像度は width/height で維持）
-	// DOMレイヤリングのため relative を付与
-	if (!container.style.position) container.style.position = 'relative';
 
 	// cast options/pixelRatio to any to satisfy TS types (pixelRatio may be 'auto' at runtime)
 	const render = Render.create({ element: container, engine, options: { width, height, pixelRatio: 'auto' as any, ...renderOptions, showSleeping: false } });
+	// --- canvasサイズをcontainerに即時合わせる ---
+	try {
+		const c = render && render.canvas;
+		if (c) {
+			c.style.width = width + 'px';
+			c.style.height = height + 'px';
+			c.width = width;
+			c.height = height;
+		}
+	} catch (_) { /* no-op */ }
 
 	// レイアウトが確定するまで描画を開始しないためのフラグ
 	let sizedReady = false;
@@ -1759,8 +1774,4 @@ function pachiInit() {
 // Prefer full window load to avoid layout races caused by fonts/images/CSSOM
 try {
 	window.addEventListener('load', pachiInit);
-} catch (_) { }
-// If already fully loaded, run immediately
-try {
-	if (document && document.readyState === 'complete') pachiInit();
 } catch (_) { }

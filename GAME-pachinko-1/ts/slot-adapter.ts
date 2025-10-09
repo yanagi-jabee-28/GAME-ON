@@ -66,7 +66,7 @@ function __tryStartOrQueueSpin(reason) {
 
 // Helper to copy the slot HTML from GAME-SLOT-1 index.html into the embed container.
 function injectSlotHtml() {
-	// Build minimal slot markup expected by script.js from GAME-SLOT-1
+	// Build minimal slot markup expected by GAME-SLOT-1 TypeScript slot logic
 	const container = document.getElementById(EMBED_CONTAINER_ID);
 	if (!container) return false;
 
@@ -83,7 +83,7 @@ function injectSlotHtml() {
 	slotDiv.className = "slot-container";
 	slotDiv.id = "slot-machine";
 
-	// manual controls and buttons that script.js expects
+	// manual controls and buttons that slot logic expects
 	const manualControls = document.createElement("div");
 	manualControls.className = "manual-controls";
 	manualControls.id = "manualControls";
@@ -474,7 +474,7 @@ try {
 try {
 	window.addEventListener("slot:win", (ev) => {
 		try {
-			const detail = /** @type {CustomEvent|null} */ (/** @type {any} */ (ev) || {}).detail || null;
+			const detail = (ev as CustomEvent)?.detail || null;
 			const amount = Number(detail?.amount) || 0;
 			const mult = Number((gameConfig && gameConfig.rewards && gameConfig.rewards.slotWinAmmoMultiplier) || 0);
 			const adjusted = amount > 0 && mult > 0 && Number.isFinite(mult) ? Math.floor(amount * mult) : amount;
