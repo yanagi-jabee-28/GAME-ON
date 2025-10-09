@@ -86,6 +86,8 @@ const hpValue = document.getElementById("hp-value") as HTMLElement;
 const gameOverText = document.getElementById("game-over") as HTMLElement;
 const fightButton = document.getElementById("fight") as HTMLElement;
 const attackButton = document.getElementById("attack-button") as HTMLElement;
+const messageWindow = document.getElementById("message-window") as HTMLElement;
+const messageContent = document.getElementById("message-content") as HTMLElement;
 
 // Enemy DOM refs
 const enemyHpBar = document.getElementById("enemy-hp-bar") as HTMLElement;
@@ -401,10 +403,7 @@ function handlePlayerAttack() {
 function setGameState(newState) {
 	if (gameState === newState) return;
 
-	// debug logs removed
-
-	// If a message is currently active, don't start the enemy turn yet.
-	// Defer entering ENEMY_TURN until messages are cleared.
+	// If a message is currently active, postpone enemy turn until it clears
 	if (
 		newState === "ENEMY_TURN" &&
 		typeof messageActive !== "undefined" &&
@@ -423,24 +422,23 @@ function setGameState(newState) {
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	attackButton.style.display = "none";
 
-	// ハート表示・ターゲット選択UIの更新
 	const optionsContainer = document.getElementById("options-container");
 	const targetSelectContainer = document.getElementById("target-select-container");
 	if (gameState === "SELECT_TARGET") {
-		// 显示ターゲット選択、行動側ハートは非表示
+		// show target select and hide heart icon
 		targetSelectContainer && (targetSelectContainer.style.display = "flex");
 		optionsContainer?.classList.add("hide-heart");
 	} else if (gameState === "ENEMY_TURN" || gameState === "PLAYER_ATTACK") {
-		// 敵の攻撃中または自分の攻撃ミニゲーム中は行動側ハートを非表示
 		optionsContainer?.classList.add("hide-heart");
 		if (targetSelectContainer) targetSelectContainer.style.display = "none";
 	} else {
-		// default: ensure target select hidden and restore hearts
 		targetSelectContainer && (targetSelectContainer.style.display = "none");
 		optionsContainer?.classList.remove("hide-heart");
 	}
 
 	if (gameState === "ENEMY_TURN") {
+		setFrameMode("battle");
+		hideMessage({ keepFrame: true });
 		bullets.length = 0;
 		framesSinceLastHoming = 0;
 		bulletSpawnInterval = setInterval(createBullet, BULLET_SPAWN_INTERVAL_MS);
@@ -448,11 +446,10 @@ function setGameState(newState) {
 			if (gameState !== "GAME_OVER") {
 				setGameState("PLAYER_TURN");
 			}
-		}, ENEMY_TURN_DURATION_MS); // 10 seconds
+		}, ENEMY_TURN_DURATION_MS);
 	} else if (gameState === "PLAYER_TURN") {
-		// ENEMY_TURN から PLAYER_TURN に戻った時は順にメッセージを表示
+		setFrameMode("message");
 		if (previousState === "ENEMY_TURN") {
-			// まず敵の攻撃終了を短く表示し、その後 行動選択メッセージを常時表示（入力はブロックしない）
 			showMessage("敵の攻撃が終わった！", 1500);
 			setTimeout(() => {
 				showMessage("行動を選択してください", {
@@ -461,14 +458,16 @@ function setGameState(newState) {
 				});
 			}, 1600);
 		} else {
-			// それ以外の PLAYER_TURN では即座に 行動選択メッセージを常時表示（入力はブロックしない）
 			showMessage("行動を選択してください", {
 				persistent: true,
 				blockInput: false,
 			});
 		}
+	} else if (gameState === "SELECT_TARGET") {
+		setFrameMode("message", { force: true });
 	} else if (gameState === "PLAYER_ATTACK") {
-		hideMessage(); // Hide message window during attack minigame
+		setFrameMode("attack");
+		hideMessage({ keepFrame: true });
 		attackBar.markerX = battleBox.x;
 		attackBar.moving = true;
 		attackButton.style.display = "flex";
@@ -477,14 +476,13 @@ function setGameState(newState) {
 			.classList.add("bring-front");
 		document.getElementById("attack-button").classList.add("bring-front");
 	} else if (gameState === "GAME_OVER") {
+		setFrameMode("message", { force: true });
 		gameOverText.style.display = "block";
-		document.getElementById("battle-box-container").style.display = "none";
 		document.getElementById("attack-button").style.display = "none";
 		bullets.length = 0;
 	} else if (gameState === "VICTORY") {
-		// Game clear: show victory text, hide the battle area
+		setFrameMode("message", { force: true });
 		document.getElementById("game-clear").style.display = "block";
-		document.getElementById("battle-box-container").style.display = "none";
 		document.getElementById("attack-button").style.display = "none";
 		bullets.length = 0;
 	}
@@ -548,19 +546,19 @@ window.addEventListener("keydown", (e) => {
 		if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
 			selectedEnemyIndex = Math.max(0, selectedEnemyIndex - 1);
 			// if message window contains the selection UI, update it; otherwise update the persistent container
-			if (document.getElementById("message-window")?.firstElementChild) updateMessageWindowSelection();
+			if (messageContent && messageContent.childElementCount) updateMessageWindowSelection();
 			else updateTargetSelectUI();
 			return;
 		}
 		if (e.key === "ArrowRight" || e.key === "ArrowDown") {
 			selectedEnemyIndex = Math.min(enemies.length - 1, selectedEnemyIndex + 1);
-			if (document.getElementById("message-window")?.firstElementChild) updateMessageWindowSelection();
+			if (messageContent && messageContent.childElementCount) updateMessageWindowSelection();
 			else updateTargetSelectUI();
 			return;
 		}
 		if (e.code === "Space" || e.key === "Enter") {
 			// confirm selection: hide message then enter attack
-			hideMessage();
+			hideMessage({ keepFrame: true });
 			setGameState("PLAYER_ATTACK");
 			return;
 		}
@@ -630,16 +628,12 @@ function updateTargetSelectUI() {
 
 // メッセージウィンドウ内に攻撃対象選択を表示する
 function showTargetSelectionInMessage() {
-	const mw = document.getElementById("message-window");
-	if (!mw) return;
-	const gameContainer = document.getElementById("game-container");
-	// debug logs removed
-	// reuse the existing container for non-modal display, but render into message window
-	mw.innerHTML = "";
-	// Use flex so the container centers without affecting layout
-	mw.style.display = "flex";
-	mw.style.opacity = "1";
-	// create container
+	if (!messageWindow || !messageContent) return;
+	setFrameMode("message", { force: true });
+	clearMessageTimer();
+	messageContent.innerHTML = "";
+	messageContent.style.opacity = "0";
+	messageContent.style.opacity = "1";
 	const container = document.createElement("div");
 	container.style.display = "flex";
 	container.style.flexWrap = "wrap";
@@ -652,49 +646,76 @@ function showTargetSelectionInMessage() {
 		btn.disabled = enemy.hp <= 0;
 		btn.onclick = () => {
 			selectedEnemyIndex = i;
-			// update visual selection
-			Array.from(container.children).forEach((c, idx) => {
-				(c as HTMLElement).classList.toggle("selected", idx === selectedEnemyIndex);
-			});
+			updateMessageWindowSelection();
 		};
 		btn.ondblclick = () => {
 			selectedEnemyIndex = i;
-			hideMessage();
+			hideMessage({ keepFrame: true });
 			setGameState("PLAYER_ATTACK");
 		};
 		container.appendChild(btn);
 	});
-	mw.appendChild(container);
-	// debug logs removed
-	// mark message active to block other inputs; SELECT_TARGET handler allows keyboard navigation
+	messageContent.appendChild(container);
+	messageWindow.classList.remove("hidden");
+	messageWindow.setAttribute("aria-hidden", "false");
 	messageActive = true;
 	messageVisible = true;
 }
 
 // message window 側の選択表示を更新する (キーボードで選択を反映させるため)
 function updateMessageWindowSelection() {
-	const mw = document.getElementById("message-window");
-	if (!mw || !mw.firstElementChild) return;
-	const container = mw.firstElementChild as HTMLElement;
-	Array.from(container.children).forEach((c, idx) => {
-		(c as HTMLElement).classList.toggle("selected", idx === selectedEnemyIndex);
+	if (!messageContent) return;
+	const buttons = Array.from(messageContent.querySelectorAll(".target-select-btn"));
+	buttons.forEach((btn, idx) => {
+		(btn as HTMLElement).classList.toggle("selected", idx === selectedEnemyIndex);
 	});
 }
 
 attackButton.addEventListener("click", triggerAttack);
 
 // --- Message window helpers ---
-const messageWindow = document.getElementById("message-window") as HTMLElement;
-let messageTimer = null;
+type FrameMode = "message" | "attack" | "battle";
+let frameMode: FrameMode = "message";
+let messageTimer: ReturnType<typeof setTimeout> | null = null;
 let messageActive = false; // input lock
 let messageVisible = false; // visual state
 
+function clearMessageTimer() {
+	if (messageTimer) {
+		clearTimeout(messageTimer);
+		messageTimer = null;
+	}
+}
+
+function setFrameMode(mode: FrameMode, opts: { immediate?: boolean; force?: boolean } = {}) {
+	if (!messageWindow) return;
+	const { immediate = false, force = false } = opts;
+	if (!force && frameMode === mode) return;
+	if (immediate) messageWindow.classList.add("no-transition");
+	messageWindow.classList.remove("mode-message", "mode-attack", "mode-battle");
+	messageWindow.classList.add(`mode-${mode}`);
+	messageWindow.classList.remove("hidden");
+	messageWindow.dataset.frameMode = mode;
+	if (mode === "message") {
+		messageWindow.setAttribute("aria-hidden", "false");
+	} else {
+		messageWindow.setAttribute("aria-hidden", "true");
+		if (messageContent) messageContent.innerHTML = "";
+	}
+	frameMode = mode;
+	if (immediate) {
+		requestAnimationFrame(() => messageWindow.classList.remove("no-transition"));
+	}
+}
+
 type ShowMessageOptions = { duration?: number; blockInput?: boolean; persistent?: boolean };
 function showMessage(text: string, optsOrMs: number | ShowMessageOptions = 3000) {
-	if (!messageWindow) return;
-	messageWindow.textContent = text;
-	messageWindow.style.display = "block";
-	messageWindow.style.opacity = "1";
+	if (!messageWindow || !messageContent) return;
+	setFrameMode("message");
+	messageWindow.classList.remove("hidden");
+	messageWindow.setAttribute("aria-hidden", "false");
+	messageContent.style.opacity = "1";
+	messageContent.textContent = text;
 	messageVisible = true;
 
 	// normalize options
@@ -711,30 +732,31 @@ function showMessage(text: string, optsOrMs: number | ShowMessageOptions = 3000)
 	}
 
 	messageActive = !!blockInput;
-	if (messageTimer) {
-		clearTimeout(messageTimer);
-		messageTimer = null;
-	}
+	clearMessageTimer();
 	if (!persistent) {
 		messageTimer = setTimeout(() => {
-			messageWindow.style.display = "none";
-			messageTimer = null;
-			messageActive = false;
-			messageVisible = false;
+			hideMessage();
 		}, duration);
 	}
 }
 
-function hideMessage() {
-	if (!messageWindow) return;
-	messageWindow.style.display = "none";
-	if (messageTimer) {
-		clearTimeout(messageTimer);
-		messageTimer = null;
-	}
+function hideMessage(opts: { keepFrame?: boolean } = {}) {
+	if (!messageWindow || !messageContent) return;
+	const { keepFrame = false } = opts;
+	clearMessageTimer();
+	messageContent.innerHTML = "";
+	messageContent.style.opacity = "0";
 	messageActive = false;
 	messageVisible = false;
+	messageWindow.setAttribute("aria-hidden", "true");
+	if (!keepFrame) {
+		messageWindow.classList.add("hidden");
+	}
 }
+
+setFrameMode("message", { immediate: true, force: true });
+messageWindow?.classList.add("hidden");
+messageContent && (messageContent.style.opacity = "0");
 
 // Wire other action buttons to show messages
 document.getElementById("act").addEventListener("click", () => {

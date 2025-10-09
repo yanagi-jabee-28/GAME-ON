@@ -183,18 +183,26 @@
 
 
 		#battle-box-container {
-			width: var(--battle-size);
-			height: var(--battle-size);
-			display: flex;
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			display: none;
 			justify-content: center;
 			align-items: center;
-			position: relative;
-			z-index: 20;
-			/* default stacking below message-window */
+			z-index: 10;
+		}
+
+		#message-window.mode-battle #battle-box-container,
+		#message-window.mode-attack #battle-box-container {
+			display: flex;
 		}
 
 		#battle-canvas {
 			background-color: #000;
+			width: var(--battle-size);
+			height: var(--battle-size);
 		}
 
 		#options-container {
@@ -349,12 +357,13 @@
 			position: relative !important;
 		}
 
-		/* メッセージウィンドウ */
+		/* メッセージウィンドウ（バトルフレーム） */
 		#message-window {
 			position: absolute;
-			bottom: var(--message-bottom);
 			left: 50%;
-			transform: translateX(-50%);
+			top: auto;
+			bottom: var(--message-bottom);
+			transform: translate(-50%, 0);
 			width: calc(100% - 40px);
 			height: var(--battle-inner-size);
 			background: rgba(0, 0, 0, 0.9);
@@ -363,32 +372,76 @@
 			text-align: center;
 			z-index: 40;
 			font-size: 14px;
-			display: none;
 			color: var(--font-color);
 			box-sizing: border-box;
-			overflow: auto;
+			overflow: hidden;
 			display: flex;
 			align-items: center;
 			justify-content: center;
 			pointer-events: auto;
 			font-family: var(--font-family);
+			transition: width 0.35s ease, height 0.35s ease, top 0.35s ease, bottom 0.35s ease,
+				transform 0.35s ease, padding 0.35s ease, background 0.35s ease, opacity 0.25s ease;
 		}
 
-		/* メッセージウィンドウ内のボタンコンテナ */
-		#message-window > div {
+		#message-window.no-transition {
+			transition: none !important;
+		}
+
+		#message-window.hidden {
+			opacity: 0;
+			pointer-events: none;
+		}
+
+		#message-window.mode-message {
+			bottom: var(--message-bottom);
+			top: auto;
+			transform: translate(-50%, 0);
+			width: calc(100% - 40px);
+			height: var(--battle-inner-size);
+			padding: 10px 12px;
+			background: rgba(0, 0, 0, 0.9);
+			pointer-events: auto;
+		}
+
+		#message-window.mode-attack {
+			bottom: calc(var(--message-bottom) + 16px);
+			top: auto;
+			transform: translate(-50%, 0);
+			width: var(--battle-inner-size);
+			height: 96px;
+			padding: 12px;
+			background: rgba(0, 0, 0, 0.9);
+			pointer-events: none;
+		}
+
+		#message-window.mode-battle {
+			top: 50%;
+			bottom: auto;
+			transform: translate(-50%, -50%);
+			width: var(--battle-size);
+			height: var(--battle-size);
+			padding: 0;
+			border: none;
+			background: transparent;
+			pointer-events: none;
+		}
+
+		#message-content {
+			width: 100%;
 			display: flex;
 			flex-wrap: wrap;
 			justify-content: center;
-			gap: 8px;
+			gap: 12px;
 			align-items: center;
-			max-width: 100%;
+			text-align: center;
+			transition: opacity 0.2s ease;
 		}
 
-		/* メッセージウィンドウ内のターゲット選択レイアウト */
-		#message-window > div {
-			display: flex;
-			justify-content: center;
-			gap: 12px;
+		#message-window.mode-attack #message-content,
+		#message-window.mode-battle #message-content {
+			opacity: 0;
+			pointer-events: none;
 		}
 
 		/* 攻撃対象選択ボタンのスタイル */
@@ -437,12 +490,14 @@
 				<div id="enemy-hp-value">30 / 30</div>
 			</div>
 			<!-- メッセージウィンドウ（行動選択時にメッセージを表示） -->
-			<div id="message-window" role="status" aria-live="polite"></div>
+			<div id="message-window" class="mode-message hidden" role="status" aria-live="polite">
+				<div id="message-content"></div>
+				<div id="battle-box-container">
+					<canvas id="battle-canvas" width="250" height="250"></canvas>
+				</div>
+			</div>
 		</div>
 		<div id="enemy-mark">💀</div>
-		<div id="battle-box-container">
-			<canvas id="battle-canvas" width="250" height="250"></canvas>
-		</div>
 		<div id="attack-button">ATTACK</div>
 		<div id="game-over">GAME OVER</div>
 		<div id="game-clear">GAME CLEAR</div>
