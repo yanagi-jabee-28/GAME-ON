@@ -408,7 +408,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 	// Ensure CPU strength select reflects CONFIG (either forced or default) so AI reads the intended value
 	try {
-		const cpuSelect = document.getElementById('cpu-strength-select');
+		const cpuSelect = document.getElementById('cpu-strength-select') as HTMLSelectElement | null;
 		if (cpuSelect) {
 			const desired = CONFIG.FORCE_CPU_STRENGTH || CONFIG.DEFAULT_CPU_STRENGTH;
 			if (desired) {

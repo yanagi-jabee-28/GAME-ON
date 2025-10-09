@@ -70,7 +70,7 @@ requestTablebase();
 function resolveCpuStrength() {
 	if (CONFIG.FORCE_CPU_STRENGTH) return CONFIG.FORCE_CPU_STRENGTH;
 	if (CONFIG.SHOW_CPU_STRENGTH_SELECT && typeof document !== 'undefined') {
-		const select = document.getElementById('cpu-strength-select');
+		const select = document.getElementById('cpu-strength-select') as HTMLSelectElement | null;
 		if (select && select.value) return select.value;
 	}
 	return CONFIG.DEFAULT_CPU_STRENGTH || 'hard';
