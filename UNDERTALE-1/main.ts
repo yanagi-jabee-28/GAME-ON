@@ -401,7 +401,7 @@ function handlePlayerAttack() {
 function setGameState(newState) {
 	if (gameState === newState) return;
 
-	console.log(`Game state changing from ${gameState} to ${newState}`);
+	// debug logs removed
 
 	// If a message is currently active, don't start the enemy turn yet.
 	// Defer entering ENEMY_TURN until messages are cleared.
@@ -427,7 +427,6 @@ function setGameState(newState) {
 	const optionsContainer = document.getElementById("options-container");
 	const targetSelectContainer = document.getElementById("target-select-container");
 	if (gameState === "SELECT_TARGET") {
-		console.log("Entering SELECT_TARGET state");
 		// 显示ターゲット選択、行動側ハートは非表示
 		targetSelectContainer && (targetSelectContainer.style.display = "flex");
 		optionsContainer?.classList.add("hide-heart");
@@ -633,10 +632,8 @@ function updateTargetSelectUI() {
 function showTargetSelectionInMessage() {
 	const mw = document.getElementById("message-window");
 	if (!mw) return;
-	console.log("Before showing target selection:");
-	console.log("Message window rect:", mw.getBoundingClientRect());
 	const gameContainer = document.getElementById("game-container");
-	if (gameContainer) console.log("Game container rect:", gameContainer.getBoundingClientRect());
+	// debug logs removed
 	// reuse the existing container for non-modal display, but render into message window
 	mw.innerHTML = "";
 	// Use flex so the container centers without affecting layout
@@ -668,9 +665,7 @@ function showTargetSelectionInMessage() {
 		container.appendChild(btn);
 	});
 	mw.appendChild(container);
-	console.log("After adding buttons:");
-	console.log("Message window rect:", mw.getBoundingClientRect());
-	if (gameContainer) console.log("Game container rect:", gameContainer.getBoundingClientRect());
+	// debug logs removed
 	// mark message active to block other inputs; SELECT_TARGET handler allows keyboard navigation
 	messageActive = true;
 	messageVisible = true;
@@ -777,7 +772,7 @@ try {
 			joystickVector.y = 0;
 		});
 } catch (e) {
-	console.log("Could not initialize joystick.");
+	// joystick init failed (silent)
 }
 
 
