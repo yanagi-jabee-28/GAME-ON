@@ -24,6 +24,6 @@
 		"noUnusedLocals": false,
 		"noUnusedParameters": false
 	},
-	"include": ["./**/*.js", "./**/*.ts"],
+	"include": ["./**/*.ts"],
 	"exclude": ["legacy", "node_modules", "dist"]
 }
