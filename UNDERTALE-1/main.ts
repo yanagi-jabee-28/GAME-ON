@@ -414,13 +414,13 @@ function setGameState(newState) {
 		messageWindow.classList.add("hidden");
 		setTimeout(() => {
 			document.getElementById("game-over").style.display = "block";
-		}, 500);
+		}, 3000); // Increased delay to ensure complete hiding
 	} else if (gameState === "VICTORY") {
 		battleBoxContainer.style.display = "none";
 		messageWindow.classList.add("hidden");
 		setTimeout(() => {
 			document.getElementById("game-clear").style.display = "block";
-		}, 500);
+		}, 3000); // Increased delay to ensure complete hiding
 	}
 
 	clearTimeout(enemyTurnTimer);
