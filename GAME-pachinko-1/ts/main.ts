@@ -20,6 +20,7 @@
 
 import Matter from "matter-js";
 import { GAME_CONFIG, getMaterialInteraction } from "../ts/config";
+
 /** @type {any} */
 const __GAME_CONFIG__any = GAME_CONFIG;
 // --- Lightweight ambient helpers to reduce tsserver noise ---
@@ -33,6 +34,7 @@ var updateParticles;
 var __RenderAny = /** @type {any} */ (
 	typeof Matter !== "undefined" && Matter.Render ? Matter.Render : {}
 );
+
 import {
 	addBoundsToWorld,
 	createBall,

@@ -23,16 +23,21 @@ function generateNumber(): number {
 }
 
 // DOM helpers
-const el = <T extends HTMLElement>(id: string) =>
-	document.getElementById(id) as T | null;
+const el = <T extends HTMLElement>(id: string): T => {
+	const element = document.getElementById(id);
+	if (!element) {
+		throw new Error(`Element with id "${id}" not found`);
+	}
+	return element as T;
+};
 
 let state: GameState | null = null;
 
 function render() {
-	const currentEl = el<HTMLDivElement>("current")!;
-	const factorsEl = el<HTMLDivElement>("factors")!;
-	const stepsEl = el<HTMLDivElement>("steps")!;
-	const logEl = el<HTMLDivElement>("log")!;
+	const currentEl = el<HTMLDivElement>("current");
+	const factorsEl = el<HTMLDivElement>("factors");
+	const stepsEl = el<HTMLDivElement>("steps");
+	const logEl = el<HTMLDivElement>("log");
 	if (!state) return;
 	currentEl.textContent = String(state.current);
 	stepsEl.textContent = `ステップ: ${state.steps}`;
@@ -65,7 +70,7 @@ function onFactorClick(p: number) {
 }
 
 function appendLog(s: string) {
-	const logEl = el<HTMLDivElement>("log")!;
+	const logEl = el<HTMLDivElement>("log");
 	const p = document.createElement("div");
 	p.textContent = s;
 	logEl.prepend(p);
@@ -92,8 +97,8 @@ function resetProblem() {
 
 // Wire controls
 document.addEventListener("DOMContentLoaded", () => {
-	const newBtn = el<HTMLButtonElement>("new")!;
-	const resetBtn = el<HTMLButtonElement>("reset")!;
+	const newBtn = el<HTMLButtonElement>("new");
+	const resetBtn = el<HTMLButtonElement>("reset");
 	newBtn.addEventListener("click", newProblem);
 	resetBtn.addEventListener("click", resetProblem);
 	// start first problem

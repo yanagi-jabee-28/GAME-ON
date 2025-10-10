@@ -471,24 +471,24 @@ document.addEventListener("keydown", (event) => {
 	if (!isGameRunning || currentBeat >= 3) return;
 
 	let selectedAction = "";
-	let buttonToHighlight = null;
+	let buttonToHighlight: HTMLButtonElement | null = null;
 
 	switch (event.code) {
 		case "ShiftLeft":
 		case "ShiftRight":
 			selectedAction = "CHARGE";
-			buttonToHighlight = document.getElementById("charge-button");
+			buttonToHighlight = chargeButton;
 			break;
 		case "Space":
 			event.preventDefault(); // スペースキーでのスクロールを防止
-			buttonToHighlight = document.getElementById("guard-button");
-			if (buttonToHighlight.disabled) return;
+			buttonToHighlight = guardButton;
+			if (buttonToHighlight?.disabled) return;
 			selectedAction = "GUARD";
 			break;
 		case "Enter":
 			event.preventDefault(); // Enterキーでのボタン再クリックを防止
 			selectedAction = "ATTACK";
-			buttonToHighlight = document.getElementById("attack-button");
+			buttonToHighlight = attackButton;
 			break;
 	}
 

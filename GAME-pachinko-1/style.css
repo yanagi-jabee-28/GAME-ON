@@ -1,6 +1,22 @@
 /* --- 全体の基本スタイル --- */
 @import "tailwindcss";
 
+:root {
+	/*
+		ゲーム領域以外の UI が占める縦方向のスペースを動的に差し引くための変数。
+		レイアウトスクリプトが実測値を代入し、未計測時はこの初期値が利用される。
+	*/
+	--game-ui-reserved: 240px;
+	/* iOS Safari などでアドレスバー表示分を考慮できるように viewport 高さも変数化 */
+	--game-viewport-height: 100vh;
+}
+
+@supports (height: 100dvh) {
+	:root {
+		--game-viewport-height: 100dvh;
+	}
+}
+
 body {
 	font-family: sans-serif;
 	text-align: center;
@@ -26,12 +42,17 @@ h1 {
 	border: 1px solid #ccc;
 	position: relative;
 	/* 矢印などの絶対配置要素の基準となります */
-	width: min(95vw, 650px);
-	/* Maintain aspect ratio but constrain height so slider fits on screen */
+	width: min(
+		95vw,
+		650px,
+		calc(
+			max(0px, var(--game-viewport-height) - var(--game-ui-reserved)) *
+			650 / 900
+		)
+	);
+	/* Maintain aspect ratio while letting height derive from width */
 	aspect-ratio: 650 / 900;
 	background: #fff;
-	/* Ensure container doesn't exceed viewport height minus controls (header + slider area) */
-	max-height: calc(100vh - 140px);
 	overflow: hidden;
 }
 
@@ -154,9 +175,20 @@ button {
 		padding: 8px;
 	}
 
+	:root {
+		/* モバイル UI の方が縦に伸びやすいため控えめに引き算する */
+		--game-ui-reserved: 280px;
+	}
+
 	#game-container {
-		width: 96vw;
-		max-height: calc(100vh - 130px);
+		width: min(
+			96vw,
+			650px,
+			calc(
+				max(0px, var(--game-viewport-height) - var(--game-ui-reserved)) *
+				650 / 900
+			)
+		);
 	}
 
 	.controls label {
