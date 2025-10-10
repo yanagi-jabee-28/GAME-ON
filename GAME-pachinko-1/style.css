@@ -2,16 +2,16 @@
 @import "tailwindcss";
 
 body {
-    font-family: sans-serif;
-    text-align: center;
-    background-color: #f0f0f0;
-    margin: 0;
-    /* Reduce padding to give more vertical space for the game */
-    padding: 8px 12px;
+	font-family: sans-serif;
+	text-align: center;
+	background-color: #f0f0f0;
+	margin: 0;
+	/* Reduce padding to give more vertical space for the game */
+	padding: 8px 12px;
 }
 
 h1 {
-    color: #333;
+	color: #333;
 }
 
 /* --- ゲーム関連のコンテナとキャンバス --- */
@@ -21,221 +21,220 @@ h1 {
     - デスクトップでは最大幅を制限
 */
 #game-container {
-    /* Bring game container higher on the page */
-    margin: 8px auto 6px auto;
-    border: 1px solid #ccc;
-    position: relative;
-    /* 矢印などの絶対配置要素の基準となります */
-    width: min(95vw, 650px);
-    /* Maintain aspect ratio but constrain height so slider fits on screen */
-    aspect-ratio: 650 / 900;
-    background: #fff;
-    /* Ensure container doesn't exceed viewport height minus controls (header + slider area) */
-    max-height: calc(100vh - 140px);
-    overflow: hidden;
+	/* Bring game container higher on the page */
+	margin: 8px auto 6px auto;
+	border: 1px solid #ccc;
+	position: relative;
+	/* 矢印などの絶対配置要素の基準となります */
+	width: min(95vw, 650px);
+	/* Maintain aspect ratio but constrain height so slider fits on screen */
+	aspect-ratio: 650 / 900;
+	background: #fff;
+	/* Ensure container doesn't exceed viewport height minus controls (header + slider area) */
+	max-height: calc(100vh - 140px);
+	overflow: hidden;
 }
 
 canvas {
-    display: block;
-    background-color: #fff;
-    /* コンテナ幅いっぱいにスケール（内部解像度はJS側のwidth/heightで維持） */
-    width: 100% !important;
-    height: 100% !important;
+	display: block;
+	background-color: #fff;
+	/* コンテナ幅いっぱいにスケール（内部解像度はJS側のwidth/heightで維持） */
+	width: 100% !important;
+	height: 100% !important;
 }
 
 /* --- UIコントロール --- */
 button {
-    margin-top: 20px;
-    padding: 10px 20px;
-    font-size: 16px;
-    cursor: pointer;
-    border: none;
-    background-color: #4CAF50;
-    gap: 10px;
-    flex-wrap: wrap;
-    justify-content: center;
+	margin-top: 20px;
+	padding: 10px 20px;
+	font-size: 16px;
+	cursor: pointer;
+	border: none;
+	background-color: #4caf50;
+	gap: 10px;
+	flex-wrap: wrap;
+	justify-content: center;
 }
 
 .controls label {
-    font-size: 14px;
+	font-size: 14px;
 }
 
 .controls {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
 }
 
 /* Keep controls visible near bottom and avoid extra margin pushing them off-screen */
 .controls {
-    margin-bottom: 12px;
+	margin-bottom: 12px;
 }
 
 .controls input[type="range"] {
-    width: min(600px, 92vw);
+	width: min(600px, 92vw);
 }
 
 .controls .slider-info {
-    margin-top: 8px;
-    text-align: center;
+	margin-top: 8px;
+	text-align: center;
 }
 
 /* 残弾表示のスタイル */
 .ammo-box {
-    display: inline-block;
-    margin-top: 6px;
-    padding: 6px 10px;
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.06);
-    color: #222;
-    font-size: 13px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+	display: inline-block;
+	margin-top: 6px;
+	padding: 6px 10px;
+	border-radius: 8px;
+	background: rgba(0, 0, 0, 0.06);
+	color: #222;
+	font-size: 13px;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .ammo-box.low {
-    background: rgba(255, 80, 80, 0.12);
-    color: #b00;
-    box-shadow: 0 1px 4px rgba(180, 0, 0, 0.12);
+	background: rgba(255, 80, 80, 0.12);
+	color: #b00;
+	box-shadow: 0 1px 4px rgba(180, 0, 0, 0.12);
 }
 
 /* --- 現在は使用されていない要素 --- */
 #launch-arrow {
-    display: none !important;
-    /* 現在はキャンバスに直接描画 */
+	display: none !important;
+	/* 現在はキャンバスに直接描画 */
 }
 
 /* 以前のバージョンの発射台は無効化 */
 #launch-pad {
-    display: none !important;
+	display: none !important;
 }
-
 
 /* --- 数値表示のレイアウト崩れ防止 --- */
 /* 等幅フォントを使用して、数値の桁数が変わってもガタつかないようにする */
 #angle-val,
 #speed-val,
 #speed-actual {
-    font-variant-numeric: tabular-nums;
-    /* 対応ブラウザで等幅数値を有効化 */
-    font-feature-settings: "tnum";
-    /* 一部のブラウザ用のフォールバック */
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-variant-numeric: tabular-nums;
+	/* 対応ブラウザで等幅数値を有効化 */
+	font-feature-settings: "tnum";
+	/* 一部のブラウザ用のフォールバック */
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 /* 角度表示用の幅を確保 */
 #angle-val {
-    display: inline-block;
-    width: 6ch;
-    /* "180.0" のような表示に対応 */
-    text-align: right;
+	display: inline-block;
+	width: 6ch;
+	/* "180.0" のような表示に対応 */
+	text-align: right;
 }
 
 /* 発射強度表示用の幅を確保 */
 #speed-val {
-    display: inline-block;
-    width: 5ch;
-    /* "100.0" のような表示に対応 */
-    text-align: right;
+	display: inline-block;
+	width: 5ch;
+	/* "100.0" のような表示に対応 */
+	text-align: right;
 }
 
 /* 実際の速度表示用の幅を確保 */
 #speed-actual {
-    display: inline-block;
-    min-width: 12ch;
-    /* "px/s" という単位表示のためのスペース */
-    text-align: left;
-    opacity: 0.85;
+	display: inline-block;
+	min-width: 12ch;
+	/* "px/s" という単位表示のためのスペース */
+	text-align: left;
+	opacity: 0.85;
 }
 
 /* モバイル向け微調整 */
 @media (max-width: 480px) {
-    body {
-        padding: 8px;
-    }
+	body {
+		padding: 8px;
+	}
 
-    #game-container {
-        width: 96vw;
-        max-height: calc(100vh - 130px);
-    }
+	#game-container {
+		width: 96vw;
+		max-height: calc(100vh - 130px);
+	}
 
-    .controls label {
-        font-size: 13px;
-    }
+	.controls label {
+		font-size: 13px;
+	}
 
-    button {
-        font-size: 15px;
-        padding: 10px 16px;
-    }
+	button {
+		font-size: 15px;
+		padding: 10px 16px;
+	}
 }
 
 /* --- Embedded Slot Integration (スロット埋め込み用) --- */
 #embedded-slot-area {
-    display: block;
-    margin-top: 12px;
+	display: block;
+	margin-top: 12px;
 }
 
 #embedded-slot-area .manual-controls {
-    display: none !important;
+	display: none !important;
 }
 
 #embedded-slot-area #embedded-slot-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    /* 左右中央 */
-    justify-content: flex-start;
-    gap: 10px;
-    /* スロットとボタンの間隔 */
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	/* 左右中央 */
+	justify-content: flex-start;
+	gap: 10px;
+	/* スロットとボタンの間隔 */
 }
 
 #embedded-slot-area #slot-machine {
-    margin: 0 auto;
+	margin: 0 auto;
 }
 
 #embedded-slot-area #actionBtn {
-    align-self: center !important;
-    position: static !important;
-    float: none !important;
-    margin: 0;
-    /* gapで調整 */
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+	align-self: center !important;
+	position: static !important;
+	float: none !important;
+	margin: 0;
+	/* gapで調整 */
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 }
 
 #embedded-slot-area #winMessage {
-    display: none !important;
+	display: none !important;
 }
 
 /* --- Portal Back Button (ポータルへ戻る) --- */
 .topbar {
-    position: sticky;
-    top: 8px;
-    z-index: 100;
-    display: flex;
-    justify-content: flex-start;
-    margin: 8px 0;
+	position: sticky;
+	top: 8px;
+	z-index: 100;
+	display: flex;
+	justify-content: flex-start;
+	margin: 8px 0;
 }
 
 .back-to-portal {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    border-radius: 6px;
-    text-decoration: none;
-    background: #f5f5f5;
-    color: #333;
-    border: 1px solid #ddd;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 10px;
+	border-radius: 6px;
+	text-decoration: none;
+	background: #f5f5f5;
+	color: #333;
+	border: 1px solid #ddd;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 @media (prefers-color-scheme: dark) {
-    .back-to-portal {
-        background: #2b2b2b;
-        color: #eee;
-        border-color: #444;
-    }
+	.back-to-portal {
+		background: #2b2b2b;
+		color: #eee;
+		border-color: #444;
+	}
 }

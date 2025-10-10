@@ -385,8 +385,8 @@ function animate() {
 		const velocity = ball.body.velocity;
 		const speed = Math.sqrt(
 			velocity.x * velocity.x +
-			velocity.y * velocity.y +
-			velocity.z * velocity.z,
+				velocity.y * velocity.y +
+				velocity.z * velocity.z,
 		);
 		if (speed < 0.1 && ball.body.position.y > -5) {
 			// 停止したボールに少し力を加える

@@ -19,4 +19,4 @@ declare global {
 	function showToastMessage(msg: any, durationMs?: number): void;
 }
 
-export { };
+export {};

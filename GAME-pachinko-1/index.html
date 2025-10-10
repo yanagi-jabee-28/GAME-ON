@@ -1,57 +1,65 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>パチンコゲーム</title>
+		<link rel="stylesheet" href="style.css" />
+		<!-- Embed slot styles so injected slot markup is styled correctly -->
+		<link rel="stylesheet" href="../GAME-SLOT-1/style.css" />
 
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>パチンコゲーム</title>
-	<link rel="stylesheet" href="style.css">
-	<!-- Embed slot styles so injected slot markup is styled correctly -->
-	<link rel="stylesheet" href="../GAME-SLOT-1/style.css">
+		<!-- Preload slot scripts and styles to reduce timing variance -->
+		<link rel="preload" href="../GAME-SLOT-1/script.ts" as="script" />
+		<link rel="modulepreload" href="../GAME-SLOT-1/script.ts" />
+		<link rel="preload" href="ts/slot-adapter.ts" as="script" />
+		<link rel="modulepreload" href="ts/slot-adapter.ts" />
+	</head>
 
-	<!-- Preload slot scripts and styles to reduce timing variance -->
-	<link rel="preload" href="../GAME-SLOT-1/script.ts" as="script">
-	<link rel="modulepreload" href="../GAME-SLOT-1/script.ts">
-	<link rel="preload" href="ts/slot-adapter.ts" as="script">
-	<link rel="modulepreload" href="ts/slot-adapter.ts">
+	<body>
+		<!-- Portal Back Button -->
+		<div class="topbar">
+			<a class="back-to-portal" href="/GAME-ON/" aria-label="ポータルに戻る"
+				>← ポータルに戻る</a
+			>
+		</div>
+		<!-- ゲームタイトル -->
+		<h1></h1>
 
-</head>
+		<!-- Matterのレンダリングが行われるコンテナ -->
+		<div id="game-container"></div>
 
-<body>
-	<!-- Portal Back Button -->
-	<div class="topbar">
-		<a class="back-to-portal" href="/GAME-ON/" aria-label="ポータルに戻る">← ポータルに戻る</a>
-	</div>
-	<!-- ゲームタイトル -->
-	<h1></h1>
+		<!-- ボールの発射方向を示す矢印 -->
+		<div id="launch-arrow" aria-hidden="true"></div>
 
-	<!-- Matterのレンダリングが行われるコンテナ -->
-	<div id="game-container"></div>
+		<!-- ゲームの操作パネル -->
+		<div class="controls">
+			<!-- 発射強度を調整するスライダー -->
+			<input
+				id="speed-slider"
+				type="range"
+				min="0"
+				max="100"
+				step="1"
+				value="50"
+			/>
+			<div class="slider-info">
+				<label>強さ (0〜100): <span id="speed-val">50</span></label>
+			</div>
 
-	<!-- ボールの発射方向を示す矢印 -->
-	<div id="launch-arrow" aria-hidden="true"></div>
-
-	<!-- ゲームの操作パネル -->
-	<div class="controls">
-		<!-- 発射強度を調整するスライダー -->
-		<input id="speed-slider" type="range" min="0" max="100" step="1" value="50">
-		<div class="slider-info">
-			<label>強さ (0〜100): <span id="speed-val">50</span></label>
+			<!-- Embedded slot area: 開発者パネルより上に配置するため、.controls 内に置く -->
+			<div id="embedded-slot-area">
+				<!-- Slot HTML will be injected here when adapter initializes -->
+				<div id="embedded-slot-container"></div>
+			</div>
 		</div>
 
-		<!-- Embedded slot area: 開発者パネルより上に配置するため、.controls 内に置く -->
-		<div id="embedded-slot-area">
-			<!-- Slot HTML will be injected here when adapter initializes -->
-			<div id="embedded-slot-container"></div>
-		</div>
-	</div>
-
-	<!-- ゲームスクリプト（読み込み順序が重要） -->
-	<script type="module" src="ts/dev-tools.ts"></script> <!-- 開発用ツール -->
-	<!-- Load slot assets first so they can inject DOM before pachinko initializes -->
-	<script type="module" src="../GAME-SLOT-1/script.ts"></script>
-	<script type="module" src="ts/slot-adapter.ts"></script>
-	<script type="module" src="ts/main.ts"></script> <!-- メインロジック -->
-</body>
-
+		<!-- ゲームスクリプト（読み込み順序が重要） -->
+		<script type="module" src="ts/dev-tools.ts"></script>
+		<!-- 開発用ツール -->
+		<!-- Load slot assets first so they can inject DOM before pachinko initializes -->
+		<script type="module" src="../GAME-SLOT-1/script.ts"></script>
+		<script type="module" src="ts/slot-adapter.ts"></script>
+		<script type="module" src="ts/main.ts"></script>
+		<!-- メインロジック -->
+	</body>
 </html>

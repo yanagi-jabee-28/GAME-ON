@@ -18,9 +18,9 @@ export class SlotSoundManager {
 		this.masterVolume = Number(this.config.sounds?.volume ?? 0.8);
 		const v = this.config.sounds?.volumes || {};
 		this.perVolume = {
-			spinStart: (typeof v.spinStart === 'number') ? v.spinStart : 1.0,
-			reelStop: (typeof v.reelStop === 'number') ? v.reelStop : 0.5, // 既定で半分
-			win: (typeof v.win === 'number') ? v.win : 1.0,
+			spinStart: typeof v.spinStart === "number" ? v.spinStart : 1.0,
+			reelStop: typeof v.reelStop === "number" ? v.reelStop : 0.5, // 既定で半分
+			win: typeof v.win === "number" ? v.win : 1.0,
 		};
 		this.files = this.config.sounds?.files || {};
 		this.ctx = null;
@@ -34,7 +34,7 @@ export class SlotSoundManager {
 			// Cast window to any to allow non-standard webkitAudioContext while keeping runtime behavior
 			const Win = /** @type {any} */ (window);
 			this.ctx = new (Win.AudioContext || Win.webkitAudioContext)();
-			for (const key of ['spinStart', 'reelStop', 'win']) {
+			for (const key of ["spinStart", "reelStop", "win"]) {
 				const path = this.files[key];
 				if (path) {
 					try {
@@ -43,18 +43,22 @@ export class SlotSoundManager {
 						const buf = await this.ctx.decodeAudioData(ab.slice(0));
 						this.buffers[key] = buf;
 					} catch (e) {
-						console.warn('Sound preload failed for', key, e);
+						console.warn("Sound preload failed for", key, e);
 					}
 				}
 			}
 		} catch (e) {
-			console.warn('WebAudio init failed, sound disabled', e);
+			console.warn("WebAudio init failed, sound disabled", e);
 			this.enabled = false;
 		}
 	}
 
-	_clampVol(x) { return Math.max(0, Math.min(1, Number(x) || 0)); }
-	_finalVol(kind) { return this._clampVol(this.masterVolume * (this.perVolume?.[kind] ?? 1)); }
+	_clampVol(x) {
+		return Math.max(0, Math.min(1, Number(x) || 0));
+	}
+	_finalVol(kind) {
+		return this._clampVol(this.masterVolume * (this.perVolume?.[kind] ?? 1));
+	}
 
 	_playBuffer(buf: AudioBuffer, finalVol: number): void {
 		if (!this.enabled || !this.ctx) return;
@@ -66,7 +70,12 @@ export class SlotSoundManager {
 		src.start();
 	}
 
-	_synthBeep(freq = 440, dur = 0.1, type: OscillatorType = 'sine', finalVol = this.masterVolume) {
+	_synthBeep(
+		freq = 440,
+		dur = 0.1,
+		type: OscillatorType = "sine",
+		finalVol = this.masterVolume,
+	) {
 		if (!this.ctx) return;
 		const o = this.ctx.createOscillator();
 		const g = this.ctx.createGain();
@@ -90,7 +99,7 @@ export class SlotSoundManager {
 		for (const f of freqs) {
 			const o = this.ctx.createOscillator();
 			const g = this.ctx.createGain();
-			o.type = 'sine';
+			o.type = "sine";
 			o.frequency.value = f;
 			g.gain.value = vol;
 			o.connect(g).connect(this.ctx.destination);
@@ -105,22 +114,27 @@ export class SlotSoundManager {
 
 	playSpinStart() {
 		if (!this.enabled) return;
-		const vol = this._finalVol('spinStart');
-		if (this.buffers.spinStart) return this._playBuffer(this.buffers.spinStart, vol);
+		const vol = this._finalVol("spinStart");
+		if (this.buffers.spinStart)
+			return this._playBuffer(this.buffers.spinStart, vol);
 		this._synthSequence([210, 290, 370], 0.07, vol);
-		setTimeout(() => this._synthBeep(140, 0.08, 'sine', this._clampVol(vol * 0.5)), 140);
+		setTimeout(
+			() => this._synthBeep(140, 0.08, "sine", this._clampVol(vol * 0.5)),
+			140,
+		);
 	}
 
 	playReelStop() {
 		if (!this.enabled) return;
-		const vol = this._finalVol('reelStop');
-		if (this.buffers.reelStop) return this._playBuffer(this.buffers.reelStop, vol);
-		this._synthBeep(800, 0.08, 'square', vol);
+		const vol = this._finalVol("reelStop");
+		if (this.buffers.reelStop)
+			return this._playBuffer(this.buffers.reelStop, vol);
+		this._synthBeep(800, 0.08, "square", vol);
 	}
 
 	playWin() {
 		if (!this.enabled) return;
-		const vol = this._finalVol('win');
+		const vol = this._finalVol("win");
 		if (this.buffers.win) return this._playBuffer(this.buffers.win, vol);
 		this._synthSequence([600, 900, 1200], 0.12, vol);
 	}
@@ -134,8 +148,8 @@ export class SlotSoundManager {
 		this._loopTimer = setInterval(() => {
 			const f = pattern[idx % pattern.length];
 			idx++;
-			const vol = this._clampVol(this._finalVol('spinStart') * 0.18);
-			this._synthBeep(f, 0.06, 'square', vol);
+			const vol = this._clampVol(this._finalVol("spinStart") * 0.18);
+			this._synthBeep(f, 0.06, "square", vol);
 		}, intervalMs);
 	}
 
@@ -152,9 +166,11 @@ export class SlotSoundManager {
 	 * @param {number} volume - 新しいマスター音量 (0.0 - 1.0)
 	 */
 	setMasterVolume(volume) {
-		if (typeof volume === 'number') {
+		if (typeof volume === "number") {
 			this.masterVolume = this._clampVol(volume);
-			console.log(`[SlotSoundManager] Master volume set to: ${this.masterVolume}`);
+			console.log(
+				`[SlotSoundManager] Master volume set to: ${this.masterVolume}`,
+			);
 		}
 	}
 
@@ -164,9 +180,11 @@ export class SlotSoundManager {
 	 * @param {number} volume - 新しい個別音量 (0.0 - 1.0)
 	 */
 	setPerVolume(kind, volume) {
-		if (this.perVolume.hasOwnProperty(kind) && typeof volume === 'number') {
+		if (Object.hasOwn(this.perVolume, kind) && typeof volume === "number") {
 			this.perVolume[kind] = this._clampVol(volume);
-			console.log(`[SlotSoundManager] Volume for '${kind}' set to: ${this.perVolume[kind]}`);
+			console.log(
+				`[SlotSoundManager] Volume for '${kind}' set to: ${this.perVolume[kind]}`,
+			);
 		}
 	}
 }

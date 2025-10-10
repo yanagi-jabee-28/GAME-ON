@@ -6,12 +6,12 @@
 // 注意: UI はゲーム状態を直接変更しない（状態変更は `game.ts` が担当）。
 
 let playerHandElements; // プレイヤーの手を表す DOM 要素配列
-let aiHandElements;     // AI の手を表す DOM 要素配列
-let messageEl;          // メッセージ表示要素
-let splitBtnEl;         // 分割ボタン要素
-let restartBtnEl;       // 再スタートボタン要素
-let splitModalEl;       // 分割モーダル要素
-let splitTotalEl;       // モーダル内の合計表示要素
+let aiHandElements; // AI の手を表す DOM 要素配列
+let messageEl; // メッセージ表示要素
+let splitBtnEl; // 分割ボタン要素
+let restartBtnEl; // 再スタートボタン要素
+let splitModalEl; // 分割モーダル要素
+let splitTotalEl; // モーダル内の合計表示要素
 let splitOptionsContainer; // 分割候補ボタンを入れるコンテナ
 let undoBtnEl; // 戻すボタン要素
 let hintAreaEl; // ヒント表示エリア要素
@@ -23,28 +23,34 @@ let moveCounterEl; // 手数表示要素
 
 export function cacheDom() {
 	// DOM 要素を一度だけ取得してキャッシュする（頻繁な DOM アクセスを避けるため）
-	playerHandElements = [document.getElementById('player-hand-0'), document.getElementById('player-hand-1')];
-	aiHandElements = [document.getElementById('ai-hand-0'), document.getElementById('ai-hand-1')];
-	messageEl = document.getElementById('message');
-	splitBtnEl = document.getElementById('split-btn');
-	restartBtnEl = document.getElementById('restart-btn');
-	splitModalEl = document.getElementById('split-modal');
+	playerHandElements = [
+		document.getElementById("player-hand-0"),
+		document.getElementById("player-hand-1"),
+	];
+	aiHandElements = [
+		document.getElementById("ai-hand-0"),
+		document.getElementById("ai-hand-1"),
+	];
+	messageEl = document.getElementById("message");
+	splitBtnEl = document.getElementById("split-btn");
+	restartBtnEl = document.getElementById("restart-btn");
+	splitModalEl = document.getElementById("split-modal");
 	// Ensure modal is hidden on initial load to avoid accidental visible state
-	if (splitModalEl) splitModalEl.classList.add('hidden');
-	splitTotalEl = document.getElementById('split-total');
-	splitOptionsContainer = document.getElementById('split-options');
-	undoBtnEl = document.getElementById('undo-btn');
-	hintAreaEl = document.getElementById('hint-area');
-	moveCounterEl = document.getElementById('move-counter');
+	if (splitModalEl) splitModalEl.classList.add("hidden");
+	splitTotalEl = document.getElementById("split-total");
+	splitOptionsContainer = document.getElementById("split-options");
+	undoBtnEl = document.getElementById("undo-btn");
+	hintAreaEl = document.getElementById("hint-area");
+	moveCounterEl = document.getElementById("move-counter");
 
 	// layout related elements for adaptive scaling
-	gameContainerEl = document.getElementById('game-container');
+	gameContainerEl = document.getElementById("game-container");
 	if (gameContainerEl) gameWrapperEl = gameContainerEl.parentElement;
-	topControlsEl = document.querySelector('.inline-flex');
+	topControlsEl = document.querySelector(".inline-flex");
 
 	// Allow clicking on the modal overlay to close the modal (click outside content)
 	if (splitModalEl) {
-		splitModalEl.addEventListener('click', (e) => {
+		splitModalEl.addEventListener("click", (e) => {
 			if (e.target === splitModalEl) closeSplitModal();
 		});
 	}
@@ -61,10 +67,10 @@ export function fitUIToViewport() {
 	if (!gameContainerEl || !gameWrapperEl) return;
 
 	// Temporarily remove transform to measure natural size
-	const prevTransform = gameContainerEl.style.transform || '';
-	const prevTransformOrigin = gameContainerEl.style.transformOrigin || '';
-	gameContainerEl.style.transform = '';
-	gameContainerEl.style.transformOrigin = '';
+	const prevTransform = gameContainerEl.style.transform || "";
+	const prevTransformOrigin = gameContainerEl.style.transformOrigin || "";
+	gameContainerEl.style.transform = "";
+	gameContainerEl.style.transformOrigin = "";
 
 	// Give the browser one frame to settle measurements if needed
 	// Measure natural size
@@ -95,8 +101,8 @@ export function fitUIToViewport() {
 	const scale = Math.min(1, availW / naturalWidth, availH / naturalHeight);
 
 	// Apply transform with smooth transition
-	gameContainerEl.style.transformOrigin = 'top center';
-	gameContainerEl.style.transition = 'transform 0.18s ease-out';
+	gameContainerEl.style.transformOrigin = "top center";
+	gameContainerEl.style.transition = "transform 0.18s ease-out";
 	gameContainerEl.style.transform = `scale(${scale})`;
 
 	// Reserve wrapper minimum height so layout below doesn't overlap the scaled card.
@@ -104,13 +110,15 @@ export function fitUIToViewport() {
 	try {
 		if (scale >= 1) {
 			// No scaling required, clear any forced minHeight so layout can be natural
-			gameWrapperEl.style.minHeight = '';
-			gameWrapperEl.style.height = '';
+			gameWrapperEl.style.minHeight = "";
+			gameWrapperEl.style.height = "";
 		} else {
-			gameWrapperEl.style.height = '';
+			gameWrapperEl.style.height = "";
 			gameWrapperEl.style.minHeight = `${Math.ceil(naturalHeight * scale + margin)}px`;
 		}
-	} catch (e) { /* ignore styling errors */ }
+	} catch (e) {
+		/* ignore styling errors */
+	}
 
 	currentScale = scale;
 
@@ -118,31 +126,36 @@ export function fitUIToViewport() {
 	// prevTransform is not reapplied because we want the scaled state to persist
 }
 
-import CONFIG from './config';
+import CONFIG from "./config";
 
-export function displayPlayerHints(analysis, mode = 'full', selection = null) {
+export function displayPlayerHints(analysis, mode = "full", selection = null) {
 	if (!hintAreaEl) return;
 	// Globally disabled hints: clear and bail
-	if (!CONFIG.SHOW_HINT_CONTROLS) { hintAreaEl.innerHTML = ''; return; }
+	if (!CONFIG.SHOW_HINT_CONTROLS) {
+		hintAreaEl.innerHTML = "";
+		return;
+	}
 	// If the hints toggle is currently off, do not display anything.
-	const hintToggle = document.getElementById('toggle-hints-cb') as HTMLInputElement | null;
+	const hintToggle = document.getElementById(
+		"toggle-hints-cb",
+	) as HTMLInputElement | null;
 	const hintsEnabled = !!(hintToggle && hintToggle.checked);
 	if (!hintsEnabled) {
-		hintAreaEl.innerHTML = '';
+		hintAreaEl.innerHTML = "";
 		return;
 	}
 	// If analysis is null it means the tablebase isn't loaded yet.
 	// To avoid flicker on reload/initial render, leave the hint area empty instead of showing "計算中...".
 	if (!analysis) {
 		// Do not display any message to avoid flicker; main.ts will request a re-render when data is ready.
-		hintAreaEl.innerHTML = '';
+		hintAreaEl.innerHTML = "";
 		// clear any action highlights when analysis not available
 		clearActionHighlights();
 		return;
 	}
 
-	const winMoves = analysis.filter(a => a.outcome === 'WIN');
-	const drawMoves = analysis.filter(a => a.outcome === 'DRAW');
+	const winMoves = analysis.filter((a) => a.outcome === "WIN");
+	const drawMoves = analysis.filter((a) => a.outcome === "DRAW");
 
 	let bestMove;
 	let outcomeText;
@@ -152,52 +165,52 @@ export function displayPlayerHints(analysis, mode = 'full', selection = null) {
 		winMoves.sort((a, b) => a.distance - b.distance);
 		bestMove = winMoves[0];
 		// フルヒント/簡易ヒントで表示内容を切り替える
-		if (mode === 'simple') {
-			outcomeText = '勝てる局面';
+		if (mode === "simple") {
+			outcomeText = "勝てる局面";
 		} else {
 			// 表示は「この手を含めた手数」として見せる（遷移先 distance + 1）
-			if (bestMove.distance === 0) outcomeText = '即勝ち';
+			if (bestMove.distance === 0) outcomeText = "即勝ち";
 			else outcomeText = `${bestMove.distance + 1}手で勝ち`;
 		}
-		outcomeColorClass = 'text-green-600';
+		outcomeColorClass = "text-green-600";
 	} else if (drawMoves.length > 0) {
 		bestMove = drawMoves[0]; // どの引き分け手でも良い
-		if (mode === 'simple') outcomeText = '引き分けの局面';
-		else outcomeText = '引き分け';
-		outcomeColorClass = 'text-blue-600';
+		if (mode === "simple") outcomeText = "引き分けの局面";
+		else outcomeText = "引き分け";
+		outcomeColorClass = "text-blue-600";
 	} else if (analysis.length > 0) {
 		analysis.sort((a, b) => b.distance - a.distance); // 最も長く粘れる手
 		bestMove = analysis[0];
-		if (mode === 'simple') {
-			outcomeText = '負ける局面';
+		if (mode === "simple") {
+			outcomeText = "負ける局面";
 		} else {
-			if (bestMove.distance === 0) outcomeText = '即負け';
+			if (bestMove.distance === 0) outcomeText = "即負け";
 			else outcomeText = `${bestMove.distance + 1}手で負け`;
 		}
-		outcomeColorClass = 'text-red-600';
+		outcomeColorClass = "text-red-600";
 	} else {
-		hintAreaEl.innerHTML = ''; // 手がない場合
+		hintAreaEl.innerHTML = ""; // 手がない場合
 		return;
 	}
 
 	// moveオブジェクトを人間可読な文字列に変換する
-	let actionText = '';
-	if (bestMove.move.type === 'attack') {
-		const fromHand = bestMove.move.fromIndex === 0 ? '左手' : '右手';
-		const toHand = bestMove.move.toIndex === 0 ? '相手の左手' : '相手の右手';
+	let actionText = "";
+	if (bestMove.move.type === "attack") {
+		const fromHand = bestMove.move.fromIndex === 0 ? "左手" : "右手";
+		const toHand = bestMove.move.toIndex === 0 ? "相手の左手" : "相手の右手";
 		actionText = `(${fromHand}で${toHand}を攻撃)`;
-	} else if (bestMove.move.type === 'split') {
-		actionText = `(手を[${bestMove.move.values.join(', ')}]に分割)`;
+	} else if (bestMove.move.type === "split") {
+		actionText = `(手を[${bestMove.move.values.join(", ")}]に分割)`;
 	}
 
-	if (mode === 'simple') {
+	if (mode === "simple") {
 		hintAreaEl.innerHTML = `💡 <span class="font-bold ${outcomeColorClass}">${outcomeText}</span>`;
 	} else {
 		hintAreaEl.innerHTML = `💡 最善手: <span class="font-bold ${outcomeColorClass}">${outcomeText}</span> <span class="text-xs">${actionText}</span>`;
 	}
 
 	// When analysis is present, also apply per-action highlights (attack targets / splits) only for full hints
-	if (mode === 'full') {
+	if (mode === "full") {
 		try {
 			applyActionHighlights(analysis, selection);
 		} catch (e) {
@@ -217,23 +230,56 @@ export function clearActionHighlights() {
 	if (Array.isArray(playerHandElements)) {
 		(playerHandElements as HandElement[]).forEach((el) => {
 			if (!el) return;
-			el.classList.remove('hint-win', 'hint-draw', 'hint-loss', 'border-4', 'border-green-400', 'border-blue-400', 'border-red-400');
+			el.classList.remove(
+				"hint-win",
+				"hint-draw",
+				"hint-loss",
+				"border-4",
+				"border-green-400",
+				"border-blue-400",
+				"border-red-400",
+			);
 			// remove any inline border styles we may have applied
-			try { el.style.borderWidth = ''; el.style.borderStyle = ''; el.style.borderColor = ''; } catch (e) { }
+			try {
+				el.style.borderWidth = "";
+				el.style.borderStyle = "";
+				el.style.borderColor = "";
+			} catch (e) {}
 		});
 	}
 	if (Array.isArray(aiHandElements)) {
 		(aiHandElements as HandElement[]).forEach((el: HandElement) => {
 			if (!el) return;
-			el.classList.remove('hint-win', 'hint-draw', 'hint-loss', 'border-4', 'border-green-400', 'border-blue-400', 'border-red-400');
-			try { el.style.borderWidth = ''; el.style.borderStyle = ''; el.style.borderColor = ''; } catch (e) { }
+			el.classList.remove(
+				"hint-win",
+				"hint-draw",
+				"hint-loss",
+				"border-4",
+				"border-green-400",
+				"border-blue-400",
+				"border-red-400",
+			);
+			try {
+				el.style.borderWidth = "";
+				el.style.borderStyle = "";
+				el.style.borderColor = "";
+			} catch (e) {}
 		});
 	}
 	// clear split option coloring if present
 	if (splitOptionsContainer) {
-		splitOptionsContainer.querySelectorAll('button').forEach(b => {
-			b.classList.remove('border-4', 'border-green-400', 'border-blue-400', 'border-red-400');
-			try { b.style.borderWidth = ''; b.style.borderStyle = ''; b.style.borderColor = ''; } catch (e) { }
+		splitOptionsContainer.querySelectorAll("button").forEach((b) => {
+			b.classList.remove(
+				"border-4",
+				"border-green-400",
+				"border-blue-400",
+				"border-red-400",
+			);
+			try {
+				b.style.borderWidth = "";
+				b.style.borderStyle = "";
+				b.style.borderColor = "";
+			} catch (e) {}
 		});
 	}
 }
@@ -246,76 +292,90 @@ export function applyActionHighlights(analysis, selection) {
 	if (!analysis || !Array.isArray(analysis) || analysis.length === 0) return;
 
 	// Highlight attack targets for the currently selected player hand
-	if (selection && selection.owner === 'player' && typeof selection.index === 'number') {
+	if (
+		selection &&
+		selection.owner === "player" &&
+		typeof selection.index === "number"
+	) {
 		const fromIdx = selection.index;
 		// Find attack moves from this hand
-		const attacks = analysis.filter(a => a.move.type === 'attack' && a.move.fromIndex === fromIdx);
-		attacks.forEach(a => {
+		const attacks = analysis.filter(
+			(a) => a.move.type === "attack" && a.move.fromIndex === fromIdx,
+		);
+		attacks.forEach((a) => {
 			const toIdx = a.move.toIndex;
 			const el = aiHandElements[toIdx];
 			if (!el) return;
 			// Apply inline border styles to avoid relying on compiled Tailwind utility classes
 			try {
-				el.style.borderWidth = '4px';
-				el.style.borderStyle = 'solid';
-				if (a.outcome === 'WIN') {
-					el.style.borderColor = '#34D399'; // green-400-ish
-				} else if (a.outcome === 'DRAW') {
-					el.style.borderColor = '#60A5FA'; // blue-400-ish
+				el.style.borderWidth = "4px";
+				el.style.borderStyle = "solid";
+				if (a.outcome === "WIN") {
+					el.style.borderColor = "#34D399"; // green-400-ish
+				} else if (a.outcome === "DRAW") {
+					el.style.borderColor = "#60A5FA"; // blue-400-ish
 				} else {
-					el.style.borderColor = '#FB7185'; // red-400-ish
+					el.style.borderColor = "#FB7185"; // red-400-ish
 				}
-			} catch (e) { /* ignore style errors */ }
+			} catch (e) {
+				/* ignore style errors */
+			}
 		});
 	}
 	// Also color split options inside modal if open (main will pass analysis to openSplitModal)
 }
 
 export function clearPlayerHints() {
-	if (hintAreaEl) hintAreaEl.innerHTML = '';
+	if (hintAreaEl) hintAreaEl.innerHTML = "";
 }
 
 export function updateDisplay(state) {
 	// プレイヤー/AI の数値と disabled 表示を更新する
 	playerHandElements.forEach((el, i) => {
 		el.textContent = state.playerHands[i]; // 行末コメント: 数値を描画
-		el.classList.toggle('disabled', state.playerHands[i] === 0); // 行末コメント: 0 の手を無効表示
+		el.classList.toggle("disabled", state.playerHands[i] === 0); // 行末コメント: 0 の手を無効表示
 	});
 	aiHandElements.forEach((el, i) => {
 		el.textContent = state.aiHands[i];
-		el.classList.toggle('disabled', state.aiHands[i] === 0);
+		el.classList.toggle("disabled", state.aiHands[i] === 0);
 	});
 
 	// update undo button enabled/disabled according to state.canUndo if provided
 	if (undoBtnEl) {
-		if (typeof state.canUndo === 'function') {
+		if (typeof state.canUndo === "function") {
 			undoBtnEl.disabled = !state.canUndo();
-			undoBtnEl.classList.toggle('opacity-50', !state.canUndo());
+			undoBtnEl.classList.toggle("opacity-50", !state.canUndo());
 		} else {
 			// fallback: enable by default
 			undoBtnEl.disabled = false;
-			undoBtnEl.classList.remove('opacity-50');
+			undoBtnEl.classList.remove("opacity-50");
 		}
 	}
 
 	// If gameOver flag provided in state, hide or show split button only.
-	if (typeof state.gameOver !== 'undefined') {
+	if (typeof state.gameOver !== "undefined") {
 		if (state.gameOver) {
-			if (splitBtnEl) splitBtnEl.classList.add('hidden');
+			if (splitBtnEl) splitBtnEl.classList.add("hidden");
 		} else {
-			if (splitBtnEl) splitBtnEl.classList.remove('hidden');
+			if (splitBtnEl) splitBtnEl.classList.remove("hidden");
 		}
 	}
 
 	// Update move counter if provided
-	if (typeof state.moveCount === 'number' && moveCounterEl) {
+	if (typeof state.moveCount === "number" && moveCounterEl) {
 		moveCounterEl.textContent = String(state.moveCount);
 	}
 
 	// After updating display, ensure the UI fits the viewport (useful when sizes change)
-	if (typeof fitUIToViewport === 'function') {
+	if (typeof fitUIToViewport === "function") {
 		// Delay slightly to allow DOM reflow (e.g., after animations)
-		setTimeout(() => { try { fitUIToViewport(); } catch (e) { /* ignore */ } }, 30);
+		setTimeout(() => {
+			try {
+				fitUIToViewport();
+			} catch (e) {
+				/* ignore */
+			}
+		}, 30);
 	}
 }
 
@@ -326,55 +386,73 @@ export function updateMessage(msg) {
 
 export function openSplitModal(state, analysisOrUndefined, onSelect) {
 	// 分割モーダルを開く。プレイヤーのターンかつゲーム中であることを前提とする
-	if (state.gameOver || state.currentPlayer !== 'player') return; // 条件満たさない場合は無視
+	if (state.gameOver || state.currentPlayer !== "player") return; // 条件満たさない場合は無視
 	const total = state.playerHands[0] + state.playerHands[1]; // 合計本数
 	splitTotalEl.textContent = total; // 合計表示を更新
-	splitOptionsContainer.innerHTML = ''; // 前回の候補をクリア
+	splitOptionsContainer.innerHTML = ""; // 前回の候補をクリア
 	if (total === 0) {
 		// 分割できる指が無い場合の案内
-		splitOptionsContainer.innerHTML = '<p class="col-span-2 text-gray-500">分配できる指がありません。</p>';
+		splitOptionsContainer.innerHTML =
+			'<p class="col-span-2 text-gray-500">分配できる指がありません。</p>';
 		// Add cancel button so user can close the modal
-		const cancelBtn = document.createElement('button');
-		cancelBtn.textContent = 'キャンセル';
-		cancelBtn.className = 'btn py-3 px-4 bg-gray-300 text-black font-bold rounded-lg shadow-md col-span-2';
-		cancelBtn.onclick = () => { closeSplitModal(); };
+		const cancelBtn = document.createElement("button");
+		cancelBtn.textContent = "キャンセル";
+		cancelBtn.className =
+			"btn py-3 px-4 bg-gray-300 text-black font-bold rounded-lg shadow-md col-span-2";
+		cancelBtn.onclick = () => {
+			closeSplitModal();
+		};
 		splitOptionsContainer.appendChild(cancelBtn);
-		splitModalEl.classList.remove('hidden');
+		splitModalEl.classList.remove("hidden");
 		return;
 	}
 	const possibleSplits = [];
 	for (let i = 0; i <= total / 2; i++) {
 		const j = total - i;
 		if (j > 4) continue; // 右手が 4 を超える分割は無効
-		const isSameAsCurrent = (i === state.playerHands[0] && j === state.playerHands[1]);
-		const isSameAsReversed = (i === state.playerHands[1] && j === state.playerHands[0]);
+		const isSameAsCurrent =
+			i === state.playerHands[0] && j === state.playerHands[1];
+		const isSameAsReversed =
+			i === state.playerHands[1] && j === state.playerHands[0];
 		if (!isSameAsCurrent && !isSameAsReversed) possibleSplits.push([i, j]); // 重複パターンを除外
 	}
 	if (possibleSplits.length === 0) {
-		splitOptionsContainer.innerHTML = '<p class="col-span-2 text-gray-500">有効な分配パターンがありません。</p>';
+		splitOptionsContainer.innerHTML =
+			'<p class="col-span-2 text-gray-500">有効な分配パターンがありません。</p>';
 		// add cancel button
-		const cancelBtn = document.createElement('button');
-		cancelBtn.textContent = 'キャンセル';
-		cancelBtn.className = 'btn py-3 px-4 bg-gray-300 text-black font-bold rounded-lg shadow-md col-span-2';
-		cancelBtn.onclick = () => { closeSplitModal(); };
+		const cancelBtn = document.createElement("button");
+		cancelBtn.textContent = "キャンセル";
+		cancelBtn.className =
+			"btn py-3 px-4 bg-gray-300 text-black font-bold rounded-lg shadow-md col-span-2";
+		cancelBtn.onclick = () => {
+			closeSplitModal();
+		};
 		splitOptionsContainer.appendChild(cancelBtn);
 	} else {
-		possibleSplits.forEach(split => {
-			const button = document.createElement('button');
+		possibleSplits.forEach((split) => {
+			const button = document.createElement("button");
 			button.textContent = `${split[0]} と ${split[1]}`; // ボタンに候補数値を表示
 			// default neutral styling
-			button.className = 'btn py-3 px-4 bg-gray-100 text-black font-bold rounded-lg shadow-md w-full';
+			button.className =
+				"btn py-3 px-4 bg-gray-100 text-black font-bold rounded-lg shadow-md w-full";
 			// If analysis available, find a matching split result and color accordingly
 			try {
 				if (analysisOrUndefined && Array.isArray(analysisOrUndefined)) {
 					// Find analysis entry that is a split with these values
-					const found = analysisOrUndefined.find(a => a.move.type === 'split' && a.move.values[0] === split[0] && a.move.values[1] === split[1]);
+					const found = analysisOrUndefined.find(
+						(a) =>
+							a.move.type === "split" &&
+							a.move.values[0] === split[0] &&
+							a.move.values[1] === split[1],
+					);
 					if (found) {
 						// paint border color according to outcome
-						button.classList.add('border-4');
-						if (found.outcome === 'WIN') button.classList.add('border-green-400');
-						else if (found.outcome === 'DRAW') button.classList.add('border-blue-400');
-						else button.classList.add('border-red-400');
+						button.classList.add("border-4");
+						if (found.outcome === "WIN")
+							button.classList.add("border-green-400");
+						else if (found.outcome === "DRAW")
+							button.classList.add("border-blue-400");
+						else button.classList.add("border-red-400");
 					}
 				}
 			} catch (e) {
@@ -382,24 +460,27 @@ export function openSplitModal(state, analysisOrUndefined, onSelect) {
 			}
 			button.onclick = () => {
 				// Delegate the actual split action to the caller via callback
-				if (typeof onSelect === 'function') onSelect(split[0], split[1]); // 行末コメント: 選択後に呼び出し側が状態を更新
-				splitModalEl.classList.add('hidden'); // モーダルを閉じる
+				if (typeof onSelect === "function") onSelect(split[0], split[1]); // 行末コメント: 選択後に呼び出し側が状態を更新
+				splitModalEl.classList.add("hidden"); // モーダルを閉じる
 			};
 			splitOptionsContainer.appendChild(button);
 		});
 		// Add a cancel button under valid options as well
-		const cancelBtn = document.createElement('button');
-		cancelBtn.textContent = 'キャンセル';
-		cancelBtn.className = 'btn py-3 px-4 bg-gray-300 text-black font-bold rounded-lg shadow-md col-span-2';
-		cancelBtn.onclick = () => { closeSplitModal(); };
+		const cancelBtn = document.createElement("button");
+		cancelBtn.textContent = "キャンセル";
+		cancelBtn.className =
+			"btn py-3 px-4 bg-gray-300 text-black font-bold rounded-lg shadow-md col-span-2";
+		cancelBtn.onclick = () => {
+			closeSplitModal();
+		};
 		splitOptionsContainer.appendChild(cancelBtn);
 	}
-	splitModalEl.classList.remove('hidden'); // モーダル表示
+	splitModalEl.classList.remove("hidden"); // モーダル表示
 }
 
 export function closeSplitModal() {
 	// モーダルを閉じるユーティリティ
-	splitModalEl.classList.add('hidden');
+	splitModalEl.classList.add("hidden");
 }
 
 export function animateMove(element, targetX, targetY, callback) {
@@ -409,19 +490,23 @@ export function animateMove(element, targetX, targetY, callback) {
 	const deltaY = targetY - rect.top;
 
 	element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-	element.classList.add('move-to-target');
+	element.classList.add("move-to-target");
 
 	function handler() {
-		element.classList.remove('move-to-target');
-		element.style.transform = '';
-		element.removeEventListener('transitionend', handler);
-		if (typeof callback === 'function') callback();
+		element.classList.remove("move-to-target");
+		element.style.transform = "";
+		element.removeEventListener("transitionend", handler);
+		if (typeof callback === "function") callback();
 	}
 
-	element.addEventListener('transitionend', handler);
+	element.addEventListener("transitionend", handler);
 }
 
-export function performPlayerAttackAnim(attackerIndex, targetIndex, onComplete) {
+export function performPlayerAttackAnim(
+	attackerIndex,
+	targetIndex,
+	onComplete,
+) {
 	// プレイヤーの攻撃アニメーション: 手のクローンを作ってターゲットまで移動させる
 	const attackerEl = playerHandElements[attackerIndex];
 	const targetEl = aiHandElements[targetIndex];
@@ -429,7 +514,7 @@ export function performPlayerAttackAnim(attackerIndex, targetIndex, onComplete) 
 	const attackerClone = attackerEl.cloneNode(true);
 	document.body.appendChild(attackerClone);
 	const attackerRect = attackerEl.getBoundingClientRect();
-	attackerClone.style.position = 'absolute';
+	attackerClone.style.position = "absolute";
 	attackerClone.style.left = `${attackerRect.left}px`;
 	attackerClone.style.top = `${attackerRect.top}px`;
 	attackerClone.style.width = `${attackerRect.width}px`;
@@ -443,14 +528,18 @@ export function performPlayerAttackAnim(attackerIndex, targetIndex, onComplete) 
 export function performAiAttackAnim(attackerIndex, targetIndex, onComplete) {
 	// AI の攻撃アニメーション（プレイヤー攻撃と逆方向）
 	// Clear any player-side hint highlights so UI doesn't show hints during AI action
-	try { clearActionHighlights(); } catch (e) { /* ignore */ }
+	try {
+		clearActionHighlights();
+	} catch (e) {
+		/* ignore */
+	}
 	const attackerEl = aiHandElements[attackerIndex];
 	const targetEl = playerHandElements[targetIndex];
 	const targetRect = targetEl.getBoundingClientRect();
 	const attackerClone = attackerEl.cloneNode(true);
 	document.body.appendChild(attackerClone);
 	const attackerRect = attackerEl.getBoundingClientRect();
-	attackerClone.style.position = 'absolute';
+	attackerClone.style.position = "absolute";
 	attackerClone.style.left = `${attackerRect.left}px`;
 	attackerClone.style.top = `${attackerRect.top}px`;
 	attackerClone.style.width = `${attackerRect.width}px`;
@@ -464,28 +553,38 @@ export function performAiAttackAnim(attackerIndex, targetIndex, onComplete) {
 export function performAiSplitAnim(onComplete) {
 	// AI の分割アニメーション: 左右の手を中央へ寄せる表現
 	// Clear any player-side hint highlights so UI doesn't show hints during AI action
-	try { clearActionHighlights(); } catch (e) { /* ignore */ }
+	try {
+		clearActionHighlights();
+	} catch (e) {
+		/* ignore */
+	}
 	const leftHandEl = aiHandElements[0];
 	const rightHandEl = aiHandElements[1];
-	const leftCenterX = leftHandEl.getBoundingClientRect().left + leftHandEl.getBoundingClientRect().width / 2;
-	const rightCenterX = rightHandEl.getBoundingClientRect().left + rightHandEl.getBoundingClientRect().width / 2;
+	const leftCenterX =
+		leftHandEl.getBoundingClientRect().left +
+		leftHandEl.getBoundingClientRect().width / 2;
+	const rightCenterX =
+		rightHandEl.getBoundingClientRect().left +
+		rightHandEl.getBoundingClientRect().width / 2;
 	const centerX = (leftCenterX + rightCenterX) / 2; // 中央 x 座標
 	const centerY = leftHandEl.getBoundingClientRect().top; // y 座標は左右同じ想定
 	const leftClone = leftHandEl.cloneNode(true);
 	const rightClone = rightHandEl.cloneNode(true);
 	document.body.appendChild(leftClone);
 	document.body.appendChild(rightClone);
-	leftClone.style.position = 'absolute';
-	rightClone.style.position = 'absolute';
+	leftClone.style.position = "absolute";
+	rightClone.style.position = "absolute";
 	const leftRect = leftHandEl.getBoundingClientRect();
 	const rightRect = rightHandEl.getBoundingClientRect();
 	leftClone.style.left = `${leftRect.left}px`;
 	leftClone.style.top = `${leftRect.top}px`;
 	rightClone.style.left = `${rightRect.left}px`;
 	rightClone.style.top = `${rightRect.top}px`;
-	const leftTargetX = centerX - (leftClone.offsetWidth / 2);
-	const rightTargetX = centerX - (rightClone.offsetWidth / 2);
-	animateMove(leftClone, leftTargetX, centerY, () => { document.body.removeChild(leftClone); });
+	const leftTargetX = centerX - leftClone.offsetWidth / 2;
+	const rightTargetX = centerX - rightClone.offsetWidth / 2;
+	animateMove(leftClone, leftTargetX, centerY, () => {
+		document.body.removeChild(leftClone);
+	});
 	animateMove(rightClone, rightTargetX, centerY, () => {
 		document.body.removeChild(rightClone);
 		if (onComplete) onComplete();
@@ -497,25 +596,31 @@ export function performPlayerSplitAnim(val0, val1, onComplete) {
 	// 注意: 状態変更はここでは行わず、onComplete で呼び出し元に通知するだけ
 	const leftHandEl = playerHandElements[0];
 	const rightHandEl = playerHandElements[1];
-	const leftCenterX = leftHandEl.getBoundingClientRect().left + leftHandEl.getBoundingClientRect().width / 2;
-	const rightCenterX = rightHandEl.getBoundingClientRect().left + rightHandEl.getBoundingClientRect().width / 2;
+	const leftCenterX =
+		leftHandEl.getBoundingClientRect().left +
+		leftHandEl.getBoundingClientRect().width / 2;
+	const rightCenterX =
+		rightHandEl.getBoundingClientRect().left +
+		rightHandEl.getBoundingClientRect().width / 2;
 	const centerX = (leftCenterX + rightCenterX) / 2;
 	const centerY = leftHandEl.getBoundingClientRect().top;
 	const leftClone = leftHandEl.cloneNode(true);
 	const rightClone = rightHandEl.cloneNode(true);
 	document.body.appendChild(leftClone);
 	document.body.appendChild(rightClone);
-	leftClone.style.position = 'absolute';
-	rightClone.style.position = 'absolute';
+	leftClone.style.position = "absolute";
+	rightClone.style.position = "absolute";
 	const leftRect = leftHandEl.getBoundingClientRect();
 	const rightRect = rightHandEl.getBoundingClientRect();
 	leftClone.style.left = `${leftRect.left}px`;
 	leftClone.style.top = `${leftRect.top}px`;
 	rightClone.style.left = `${rightRect.left}px`;
 	rightClone.style.top = `${rightRect.top}px`;
-	const leftTargetX = centerX - (leftClone.offsetWidth / 2);
-	const rightTargetX = centerX - (rightClone.offsetWidth / 2);
-	animateMove(leftClone, leftTargetX, centerY, () => { document.body.removeChild(leftClone); });
+	const leftTargetX = centerX - leftClone.offsetWidth / 2;
+	const rightTargetX = centerX - rightClone.offsetWidth / 2;
+	animateMove(leftClone, leftTargetX, centerY, () => {
+		document.body.removeChild(leftClone);
+	});
 	animateMove(rightClone, rightTargetX, centerY, () => {
 		document.body.removeChild(rightClone);
 		// Do NOT mutate game state here; delegate to caller via onComplete
