@@ -55,15 +55,16 @@ function weightedChoice(items: Array<{ key: any; weight: number }>) {
  * UI要素の管理とDOM操作を担当するクラス。
  * SlotGameクラスからUIに関する責務を分離し、コードの見通しと保守性を向上させます。
  */
+type UIElementMap = {
+	slotContainer?: HTMLElement | null;
+	actionBtn?: HTMLButtonElement | null;
+	modeBtn?: HTMLButtonElement | null;
+	stopBtns?: (HTMLButtonElement | null)[];
+} & Record<string, Element | Element[] | null | undefined>;
+
 class UIManager {
 	config: any;
-	elements: {
-		slotContainer?: HTMLElement | null;
-		actionBtn?: HTMLElement | null;
-		modeBtn?: HTMLElement | null;
-		stopBtns?: (HTMLElement | null)[];
-		[key: string]: any;
-	};
+	elements: UIElementMap;
 	/**
 	 * UIManagerクラスのコンストラクタ。
 	 * @param {object} config - ゲームの設定オブジェクト
@@ -112,21 +113,27 @@ class UIManager {
 		// Be defensive: allow config.selectors to be missing when embedded. Fall back to common IDs.
 		const sel =
 			this.config && this.config.selectors ? this.config.selectors : {};
-		this.elements.slotContainer =
+		const slotCandidate =
 			document.querySelector(sel.slotMachine || "#slot-machine") ||
 			document.getElementById("slot-machine");
-		this.elements.actionBtn =
+		this.elements.slotContainer =
+			slotCandidate instanceof HTMLElement ? slotCandidate : null;
+		const actionCandidate =
 			document.querySelector(sel.actionBtn || "#actionBtn") ||
 			document.getElementById("actionBtn");
-		this.elements.modeBtn =
+		this.elements.actionBtn =
+			actionCandidate instanceof HTMLButtonElement ? actionCandidate : null;
+		const modeCandidate =
 			document.querySelector(sel.modeBtn || "#modeBtn") ||
 			document.getElementById("modeBtn");
+		this.elements.modeBtn =
+			modeCandidate instanceof HTMLButtonElement ? modeCandidate : null;
 		// 目押し個別停止ボタン（存在しない場合は null のまま）
 		this.elements.stopBtns = [
 			document.getElementById("stopBtn0"),
 			document.getElementById("stopBtn1"),
 			document.getElementById("stopBtn2"),
-		];
+		].map((btn) => (btn instanceof HTMLButtonElement ? btn : null));
 	}
 
 	/**
@@ -229,7 +236,8 @@ class UIManager {
 	 * @param {boolean} disabled - trueの場合ボタンを無効化、falseの場合有効化
 	 */
 	setActionBtnDisabled(disabled: boolean) {
-		this.elements.actionBtn.disabled = disabled;
+		const btn = this.elements.actionBtn;
+		if (btn) btn.disabled = disabled;
 	}
 
 	/**
@@ -1011,10 +1019,14 @@ class SlotGame {
 		const content = document.getElementById("devPanelContent");
 		if (!content) return;
 		const betInput = document.getElementById("betInput");
-		const _betInput = /** @type {HTMLInputElement & any} */ (betInput);
+		const minBet = typeof this.config.minBet === "number" ? this.config.minBet : 1;
+		const betValue =
+			betInput instanceof HTMLInputElement && betInput.value !== ""
+				? Number(betInput.value)
+				: Number.NaN;
 		const bet = Math.max(
-			Number(_betInput?.value) || this.config.minBet,
-			this.config.minBet,
+			Number.isFinite(betValue) ? betValue : minBet,
+			minBet,
 		);
 
 		const ev = this.computeExpectedValuePerUnit();
@@ -1202,10 +1214,10 @@ class SlotGame {
 			if (!e.repeat && !this.isAutoMode && this.isSpinning) {
 				const ae = document.activeElement;
 				if (
-					ae &&
+					ae instanceof HTMLElement &&
 					(ae.tagName === "INPUT" ||
 						ae.tagName === "TEXTAREA" ||
-						/** @type {any} */ (ae).isContentEditable)
+						ae.isContentEditable)
 				)
 					return;
 				if (e.key === "1") {
@@ -1321,7 +1333,7 @@ class SlotGame {
 
 		// 賭け金の処理: 入力値の検証と上限チェックを行う
 		const betInput = document.getElementById("betInput");
-		const rawBet = /** @type {any} */ (betInput)?.value;
+		const rawBet = betInput instanceof HTMLInputElement ? betInput.value : "";
 		let parsedBet = Number(rawBet);
 		if (!Number.isFinite(parsedBet) || parsedBet <= 0)
 			parsedBet = this.config.minBet || 1;
@@ -2097,7 +2109,7 @@ class SlotGame {
 			container.style.opacity = this.isAutoMode ? "0.6" : "1";
 		}
 		btns.forEach((btn, i) => {
-			if (!btn) return;
+			if (!(btn instanceof HTMLButtonElement)) return;
 			const enabled =
 				!this.isAutoMode && this.isSpinning && Boolean(this.reels[i]?.spinning);
 			btn.disabled = !enabled;
