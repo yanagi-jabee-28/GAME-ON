@@ -83,12 +83,12 @@ body {
 	font-size: 14px;
 }
 
-.stat-chip .label {
+#status-display .stat-chip .label {
 	color: #e0e0e0;
 	opacity: 0.9;
 }
 
-.stat-chip span:last-child {
+#status-display .stat-chip span:last-child {
 	font-weight: 700;
 }
 
@@ -307,15 +307,6 @@ body {
 	box-sizing: border-box;
 }
 
-/* Title buttons should show focused state similarly to choice buttons */
-#title-screen .title-buttons button.focused,
-#title-screen .title-buttons button:focus {
-	outline: 3px solid rgba(135, 206, 235, 0.18);
-	box-shadow: 0 0 0 6px rgba(135, 206, 235, 0.04) inset;
-	transform: translateY(-2px);
-	background-color: #5a5a5a;
-}
-
 #menu-overlay.hidden {
 	display: none;
 	/* 初期状態では非表示 */
@@ -381,6 +372,15 @@ body {
 	transform: scale(1.01);
 }
 
+/* Title buttons should show focused state similarly to choice buttons */
+#title-screen .title-buttons button.focused,
+#title-screen .title-buttons button:focus {
+	outline: 3px solid rgba(135, 206, 235, 0.18);
+	box-shadow: 0 0 0 6px rgba(135, 206, 235, 0.04) inset;
+	transform: translateY(-2px);
+	background-color: #5a5a5a;
+}
+
 /* 操作説明エリア（タイトル画面とメニュー内で使用） */
 .control-hint {
 	font-size: 0.95em;
@@ -403,7 +403,6 @@ body {
 	transform: translate(-50%, -50%);
 	width: 520px;
 	min-width: 360px;
-	width: 520px;
 	min-height: 220px;
 	max-height: 70vh;
 	background: #2f2f2f;
@@ -531,11 +530,11 @@ body {
 @media (max-width: 768px) {
 	/* Restore normal document flow to avoid centering-driven overflow */
 	body {
-		display: block !important;
-		align-items: initial !important;
-		justify-content: initial !important;
-		height: auto !important;
-		overflow-x: hidden !important;
+		display: block;
+		align-items: stretch;
+		justify-content: flex-start;
+		height: auto;
+		overflow-x: hidden;
 	}
 
 	html {
@@ -552,25 +551,25 @@ body {
 
 	/* Make game container fluid and allow vertical scrolling */
 	#game-container {
-		width: 100% !important;
-		max-width: 100% !important;
-		min-height: auto !important;
-		overflow: visible !important;
+		width: 100%;
+		max-width: 100%;
+		min-height: 0;
+		overflow: visible;
 		border-radius: 6px;
-		padding: 0 !important;
+		padding: 0;
 	}
 
 	/* Main screen should grow naturally; prevent fixed heights */
 	#main-screen {
-		height: auto !important;
-		padding: 12px !important;
+		height: auto;
+		padding: 12px;
 	}
 
 	/* Ensure message window scales to container width */
 	#message-window {
-		width: 100% !important;
-		box-sizing: border-box !important;
-		margin-right: 0 !important;
+		width: 100%;
+		box-sizing: border-box;
+		margin-right: 0;
 	}
 
 	/* Choices and buttons fit the width */
@@ -1010,14 +1009,14 @@ body {
 	width: 200px;
 }
 
-.title-buttons {
+#title-screen .title-buttons {
 	display: flex;
 	flex-direction: column;
 	gap: 15px;
 	width: 250px;
 }
 
-.title-buttons button {
+#title-screen .title-buttons button {
 	padding: 15px;
 	font-size: 1.2em;
 	color: #fff;
@@ -1030,11 +1029,11 @@ body {
 		transform 0.05s ease;
 }
 
-.title-buttons button:hover {
+#title-screen .title-buttons button:hover {
 	filter: brightness(1.15);
 }
 
-.title-buttons button:active {
+#title-screen .title-buttons button:active {
 	transform: translateY(1px);
 }
 
@@ -1058,26 +1057,26 @@ body {
 	/* Ensure title and game containers never exceed viewport width */
 	#title-screen,
 	#game-container {
-		width: 96vw !important;
-		max-width: 96vw !important;
-		min-width: 0 !important;
-		box-sizing: border-box !important;
-		padding-left: 8px !important;
-		padding-right: 8px !important;
+		width: 96vw;
+		max-width: 96vw;
+		min-width: 0;
+		box-sizing: border-box;
+		padding-left: 8px;
+		padding-right: 8px;
 	}
 
 	/* Title button group: use percentage width so buttons don't overflow */
-	.title-buttons {
-		width: 90% !important;
-		max-width: 360px !important;
-		padding-left: 0 !important;
-		padding-right: 0 !important;
+	#title-screen .title-buttons {
+		width: 90%;
+		max-width: 360px;
+		padding-left: 0;
+		padding-right: 0;
 		align-items: center;
 	}
 
 	/* Ensure input fields fit */
-	.protagonist-name-wrapper input {
-		width: calc(100% - 80px) !important;
-		max-width: 260px !important;
+	#title-screen .protagonist-name-wrapper input {
+		width: calc(100% - 80px);
+		max-width: 260px;
 	}
 }
