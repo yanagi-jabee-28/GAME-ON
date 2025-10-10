@@ -104,7 +104,8 @@ function initializeGame(protagonistName) {
 				// トップ行のラベル
 				const labelDate = document.getElementById("label-date");
 				if (labelDate)
-					labelDate.textContent = (CONFIG as any).LABELS.date || labelDate.textContent;
+					labelDate.textContent =
+						(CONFIG as any).LABELS.date || labelDate.textContent;
 				const labelTime = document.getElementById("label-time");
 				if (labelTime)
 					labelTime.textContent =
@@ -129,13 +130,15 @@ function initializeGame(protagonistName) {
 						(CONFIG as any).LABELS.money || labelMoney.textContent;
 				const labelCp = document.getElementById("label-cp");
 				if (labelCp)
-					labelCp.textContent = (CONFIG as any).LABELS.cp || labelCp.textContent;
+					labelCp.textContent =
+						(CONFIG as any).LABELS.cp || labelCp.textContent;
 			}
 
 			// メニュー内の見出し
 			const menuTitle = document.querySelector("#menu-content h2");
 			if (menuTitle)
-				menuTitle.textContent = (CONFIG as any).LABELS.menu || menuTitle.textContent;
+				menuTitle.textContent =
+					(CONFIG as any).LABELS.menu || menuTitle.textContent;
 			const itemSectionH3 = document.querySelector("#menu-item-section h3");
 			if (itemSectionH3)
 				itemSectionH3.textContent =
@@ -157,7 +160,7 @@ function initializeGame(protagonistName) {
 	// Play game start sound if available
 	try {
 		if (typeof soundManager !== "undefined") soundManager.play("game_start");
-	} catch (e) { }
+	} catch (e) {}
 
 	// 初期状態を画面に反映
 	ui.updateStatusDisplay(gameManager.getStatus());
@@ -193,14 +196,15 @@ function initializeTitleScreen() {
 
 	newGameButton.addEventListener("click", () => {
 		const rawValue = protagonistNameInput.value;
-		const name = typeof rawValue === "string"
-			? rawValue.trim()
-			: String(rawValue ?? "").trim();
+		const name =
+			typeof rawValue === "string"
+				? rawValue.trim()
+				: String(rawValue ?? "").trim();
 		if (name) {
 			try {
 				if (typeof soundManager !== "undefined")
 					soundManager.play("game_start");
-			} catch (e) { }
+			} catch (e) {}
 			initializeGame(name);
 		} else {
 			ui.showTransientNotice("主人公の名前を入力してください。");

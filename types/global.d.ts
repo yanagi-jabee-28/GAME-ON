@@ -6,4 +6,4 @@
 // If you need to restore the original global declarations, use
 // `types/global.d.ts.bak` which contains a backup of the previous content.
 
-export { };
+export {};

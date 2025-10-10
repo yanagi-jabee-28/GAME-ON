@@ -2,7 +2,7 @@
 
 /* 基本的なスタイル */
 body {
-	font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+	font-family: "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
 	background-color: #1a1a1a;
 	/* 暗い背景色 */
 	color: #ffffff;
@@ -126,7 +126,9 @@ body {
 	border-radius: 8px;
 	cursor: pointer;
 	font-size: 14px;
-	transition: filter .15s ease, transform .05s ease;
+	transition:
+		filter 0.15s ease,
+		transform 0.05s ease;
 }
 
 #menu-button:hover {
@@ -178,7 +180,7 @@ body {
 	font-weight: bold;
 	margin-bottom: 10px;
 	font-size: 1.2em;
-	color: #87CEEB;
+	color: #87ceeb;
 	/* キャラクター名の文字色 */
 }
 
@@ -201,7 +203,6 @@ body {
 
 /* 簡単なバウンドアニメーション */
 @keyframes bounce {
-
 	0%,
 	100% {
 		transform: translateY(0);
@@ -245,7 +246,9 @@ body {
 	text-align: center;
 	cursor: pointer;
 	border-radius: 5px;
-	transition: background-color 0.3s, transform 0.1s;
+	transition:
+		background-color 0.3s,
+		transform 0.1s;
 }
 
 #choices-area .choice-button:hover {
@@ -296,7 +299,9 @@ body {
 	border: 1px solid #6d6d6d;
 	border-radius: 8px;
 	cursor: pointer;
-	transition: filter .15s ease, transform .05s ease;
+	transition:
+		filter 0.15s ease,
+		transform 0.05s ease;
 	width: 100%;
 	/* コンテナ幅に合わせてボタンを横幅いっぱいにする */
 	box-sizing: border-box;
@@ -468,7 +473,9 @@ body {
 	border-radius: 6px;
 	cursor: pointer;
 	box-shadow: 0 4px 8px rgba(71, 102, 217, 0.18);
-	transition: transform .08s ease, box-shadow .12s ease;
+	transition:
+		transform 0.08s ease,
+		box-shadow 0.12s ease;
 }
 
 .char-view-btn:hover {
@@ -490,7 +497,9 @@ body {
 	border-radius: 6px;
 	cursor: pointer;
 	box-shadow: 0 4px 8px rgba(46, 139, 58, 0.16);
-	transition: transform .08s ease, box-shadow .12s ease;
+	transition:
+		transform 0.08s ease,
+		box-shadow 0.12s ease;
 }
 
 .item-use-btn:hover {
@@ -520,7 +529,6 @@ body {
 
 /* Broader mobile safety overrides (up to tablet width) */
 @media (max-width: 768px) {
-
 	/* Restore normal document flow to avoid centering-driven overflow */
 	body {
 		display: block !important;
@@ -596,13 +604,21 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-	background: linear-gradient(180deg, rgba(120, 120, 120, 0.9), rgba(60, 60, 60, 0.9));
+	background: linear-gradient(
+		180deg,
+		rgba(120, 120, 120, 0.9),
+		rgba(60, 60, 60, 0.9)
+	);
 	border-radius: 8px;
 	border: 2px solid rgba(0, 0, 0, 0.25);
 }
 
 *::-webkit-scrollbar-thumb:hover {
-	background: linear-gradient(180deg, rgba(150, 150, 150, 0.95), rgba(80, 80, 80, 0.95));
+	background: linear-gradient(
+		180deg,
+		rgba(150, 150, 150, 0.95),
+		rgba(80, 80, 80, 0.95)
+	);
 }
 
 /* Firefox */
@@ -629,7 +645,6 @@ body {
 #menu-content::-webkit-scrollbar:horizontal {
 	height: 8px;
 }
-
 
 /* メニュー内部のスクロール可能領域 */
 .menu-scroll {
@@ -680,7 +695,6 @@ body {
 
 /* --- Mobile specific improvements for novel-game readability and touch targets --- */
 @media (max-width: 520px) {
-
 	/* allow the whole page to scroll on small devices */
 	body {
 		height: auto;
@@ -832,7 +846,9 @@ body {
 	z-index: 12000;
 	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
 	cursor: pointer;
-	transition: opacity .22s ease, transform .18s ease;
+	transition:
+		opacity 0.22s ease,
+		transform 0.18s ease;
 }
 
 .transient-notice.fadeout {
@@ -1009,7 +1025,9 @@ body {
 	border: 1px solid #6d6d6d;
 	border-radius: 8px;
 	cursor: pointer;
-	transition: filter .15s ease, transform .05s ease;
+	transition:
+		filter 0.15s ease,
+		transform 0.05s ease;
 }
 
 .title-buttons button:hover {
@@ -1029,7 +1047,6 @@ body {
    and to override earlier fixed-width rules (e.g. 800px) that may be later
    in the file. These rules are placed late to ensure they win the cascade. */
 @media (max-width: 520px) {
-
 	/* Avoid any horizontal scroll on small devices */
 	body,
 	html {

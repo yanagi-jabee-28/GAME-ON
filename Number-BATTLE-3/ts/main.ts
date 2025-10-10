@@ -1,11 +1,11 @@
 // main.ts - 初期化とイベントバインド
 // このファイルはゲームの初期化、イベントの登録、ターン管理のオーケストレーションを担当します。
 // 実際のゲーム状態は `game.ts`、表示/アニメーションは `ui.ts`、AI ロジックは `ai.ts` に委譲します。
-import * as Game from './game';
-import * as AI from './ai';
-import * as UI from './ui';
-import { initDebug } from './debug';
-import CONFIG from './config';
+import * as Game from "./game";
+import * as AI from "./ai";
+import * as UI from "./ui";
+import { initDebug } from "./debug";
+import CONFIG from "./config";
 
 /**
  * @param {string} id
@@ -27,19 +27,21 @@ function getSelectById(id) {
 
 function areHintsEnabled() {
 	if (!CONFIG.SHOW_HINT_CONTROLS) return false;
-	const toggle = getCheckboxById('toggle-hints-cb');
+	const toggle = getCheckboxById("toggle-hints-cb");
 	return !!(toggle && toggle.checked);
 }
 
 function getHintMode() {
-	if (!CONFIG.SHOW_HINT_CONTROLS) return 'full';
-	const select = getSelectById('hint-mode-select');
-	return select && typeof select.value === 'string' && select.value ? String(select.value) : 'full';
+	if (!CONFIG.SHOW_HINT_CONTROLS) return "full";
+	const select = getSelectById("hint-mode-select");
+	return select && typeof select.value === "string" && select.value
+		? String(select.value)
+		: "full";
 }
 
 function isAiManualControlEnabled() {
 	if (!CONFIG.SHOW_AI_MANUAL_TOGGLE) return false;
-	const toggle = getCheckboxById('toggle-ai-control-cb');
+	const toggle = getCheckboxById("toggle-ai-control-cb");
 	return !!(toggle && toggle.checked);
 }
 
@@ -57,7 +59,7 @@ function getStateAccessor() {
 		currentPlayer: Game.currentPlayer,
 		gameOver: Game.gameOver,
 		checkWin: Game.checkWin,
-		selectedHand: Game.selectedHand
+		selectedHand: Game.selectedHand,
 	};
 }
 
@@ -67,7 +69,7 @@ function buildDisplayState() {
 		aiHands: Game.aiHands,
 		canUndo: Game.canUndo,
 		gameOver: Game.gameOver,
-		moveCount: Game.getMoveCount?.()
+		moveCount: Game.getMoveCount?.(),
 	};
 }
 
@@ -84,8 +86,8 @@ function setTurnMessage() {
 	const hintsEnabled = areHintsEnabled();
 	const hintMode = getHintMode();
 
-	if (Game.currentPlayer === 'player') {
-		UI.updateMessage('あなたの番です。攻撃する手を選んでください。');
+	if (Game.currentPlayer === "player") {
+		UI.updateMessage("あなたの番です。攻撃する手を選んでください。");
 		if (hintsEnabled) {
 			const analysis = AI.getPlayerMovesAnalysis(getStateAccessor());
 			UI.displayPlayerHints(analysis, hintMode, Game.selectedHand);
@@ -95,13 +97,19 @@ function setTurnMessage() {
 	} else {
 		const aiManual = isAiManualControlEnabled();
 		if (aiManual) {
-			UI.updateMessage('AI手動操作モード: CPUの手をクリックして操作してください。');
+			UI.updateMessage(
+				"AI手動操作モード: CPUの手をクリックして操作してください。",
+			);
 		} else {
-			UI.updateMessage('CPU の番です。しばらくお待ちください...');
+			UI.updateMessage("CPU の番です。しばらくお待ちください...");
 		}
 		UI.clearPlayerHints();
 		// Also remove any action/border highlights that may remain from player's full-hint view
-		try { UI.clearActionHighlights(); } catch (e) { /* ignore */ }
+		try {
+			UI.clearActionHighlights();
+		} catch (e) {
+			/* ignore */
+		}
 	}
 }
 
@@ -115,18 +123,19 @@ function setTurnMessage() {
 function initGame() {
 	// Read starter selection from the DOM (default to 'player' when not present)
 	UI.cacheDom(); // Ensure DOM cached
-	const starterSelect = getSelectById('starter-select');
-	const starter = (starterSelect && starterSelect.value === 'ai') ? 'ai' : 'player';
+	const starterSelect = getSelectById("starter-select");
+	const starter =
+		starterSelect && starterSelect.value === "ai" ? "ai" : "player";
 	Game.initState(starter); // ゲーム状態をリセットし先攻を設定
 	renderBoard(); // 初期盤面表示
 	setTurnMessage(); // プレイヤーへ案内
 	// Show/Hide buttons - 初期は restart を隠し、split を表示
 	// restart ボタンは常に表示するため、ここでは制御しない
-	const splitBtn = document.getElementById('split-btn');
-	if (splitBtn) splitBtn.classList.remove('hidden'); // 行末コメント: split 表示
+	const splitBtn = document.getElementById("split-btn");
+	if (splitBtn) splitBtn.classList.remove("hidden"); // 行末コメント: split 表示
 
 	// If AI is set to start, immediately perform AI turn after a short delay
-	if (starter === 'ai' && !Game.gameOver) scheduleAiTurn(300);
+	if (starter === "ai" && !Game.gameOver) scheduleAiTurn(300);
 }
 
 /**
@@ -140,14 +149,14 @@ function applyPostWinEffects() {
 	if (res.gameOver) {
 		UI.clearPlayerHints();
 		if (res.playerLost) {
-			UI.updateMessage('あなたの負けです...'); // プレイヤー敗北メッセージ
+			UI.updateMessage("あなたの負けです..."); // プレイヤー敗北メッセージ
 		} else {
-			UI.updateMessage('あなたの勝ちです！🎉'); // プレイヤー勝利メッセージ
+			UI.updateMessage("あなたの勝ちです！🎉"); // プレイヤー勝利メッセージ
 		}
 		// 終了状態なので操作要素を切る
 		// 終了状態なので操作要素を切る（restart は常時表示）
-		const splitBtn = document.getElementById('split-btn');
-		if (splitBtn) splitBtn.classList.add('hidden'); // split を無効化
+		const splitBtn = document.getElementById("split-btn");
+		if (splitBtn) splitBtn.classList.add("hidden"); // split を無効化
 		return true; // ゲーム終了
 	}
 	return false; // ゲーム継続
@@ -156,15 +165,16 @@ function applyPostWinEffects() {
 function scheduleAiTurn(delay = 500) {
 	const runAi = () => {
 		if (isAiManualControlEnabled()) {
-			UI.updateMessage('AI手動操作モード: CPUの手をクリックして操作してください。');
+			UI.updateMessage(
+				"AI手動操作モード: CPUの手をクリックして操作してください。",
+			);
 			return;
 		}
-		UI.updateMessage('CPU の番です。しばらくお待ちください...');
-		AI.aiTurnWrapper(getStateAccessor)
-			.then(() => {
-				renderBoard();
-				if (!applyPostWinEffects()) setTurnMessage();
-			});
+		UI.updateMessage("CPU の番です。しばらくお待ちください...");
+		AI.aiTurnWrapper(getStateAccessor).then(() => {
+			renderBoard();
+			if (!applyPostWinEffects()) setTurnMessage();
+		});
 	};
 
 	if (delay > 0) {
@@ -182,78 +192,90 @@ function scheduleAiTurn(delay = 500) {
  */
 function setupEventDelegation() {
 	// Hands click via delegation - ゲーム領域でクリックを受け取り、最も近い [data-hand] 要素を探す
-	const gameContainer = document.getElementById('game-container');
+	const gameContainer = document.getElementById("game-container");
 	if (gameContainer) {
-		gameContainer.addEventListener('click', (e) => {
+		gameContainer.addEventListener("click", (e) => {
 			const eventTarget = e.target instanceof Element ? e.target : null;
-			const closestHand = eventTarget ? eventTarget.closest('[data-hand]') : null;
+			const closestHand = eventTarget
+				? eventTarget.closest("[data-hand]")
+				: null;
 			const target = closestHand instanceof HTMLElement ? closestHand : null; // クリックされた手の DOM 要素
 			if (!target) return; // 手以外のクリックは無視
 			const owner = target.dataset.owner; // 'player' または 'ai'
-			if (owner !== 'player' && owner !== 'ai') return;
+			if (owner !== "player" && owner !== "ai") return;
 			const indexAttr = target.dataset.index;
-			if (typeof indexAttr !== 'string') return;
+			if (typeof indexAttr !== "string") return;
 			const index = Number(indexAttr); // 手のインデックス（数値）
 			if (!Number.isFinite(index)) return;
 			// If player's turn, handle selection/attack
-			if (Game.gameOver || Game.currentPlayer !== 'player') return; // ゲームオーバーか CPU ターンなら無視
+			if (Game.gameOver || Game.currentPlayer !== "player") return; // ゲームオーバーか CPU ターンなら無視
 
 			// 選択していない状態: 自分の手を選ぶと selected に入る
 			if (Game.selectedHand.owner === null) {
-				if (owner === 'player' && Game.playerHands[index] > 0) {
+				if (owner === "player" && Game.playerHands[index] > 0) {
 					Game.setSelectedHand(owner, index); // 選択を game モジュールに通知
-					target.classList.add('selected'); // 見た目の選択表示
-					UI.updateMessage('相手の手を選んで攻撃してください。'); // ガイド表示
+					target.classList.add("selected"); // 見た目の選択表示
+					UI.updateMessage("相手の手を選んで攻撃してください。"); // ガイド表示
 					// refresh hints/highlights for this selection
 					const analysis = AI.getPlayerMovesAnalysis(getStateAccessor());
 					UI.displayPlayerHints(analysis, getHintMode(), Game.selectedHand);
 				}
 				// 同じ手を再クリックした場合は選択をキャンセル
-			} else if (Game.selectedHand.owner === 'player' && owner === 'player' && Game.selectedHand.index === index) {
+			} else if (
+				Game.selectedHand.owner === "player" &&
+				owner === "player" &&
+				Game.selectedHand.index === index
+			) {
 				// cancel selection: remove selected class from previously selected element
 				const prevIndex = Game.selectedHand.index; // 選択中の手のインデックス
 				if (prevIndex !== null && prevIndex !== undefined) {
 					const prevEl = document.getElementById(`player-hand-${prevIndex}`);
-					if (prevEl) prevEl.classList.remove('selected'); // 見た目をクリア
+					if (prevEl) prevEl.classList.remove("selected"); // 見た目をクリア
 				}
 				Game.setSelectedHand(null, null); // 選択解除
-				UI.updateMessage('あなたの番です。攻撃する手を選んでください。'); // 案内に戻す
+				UI.updateMessage("あなたの番です。攻撃する手を選んでください。"); // 案内に戻す
 				// clear any per-action highlights when selection cancelled
 				UI.clearActionHighlights();
 				// If the player had selected one hand and clicks the other hand, switch selection immediately
-			} else if (Game.selectedHand.owner === 'player' && owner === 'player' && Game.selectedHand.index !== index) {
+			} else if (
+				Game.selectedHand.owner === "player" &&
+				owner === "player" &&
+				Game.selectedHand.index !== index
+			) {
 				const prevIndex = Game.selectedHand.index;
 				if (prevIndex !== null && prevIndex !== undefined) {
 					const prevEl = document.getElementById(`player-hand-${prevIndex}`);
-					if (prevEl) prevEl.classList.remove('selected');
+					if (prevEl) prevEl.classList.remove("selected");
 				}
 				if (Game.playerHands[index] > 0) {
-					Game.setSelectedHand('player', index);
+					Game.setSelectedHand("player", index);
 					const newEl = document.getElementById(`player-hand-${index}`);
-					if (newEl) newEl.classList.add('selected');
-					UI.updateMessage('相手の手を選んで攻撃してください。');
+					if (newEl) newEl.classList.add("selected");
+					UI.updateMessage("相手の手を選んで攻撃してください。");
 					// refresh hints/highlights for this new selection
 					const analysis2 = AI.getPlayerMovesAnalysis(getStateAccessor());
 					UI.displayPlayerHints(analysis2, getHintMode(), Game.selectedHand);
 				}
 				// プレイヤーが選択済みで、相手（AI）の手をクリックした場合: 攻撃を実行
-			} else if (Game.selectedHand.owner === 'player' && owner === 'ai') {
+			} else if (Game.selectedHand.owner === "player" && owner === "ai") {
 				if (Game.aiHands[index] === 0) return; // 相手の手が 0 の場合は攻撃不可
 				// capture attacker index
 				const attackerIndex = Game.selectedHand.index; // 攻撃手のインデックス
 				// UX: 選択表示はすぐ外す
 				if (attackerIndex !== null && attackerIndex !== undefined) {
-					const prevEl = document.getElementById(`player-hand-${attackerIndex}`);
-					if (prevEl) prevEl.classList.remove('selected'); // 行末コメント: 選択クラスを消す
+					const prevEl = document.getElementById(
+						`player-hand-${attackerIndex}`,
+					);
+					if (prevEl) prevEl.classList.remove("selected"); // 行末コメント: 選択クラスを消す
 				}
 				Game.setSelectedHand(null, null); // 内部選択状態をリセット
 				// animate first, then apply attack and update UI
 				UI.performPlayerAttackAnim(attackerIndex, index, () => {
 					// apply attack after animation
-					Game.applyAttack('player', attackerIndex, 'ai', index); // 実際の数値変更を game モジュールに委譲
+					Game.applyAttack("player", attackerIndex, "ai", index); // 実際の数値変更を game モジュールに委譲
 					renderBoard(); // 表示更新
 					if (applyPostWinEffects()) return; // 勝敗が出ればここで処理終了
-					Game.switchTurnTo('ai'); // ターンを CPU に移す
+					Game.switchTurnTo("ai"); // ターンを CPU に移す
 					setTurnMessage();
 					// call AI turn after a short delay (0.5s) to leave a pause after player's attack animation
 					scheduleAiTurn(500); // 500ms の遅延（行動コメント: CPU 行動に入るまでのポーズ）
@@ -263,35 +285,44 @@ function setupEventDelegation() {
 	}
 
 	// Split button - 分割操作のハンドリング
-	const splitBtn = document.getElementById('split-btn');
+	const splitBtn = document.getElementById("split-btn");
 	if (splitBtn) {
-		splitBtn.addEventListener('click', () => {
+		splitBtn.addEventListener("click", () => {
 			// compute analysis so we can color split options (if tablebase loaded and full hints enabled)
 			const hintsEnabled = areHintsEnabled();
 			const hintMode = getHintMode();
 			let splitAnalysis = null;
-			if (hintsEnabled && hintMode === 'full') {
+			if (hintsEnabled && hintMode === "full") {
 				splitAnalysis = AI.getPlayerMovesAnalysis(getStateAccessor());
 			}
-			UI.openSplitModal({ playerHands: Game.playerHands, aiHands: Game.aiHands, currentPlayer: Game.currentPlayer, gameOver: Game.gameOver }, splitAnalysis, (val0, val1) => {
-				// Animate split first, then apply split and update UI
-				UI.performPlayerSplitAnim(val0, val1, () => {
-					Game.applySplit('player', val0, val1); // ゲーム状態に分割を反映
-					renderBoard(); // 表示更新
-					if (applyPostWinEffects()) return; // 勝敗判定がある場合は終了
-					Game.switchTurnTo('ai'); // CPU ターンへ
-					setTurnMessage();
-					// delay AI action slightly so player can see split result
-					scheduleAiTurn(500); // 500ms の遅延（行動コメント: 分割後の視認性確保）
-				});
-			});
+			UI.openSplitModal(
+				{
+					playerHands: Game.playerHands,
+					aiHands: Game.aiHands,
+					currentPlayer: Game.currentPlayer,
+					gameOver: Game.gameOver,
+				},
+				splitAnalysis,
+				(val0, val1) => {
+					// Animate split first, then apply split and update UI
+					UI.performPlayerSplitAnim(val0, val1, () => {
+						Game.applySplit("player", val0, val1); // ゲーム状態に分割を反映
+						renderBoard(); // 表示更新
+						if (applyPostWinEffects()) return; // 勝敗判定がある場合は終了
+						Game.switchTurnTo("ai"); // CPU ターンへ
+						setTurnMessage();
+						// delay AI action slightly so player can see split result
+						scheduleAiTurn(500); // 500ms の遅延（行動コメント: 分割後の視認性確保）
+					});
+				},
+			);
 		});
 	}
 
 	// Undo button
-	const undoBtn = document.getElementById('undo-btn');
+	const undoBtn = document.getElementById("undo-btn");
 	if (undoBtn) {
-		undoBtn.addEventListener('click', () => {
+		undoBtn.addEventListener("click", () => {
 			if (Game.canUndo && Game.canUndo()) {
 				// try to undo up to two steps (2手戻し)
 				let undone = 0;
@@ -304,141 +335,160 @@ function setupEventDelegation() {
 				renderBoard();
 				// After undo, ensure CPU turn is skipped: force player's turn if game not over
 				if (!Game.gameOver) {
-					Game.switchTurnTo('player');
+					Game.switchTurnTo("player");
 					setTurnMessage();
 				}
-				if (undone >= 2) UI.updateMessage('2手戻しました。');
-				else if (undone === 1) UI.updateMessage('一手戻しました。');
-				else UI.updateMessage('戻せる手がありません。');
+				if (undone >= 2) UI.updateMessage("2手戻しました。");
+				else if (undone === 1) UI.updateMessage("一手戻しました。");
+				else UI.updateMessage("戻せる手がありません。");
 			}
 		});
 	}
 
 	// ヒント切り替えチェックボックス
-	const hintToggle = getCheckboxById('toggle-hints-cb');
+	const hintToggle = getCheckboxById("toggle-hints-cb");
 	if (hintToggle) {
 		// updateHints はヒント表示状態を再評価するための共通処理
 		const updateHints = () => setTurnMessage();
 
 		// 'input' はチェックボックスの状態変化に最も素早く反応します。
-		hintToggle.addEventListener('input', () => setTimeout(updateHints, 0));
+		hintToggle.addEventListener("input", () => setTimeout(updateHints, 0));
 		// 互換性のため change も残す
-		hintToggle.addEventListener('change', () => setTimeout(updateHints, 0));
+		hintToggle.addEventListener("change", () => setTimeout(updateHints, 0));
 
 		// モバイルでタッチ系のイベントが優先される環境に備え、pointerup と touchend を補助的に追加
-		hintToggle.addEventListener('pointerup', () => setTimeout(updateHints, 0));
-		hintToggle.addEventListener('touchend', () => setTimeout(updateHints, 0));
+		hintToggle.addEventListener("pointerup", () => setTimeout(updateHints, 0));
+		hintToggle.addEventListener("touchend", () => setTimeout(updateHints, 0));
 
 		// click も補助
-		hintToggle.addEventListener('click', () => setTimeout(updateHints, 0));
+		hintToggle.addEventListener("click", () => setTimeout(updateHints, 0));
 
 		// ラベルが触られた場合に input の状態が変わることがあるので、ラベルも監視。
 		const hintLabel = document.querySelector('label[for="toggle-hints-cb"]');
 		if (hintLabel) {
 			// ラベルクリックでは input の checked がまだ更新されていないタイミングがあるため
 			// 次のイベントループで再評価する
-			hintLabel.addEventListener('click', () => setTimeout(updateHints, 0));
+			hintLabel.addEventListener("click", () => setTimeout(updateHints, 0));
 			// タッチイベントも追加
-			hintLabel.addEventListener('touchend', () => setTimeout(updateHints, 0));
+			hintLabel.addEventListener("touchend", () => setTimeout(updateHints, 0));
 		}
 
 		// ヒントモード切替
-		const hintModeSelect = getSelectById('hint-mode-select');
+		const hintModeSelect = getSelectById("hint-mode-select");
 		if (hintModeSelect) {
-			hintModeSelect.addEventListener('change', () => {
+			hintModeSelect.addEventListener("change", () => {
 				setTurnMessage();
 			});
 		}
 	}
 
 	// Restart - 再スタートボタンの処理
-	const restartBtn = document.getElementById('restart-btn');
+	const restartBtn = document.getElementById("restart-btn");
 	if (restartBtn) {
-		restartBtn.addEventListener('click', () => {
+		restartBtn.addEventListener("click", () => {
 			initGame(); // ゲームを初期化して最初から開始
 		});
 	}
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener("DOMContentLoaded", () => {
 	UI.cacheDom();
 
 	// Initialize hint visibility and mode from CONFIG (may have been overridden by URL params)
 	try {
-		const hintCheckbox = getCheckboxById('toggle-hints-cb');
-		const hintModeSelect = getSelectById('hint-mode-select');
+		const hintCheckbox = getCheckboxById("toggle-hints-cb");
+		const hintModeSelect = getSelectById("hint-mode-select");
 		if (hintCheckbox) {
 			// Show or hide the UI control according to SHOW_HINT_CONTROLS is handled below.
 			// Here we set the initial checked state according to SHOW_HINTS_BY_DEFAULT.
 			hintCheckbox.checked = !!CONFIG.SHOW_HINTS_BY_DEFAULT;
 		}
 		if (hintModeSelect) {
-			if (CONFIG.DEFAULT_HINT_MODE === 'simple') hintModeSelect.value = 'simple';
-			else hintModeSelect.value = 'full';
+			if (CONFIG.DEFAULT_HINT_MODE === "simple")
+				hintModeSelect.value = "simple";
+			else hintModeSelect.value = "full";
 		}
-	} catch (e) { /* ignore DOM errors */ }
+	} catch (e) {
+		/* ignore DOM errors */
+	}
 
-	try { console.info('main DOMContentLoaded, CONFIG:', CONFIG); } catch (e) { }
+	try {
+		console.info("main DOMContentLoaded, CONFIG:", CONFIG);
+	} catch (e) {}
 
 	// Apply feature toggles to UI visibility immediately
 	try {
 		// Hints: hide both the toggle checkbox, its label and the mode select. Also clear any existing hint text.
 		if (!CONFIG.SHOW_HINT_CONTROLS) {
-			const hintCheckbox = document.getElementById('toggle-hints-cb');
-			if (hintCheckbox) hintCheckbox.classList.add('hidden');
+			const hintCheckbox = document.getElementById("toggle-hints-cb");
+			if (hintCheckbox) hintCheckbox.classList.add("hidden");
 			const hintLabel = document.querySelector('label[for="toggle-hints-cb"]');
-			if (hintLabel) hintLabel.classList.add('hidden');
-			const hintMode = document.getElementById('hint-mode-select');
-			if (hintMode) hintMode.classList.add('hidden');
-			try { UI.clearPlayerHints(); } catch (e) { }
+			if (hintLabel) hintLabel.classList.add("hidden");
+			const hintMode = document.getElementById("hint-mode-select");
+			if (hintMode) hintMode.classList.add("hidden");
+			try {
+				UI.clearPlayerHints();
+			} catch (e) {}
 		}
 		// AI manual toggle: hide the checkbox and its label when feature disabled
 		if (!CONFIG.SHOW_AI_MANUAL_TOGGLE) {
-			const aiCheckbox = document.getElementById('toggle-ai-control-cb');
-			if (aiCheckbox) aiCheckbox.classList.add('hidden');
-			const aiLabel = document.querySelector('label[for="toggle-ai-control-cb"]');
-			if (aiLabel) aiLabel.classList.add('hidden');
+			const aiCheckbox = document.getElementById("toggle-ai-control-cb");
+			if (aiCheckbox) aiCheckbox.classList.add("hidden");
+			const aiLabel = document.querySelector(
+				'label[for="toggle-ai-control-cb"]',
+			);
+			if (aiLabel) aiLabel.classList.add("hidden");
 		}
 		// CPU strength: only hide the select itself (not its entire parent container)
 		if (!CONFIG.SHOW_CPU_STRENGTH_SELECT) {
-			const cpuSelect = document.getElementById('cpu-strength-select');
-			if (cpuSelect) cpuSelect.classList.add('hidden');
+			const cpuSelect = document.getElementById("cpu-strength-select");
+			if (cpuSelect) cpuSelect.classList.add("hidden");
 		}
-	} catch (e) { /* ignore */ }
+	} catch (e) {
+		/* ignore */
+	}
 
 	// Ensure CPU strength select reflects CONFIG (either forced or default) so AI reads the intended value
 	try {
-		const cpuSelect = document.getElementById('cpu-strength-select') as HTMLSelectElement | null;
+		const cpuSelect = document.getElementById(
+			"cpu-strength-select",
+		) as HTMLSelectElement | null;
 		if (cpuSelect) {
 			const desired = CONFIG.FORCE_CPU_STRENGTH || CONFIG.DEFAULT_CPU_STRENGTH;
 			if (desired) {
 				// Only set when the option exists to avoid creating new options
-				try { cpuSelect.value = desired; } catch (e) { /* ignore */ }
+				try {
+					cpuSelect.value = desired;
+				} catch (e) {
+					/* ignore */
+				}
 			}
 		}
-	} catch (e) { /* ignore */ }
+	} catch (e) {
+		/* ignore */
+	}
 	setupEventDelegation();
 	initGame();
 
 	// initialize debug utilities (will be no-op if debug module not desired)
-	if (typeof initDebug === 'function') initDebug();
+	if (typeof initDebug === "function") initDebug();
 
 	// Ensure UI scales to fit the viewport on load
-	if (typeof UI.fitUIToViewport === 'function') UI.fitUIToViewport();
+	if (typeof UI.fitUIToViewport === "function") UI.fitUIToViewport();
 
 	// Debounced resize handler to recompute scale on resize/orientation change
 	let resizeTimer = null;
 	const onResize = () => {
 		if (resizeTimer) clearTimeout(resizeTimer);
 		resizeTimer = setTimeout(() => {
-			if (typeof UI.fitUIToViewport === 'function') UI.fitUIToViewport();
+			if (typeof UI.fitUIToViewport === "function") UI.fitUIToViewport();
 		}, 120);
 	};
-	window.addEventListener('resize', onResize);
-	window.addEventListener('orientationchange', onResize);
+	window.addEventListener("resize", onResize);
+	window.addEventListener("orientationchange", onResize);
 
 	// When tablebase finishes loading, re-render hints immediately
-	window.addEventListener('tablebase-loaded', () => {
+	window.addEventListener("tablebase-loaded", () => {
 		// Re-evaluate hints for current turn
 		setTurnMessage();
 	});

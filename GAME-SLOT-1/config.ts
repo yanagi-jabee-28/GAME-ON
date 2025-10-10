@@ -11,14 +11,14 @@ const gameConfig = {
 	// 備考: HTMLに記述された要素のidやclassを変更した場合は、ここの値を修正する必要があります。
 	//       script.js側での変更は不要です。
 	selectors: {
-		slotMachine: '#slot-machine', // スロットマシン本体のコンテナdiv
-		actionBtn: '#actionBtn',       // 「スタート/ストップ」ボタン
-		modeBtn: '#modeBtn',         // 「モード切替」ボタン
+		slotMachine: "#slot-machine", // スロットマシン本体のコンテナdiv
+		actionBtn: "#actionBtn", // 「スタート/ストップ」ボタン
+		modeBtn: "#modeBtn", // 「モード切替」ボタン
 	},
 
 	// --- ゲームの基本設定 ---
-	reelCount: 3,          // リールの本数。3以外に変更する場合は、リールごとの設定(reelsDataなど)も本数に合わせて調整が必要です。
-	symbolHeight: 120,      // 1シンボルあたりの高さ(px)。style.cssの`.reel-symbol`の`height`と一致させる必要があります。
+	reelCount: 3, // リールの本数。3以外に変更する場合は、リールごとの設定(reelsDataなど)も本数に合わせて調整が必要です。
+	symbolHeight: 120, // 1シンボルあたりの高さ(px)。style.cssの`.reel-symbol`の`height`と一致させる必要があります。
 	// UI全体の倍率（1 = 基本サイズ）。これを変えるとスロット本体の大きさを一括で調整できます。
 	// 例: 1.2 は 120% サイズ、0.8 は 80% サイズ
 	uiScale: 1,
@@ -29,9 +29,75 @@ const gameConfig = {
 	//       シンボルの並び順や数を変更すると、リールの見た目や挙動、確率計算に直接影響します。
 	//       特に、狙い撃ち機能(`stopTargets`)でインデックス指定をする際は、この配列の並び順が基準となります。
 	reelsData: [
-		['🍌', '🍋', '🍎', '🍌', '🍋', '💎', '🍉', '🍌', '🍋', 'BAR', '🍒', '🍎', '🍌', '🍋', '🍉', '🍌', '🍋', '7️⃣', '🍇', '7️⃣', '🍇'], // 左リール (インデックス 0)
-		['🍌', '🍒', '🍋', '🍌', '🍎', '💎', '🍉', '🍋', '🍌', '🍒', 'BAR', '🍒', '🍋', '🍌', '🍉', '🍋', '🍌', '🍇', '7️⃣', '🍇', '🍋'], // 中央リール (インデックス 1)
-		['🍋', '🍎', '🍌', '🍋', '🍉', '💎', '🍌', '🍋', '🍒', 'BAR', '🍌', '🍋', '🍉', '🍎', '🍌', '🍋', '🍇', '7️⃣', '🍇', '7️⃣', '🍌']  // 右リール (インデックス 2)
+		[
+			"🍌",
+			"🍋",
+			"🍎",
+			"🍌",
+			"🍋",
+			"💎",
+			"🍉",
+			"🍌",
+			"🍋",
+			"BAR",
+			"🍒",
+			"🍎",
+			"🍌",
+			"🍋",
+			"🍉",
+			"🍌",
+			"🍋",
+			"7️⃣",
+			"🍇",
+			"7️⃣",
+			"🍇",
+		], // 左リール (インデックス 0)
+		[
+			"🍌",
+			"🍒",
+			"🍋",
+			"🍌",
+			"🍎",
+			"💎",
+			"🍉",
+			"🍋",
+			"🍌",
+			"🍒",
+			"BAR",
+			"🍒",
+			"🍋",
+			"🍌",
+			"🍉",
+			"🍋",
+			"🍌",
+			"🍇",
+			"7️⃣",
+			"🍇",
+			"🍋",
+		], // 中央リール (インデックス 1)
+		[
+			"🍋",
+			"🍎",
+			"🍌",
+			"🍋",
+			"🍉",
+			"💎",
+			"🍌",
+			"🍋",
+			"🍒",
+			"BAR",
+			"🍌",
+			"🍋",
+			"🍉",
+			"🍎",
+			"🍌",
+			"🍋",
+			"🍇",
+			"7️⃣",
+			"🍇",
+			"7️⃣",
+			"🍌",
+		], // 右リール (インデックス 2)
 	],
 
 	// --- シンボル出現確率 (通常スピン時) ---
@@ -39,39 +105,38 @@ const gameConfig = {
 	//       `winSymbolWeights`とは役割が異なります。
 	//       重みが大きいほど、そのシンボルが選ばれやすくなります。
 	symbolProbabilities: [
-		{ symbol: '7️⃣', weight: 1 },
-		{ symbol: 'BAR', weight: 10 },
-		{ symbol: '💎', weight: 15 },
-		{ symbol: '🍉', weight: 20 },
-		{ symbol: '🍎', weight: 25 },
-		{ symbol: '🍋', weight: 500 },
-		{ symbol: '🍒', weight: 35 },
-		{ symbol: '🍌', weight: 40 },
-		{ symbol: '🍇', weight: 5 }
+		{ symbol: "7️⃣", weight: 1 },
+		{ symbol: "BAR", weight: 10 },
+		{ symbol: "💎", weight: 15 },
+		{ symbol: "🍉", weight: 20 },
+		{ symbol: "🍎", weight: 25 },
+		{ symbol: "🍋", weight: 500 },
+		{ symbol: "🍒", weight: 35 },
+		{ symbol: "🍌", weight: 40 },
+		{ symbol: "🍇", weight: 5 },
 	],
-
 
 	// --- ゲーム開始時の状態 ---
 	initialReelPositions: [17, 17, 17], // 各リールの初期表示シンボルのインデックス番号。
-	initialIsAutoMode: true,             // 初期モード。trueなら「自動」、falseなら「目押し」。
+	initialIsAutoMode: true, // 初期モード。trueなら「自動」、falseなら「目押し」。
 
 	// --- アニメーションと速度設定 ---
-	autoSpeed: 50,         // 自動モード時のリール回転速度 (px/フレーム)。大きいほど速い。
-	manualSpeed: 37.5,       // 目押しモード時のリール回転速度 (px/フレーム)。
+	autoSpeed: 50, // 自動モード時のリール回転速度 (px/フレーム)。大きいほど速い。
+	manualSpeed: 37.5, // 目押しモード時のリール回転速度 (px/フレーム)。
 	accelerationTime: 250, // スピン開始から最高速に達するまでの時間 (ミリ秒)。
-	minStopAnimTime: 200,  // 停止ボタンを押してから実際に停止するまでの最低アニメーション時間 (ミリ秒)。
-	maxStopAnimTime: 500,  // 停止ボタンを押してから実際に停止するまでの最大アニメーション時間 (ミリ秒)。
+	minStopAnimTime: 200, // 停止ボタンを押してから実際に停止するまでの最低アニメーション時間 (ミリ秒)。
+	maxStopAnimTime: 500, // 停止ボタンを押してから実際に停止するまでの最大アニメーション時間 (ミリ秒)。
 	reverseRotation: true, // リールの回転方向。true: 下から上へ, false: 上から下へ。
-	stopEasing: 'cubic',   // 停止時の減速アニメーションの種類。'cubic', 'quad', 'sine', 'linear'から選択。
+	stopEasing: "cubic", // 停止時の減速アニメーションの種類。'cubic', 'quad', 'sine', 'linear'から選択。
 	stopBaseDurationMs: 240, // 自動停止時の減速にかかる基本時間 (ミリ秒)。
 
 	// --- 自動モード設定 (新方式) ---
 	// 備考: 左リールが停止してから、全リールが停止するまでの時間を制御します。
 	//       複雑な計算式がコメントにありましたが、より直感的に理解できるよう整理しました。
 	//       (reelCount - 1) * minSequentialStopGapMs <= autoStopMaxTime - autoStopMinTime を満たす必要があります。
-	autoStopMinTime: 1000,               // スピン開始から最初の(左)リールが停止し始めるまでの最短時間 (ミリ秒)。
-	autoStopMaxTime: 1500,               // スピン開始から最後の(右)リールが完全に停止するまでの最長時間 (ミリ秒)。
-	minSequentialStopGapMs: 100,         // 各リールが停止し始める間の最低時間 (ミリ秒)。リール間の停止タイミングを制御します。
+	autoStopMinTime: 1000, // スピン開始から最初の(左)リールが停止し始めるまでの最短時間 (ミリ秒)。
+	autoStopMaxTime: 1500, // スピン開始から最後の(右)リールが完全に停止するまでの最長時間 (ミリ秒)。
+	minSequentialStopGapMs: 100, // 各リールが停止し始める間の最低時間 (ミリ秒)。リール間の停止タイミングを制御します。
 
 	/* --- (旧方式: 現在は不使用・互換維持のための参考) ---
 	 * かつては各リールの停止時刻を明示的に配列で与えていました。
@@ -101,7 +166,7 @@ const gameConfig = {
 	// --- 当たり演出制御 ---
 	// 備考: ここで設定した確率で、水平または斜めの当たり演出が発動します。
 	winHorizontalProbability: 0.2, // 水平ラインで当たりを発生させる確率 (0.0 ~ 1.0)。
-	twinDiagonalProbability: 0.1,   // 斜めラインで当たりを発生させる確率 (0.0 ~ 1.0)。
+	twinDiagonalProbability: 0.1, // 斜めラインで当たりを発生させる確率 (0.0 ~ 1.0)。
 
 	/* --- (旧方式: 後方互換のための参考) ---
 	 * かつては水平/斜めの区別がなく、単一の発動確率で制御していました。
@@ -112,26 +177,26 @@ const gameConfig = {
 	// 当たり演出時に、どの絵柄を揃えるかの重み付け。
 	// `symbolProbabilities`とは異なり、当たりが確定した際に使用されます。
 	winSymbolWeights: {
-		'7️⃣': 1,
-		'BAR': 10,
-		'💎': 15,
-		'🍉': 20,
-		'🍎': 25,
-		'🍒': 35,
-		'🍌': 50,
-		'🍋': 100,
-		'🍇': 5
+		"7️⃣": 1,
+		BAR: 10,
+		"💎": 15,
+		"🍉": 20,
+		"🍎": 25,
+		"🍒": 35,
+		"🍌": 50,
+		"🍋": 100,
+		"🍇": 5,
 	},
 	// 当たりを揃えるライン。'top', 'middle', 'bottom', 'random' から選択。
-	winRowMode: 'random',
+	winRowMode: "random",
 	// 斜め当たりの方向。'down'(右下がり), 'up'(右上がり), 'random' から選択。
-	winDiagonalMode: 'random',
+	winDiagonalMode: "random",
 
 	// --- デバッグ設定 ---
 	// 備考: 開発中にブラウザのコンソールにログを出力するための設定です。
 	//       `true`にすると、ゲームの内部的な動作を確認できますが、パフォーマンスに影響する場合があります。
 	debug: {
-		stopLogs: false,  // trueにすると停止計算の詳細ログを出力。開発・検証時のみ推奨。
+		stopLogs: false, // trueにすると停止計算の詳細ログを出力。開発・検証時のみ推奨。
 		frameLogs: false, // trueにするとフレームごとのログを大量出力。実運用では必ずfalseのままにしてください。
 	},
 
@@ -155,13 +220,13 @@ const gameConfig = {
 		volumes: {
 			spinStart: 1.0,
 			reelStop: 0.5, // 既定で半分（ご要望反映）
-			win: 1.0
+			win: 1.0,
 		},
 		files: {
-			spinStart: '', // 例: 'assets/sfx/spin-start.mp3'
-			reelStop: '',   // 例: 'assets/sfx/stop.wav'
-			win: ''         // 例: 'assets/sfx/win.mp3'
-		}
+			spinStart: "", // 例: 'assets/sfx/spin-start.mp3'
+			reelStop: "", // 例: 'assets/sfx/stop.wav'
+			win: "", // 例: 'assets/sfx/win.mp3'
+		},
 	},
 
 	// --- 借金(クレジット)設定 ---
@@ -171,7 +236,7 @@ const gameConfig = {
 	credit: {
 		enabled: true,
 		creditLimit: 50000,
-		interestRate: 0.10
+		interestRate: 0.1,
 	},
 	// 簡易ペイアウトテーブル: key はシンボルあるいはシンボル種別
 	// 値は賭け金に対する倍率（例: 10 倍なら return bet * 10）
@@ -186,16 +251,16 @@ const gameConfig = {
 		// スロット勝利時に pachinko の弾やメッセージへ反映するための倍率
 		slotWinAmmoMultiplier: 1,
 		// メッセージテンプレート。{amount}, {mult}, {adjusted} 置換に対応
-		slotWinMessageTemplate: ''
+		slotWinMessageTemplate: "",
 	},
 	slotAudio: {
 		masterVolume: 0.8,
 		volumes: {
 			spinStart: 1.0,
 			reelStop: 0.5,
-			win: 1.0
-		}
-	}
+			win: 1.0,
+		},
+	},
 };
 
 /* ------------------------------------------------------------------
@@ -208,10 +273,10 @@ const gameConfig = {
  * ------------------------------------------------------------------ */
 (function computePayoutTableFromWeights() {
 	const weights = gameConfig.winSymbolWeights || {};
-	const lemonKey = '🍋';
+	const lemonKey = "🍋";
 	const lemonWeight = weights[lemonKey] || 1;
 	const table = {};
-	Object.keys(weights).forEach(sym => {
+	Object.keys(weights).forEach((sym) => {
 		// 比率の逆数（レモンを基準に）
 		const raw = lemonWeight / (weights[sym] || 1);
 		// 四捨五入して整数倍にする。最低 1 を保証。

@@ -3,19 +3,30 @@ import * as Tone from "tone";
 // --- DOM要素の取得 ---
 const gameScreen = document.getElementById("game-screen") as HTMLElement;
 const startScreen = document.getElementById("start-screen") as HTMLElement;
-const gameOverScreen = document.getElementById("game-over-screen") as HTMLElement;
-const startButton = document.getElementById("start-button") as HTMLButtonElement;
-const restartButton = document.getElementById("restart-button") as HTMLButtonElement;
+const gameOverScreen = document.getElementById(
+	"game-over-screen",
+) as HTMLElement;
+const startButton = document.getElementById(
+	"start-button",
+) as HTMLButtonElement;
+const restartButton = document.getElementById(
+	"restart-button",
+) as HTMLButtonElement;
 const messageText = document.getElementById("message-text") as HTMLElement;
 const playerHpEl = document.getElementById("player-hp") as HTMLElement;
 const playerChargeEl = document.getElementById("player-charge") as HTMLElement;
-const playerActionDisplay = document.getElementById("player-action-display") as HTMLElement;
+const playerActionDisplay = document.getElementById(
+	"player-action-display",
+) as HTMLElement;
 const playerPanel = document.getElementById("player-panel") as HTMLElement;
 const cpuHpEl = document.getElementById("cpu-hp") as HTMLElement;
 const cpuChargeEl = document.getElementById("cpu-charge") as HTMLElement;
-const cpuActionDisplay = document.getElementById("cpu-action-display") as HTMLElement;
+const cpuActionDisplay = document.getElementById(
+	"cpu-action-display",
+) as HTMLElement;
 const cpuPanel = document.getElementById("cpu-panel") as HTMLElement;
-const actionButtons = document.querySelectorAll<HTMLButtonElement>(".action-button");
+const actionButtons =
+	document.querySelectorAll<HTMLButtonElement>(".action-button");
 const beatIndicators = [
 	document.getElementById("beat-1") as HTMLElement,
 	document.getElementById("beat-2") as HTMLElement,
@@ -23,9 +34,15 @@ const beatIndicators = [
 	document.getElementById("beat-4") as HTMLElement,
 ];
 // Frequently used buttons typed as HTMLButtonElement so .disabled and .dataset are available
-const attackButton = document.getElementById("attack-button") as HTMLButtonElement | null;
-const guardButton = document.getElementById("guard-button") as HTMLButtonElement | null;
-const chargeButton = document.getElementById("charge-button") as HTMLButtonElement | null;
+const attackButton = document.getElementById(
+	"attack-button",
+) as HTMLButtonElement | null;
+const guardButton = document.getElementById(
+	"guard-button",
+) as HTMLButtonElement | null;
+const chargeButton = document.getElementById(
+	"charge-button",
+) as HTMLButtonElement | null;
 
 // --- ゲームの状態管理 ---
 let playerState = { hp: 3, charge: 0 };
