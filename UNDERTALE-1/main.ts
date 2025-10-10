@@ -17,17 +17,18 @@ const PLAYER_SIZE = toPx(cssVar("--player-size"));
 // Gameplay sizing/speed constants (single source of truth)
 const BATTLE_BOX_BORDER = 4; // canvas stroke width for battle box
 const ATTACK_TARGET_ZONE_WIDTH = 10;
-const PLAYER_SPEED = 3;
-const ATTACK_MARKER_SPEED = 4;
+const PLAYER_SPEED = 2;
+const ATTACK_MARKER_SPEED = 2;
 const INVINCIBILITY_FRAMES = 30;
 const BULLET_RADIUS = 5;
-const BULLET_SPEED = 2;
-const HOMING_BULLET_SPEED = 1.5;
-const HOMING_TURN_RATE = 0.025;
+const BULLET_SPEED = 1.5;
+const HOMING_BULLET_SPEED = 1;
+const HOMING_TURN_RATE = 0.02;
 const BULLET_FADEOUT_FRAMES = 60;
 const BULLET_LIFETIME = 300; // frames for homing bullets
 const BULLET_OFFSCREEN_MARGIN = 20;
-const BULLET_SPAWN_INTERVAL_MS = 700;
+const BULLET_SPAWN_DISTANCE = 120;
+const BULLET_SPAWN_INTERVAL_MS = 1000;
 const ENEMY_TURN_DURATION_MS = 10000;
 
 // Ensure canvas drawing size follows CSS variable
@@ -36,7 +37,7 @@ canvas.height = CANVAS_SIZE;
 
 // --- Game State Management ---
 let gameState = null; // Initial state set to null to fix bug
-let enemyTurnTimer;
+let enemyTurnTimer: ReturnType<typeof setTimeout> | null = null;
 
 const battleBox = {
 	width: BATTLE_BOX_SIZE,
@@ -58,7 +59,7 @@ const player = {
 };
 
 const bullets = [];
-let bulletSpawnInterval;
+let bulletSpawnInterval: ReturnType<typeof setInterval> | null = null;
 const bulletSpawnMode = "top";
 let framesSinceLastHoming = 0;
 
@@ -111,7 +112,7 @@ function getSelectedEnemy() {
 function updateEnemyHPDisplay() {
 	const enemy = getSelectedEnemy();
 	const pct = (Math.max(0, enemy.hp) / enemy.maxHp) * 100;
-	enemyHpBar.style.width = pct + "%";
+	enemyHpBar.style.width = `${pct}%`;
 	enemyHpValue.textContent = `${enemy.hp} / ${enemy.maxHp}`;
 	document.getElementById("enemy-name").textContent = enemy.name;
 }
@@ -132,9 +133,9 @@ function setSelection(idx) {
 }
 
 // clicking with mouse should also update selection
-optionButtons.forEach((btn, i) =>
-	btn.addEventListener("click", () => setSelection(i)),
-);
+optionButtons.forEach((btn, i) => {
+	btn.addEventListener("click", () => setSelection(i));
+});
 
 function drawPlayer() {
 	if (player.isInvincible && Math.floor(player.invincibleTimer / 6) % 2 === 0)
@@ -182,31 +183,43 @@ function updatePlayerPosition() {
 }
 
 function createBullet() {
-	let startX, startY;
+	let startX: number, startY: number;
 	if (bulletSpawnMode === "top") {
-		startX = Math.random() * canvas.width;
-		startY = -BULLET_OFFSCREEN_MARGIN / 2;
+		const horizontalPadding = Math.max(
+			0,
+			Math.min(battleBox.x, canvas.width - (battleBox.x + battleBox.width), 80),
+		);
+		startX =
+			battleBox.x -
+			horizontalPadding +
+			Math.random() * (battleBox.width + horizontalPadding * 2);
+		startY = battleBox.y - BULLET_SPAWN_DISTANCE;
 	} else {
 		const side = Math.floor(Math.random() * 4);
 		switch (side) {
 			case 0:
-				startX = Math.random() * canvas.width;
-				startY = -BULLET_OFFSCREEN_MARGIN / 2;
+				startX = battleBox.x + Math.random() * battleBox.width;
+				startY = battleBox.y - BULLET_SPAWN_DISTANCE;
 				break;
 			case 1:
-				startX = canvas.width + BULLET_OFFSCREEN_MARGIN / 2;
-				startY = Math.random() * canvas.height;
+				startX = battleBox.x + battleBox.width + BULLET_SPAWN_DISTANCE;
+				startY = battleBox.y + Math.random() * battleBox.height;
 				break;
 			case 2:
-				startX = Math.random() * canvas.width;
-				startY = canvas.height + BULLET_OFFSCREEN_MARGIN / 2;
+				startX = battleBox.x + Math.random() * battleBox.width;
+				startY = battleBox.y + battleBox.height + BULLET_SPAWN_DISTANCE;
 				break;
 			case 3:
-				startX = -BULLET_OFFSCREEN_MARGIN / 2;
-				startY = Math.random() * canvas.height;
+				startX = battleBox.x - BULLET_SPAWN_DISTANCE;
+				startY = battleBox.y + Math.random() * battleBox.height;
 				break;
 		}
 	}
+	const startInsideCanvas =
+		startX >= 0 &&
+		startX <= canvas.width &&
+		startY >= 0 &&
+		startY <= canvas.height;
 	let isHoming = false;
 	const secondsSince = framesSinceLastHoming / 60;
 	if (secondsSince >= 5) isHoming = true;
@@ -230,6 +243,7 @@ function createBullet() {
 		hasEnteredBox: false,
 		isFadingOut: false,
 		fadeOutTimer: BULLET_FADEOUT_FRAMES,
+		hasEnteredCanvas: startInsideCanvas,
 	});
 }
 
@@ -263,6 +277,12 @@ function updateBulletsPosition() {
 		}
 		bullet.x += bullet.speedX;
 		bullet.y += bullet.speedY;
+		const insideCanvasBounds =
+			bullet.x >= 0 &&
+			bullet.x <= canvas.width &&
+			bullet.y >= 0 &&
+			bullet.y <= canvas.height;
+		if (insideCanvasBounds) bullet.hasEnteredCanvas = true;
 		const isInsideBox =
 			bullet.x > battleBox.x &&
 			bullet.x < battleBox.x + battleBox.width &&
@@ -283,6 +303,7 @@ function updateBulletsPosition() {
 			}
 		}
 		if (
+			bullet.hasEnteredCanvas &&
 			!bullet.hasEnteredBox &&
 			(bullet.x < -BULLET_OFFSCREEN_MARGIN ||
 				bullet.x > canvas.width + BULLET_OFFSCREEN_MARGIN ||
@@ -439,13 +460,13 @@ function setGameState(newState) {
 	);
 	if (gameState === "SELECT_TARGET") {
 		// show target select and hide heart icon
-		targetSelectContainer && (targetSelectContainer.style.display = "flex");
+		if (targetSelectContainer) targetSelectContainer.style.display = "flex";
 		optionsContainer?.classList.add("hide-heart");
 	} else if (gameState === "ENEMY_TURN" || gameState === "PLAYER_ATTACK") {
 		optionsContainer?.classList.add("hide-heart");
 		if (targetSelectContainer) targetSelectContainer.style.display = "none";
 	} else {
-		targetSelectContainer && (targetSelectContainer.style.display = "none");
+		if (targetSelectContainer) targetSelectContainer.style.display = "none";
 		optionsContainer?.classList.remove("hide-heart");
 	}
 
@@ -559,15 +580,13 @@ window.addEventListener("keydown", (e) => {
 		if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
 			selectedEnemyIndex = Math.max(0, selectedEnemyIndex - 1);
 			// if message window contains the selection UI, update it; otherwise update the persistent container
-			if (messageContent && messageContent.childElementCount)
-				updateMessageWindowSelection();
+			if (messageContent?.childElementCount) updateMessageWindowSelection();
 			else updateTargetSelectUI();
 			return;
 		}
 		if (e.key === "ArrowRight" || e.key === "ArrowDown") {
 			selectedEnemyIndex = Math.min(enemies.length - 1, selectedEnemyIndex + 1);
-			if (messageContent && messageContent.childElementCount)
-				updateMessageWindowSelection();
+			if (messageContent?.childElementCount) updateMessageWindowSelection();
 			else updateTargetSelectUI();
 			return;
 		}
@@ -607,7 +626,9 @@ window.addEventListener("keydown", (e) => {
 	}
 });
 window.addEventListener("keyup", (e) => {
-	if (e.key in keys) keys[e.key] = false;
+	if (e.key in keys) {
+		keys[e.key] = false;
+	}
 });
 
 fightButton.addEventListener("click", () => {
@@ -627,8 +648,7 @@ function updateTargetSelectUI() {
 	enemies.forEach((enemy, i) => {
 		const btn = document.createElement("button");
 		btn.textContent = `${enemy.name} (${enemy.hp} / ${enemy.maxHp})`;
-		btn.className =
-			"target-select-btn" + (i === selectedEnemyIndex ? " selected" : "");
+		btn.className = `target-select-btn${i === selectedEnemyIndex ? " selected" : ""}`;
 		btn.disabled = enemy.hp <= 0;
 		btn.onclick = () => {
 			selectedEnemyIndex = i;
@@ -658,8 +678,7 @@ function showTargetSelectionInMessage() {
 	enemies.forEach((enemy, i) => {
 		const btn = document.createElement("button");
 		btn.textContent = `${enemy.name} (${enemy.hp} / ${enemy.maxHp})`;
-		btn.className =
-			"target-select-btn" + (i === selectedEnemyIndex ? " selected" : "");
+		btn.className = `target-select-btn${i === selectedEnemyIndex ? " selected" : ""}`;
 		btn.disabled = enemy.hp <= 0;
 		btn.onclick = () => {
 			selectedEnemyIndex = i;
@@ -790,7 +809,7 @@ function hideMessage(opts: { keepFrame?: boolean } = {}) {
 
 setFrameMode("message", { immediate: true, force: true });
 messageWindow?.classList.add("hidden");
-messageContent && (messageContent.style.opacity = "0");
+if (messageContent) messageContent.style.opacity = "0";
 
 // Wire other action buttons to show messages
 document.getElementById("act").addEventListener("click", () => {
@@ -814,20 +833,19 @@ try {
 		position: { right: "75px", bottom: "105px" },
 		color: "white",
 		size: 120,
-	}) as any;
-	joystickManager
-		.on("move", (evt, data) => {
-			if (messageActive) return;
-			const angle = data.angle.radian;
-			const force = Math.min(data.force, 1.0);
-			joystickVector.x = Math.cos(angle) * force;
-			joystickVector.y = -Math.sin(angle) * force;
-		})
-		.on("end", () => {
-			joystickVector.x = 0;
-			joystickVector.y = 0;
-		});
-} catch (e) {
+	});
+	joystickManager.on("move", (_evt, data) => {
+		if (messageActive) return;
+		const angle = data.angle.radian;
+		const force = Math.min(data.force, 1.0);
+		joystickVector.x = Math.cos(angle) * force;
+		joystickVector.y = -Math.sin(angle) * force;
+	});
+	joystickManager.on("end", () => {
+		joystickVector.x = 0;
+		joystickVector.y = 0;
+	});
+} catch (_e) {
 	// joystick init failed (silent)
 }
 
