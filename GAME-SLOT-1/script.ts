@@ -1019,15 +1019,13 @@ class SlotGame {
 		const content = document.getElementById("devPanelContent");
 		if (!content) return;
 		const betInput = document.getElementById("betInput");
-		const minBet = typeof this.config.minBet === "number" ? this.config.minBet : 1;
+		const minBet =
+			typeof this.config.minBet === "number" ? this.config.minBet : 1;
 		const betValue =
 			betInput instanceof HTMLInputElement && betInput.value !== ""
 				? Number(betInput.value)
 				: Number.NaN;
-		const bet = Math.max(
-			Number.isFinite(betValue) ? betValue : minBet,
-			minBet,
-		);
+		const bet = Math.max(Number.isFinite(betValue) ? betValue : minBet, minBet);
 
 		const ev = this.computeExpectedValuePerUnit();
 		const evForBet = ev.evPerUnit * bet;
