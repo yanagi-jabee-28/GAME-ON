@@ -35,6 +35,26 @@ const thumbsButtons =
 	document.querySelectorAll<HTMLButtonElement>(".thumbs-btn");
 const callButtons = document.querySelectorAll<HTMLButtonElement>(".call-btn");
 
+function getHandSvg(container: HTMLElement): SVGElement {
+	const hand = container.querySelector<SVGElement>(".hand-svg");
+	if (!hand) {
+		throw new Error("Hand SVG element not found in container");
+	}
+	return hand;
+}
+
+function readButtonValue(button: HTMLButtonElement): number {
+	const raw = button.dataset.value;
+	if (raw === undefined) {
+		throw new Error("Button missing data-value attribute");
+	}
+	const value = Number.parseInt(raw, 10);
+	if (Number.isNaN(value)) {
+		throw new Error(`Invalid numeric value: ${raw}`);
+	}
+	return value;
+}
+
 // --- Game State ---
 let playerScore = 0;
 let cpuScore = 0;
@@ -87,14 +107,14 @@ function updateControlsAndHands() {
 
 	// Update available thumb buttons for player
 	thumbsButtons.forEach((btn) => {
-		const value = parseInt(btn.dataset.value);
+		const value = readButtonValue(btn);
 		btn.style.display = value > playerHands ? "none" : "inline-block";
 	});
 
 	// Update available call buttons
 	const maxTotalThumbs = playerHands + cpuHands;
 	callButtons.forEach((btn) => {
-		const value = parseInt(btn.dataset.value);
+		const value = readButtonValue(btn);
 		btn.style.display = value > maxTotalThumbs ? "none" : "inline-block";
 	});
 }
@@ -107,13 +127,18 @@ function resetRound() {
 	cpuCallText.classList.add("opacity-0");
 
 	// Reset hands to fists
-	document.querySelectorAll(".hand-svg").forEach((hand) => {
+	const handSvgs = document.querySelectorAll<SVGElement>(".hand-svg");
+	handSvgs.forEach((hand) => {
 		hand.classList.remove("thumb-up", "shake");
 	});
 
 	playerChoice = { thumbs: null, call: null };
-	thumbsButtons.forEach((btn) => btn.classList.remove("selected"));
-	callButtons.forEach((btn) => btn.classList.remove("selected"));
+	thumbsButtons.forEach((btn) => {
+		btn.classList.remove("selected");
+	});
+	callButtons.forEach((btn) => {
+		btn.classList.remove("selected");
+	});
 
 	playButton.disabled = true;
 	controlsArea.style.display = "block";
@@ -123,10 +148,13 @@ function resetRound() {
 thumbsButtons.forEach((button) => {
 	button.addEventListener("click", () => {
 		if (gameState !== "playing") return;
-		playerChoice.thumbs = parseInt(button.dataset.value);
-		thumbsButtons.forEach((btn) => btn.classList.remove("selected"));
+		const selectedValue = readButtonValue(button);
+		playerChoice.thumbs = selectedValue;
+		thumbsButtons.forEach((btn) => {
+			btn.classList.remove("selected");
+		});
 		button.classList.add("selected");
-		updatePlayerHands(parseInt(button.dataset.value));
+		updatePlayerHands(selectedValue);
 		checkCanPlay();
 	});
 });
@@ -134,8 +162,10 @@ thumbsButtons.forEach((button) => {
 callButtons.forEach((button) => {
 	button.addEventListener("click", () => {
 		if (gameState !== "playing") return;
-		playerChoice.call = parseInt(button.dataset.value);
-		callButtons.forEach((btn) => btn.classList.remove("selected"));
+		playerChoice.call = readButtonValue(button);
+		callButtons.forEach((btn) => {
+			btn.classList.remove("selected");
+		});
 		button.classList.add("selected");
 		checkCanPlay();
 	});
@@ -159,15 +189,15 @@ function checkCanPlay() {
 
 // --- Update Visual Hands ---
 function updatePlayerHands(count: number) {
-	const leftHand = playerHandLeftEl.querySelector(".hand-svg")!;
-	const rightHand = playerHandRightEl.querySelector(".hand-svg")!;
+	const leftHand = getHandSvg(playerHandLeftEl);
+	const rightHand = getHandSvg(playerHandRightEl);
 	leftHand.classList.toggle("thumb-up", count >= 1);
 	rightHand.classList.toggle("thumb-up", count === 2);
 }
 
 function updateCpuHands(count: number) {
-	const leftHand = cpuHandLeftEl.querySelector(".hand-svg")!;
-	const rightHand = cpuHandRightEl.querySelector(".hand-svg")!;
+	const leftHand = getHandSvg(cpuHandLeftEl);
+	const rightHand = getHandSvg(cpuHandRightEl);
 	leftHand.classList.toggle("thumb-up", count >= 1);
 	rightHand.classList.toggle("thumb-up", count === 2);
 }
@@ -186,7 +216,8 @@ playButton.addEventListener("click", () => {
 	const cpuThumbs = Math.floor(Math.random() * (cpuHands + 1));
 
 	// Calls are decided by the current turn's player
-	let playerCall, cpuCall;
+	let playerCall: number | null;
+	let cpuCall: number | null;
 	if (currentTurn === "player") {
 		playerCall = playerChoice.call;
 		cpuCall = null;
@@ -204,22 +235,27 @@ playButton.addEventListener("click", () => {
 	// Animation sequence
 	turnIndicator.textContent = "";
 	chantText.textContent = "いっせーのー...";
-	document
-		.querySelectorAll(".hand-svg")
-		.forEach((hand) => hand.classList.add("shake"));
+	const handsForShake = document.querySelectorAll<SVGElement>(".hand-svg");
+	handsForShake.forEach((hand) => {
+		hand.classList.add("shake");
+	});
 
 	setTimeout(() => {
 		chantText.textContent = "せ！";
-		document
-			.querySelectorAll(".hand-svg")
-			.forEach((hand) => hand.classList.remove("shake"));
+		const handsToStopShake = document.querySelectorAll<SVGElement>(".hand-svg");
+		handsToStopShake.forEach((hand) => {
+			hand.classList.remove("shake");
+		});
 
 		// Reveal thumbs
 		updateCpuHands(cpuThumbs);
 
 		// Reveal calls
 		if (cpuCall !== null) {
-			const span = cpuCallText.querySelector("span")!;
+			const span = cpuCallText.querySelector("span");
+			if (!span) {
+				throw new Error("CPU call span not found");
+			}
 			span.textContent = String(cpuCall);
 			cpuCallText.classList.remove("opacity-0");
 		}
