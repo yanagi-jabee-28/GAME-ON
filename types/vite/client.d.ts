@@ -11,15 +11,15 @@ declare module "vite/client" {
 	}
 
 	interface ViteHotContext {
-		readonly data: any;
+		readonly data: Record<string, unknown>;
 		accept(): void;
-		accept(cb: (mod: any) => void): void;
-		accept(dep: string, cb: (mod: any) => void): void;
-		accept(deps: readonly string[], cb: (mods: any[]) => void): void;
-		dispose(cb: (data: any) => void): void;
+		accept(cb: (mod: unknown) => void): void;
+		accept(dep: string, cb: (mod: unknown) => void): void;
+		accept(deps: readonly string[], cb: (mods: unknown[]) => void): void;
+		dispose(cb: (data: Record<string, unknown>) => void): void;
 		decline(): void;
 		invalidate(): void;
-		on<T extends string>(event: T, cb: (payload: any) => void): void;
-		send<T extends string>(event: T, data?: any): void;
+		on<T extends string>(event: T, cb: (payload: unknown) => void): void;
+		send<T extends string>(event: T, data?: unknown): void;
 	}
 }

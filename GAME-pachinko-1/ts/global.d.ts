@@ -16,8 +16,10 @@ declare global {
 					_instance?: SlotGameInstance | null;
 			  }
 			| undefined;
+		ensureEmbeddedSlotVisible?: () => void;
 		SLOT_GAME_INSTANCE?: SlotGameInstance | null;
 		GAME_CONFIG?: SlotGameConfig;
+		counterId?: string;
 		getRotatorsSummary?: () => unknown;
 		setRotatorsSummary?: () => unknown;
 		setRotatorsEnabledByKind?: (kind: string, enabled: boolean) => void;

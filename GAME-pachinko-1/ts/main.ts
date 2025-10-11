@@ -21,19 +21,38 @@
 import Matter from "matter-js";
 import { GAME_CONFIG, getMaterialInteraction } from "../ts/config";
 
-/** @type {any} */
-const __GAME_CONFIG__any = GAME_CONFIG;
-// --- Lightweight ambient helpers to reduce tsserver noise ---
-// Declare common functions/vars that are defined elsewhere at runtime so editor doesn't complain
-/** @type {any} */
-var initParticlePool;
-/** @type {any} */
-var updateParticles;
-// safe alias placeholder if needed
-/** @type {any} */
-var __RenderAny = /** @type {any} */ (
-	typeof Matter !== "undefined" && Matter.Render ? Matter.Render : {}
-);
+// Types for function variables that are defined elsewhere at runtime
+type ParticlePoolInitializer = (world: Matter.World) => void;
+type ParticleUpdater = (deltaMs: number) => void;
+
+// Type for rotator objects
+interface Rotator {
+	id: string;
+	body: Matter.Body;
+	mode: string;
+	anglePerSecond?: number;
+	pivot?: { x: number; y: number };
+	program?: any;
+	enabled: boolean;
+	kind?: string;
+	zeroAngle?: number;
+	inertial?: {
+		springStiffness: number;
+		springDamping: number;
+		gravityBias?: number;
+		gravityAngleDeg?: number;
+		gravityAngle?: number;
+		gravityOffset?: number;
+		gravityRadius?: number;
+		restRad: number;
+	};
+	lastActiveAt?: number;
+	sleepThresholdMs?: number;
+}
+
+// Declare common functions/vars that are defined elsewhere at runtime
+declare let initParticlePool: ParticlePoolInitializer | undefined;
+declare let updateParticles: ParticleUpdater | undefined;
 
 import {
 	addBoundsToWorld,
@@ -60,32 +79,19 @@ function pachiInit() {
 	__pachi_initialized = true;
 	// original DOMContentLoaded callback body follows
 	// Matter.jsの主要モジュールを取得
-	const { Engine, Render, Runner, World, Events, Body, Constraint } = Matter;
+	const { Engine, Render, World, Events, Body, Constraint } = Matter;
 
 	// -------------------------
 	// 小さなユーティリティ群（リファクタリング用）
 	// -------------------------
-	/** 安全に関数を実行するヘルパー（例外を無視） */
-	function safeCall(fn) {
-		try {
-			return fn();
-		} catch (_) {
-			/* no-op */
-		}
-	}
 
 	/** clamp helper */
-	function clamp(v, a, b) {
+	function clamp(v: number, a: number, b: number): number {
 		return Math.max(a, Math.min(b, v));
 	}
 
-	/** map range helper: t in [0,1] -> [a,b] */
-	function mapRange(t, a, b) {
-		return a + (b - a) * t;
-	}
-
 	/** スライダー値(0..100)から速度(px/s)を算出する共通関数 */
-	function computeSpeedFromSlider(sliderValue) {
+	function computeSpeedFromSlider(sliderValue: string | number): number {
 		const {
 			minSpeed = 5,
 			maxSpeed = 400,
@@ -98,7 +104,10 @@ function pachiInit() {
 	/** パーティクル色選定を共通化するヘルパー
 	 * cfg may have .mode/.particleMode and .color/.particleColor
 	 */
-	function pickParticleColor(cfg, ballBody) {
+	function pickParticleColor(
+		cfg: any,
+		ballBody: Matter.Body,
+	): string | undefined {
 		try {
 			if (!cfg) return undefined;
 			const mode = cfg.mode || cfg.particleMode;
@@ -121,7 +130,7 @@ function pachiInit() {
 				(window as Window & { counterId?: string }).counterId) ||
 			null;
 		if (runtimeCounterId) {
-			const cfgEntry2 =
+			const cfgEntry2: any =
 				GAME_CONFIG.sensorCounters.counters[runtimeCounterId] || {};
 			if (
 				cfgEntry2.slotTrigger &&
@@ -141,24 +150,20 @@ function pachiInit() {
 
 	// Ensure embedded slot is visible and initialized (if adapter is present)
 	try {
-		const windowWithSlot = window as Window & {
-			EmbeddedSlot?: EmbeddedSlot;
-			ensureEmbeddedSlotVisible?: () => void;
-		};
 		// prefer dynamic import/style: adapter exports ensureEmbeddedSlotVisible
-		if (typeof windowWithSlot.EmbeddedSlot === "undefined") {
+		if (typeof window.EmbeddedSlot === "undefined") {
 			// adapter module may be loaded as module script; attempt to call exported helper if available on window
 			// fallback: call window.EmbeddedSlot.init via adapter's global if present
-			if (typeof windowWithSlot.ensureEmbeddedSlotVisible === "function") {
+			if (typeof window.ensureEmbeddedSlotVisible === "function") {
 				try {
-					windowWithSlot.ensureEmbeddedSlotVisible();
+					window.ensureEmbeddedSlotVisible();
 				} catch (_) {
 					/* no-op */
 				}
 			}
 		} else {
 			try {
-				windowWithSlot.EmbeddedSlot.init({ show: false });
+				window.EmbeddedSlot.init({ show: false });
 			} catch (_) {
 				/* no-op */
 			}
@@ -185,7 +190,7 @@ function pachiInit() {
 	// スリープ閾値を少し下げて微小振動を抑止し、負荷を軽減
 	// engine.timing may have custom properties; cast to any to avoid tsserver property errors
 	try {
-		engine.timing.isFixed = true;
+		(engine.timing as any).isFixed = true;
 	} catch (_) {
 		/** no-op */
 	}
@@ -244,7 +249,7 @@ function pachiInit() {
 		options: {
 			width,
 			height,
-			pixelRatio: "auto",
+			pixelRatio: window.devicePixelRatio || 1,
 			...renderOptions,
 			showSleeping: false,
 		},
@@ -314,7 +319,9 @@ function pachiInit() {
 			} catch (__) {
 				/* no-op */
 			}
-			container.appendChild(ov);
+			if (container) {
+				container.appendChild(ov);
+			}
 			loadingOverlay = ov;
 		} catch (_) {
 			/* no-op */
@@ -461,7 +468,7 @@ function pachiInit() {
 	function ensureCanvasSized() {
 		try {
 			const c = render && render.canvas;
-			if (!c) return;
+			if (!c || !container) return;
 			const dpr =
 				typeof window !== "undefined" && window.devicePixelRatio
 					? window.devicePixelRatio || 1
@@ -573,7 +580,9 @@ function pachiInit() {
 						window.__pachi_sizedReady = true;
 					} catch (_) {}
 					try {
-						container.style.visibility = "";
+						if (container) {
+							container.style.visibility = "";
+						}
 					} catch (_) {}
 					hideLoadingOverlay();
 					// stop observing DOM mutations once ready
@@ -628,7 +637,7 @@ function pachiInit() {
 	// レンダリング順序を render.layer で制御（小→大の順）
 	// - 同一 layer では id 昇順にしてデターミニズムを担保
 	(function injectLayeredRendering() {
-		const getLayer = (b) => {
+		const getLayer = (b: Matter.Body): number => {
 			const v =
 				b && b.render && typeof b.render.layer === "number"
 					? b.render.layer
@@ -662,7 +671,6 @@ function pachiInit() {
 	// 注意: 初期レイアウトが未確定のまま Render.run すると、
 	// デフォルトの 300x150 で 0,0 に要素が集まる描画が行われる場合がある。
 	// 本実装では独自 rAF ループで Render.world を呼ぶため、Render.run は使用しない。
-	const runner = Runner.create();
 
 	// --- Adaptive physics/performance manager ---
 	(function setupAdaptivePhysics() {
@@ -704,13 +712,13 @@ function pachiInit() {
 		}
 
 		// runtime frame-time monitor that gently degrades physics settings under sustained high frame cost
-		const samples = [];
+		const samples: number[] = [];
 		const maxSamples = 60; // サンプル窓: 60フレーム分（およそ1秒）を保持して短期平均を取る
-		function pushSample(ms) {
+		function pushSample(ms: number): void {
 			samples.push(ms);
 			if (samples.length > maxSamples) samples.shift();
 		}
-		function avgMs() {
+		function avgMs(): number {
 			if (!samples.length) return 0;
 			return samples.reduce((a, b) => a + b, 0) / samples.length;
 		}
@@ -775,7 +783,7 @@ function pachiInit() {
 		const fixedFps = Math.max(30, Number(GAME_CONFIG.physics?.fixedFps ?? 60)); // 物理更新の目標FPS（下限30fps）
 		const maxFixedStepsPerFrame = Math.max(
 			1,
-			Number(GAME_CONFIG.physics?.maxFixedStepsPerFrame ?? 3),
+			Number((GAME_CONFIG.physics as any)?.maxFixedStepsPerFrame ?? 3),
 		); // 1フレーム内で許可する物理ステップの最大数
 		const adaptiveSubsteps = Boolean(
 			GAME_CONFIG.physics?.adaptiveSubsteps ?? false,
@@ -783,7 +791,7 @@ function pachiInit() {
 		const fixedDtMs = 1000 / fixedFps; // 固定ステップ長 (ms)
 		let last = performance.now();
 		let acc = 0;
-		function loop(now) {
+		function loop(now: number): void {
 			// タブ復帰などで巨大なelapsedが来た場合の暴走抑制
 			const elapsedRaw = now - last;
 			const elapsed = Math.min(elapsedRaw, 200); // 大きなジャンプは200msで打ち切る（タブ復帰等の暴走抑制）
@@ -1129,7 +1137,7 @@ function pachiInit() {
 			: { xOffset: 0, yOffset: 0 };
 
 	// rotators 配列に { id, body, mode, anglePerSecond?, pivot, program?, enabled } を保持し、afterUpdate で回す
-	let rotators = [];
+	let rotators: Rotator[] = [];
 
 	// ランタイムで有効/無効を切り替えるための簡易API（ブラウザコンソール用）
 	if (typeof window !== "undefined") {

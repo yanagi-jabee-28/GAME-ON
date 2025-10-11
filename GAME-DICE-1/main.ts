@@ -12,6 +12,7 @@ import * as CANNON from "cannon-es";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import * as Tone from "tone";
+import type { CollisionEvent } from "../types/common";
 
 // =================================================================================
 // DOM要素の取得 (型注釈を追加して .disabled/.value 等を安全に使えるようにする)
@@ -141,7 +142,15 @@ class SoundManager {
 		}
 
 		const clinkOptions: Partial<Tone.MetalSynthOptions> = {
-			envelope: { attack: 0.001, decay: 0.1, release: 0.08 },
+			envelope: {
+				attack: 0.001,
+				decay: 0.1,
+				sustain: 0.3,
+				release: 0.08,
+				attackCurve: "linear",
+				releaseCurve: "exponential",
+				decayCurve: "exponential",
+			},
 			harmonicity: 4.1,
 			modulationIndex: 22,
 			resonance: 3000,
@@ -153,36 +162,51 @@ class SoundManager {
 		).toDestination();
 		this.clinkSynth.volume.value = -9;
 
-		const winOptions: Partial<Tone.SynthOptions> = {
-			oscillator: { type: "triangle" },
-			envelope: { attack: 0.01, decay: 0.2, sustain: 0.45, release: 1.2 },
-		};
+		const winOptions = {
+			oscillator: { type: "triangle" as const },
+			envelope: {
+				attack: 0.01,
+				decay: 0.2,
+				sustain: 0.45,
+				release: 1.2,
+			},
+		} as Partial<Tone.SynthOptions>;
 		this.winSynth = new Tone.PolySynth(Tone.Synth, winOptions).toDestination();
 		this.winSynth.volume.value = -2;
 
-		const pairOptions: Partial<Tone.SynthOptions> = {
-			oscillator: { type: "sine" },
-			envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.3 },
-		};
+		const pairOptions = {
+			oscillator: { type: "sine" as const },
+			envelope: {
+				attack: 0.01,
+				decay: 0.3,
+				sustain: 0.1,
+				release: 0.3,
+			},
+		} as Partial<Tone.SynthOptions>;
 		this.pairSynth = new Tone.PolySynth(
 			Tone.Synth,
 			pairOptions,
 		).toDestination();
 		this.pairSynth.volume.value = -6;
 
-		const loseOptions: Partial<Tone.SynthOptions> = {
-			oscillator: { type: "sawtooth" },
-			envelope: { attack: 0.003, decay: 0.18, sustain: 0.06, release: 0.22 },
-		};
+		const loseOptions = {
+			oscillator: { type: "sawtooth" as const },
+			envelope: {
+				attack: 0.003,
+				decay: 0.18,
+				sustain: 0.06,
+				release: 0.22,
+			},
+		} as Partial<Tone.SynthOptions>;
 		this.loseSynth = new Tone.PolySynth(
 			Tone.Synth,
 			loseOptions,
 		).toDestination();
 		this.loseSynth.volume.value = -10;
 
-		const foulOptions: Partial<Tone.MonoSynthOptions> = {
-			oscillator: { type: "square" },
-			filter: { Q: 6, type: "lowpass", rolloff: -24 },
+		const foulOptions = {
+			oscillator: { type: "square" as const },
+			filter: { Q: 6, type: "lowpass" as const, rolloff: -24 },
 			envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 1 },
 			filterEnvelope: {
 				attack: 0.01,
@@ -192,13 +216,13 @@ class SoundManager {
 				baseFrequency: 200,
 				octaves: 2,
 			},
-		};
+		} as Partial<Tone.MonoSynthOptions>;
 		this.foulSynth = new Tone.MonoSynth(foulOptions).toDestination();
 
-		const clickOptions: Partial<Tone.SynthOptions> = {
-			oscillator: { type: "sine" },
+		const clickOptions = {
+			oscillator: { type: "sine" as const },
 			envelope: { attack: 0.001, decay: 0.06, sustain: 0.02, release: 0.06 },
-		};
+		} as Partial<Tone.SynthOptions>;
 		this.clickSynth = new Tone.Synth(clickOptions).toDestination();
 		this.clickSynth.volume.value = -3;
 
@@ -731,13 +755,14 @@ function createDice(dicePhysicsMaterial: CANNON.Material): void {
 		enableContinuousCollisionDetection(body);
 
 		// 衝突イベントリスナーの追加
-		body.addEventListener("collide", (event) => {
+		body.addEventListener("collide", (event: CollisionEvent) => {
 			// 衝突速度の取得
 			const impactVelocity = event.contact.getImpactVelocityAlongNormal();
 			if (impactVelocity > 0.5) {
 				// 相手のマテリアル名を取得
-				const otherBodyMaterialName = event.body.material
-					? event.body.material.name
+				const otherBody = event.body as CANNON.Body;
+				const otherBodyMaterialName = otherBody.material
+					? otherBody.material.name
 					: "";
 				if (otherBodyMaterialName === "dice") {
 					// サイコロ同士の衝突音再生
