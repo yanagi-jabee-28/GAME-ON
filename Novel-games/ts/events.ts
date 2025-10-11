@@ -5,8 +5,67 @@
  */
 
 import { CONFIG } from "./config.ts";
-import { EVENTS, RANDOM_EVENTS } from "./eventsData.ts";
+import type {
+	EventActionId,
+	EventChanges,
+	EventData,
+	RandomEventChoiceEntry,
+	RandomEventConsequencesEntry,
+	RandomEventEntry,
+	RandomEventProbabilityOutcome,
+} from "./eventsData.ts";
+import { EVENTS } from "./eventsData.ts";
+import type { GameManager } from "./gameManager.ts";
+import type { ItemId } from "./items.ts";
 import { ITEMS } from "./items.ts";
+import type { UIManager } from "./ui.ts";
+
+declare const ui: UIManager;
+declare const gameManager: GameManager;
+
+type ShopId = keyof typeof CONFIG.SHOPS;
+type ChangeInput = Parameters<GameManager["applyChanges"]>[0];
+
+const normalizeEventChanges = (changes: EventChanges): ChangeInput => {
+	const normalized: EventChanges = {
+		...changes,
+		stats: changes.stats ? { ...changes.stats } : undefined,
+	};
+
+	if (typeof normalized.connections === "number") {
+		normalized.cp = (normalized.cp ?? 0) + normalized.connections;
+		delete (normalized as { connections?: number }).connections;
+	}
+
+	(["physical", "mental", "technical", "academic"] as const).forEach((key) => {
+		const value = normalized[key];
+		if (typeof value === "number") {
+			const current = normalized.stats?.[key] ?? 0;
+			normalized.stats = {
+				...normalized.stats,
+				[key]: current + value,
+			};
+			delete normalized[key];
+		}
+	});
+
+	if (typeof normalized.condition === "number") {
+		const current = normalized.stats?.condition ?? 0;
+		normalized.stats = {
+			...normalized.stats,
+			condition: current + normalized.condition,
+		};
+		delete normalized.condition;
+	}
+
+	if (normalized.stats && Object.keys(normalized.stats).length === 0) {
+		delete normalized.stats;
+	}
+
+	delete normalized.itemsRemove;
+
+	return normalized as ChangeInput;
+};
 
 export const GameEventManager = {
 	lastCheckedDay: 1, // 日付変更時の回復メッセージ表示用
@@ -15,12 +74,12 @@ export const GameEventManager = {
 
 	/**
 	 * 汎用的な行動実行関数
-	 * @param {string} actionId - config.jsのEVENTSに定義されたアクションID
+	 * @param actionId config.jsのEVENTSに定義されたアクションID
 	 */
-	executeAction: async function (actionId) {
+	executeAction: async function (actionId: EventActionId) {
 		// 行動が始まるので自由行動フラグを下ろす
 		this.isInFreeAction = false;
-		const eventData = EVENTS[actionId];
+		const eventData = EVENTS[actionId] as EventData | undefined;
 		if (!eventData) {
 			console.error(`Action data not found for ID: ${actionId}`);
 			return;
@@ -37,10 +96,11 @@ export const GameEventManager = {
 
 		// ステータス変動
 		if (eventData.changes) {
+			const normalizedChanges = normalizeEventChanges(eventData.changes);
 			// applyChanges の内部表示は呼び出し側で制御して
 			// 明示的にメッセージを表示・待機するようにする
 			const msgs =
-				gameManager.applyChanges(eventData.changes, {
+				gameManager.applyChanges(normalizedChanges, {
 					suppressDisplay: true,
 				}) || [];
 			ui.updateStatusDisplay(gameManager.getStatus());
@@ -78,9 +138,9 @@ export const GameEventManager = {
 	/**
 	 * イベントデータを受け取り、メッセージ表示とステータス変化を同期的に実行する。
 	 * この関数はターン進行を直接行わないため、呼び出し側で nextTurn を制御できます。
-	 * @param {object} eventData - { message, name?, changes?, afterMessage? }
+	 * @param eventData { message, name?, changes?, afterMessage? }
 	 */
-	executeEventInline: async function (eventData) {
+	executeEventInline: async function (eventData: EventData | undefined) {
 		this.isInFreeAction = false;
 		if (!eventData) return;
 
@@ -93,48 +153,11 @@ export const GameEventManager = {
 		}
 
 		if (eventData.changes) {
-			// 旧仕様キーの正規化: connections->cp
-			const normalized = { ...eventData.changes };
-			if (typeof normalized.connections === "number") {
-				normalized.cp = (normalized.cp || 0) + normalized.connections;
-				delete normalized.connections;
-			}
-			// physical/mental/technical がトップレベルに来た場合は stats へ寄せる
-			["physical", "mental", "technical", "academic"].forEach((k) => {
-				if (typeof normalized[k] === "number") {
-					normalized.stats = Object.assign({}, normalized.stats, {
-						[k]:
-							(normalized.stats && normalized.stats[k]
-								? normalized.stats[k]
-								: 0) + normalized[k],
-					});
-					delete normalized[k];
-				}
-			});
-			// legacy: condition がトップレベルにある場合は stats.condition に寄せる（互換用）
-			if (typeof normalized.condition === "number") {
-				normalized.stats = Object.assign({}, normalized.stats, {
-					condition:
-						(normalized.stats && normalized.stats.condition
-							? normalized.stats.condition
-							: 0) + normalized.condition,
-				});
-				delete normalized.condition;
-			}
-			// academic がトップレベルに来た場合も stats へ寄せる
-			if (typeof normalized.academic === "number") {
-				normalized.stats = Object.assign({}, normalized.stats, {
-					academic:
-						(normalized.stats && normalized.stats.academic
-							? normalized.stats.academic
-							: 0) + normalized.academic,
-				});
-				delete normalized.academic;
-			}
 			// applyChanges 側で表示制御が可能なのでここでは通常通り適用する
 			// suppress display in applyChanges and show messages here so the
 			// caller controls the click-wait timing and the player sees the
 			// money/stat deltas clearly.
+			const normalized = normalizeEventChanges(eventData.changes);
 			const msgs =
 				gameManager.applyChanges(normalized, { suppressDisplay: true }) || [];
 			ui.updateStatusDisplay(gameManager.getStatus());
@@ -159,21 +182,17 @@ export const GameEventManager = {
 	 * gameManager など外部からはこの関数を通してイベント表示と changes を適用する。
 	 * @param {{ name?:string, message?:string, changes?:object, afterMessage?:string }} eventData
 	 */
-	performChangesEvent: async function (eventData) {
+	performChangesEvent: async function (eventData: EventData | undefined) {
 		// イベントとしての実行は executeEventInline に委譲
 		try {
 			await this.executeEventInline(eventData);
 		} catch (e) {
 			console.warn("performChangesEvent failed", e);
 			// フォールバック: 直接 applyChanges を呼ぶ
-			if (
-				eventData &&
-				eventData.changes &&
-				typeof gameManager !== "undefined"
-			) {
-				gameManager.applyChanges(eventData.changes);
-				if (typeof ui !== "undefined" && typeof ui.waitForClick === "function")
-					await ui.waitForClick();
+			if (eventData?.changes) {
+				const normalized = normalizeEventChanges(eventData.changes);
+				gameManager.applyChanges(normalized);
+				if (typeof ui.waitForClick === "function") await ui.waitForClick();
 			}
 		}
 	},
@@ -227,7 +246,7 @@ export const GameEventManager = {
 	showMainActions: function () {
 		const status = gameManager.getStatus();
 		// ゲームオーバー時は通常の選択肢を表示せず、ゲームオーバー処理へ
-		if (status && status.gameOver) {
+		if (status?.gameOver) {
 			if (typeof this.triggerGameOver === "function") this.triggerGameOver();
 			return;
 		}
@@ -278,11 +297,8 @@ export const GameEventManager = {
 
 		// 追加: 土日午前でもスーパーに行けるようにする
 		if (turnName === "午前" && ["土", "日"].includes(weekday)) {
-			const shop =
-				CONFIG && (CONFIG as any).SHOPS && (CONFIG as any).SHOPS["supermarket"]
-					? (CONFIG as any).SHOPS["supermarket"]
-					: null;
-			const shopLabel = shop && shop.label ? shop.label : "スーパー";
+			const shop = CONFIG.SHOPS.supermarket;
+			const shopLabel = shop.label || "スーパー";
 			choices.push({
 				text: `${shopLabel}に行く`,
 				callback: () => this.openShop("supermarket"),
@@ -293,13 +309,7 @@ export const GameEventManager = {
 		if (turnName === "放課後") {
 			// 土日はスーパーに行くようにする
 			const shopId = ["土", "日"].includes(weekday) ? "supermarket" : "school";
-			const shopLabel =
-				CONFIG &&
-				(CONFIG as any).SHOPS &&
-				(CONFIG as any).SHOPS[shopId] &&
-				(CONFIG as any).SHOPS[shopId].label
-					? (CONFIG as any).SHOPS[shopId].label
-					: "購買";
+			const shopLabel = CONFIG.SHOPS[shopId]?.label || "購買";
 			choices.push({
 				text: `${shopLabel}に行く`,
 				callback: () => this.openShop(shopId),
@@ -328,12 +338,9 @@ export const GameEventManager = {
 	 * 汎用ショップオープン関数
 	 * @param {string} shopId
 	 */
-	openShop: async function (shopId) {
+	openShop: async function (shopId: ShopId) {
 		this.isInFreeAction = false;
-		const shop =
-			CONFIG && (CONFIG as any).SHOPS && (CONFIG as any).SHOPS[shopId]
-				? (CONFIG as any).SHOPS[shopId]
-				: null;
+		const shop = CONFIG.SHOPS[shopId];
 		if (!shop) {
 			ui.displayMessage("そのお店は現在利用できません。", "システム");
 			await ui.waitForClick();
@@ -342,27 +349,17 @@ export const GameEventManager = {
 		}
 
 		// 履歴に「ショップ訪問」を記録
-		if (
-			typeof gameManager !== "undefined" &&
-			typeof gameManager.addHistory === "function"
-		) {
-			gameManager.addHistory({
-				type: "shop_visit",
-				detail: { shopId: shopId, shopLabel: shop.label },
-			});
-		}
+		gameManager.addHistory({
+			type: "shop_visit",
+			detail: { shopId: shopId, shopLabel: shop.label },
+		});
 
 		// Show prompt above choices (do not wait for click so message stays visible while choices are shown)
 		ui.displayMessage(`${shop.label}に行ってみよう。何を買う？`, "主人公");
 
-		const items = shop.items || [];
-		const unit =
-			typeof CONFIG !== "undefined" &&
-			(CONFIG as any).LABELS &&
-			(CONFIG as any).LABELS.currencyUnit
-				? (CONFIG as any).LABELS.currencyUnit
-				: "円";
-		const choices = items.map((id) => ({
+		const items = (shop.items ?? []) as ItemId[];
+		const unit = CONFIG.LABELS.currencyUnit;
+		const choices = items.map((id: ItemId) => ({
 			text: `${ITEMS[id].name} - ${ITEMS[id].price}${unit}`,
 			callback: async () => {
 				await this.attemptPurchase(id, shopId);
@@ -372,15 +369,10 @@ export const GameEventManager = {
 			text: "買わない",
 			callback: async () => {
 				// 履歴に「買わずに退店」を記録
-				if (
-					typeof gameManager !== "undefined" &&
-					typeof gameManager.addHistory === "function"
-				) {
-					gameManager.addHistory({
-						type: "shop_leave",
-						detail: { shopId: shopId, purchased: false },
-					});
-				}
+				gameManager.addHistory({
+					type: "shop_leave",
+					detail: { shopId: shopId, purchased: false },
+				});
 				this.showMainActions();
 			},
 		});
@@ -399,7 +391,7 @@ export const GameEventManager = {
 	 * 購入処理の共通化
 	 * @param {string} itemId
 	 */
-	attemptPurchase: async function (itemId, shopId) {
+	attemptPurchase: async function (itemId: ItemId, shopId: ShopId) {
 		const item = ITEMS[itemId];
 		if (!item) return;
 
@@ -531,10 +523,10 @@ export const GameEventManager = {
 			"[doReport] eventData exists:",
 			!!eventData,
 			"message:",
-			eventData && eventData.message,
+			eventData?.message,
 		);
 		// まずイベント本文を表示してクリック待ち
-		if (eventData && eventData.message) {
+		if (eventData?.message) {
 			console.log("[doReport] show intro message");
 			ui.displayMessage(eventData.message);
 		} else {
@@ -569,23 +561,24 @@ export const GameEventManager = {
 				const progressResult = gameManager.progressReport(r.id, 1);
 				console.log("[doReport.choice] progressReport result:", progressResult);
 				// progressResult: { message, changeMsgs }
-				if (progressResult && progressResult.message) {
+				if (progressResult?.message) {
 					ui.displayMessage(progressResult.message, "システム");
 					if (typeof ui.waitForClick === "function") await ui.waitForClick();
 				}
 				// レポート進捗によるステータス変化（report.changeMsgs）とイベント側の changes をまとめて表示
 				const combinedMsgs = [];
 				if (
-					progressResult &&
+					progressResult?.changeMsgs &&
 					Array.isArray(progressResult.changeMsgs) &&
 					progressResult.changeMsgs.length > 0
 				) {
 					combinedMsgs.push(...progressResult.changeMsgs);
 				}
-				if (eventData && eventData.changes) {
+				if (eventData?.changes) {
 					console.log("[doReport.choice] apply changes:", eventData.changes);
+					const normalized = normalizeEventChanges(eventData.changes);
 					const msgs =
-						gameManager.applyChanges(eventData.changes, {
+						gameManager.applyChanges(normalized, {
 							suppressDisplay: true,
 						}) || [];
 					ui.updateStatusDisplay(gameManager.getStatus());
@@ -605,7 +598,7 @@ export const GameEventManager = {
 		}));
 		choices.push({
 			text: "やめる",
-			callback: () => {
+			callback: async () => {
 				console.log("[doReport.choice] cancel");
 				this.showMainActions();
 			},
@@ -625,9 +618,9 @@ export const GameEventManager = {
 
 	/**
 	 * ランダムイベントを処理する汎用関数
-	 * @param {object} eventData - eventsData.js の RANDOM_EVENTS で定義されたイベントデータ
+	 * @param eventData eventsData.ts の RANDOM_EVENTS で定義されたイベントデータ
 	 */
-	handleRandomEvent: async function (eventData) {
+	handleRandomEvent: async function (eventData: RandomEventEntry) {
 		this.isInFreeAction = false; // イベント中は自由行動を制限
 
 		// イベントメッセージの表示
@@ -674,77 +667,78 @@ export const GameEventManager = {
 
 	/**
 	 * ランダムイベントの選択肢の結果を処理する
-	 * @param {string} eventId - イベントのID
-	 * @param {string} choiceText - 選択された選択肢のテキスト
-	 * @param {object} consequences - 選択肢の結果データ
+	 * @param eventId イベントのID
+	 * @param choiceText 選択された選択肢のテキスト
+	 * @param consequences 選択肢の結果データ
 	 */
-	processRandomEventChoice: async (eventId, choiceText, consequences) => {
-		// eventId と choiceText を引数に追加
-		if (consequences.probability) {
-			// 確率分岐がある場合
+	processRandomEventChoice: async (
+		eventId: RandomEventEntry["id"],
+		choiceText: RandomEventChoiceEntry["text"],
+		consequences: RandomEventConsequencesEntry,
+	) => {
+		if ("probability" in consequences) {
+			const outcome = consequences as RandomEventProbabilityOutcome;
 			const rand = Math.random();
-			if (rand < consequences.probability) {
-				// 成功
-				if (consequences.success.message) {
-					ui.displayMessage(consequences.success.message, "システム");
+			if (rand < outcome.probability) {
+				if (outcome.success.message) {
+					ui.displayMessage(outcome.success.message, "システム");
 					await ui.waitForClick();
 				}
-				if (consequences.success.changes) {
-					const msgs = gameManager.applyChanges(consequences.success.changes);
+				if (outcome.success.changes) {
+					const normalized = normalizeEventChanges(outcome.success.changes);
+					const msgs = gameManager.applyChanges(normalized) || [];
 					if (msgs.length > 0) {
 						ui.displayMessage(msgs.join("\n"), "システム");
 						await ui.waitForClick();
 					}
-					// 履歴に結果を記録
 					gameManager.addHistory({
 						type: "random_event_result",
-						eventId: eventId,
+						eventId,
 						choiceId: choiceText,
 						result: "success",
-						changes: consequences.success.changes,
+						changes: outcome.success.changes,
 					});
 				}
 			} else {
-				// 失敗
-				if (consequences.failure.message) {
-					ui.displayMessage(consequences.failure.message, "システム");
+				if (outcome.failure.message) {
+					ui.displayMessage(outcome.failure.message, "システム");
 					await ui.waitForClick();
 				}
-				if (consequences.failure.changes) {
-					const msgs = gameManager.applyChanges(consequences.failure.changes);
+				if (outcome.failure.changes) {
+					const normalized = normalizeEventChanges(outcome.failure.changes);
+					const msgs = gameManager.applyChanges(normalized) || [];
 					if (msgs.length > 0) {
 						ui.displayMessage(msgs.join("\n"), "システム");
 						await ui.waitForClick();
 					}
-					// 履歴に結果を記録
 					gameManager.addHistory({
 						type: "random_event_result",
-						eventId: eventId,
+						eventId,
 						choiceId: choiceText,
 						result: "failure",
-						changes: consequences.failure.changes,
+						changes: outcome.failure.changes,
 					});
 				}
 			}
 		} else {
-			// 確率分岐がない場合
-			if (consequences.message) {
-				ui.displayMessage(consequences.message, "システム");
+			const outcome = consequences;
+			if (outcome.message) {
+				ui.displayMessage(outcome.message, "システム");
 				await ui.waitForClick();
 			}
-			if (consequences.changes) {
-				const msgs = gameManager.applyChanges(consequences.changes);
+			if (outcome.changes) {
+				const normalized = normalizeEventChanges(outcome.changes);
+				const msgs = gameManager.applyChanges(normalized) || [];
 				if (msgs.length > 0) {
 					ui.displayMessage(msgs.join("\n"), "システム");
 					await ui.waitForClick();
 				}
-				// 履歴に結果を記録
 				gameManager.addHistory({
 					type: "random_event_result",
-					eventId: eventId,
+					eventId,
 					choiceId: choiceText,
 					result: "normal",
-					changes: consequences.changes,
+					changes: outcome.changes,
 				});
 			}
 		}
@@ -755,7 +749,7 @@ export const GameEventManager = {
 	 * 表示: GAME_OVER_EVENT の message, afterMessage を表示し、
 	 * 選択肢でリスタート or タイトルへ戻るを選ばせる
 	 */
-	triggerGameOver: async (customMessage) => {
+	triggerGameOver: async (customMessage?: string) => {
 		// フラグを立てる
 		if (typeof gameManager !== "undefined")
 			gameManager.playerStatus.gameOver = true;

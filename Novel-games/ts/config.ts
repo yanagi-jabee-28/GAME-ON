@@ -4,8 +4,120 @@
  * 将来的にキャラクター、アイテム、イベントなどのデータをここに追加していきます。
  */
 
+interface StatDef {
+	label: string;
+	min: number;
+	max: number;
+	default: number;
+}
+
+interface Report {
+	id: string;
+	title: string;
+	progress: number;
+	required: number;
+	changes: {
+		stats: {
+			academic: number;
+		};
+	};
+	progressMessage: string;
+}
+
+interface InitialPlayerStatus {
+	day: number;
+	turnIndex: number;
+	condition: number;
+	money: number;
+	cp: number;
+	stats: {
+		academic: number;
+		physical: number;
+		mental: number;
+		technical: number;
+	};
+	items: string[];
+	history: unknown[]; // historyの型は別途検討
+	reportDebt: number;
+	reports: Report[];
+	menuLocked: boolean;
+}
+
+interface Labels {
+	date: string;
+	timeOfDay: string;
+	money: string;
+	currencyUnit: string;
+	academic: string;
+	condition: string;
+	physical: string;
+	mental: string;
+	technical: string;
+	cp: string;
+	reportDebt: string;
+	menu: string;
+	menuTitle: string;
+	items: string;
+	ownedItems: string;
+	shop: string;
+	conveni: string;
+	supermarket: string;
+	history: string;
+	useButton: string;
+	noReportsMessage: string;
+	noItemsMessage: string;
+	saveLoad: string;
+}
+
+interface Shop {
+	id: string;
+	labelKey: string;
+	label: string;
+	items: string[];
+}
+
+interface Config {
+	TURNS: string[];
+	WEEKDAYS: string[];
+	START_WEEKDAY_INDEX: number;
+	CONDITION_STATUS: {
+		EXCELLENT: string;
+		GOOD: string;
+		BAD: string;
+		WORST: string;
+	};
+	STAT_DEFS: {
+		academic: StatDef;
+		physical: StatDef;
+		mental: StatDef;
+		technical: StatDef;
+	};
+	EXAM: {
+		day: number;
+		passThreshold: number;
+	};
+	EXAM_REWARDS: {
+		pass: { money: number; cp: number };
+		fail: { money: number; cp: number };
+	};
+	EXAM_EXT: {
+		repeatWeekly: boolean;
+		weekday: string;
+	};
+	INITIAL_PLAYER_STATUS: InitialPlayerStatus;
+	LABELS: Labels;
+	SCHOOL_SHOP_ITEMS: string[];
+	CONVENIENCE_ITEMS: string[];
+	SUPERMARKET_ITEMS: string[];
+	SHOPS: {
+		school: Shop;
+		conveni: Shop;
+		supermarket: Shop;
+	};
+}
+
 // ゲームの定数を定義
-export const CONFIG: any = {
+export const CONFIG: Config = {
 	// 1日のターン名
 	TURNS: ["午前", "放課後", "夜"],
 
@@ -81,33 +193,83 @@ export const CONFIG: any = {
 		],
 		menuLocked: false, // メニュー開閉が制御されるフェーズ用フラグ
 	},
-};
-
-// 表示用ラベルをまとめて定義しておく（将来変更が簡単になる）
-CONFIG.LABELS = {
-	date: "日付",
-	timeOfDay: "時間",
-	money: "所持金",
-	currencyUnit: "円",
-	academic: "学力",
-	condition: "コンディション",
-	physical: "体力",
-	mental: "精神力",
-	technical: "技術力",
-	cp: "人脈",
-	reportDebt: "レポート負債",
-	menu: "メニュー",
-	menuTitle: "メニュー",
-	items: "アイテム",
-	ownedItems: "所持品",
-	shop: "購買",
-	conveni: "コンビニ",
-	supermarket: "スーパー",
-	history: "行動履歴",
-	useButton: "使用",
-	noReportsMessage: "進行中のレポートはありません。",
-	noItemsMessage: "アイテムはありません。",
-	saveLoad: "セーブ・ロード",
+	// 表示用ラベルをまとめて定義しておく（将来変更が簡単になる）
+	LABELS: {
+		date: "日付",
+		timeOfDay: "時間",
+		money: "所持金",
+		currencyUnit: "円",
+		academic: "学力",
+		condition: "コンディション",
+		physical: "体力",
+		mental: "精神力",
+		technical: "技術力",
+		cp: "人脈",
+		reportDebt: "レポート負債",
+		menu: "メニュー",
+		menuTitle: "メニュー",
+		items: "アイテム",
+		ownedItems: "所持品",
+		shop: "購買",
+		conveni: "コンビニ",
+		supermarket: "スーパー",
+		history: "行動履歴",
+		useButton: "使用",
+		noReportsMessage: "進行中のレポートはありません。",
+		noItemsMessage: "アイテムはありません。",
+		saveLoad: "セーブ・ロード",
+	},
+	// 店舗ごとの品揃え（IDの配列）
+	SCHOOL_SHOP_ITEMS: ["onigiri", "sandwich", "energy_drink", "chocolate_bar"],
+	CONVENIENCE_ITEMS: [
+		"instant_noodles",
+		"onigiri",
+		"energy_drink",
+		"calming_tea",
+		"chocolate_bar",
+	],
+	SUPERMARKET_ITEMS: [
+		"instant_noodles",
+		"onigiri",
+		"sandwich",
+		"calming_tea",
+		"chocolate_bar",
+		"relax_bath_salt",
+	],
+	// ショップ定義を一元管理する（UIやイベントから参照するため）
+	SHOPS: {
+		school: {
+			id: "school",
+			labelKey: "shop",
+			label: "購買",
+			items: ["onigiri", "sandwich", "energy_drink", "chocolate_bar"],
+		},
+		conveni: {
+			id: "conveni",
+			labelKey: "conveni",
+			label: "コンビニ",
+			items: [
+				"instant_noodles",
+				"onigiri",
+				"energy_drink",
+				"calming_tea",
+				"chocolate_bar",
+			],
+		},
+		supermarket: {
+			id: "supermarket",
+			labelKey: "supermarket",
+			label: "スーパー",
+			items: [
+				"instant_noodles",
+				"onigiri",
+				"sandwich",
+				"calming_tea",
+				"chocolate_bar",
+				"relax_bath_salt",
+			],
+		},
+	},
 };
 
 // キャラクターデータ (将来の拡張用)
@@ -121,54 +283,6 @@ export const CHARACTERS = {
 	//     name: '鈴木 先輩',
 	//     color: '#90EE90'
 	// }
-};
-
-// アイテムデータは別ファイル `js/items.js` で管理します。
-// ここではアイテムのIDだけを参照する設計にし、具体的な定義は分離しました。
-
-// 店舗ごとの品揃え（IDの配列）
-CONFIG.SCHOOL_SHOP_ITEMS = [
-	"onigiri",
-	"sandwich",
-	"energy_drink",
-	"chocolate_bar",
-];
-CONFIG.CONVENIENCE_ITEMS = [
-	"instant_noodles",
-	"onigiri",
-	"energy_drink",
-	"calming_tea",
-	"chocolate_bar",
-];
-CONFIG.SUPERMARKET_ITEMS = [
-	"instant_noodles",
-	"onigiri",
-	"sandwich",
-	"calming_tea",
-	"chocolate_bar",
-	"relax_bath_salt",
-];
-
-// ショップ定義を一元管理する（UIやイベントから参照するため）
-CONFIG.SHOPS = {
-	school: {
-		id: "school",
-		labelKey: "shop",
-		label: "購買",
-		items: CONFIG.SCHOOL_SHOP_ITEMS,
-	},
-	conveni: {
-		id: "conveni",
-		labelKey: "conveni",
-		label: "コンビニ",
-		items: CONFIG.CONVENIENCE_ITEMS,
-	},
-	supermarket: {
-		id: "supermarket",
-		labelKey: "supermarket",
-		label: "スーパー",
-		items: CONFIG.SUPERMARKET_ITEMS,
-	},
 };
 
 // EVENTS は js/eventsData.js に分離しました

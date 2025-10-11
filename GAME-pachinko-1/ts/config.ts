@@ -25,7 +25,142 @@ const GAME_MATERIALS = {
  * ゲーム全体の設定を管理するオブジェクト。
  * シンプルで再利用しやすい構造を目指しています。
  */
-const GAME_CONFIG: any = {
+interface Dimensions {
+	width: number;
+	height: number;
+	baseWidth: number;
+	baseHeight: number;
+}
+interface RenderConfig {
+	wireframes: boolean;
+	background: string;
+	showDebug: boolean;
+	showBroadphase: boolean;
+	showPerformance: boolean;
+	showBounds: boolean;
+	showVelocity: boolean;
+	showCollisions: boolean;
+	showSeparations: boolean;
+	showAxes: boolean;
+	showPositions: boolean;
+	showAngleIndicator: boolean;
+}
+interface PhysicsConfig {
+	positionIterations: number;
+	velocityIterations: number;
+	constraintIterations: number;
+	substeps: number;
+	fixedFps: number;
+	adaptiveSubsteps: boolean;
+	paused: boolean;
+	timeScale: number;
+	gravityY: number;
+}
+interface LaunchPadConfig {
+	visible: boolean;
+	width: number;
+	height: number;
+	borderRadius: number;
+	background: string;
+	borderColor: string;
+	layer: number;
+	offsetY: number;
+}
+interface LaunchConfig {
+	speedScale: number;
+	speedPrecision: number;
+	minSpeed: number;
+	maxSpeed: number;
+	angleMin: number;
+	angleMax: number;
+	defaultAngle: number;
+	angleRandomness: number;
+	holdToFireEnabled: boolean;
+	holdIntervalMs: number;
+	holdFirstShotDelayMs: number;
+	ammo: number;
+	ammoGainOnSensor: number;
+	spawn: { x: number; yOffsetFromBottom: number };
+	pad: LaunchPadConfig;
+}
+interface EffectParticle {
+	enabled: boolean;
+	mode: string;
+	color: string | null;
+	count: number;
+	lifeMs: number;
+}
+interface EffectsConfig {
+	floor: { removeBall: boolean; particle: EffectParticle };
+}
+interface RewardsConfig {
+	slotWinAmmoMultiplier: number;
+	slotWinMessageTemplate: string;
+	slotWinMessageMs: number;
+	sensorEnterMessageTemplate: string;
+}
+interface ObjectsConfig {
+	[key: string]: {
+		label?: string;
+		material?: string;
+		options?: Record<string, unknown>;
+		render?: Record<string, unknown>;
+		radius?: number;
+		// additional optional fields used by specific objects
+		randomColor?: boolean;
+		rotationsPerSecond?: number;
+		centerColor?: string;
+		bladeColor?: string;
+		defaults?: Record<string, unknown>;
+	};
+}
+interface SlotAudioConfig {
+	masterVolume: number;
+	volumes: { spinStart: number; reelStop: number; win: number };
+}
+interface DevConfig {
+	enabled: boolean;
+	hotkeys: Record<string, string>;
+}
+interface PresetsConfig {
+	pegs: string;
+	objects: string;
+}
+interface SensorCounters {
+	enabled: boolean;
+	counters: Record<string, unknown>;
+}
+interface TopPlateConfig {
+	enabled: boolean;
+	radius: number;
+	segments: number;
+	thickness: number;
+	slop: number;
+	centerOffsetX: number;
+	centerOffsetY: number;
+	color: string;
+	useSinglePolygon: boolean;
+	mode: "dome" | "arc";
+}
+
+interface PachinkoGameConfig {
+	dimensions: Dimensions;
+	render: RenderConfig;
+	physics: PhysicsConfig;
+	ui: { outerBackground: string; labelColor: string };
+	launch: LaunchConfig;
+	effects: EffectsConfig;
+	metrics: { totalSpawned: number };
+	rewards: RewardsConfig;
+	objects: ObjectsConfig;
+	slotAudio: SlotAudioConfig;
+	dev: DevConfig;
+	presets: PresetsConfig;
+	sensorCounters: SensorCounters;
+	topPlate: TopPlateConfig;
+}
+
+const GAME_CONFIG: PachinkoGameConfig = {
 	// ------------------ 基本設定 (表示・物理) ------------------
 	// ゲームキャンバスの基準サイズと実際の描画領域
 	dimensions: { width: 650, height: 900, baseWidth: 450, baseHeight: 675 }, // width/height: 描画用の論理サイズ
@@ -231,7 +366,10 @@ const GAME_CONFIG: any = {
  * 材質ペアの相互作用を定義するマトリクス。
  * キーは材質名をアルファベット順にソートし、':'で結合したものです。
  */
-const MATERIAL_INTERACTIONS = {
+const MATERIAL_INTERACTIONS: Record<
+	string,
+	{ restitution: number; friction: number }
+> & { default: { restitution: number; friction: number } } = {
 	// 装飾は常に非干渉（レンダリングのみ） - 明示的に定義しておく（getMaterialInteraction でもガードあり）
 	"decor:decor": { restitution: 0, friction: 0 },
 	"decor:guide": { restitution: 0, friction: 0 },
@@ -290,7 +428,7 @@ const MATERIAL_INTERACTIONS = {
  * @param {string} materialB - 二つ目の材質名
  * @returns {object} {restitution, friction} のプロパティを持つオブジェクト
  */
-function getMaterialInteraction(materialA, materialB) {
+function getMaterialInteraction(materialA: string, materialB: string) {
 	// キーを生成するために、材質名をアルファベット順にソートします。
 	const a = (materialA || "").toString().toLowerCase();
 	const b = (materialB || "").toString().toLowerCase();

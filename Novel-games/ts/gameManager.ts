@@ -1,3 +1,5 @@
+/// <reference path="../global.d.ts" />
+
 /**
  * @file gameManager.js
  * @description ゲームの状態を管理するファイル
@@ -5,8 +7,9 @@
  */
 
 import { CONFIG } from "./config.ts";
+import { GameEventManager } from "./events.ts";
+import { RANDOM_EVENTS, type RandomEventConfig } from "./eventsData.ts";
 import { ITEMS } from "./items.ts";
-import { RANDOM_EVENTS } from "./eventsData.ts";
 
 // ----------------------
 // Type definitions (TS)
@@ -56,6 +59,17 @@ type Report = {
 	completeMessage?: string;
 };
 
+interface HistoryEventDetail {
+	shopLabel?: string;
+	shopId?: string;
+	itemName?: string;
+	itemId?: string;
+	price?: number;
+	effect?: string;
+	purchased?: boolean;
+	[key: string]: unknown;
+}
+
 type HistoryEntry = {
 	type: string;
 	actionId?: string;
@@ -63,7 +77,7 @@ type HistoryEntry = {
 	choiceId?: string;
 	result?: string;
 	changes?: object;
-	detail?: any;
+	detail?: HistoryEventDetail;
 	_label?: string;
 	timestamp?: number;
 	day?: number;
@@ -96,7 +110,7 @@ export class GameManager {
 	 * GameManagerのコンストラクタ
 	 * @param {object} initialStatus - プレイヤーの初期ステータス
 	 */
-	constructor(initialStatus) {
+	constructor(initialStatus: PlayerStatus) {
 		// config.jsから受け取った初期ステータスをディープコピーして設定
 		// Deep-copy initial status so mutations don't affect callers
 		this.playerStatus = JSON.parse(JSON.stringify(initialStatus));
@@ -220,8 +234,8 @@ export class GameManager {
 			if (typeof after.money === "number" && after.money !== before.money) {
 				const delta = after.money - (before.money || 0);
 				const sign = delta > 0 ? "+" : "";
-				// Access LABELS in a type-safe, optional way (config.ts adds it later)
-				const unit = (CONFIG as any)?.LABELS?.currencyUnit ?? "円";
+				// Access LABELS in a type-safe way using Config interface
+				const unit = CONFIG.LABELS?.currencyUnit ?? "円";
 				messages.push(`所持金: ${sign}${delta}${unit}`);
 			}
 
@@ -745,10 +759,10 @@ export class GameManager {
 		const currentTurnName = this.getCurrentTurnName();
 		const currentWeekdayName = this.getWeekdayName();
 
-		const availableEvents = Object.values(RANDOM_EVENTS as any).filter(
-			(event: any) => {
+		const availableEvents = Object.values(RANDOM_EVENTS).filter(
+			(event: RandomEventConfig) => {
 				// ターンの条件チェック
-				const cond = (event && event.conditions) || {};
+				const cond = event?.conditions || {};
 				if (cond.turn && !cond.turn.includes(currentTurnName)) {
 					return false;
 				}
@@ -768,7 +782,7 @@ export class GameManager {
 		if (availableEvents.length > 0) {
 			// 発生可能なイベントの中からランダムに一つ選択
 			const randomIndex = Math.floor(Math.random() * availableEvents.length);
-			const selectedEvent = availableEvents[randomIndex] as any;
+			const selectedEvent = availableEvents[randomIndex];
 
 			console.log(
 				`Random event triggered: ${selectedEvent?.name ?? "unknown"}`,
@@ -925,16 +939,16 @@ export class GameManager {
 				case "shop_leave": {
 					const shopId = e.detail && e.detail.shopId;
 					const purchased = e.detail && !!e.detail.purchased;
-					const shopLabel =
-						e.detail && e.detail.shopLabel
-							? e.detail.shopLabel
-							: shopId &&
-									(CONFIG as any) &&
-									(CONFIG as any).SHOPS &&
-									(CONFIG as any).SHOPS[shopId] &&
-									(CONFIG as any).SHOPS[shopId].label
-								? (CONFIG as any).SHOPS[shopId].label
-								: shopId || "店";
+					const shopLabel = (() => {
+						if (e.detail && e.detail.shopLabel) {
+							return e.detail.shopLabel;
+						}
+						if (typeof shopId === "string" && shopId in CONFIG.SHOPS) {
+							const shopKey = shopId as keyof typeof CONFIG.SHOPS;
+							return CONFIG.SHOPS[shopKey].label;
+						}
+						return shopId || "店";
+					})();
 					if (purchased) {
 						const itemName =
 							e.detail &&
@@ -943,7 +957,7 @@ export class GameManager {
 									? ITEMS[e.detail.itemId].name
 									: e.detail.itemId));
 						e._label = itemName
-							? `${shopLabel}で購入して退店（${itemName}、${e.detail.price || ""}${(CONFIG as any)?.LABELS?.currencyUnit ?? ""}）`
+							? `${shopLabel}で購入して退店（${itemName}、${e.detail.price || ""}${CONFIG.LABELS?.currencyUnit ?? ""}）`
 							: `${shopLabel}で購入して退店`;
 					} else {
 						e._label = `${shopLabel}を訪れて何も買わず退店`;

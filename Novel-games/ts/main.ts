@@ -12,16 +12,16 @@ import { SoundManager } from "./soundManager.ts";
 import { UIManager } from "./ui.ts";
 
 // グローバル変数として各マネージャーのインスタンスを保持
-let gameManager;
-let ui;
-let soundManager;
+let gameManager: GameManager;
+let ui: UIManager;
+let soundManager: SoundManager;
 
 // soundManagerを初期化
 soundManager = new SoundManager();
 
 // Register default synthetic click variations
 try {
-	const variations = [];
+	const variations: Array<() => void> = [];
 	["click_var_1", "click_var_2", "click_var_3"].forEach((k) => {
 		if (
 			soundManager.synthetic &&
@@ -40,7 +40,7 @@ try {
 // 注意: gameManagerとuiは初期化後に再度割り当てる
 window.soundManager = soundManager;
 // Assign as-is; window typing is augmented in global.d.ts
-window.GameEventManager = GameEventManager as any;
+window.GameEventManager = GameEventManager;
 window.ITEMS = ITEMS;
 window.CONFIG = CONFIG;
 
@@ -48,7 +48,7 @@ window.CONFIG = CONFIG;
  * ゲームを初期化して開始する関数
  * @param {string} protagonistName - 主人公の名前
  */
-function initializeGame(protagonistName) {
+function initializeGame(protagonistName: string) {
 	// UIManagerがなければ初期化
 	if (!ui) {
 		ui = new UIManager();
@@ -97,56 +97,53 @@ function initializeGame(protagonistName) {
 
 	// CONFIG.LABELS が定義されていれば、固定テキストラベルを差し替える
 	try {
-		if (CONFIG && (CONFIG as any).LABELS) {
+		if (CONFIG?.LABELS) {
 			// ステータス表示の静的ラベルを置換
 			const statusDisplay = document.getElementById("status-display");
 			if (statusDisplay) {
 				// トップ行のラベル
 				const labelDate = document.getElementById("label-date");
 				if (labelDate)
-					labelDate.textContent =
-						(CONFIG as any).LABELS.date || labelDate.textContent;
+					labelDate.textContent = CONFIG.LABELS.date || labelDate.textContent;
 				const labelTime = document.getElementById("label-time");
 				if (labelTime)
 					labelTime.textContent =
-						(CONFIG as any).LABELS.timeOfDay || labelTime.textContent;
+						CONFIG.LABELS.timeOfDay || labelTime.textContent;
 
 				// 下段のチップのラベル
 				const labelPhysical = document.getElementById("label-physical");
 				if (labelPhysical)
 					labelPhysical.textContent =
-						(CONFIG as any).LABELS.physical || labelPhysical.textContent;
+						CONFIG.LABELS.physical || labelPhysical.textContent;
 				const labelMental = document.getElementById("label-mental");
 				if (labelMental)
 					labelMental.textContent =
-						(CONFIG as any).LABELS.mental || labelMental.textContent;
+						CONFIG.LABELS.mental || labelMental.textContent;
 				const labelTechnical = document.getElementById("label-technical");
 				if (labelTechnical)
 					labelTechnical.textContent =
-						(CONFIG as any).LABELS.technical || labelTechnical.textContent;
+						CONFIG.LABELS.technical || labelTechnical.textContent;
 				const labelMoney = document.getElementById("label-money");
 				if (labelMoney)
 					labelMoney.textContent =
-						(CONFIG as any).LABELS.money || labelMoney.textContent;
+						CONFIG.LABELS.money || labelMoney.textContent;
 				const labelCp = document.getElementById("label-cp");
 				if (labelCp)
-					labelCp.textContent =
-						(CONFIG as any).LABELS.cp || labelCp.textContent;
+					labelCp.textContent = CONFIG.LABELS.cp || labelCp.textContent;
 			}
 
 			// メニュー内の見出し
 			const menuTitle = document.querySelector("#menu-content h2");
 			if (menuTitle)
-				menuTitle.textContent =
-					(CONFIG as any).LABELS.menu || menuTitle.textContent;
+				menuTitle.textContent = CONFIG.LABELS.menu || menuTitle.textContent;
 			const itemSectionH3 = document.querySelector("#menu-item-section h3");
 			if (itemSectionH3)
 				itemSectionH3.textContent =
-					(CONFIG as any).LABELS.items || itemSectionH3.textContent;
+					CONFIG.LABELS.items || itemSectionH3.textContent;
 			const saveLoadH3 = document.querySelector("#menu-save-load-section h3");
 			if (saveLoadH3)
 				saveLoadH3.textContent =
-					(CONFIG as any).LABELS.saveLoad || saveLoadH3.textContent;
+					CONFIG.LABELS.saveLoad || saveLoadH3.textContent;
 		}
 	} catch (e) {
 		console.warn("Label injection failed", e);
@@ -160,7 +157,7 @@ function initializeGame(protagonistName) {
 	// Play game start sound if available
 	try {
 		if (typeof soundManager !== "undefined") soundManager.play("game_start");
-	} catch (e) {}
+	} catch (_e) {}
 
 	// 初期状態を画面に反映
 	ui.updateStatusDisplay(gameManager.getStatus());
@@ -204,7 +201,7 @@ function initializeTitleScreen() {
 			try {
 				if (typeof soundManager !== "undefined")
 					soundManager.play("game_start");
-			} catch (e) {}
+			} catch (_e) {}
 			initializeGame(name);
 		} else {
 			ui.showTransientNotice("主人公の名前を入力してください。");

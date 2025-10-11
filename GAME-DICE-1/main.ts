@@ -5,6 +5,9 @@
 // レンダリングにThree.js、物理演算にcannon-es.js、音声にTone.jsを使用。
 // =================================================================================
 
+/// <reference types="three" />
+/// <reference types="cannon-es" />
+
 import * as CANNON from "cannon-es";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -33,29 +36,65 @@ const powerMeterContainer = document.getElementById(
 ) as HTMLElement; // パワーメーターコンテナ
 const powerMeterBar = document.getElementById("power-meter-bar") as HTMLElement; // パワーメーターバー
 
-// =================================================================================
-// グローバル状態と定数
-// =================================================================================
-let scene, camera, renderer, controls, clock; // Three.js のシーン、カメラ、レンダラー、コントロール、クロック
-let world; // Cannon.js の物理世界
-const dice = []; // サイコロの視覚オブジェクト配列
-const diceBodies = []; // サイコロの物理ボディ配列
+type GameState = "initializing" | "ready" | "charging" | "rolling" | "checking";
+type DiceType = "normal" | "shigoro" | "pinzoro" | "hifumi";
+
+type DiceMaterial = THREE.MeshStandardMaterial;
+type DiceMesh = THREE.Mesh<THREE.BoxGeometry, DiceMaterial[]>;
+
+type CannonBodyWithCCD = CANNON.Body & {
+	ccdSpeedThreshold?: number;
+	ccdMotionThreshold?: number;
+};
+
+type WorldWithSleepSettings = CANNON.World & {
+	sleepSpeedLimit: number;
+	sleepTimeLimit: number;
+};
+
+type SolverWithIterations = CANNON.Solver & { iterations: number };
+
+const DICE_TYPES: readonly DiceType[] = [
+	"normal",
+	"shigoro",
+	"pinzoro",
+	"hifumi",
+];
+
+function isDiceType(value: string): value is DiceType {
+	return (DICE_TYPES as readonly string[]).includes(value);
+}
+
+function enableContinuousCollisionDetection(body: CANNON.Body): void {
+	const ccdBody = body as CannonBodyWithCCD;
+	ccdBody.ccdSpeedThreshold = 0.01;
+	ccdBody.ccdMotionThreshold = diceSize / 4;
+}
+
+let scene: THREE.Scene;
+let camera: THREE.PerspectiveCamera;
+let renderer: THREE.WebGLRenderer;
+let controls: OrbitControls;
+let clock: THREE.Clock;
+let world: CANNON.World;
+const dice: DiceMesh[] = [];
+const diceBodies: CANNON.Body[] = [];
 
 const diceSize = 0.5; // サイコロのサイズ
 const bowlRadius = 4; // 丼の半径
 const bowlHeight = 2; // 丼の高さ
 
-let gameState = "initializing"; // ゲームの状態（初期化中、準備中など）
-let diceType = "normal"; // サイコロの種類（通常、四五六、ピンゾロ）
+let gameState: GameState = "initializing"; // ゲームの状態（初期化中、準備中など）
+let diceType: DiceType = "normal"; // サイコロの種類（通常、四五六、ピンゾロ）
 let rollStartTime = 0; // ロール開始時刻
 
 const STUCK_THRESHOLD_MS = 5000; // スタック判定の閾値（ミリ秒）
 const SHONBEN_GRACE_PERIOD_MS = 100; // ションベン判定の猶予期間（ミリ秒）
-const shonbenTimers = [0, 0, 0]; // 各サイコロのションベンタイマー
+const shonbenTimers: number[] = [0, 0, 0]; // 各サイコロのションベンタイマー
 
 let power = 0; // 現在のパワー値
 let powerDirection = 1; // パワーメーターのアニメーション方向
-let powerAnimationId = null; // パワーメーターアニメーションのID
+let powerAnimationId: number | null = null; // パワーメーターアニメーションのID
 
 /**
  * @class SoundManager
@@ -63,49 +102,32 @@ let powerAnimationId = null; // パワーメーターアニメーションのID
  * 音声システムの関心をゲームの主要なロジックから分離します。これにより、コードの整理、保守、拡張が容易になります。
  */
 class SoundManager {
-	// Fields (explicitly declared for TypeScript)
-	isInitialized: boolean;
-	clinkSynth: any;
-	winSynth: any;
-	pairSynth: any;
-	loseSynth: any;
-	foulSynth: any;
-	clickSynth: any;
-	_lastPlay: Record<string, number>;
-	MAX_IMPACT_VELOCITY_DICE: number;
-	MAX_IMPACT_VELOCITY_BOWL: number;
+	private isInitialized = false;
+	private clinkSynth: Tone.PolySynth<Tone.MetalSynth> | null = null;
+	private winSynth: Tone.PolySynth<Tone.Synth> | null = null;
+	private pairSynth: Tone.PolySynth<Tone.Synth> | null = null;
+	private loseSynth: Tone.PolySynth<Tone.Synth> | null = null;
+	private foulSynth: Tone.MonoSynth | null = null;
+	private clickSynth: Tone.Synth | null = null;
+	private readonly lastPlay = new Map<string, number>();
+	private readonly MAX_IMPACT_VELOCITY_DICE = 20;
+	private readonly MAX_IMPACT_VELOCITY_BOWL = 25;
 
-	constructor() {
-		this.isInitialized = false; // 初期化済みフラグ
-		this.clinkSynth = null; // 衝突音シンセサイザー
-		this.winSynth = null; // 勝利音シンセサイザー
-		this.pairSynth = null; // ペア音シンセサイザー
-		this.loseSynth = null; // 敗北音シンセサイザー
-		this.foulSynth = null; // ファウル音シンセサイザー
-		this.clickSynth = null; // クリック音シンセサイザー
-		this._lastPlay = {}; // 各音の最終再生時刻（スロットリング用）
-		this.MAX_IMPACT_VELOCITY_DICE = 20; // サイコロ衝突の最大速度
-		this.MAX_IMPACT_VELOCITY_BOWL = 25; // 丼衝突の最大速度
-	}
-
-	// 現在のTone.js時間を取得
-	_now() {
+	private now(): number {
 		return Tone.now();
 	}
 
-	// 指定キーの音を再生可能かチェック（スロットリング）
-	_canPlay(key, minIntervalSec = 0.03) {
-		const now = this._now();
-		const last = this._lastPlay[key] || 0;
-		if (now - last >= minIntervalSec) {
-			this._lastPlay[key] = now;
+	private canPlay(key: string, minIntervalSec = 0.03): boolean {
+		const current = this.now();
+		const last = this.lastPlay.get(key) ?? 0;
+		if (current - last >= minIntervalSec) {
+			this.lastPlay.set(key, current);
 			return true;
 		}
 		return false;
 	}
 
-	// サウンドマネージャーの初期化
-	async init() {
+	async init(): Promise<void> {
 		if (this.isInitialized) return;
 		if (typeof Tone === "undefined" || !Tone) {
 			console.warn("SoundManager: Tone.js not found; sound disabled.");
@@ -113,36 +135,52 @@ class SoundManager {
 			return;
 		}
 		try {
-			await Tone.start(); // Tone.jsのオーディオコンテキストを開始
-		} catch (e) {
-			console.warn("SoundManager: Tone.start() failed.", e);
+			await Tone.start();
+		} catch (error) {
+			console.warn("SoundManager: Tone.start() failed.", error);
 		}
-		// 各シンセサイザーの初期化
-		// Cast synth option objects/results to any to avoid strict option type mismatches
-		this.clinkSynth = new Tone.PolySynth(Tone.MetalSynth, {
+
+		const clinkOptions: Partial<Tone.MetalSynthOptions> = {
 			envelope: { attack: 0.001, decay: 0.1, release: 0.08 },
 			harmonicity: 4.1,
 			modulationIndex: 22,
 			resonance: 3000,
 			octaves: 1.2,
-		} as any).toDestination() as any;
-		if (this.clinkSynth.volume) this.clinkSynth.volume.value = -9; // ボリューム調整
-		this.winSynth = new Tone.PolySynth(Tone.Synth, {
+		};
+		this.clinkSynth = new Tone.PolySynth(
+			Tone.MetalSynth,
+			clinkOptions,
+		).toDestination();
+		this.clinkSynth.volume.value = -9;
+
+		const winOptions: Partial<Tone.SynthOptions> = {
 			oscillator: { type: "triangle" },
 			envelope: { attack: 0.01, decay: 0.2, sustain: 0.45, release: 1.2 },
-		} as any).toDestination() as any;
-		if (this.winSynth.volume) this.winSynth.volume.value = -2;
-		this.pairSynth = new Tone.PolySynth(Tone.Synth, {
+		};
+		this.winSynth = new Tone.PolySynth(Tone.Synth, winOptions).toDestination();
+		this.winSynth.volume.value = -2;
+
+		const pairOptions: Partial<Tone.SynthOptions> = {
 			oscillator: { type: "sine" },
 			envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.3 },
-		} as any).toDestination() as any;
-		if (this.pairSynth.volume) this.pairSynth.volume.value = -6;
-		this.loseSynth = new Tone.PolySynth(Tone.Synth, {
+		};
+		this.pairSynth = new Tone.PolySynth(
+			Tone.Synth,
+			pairOptions,
+		).toDestination();
+		this.pairSynth.volume.value = -6;
+
+		const loseOptions: Partial<Tone.SynthOptions> = {
 			oscillator: { type: "sawtooth" },
 			envelope: { attack: 0.003, decay: 0.18, sustain: 0.06, release: 0.22 },
-		} as any).toDestination() as any;
-		if (this.loseSynth.volume) this.loseSynth.volume.value = -10;
-		this.foulSynth = new Tone.MonoSynth({
+		};
+		this.loseSynth = new Tone.PolySynth(
+			Tone.Synth,
+			loseOptions,
+		).toDestination();
+		this.loseSynth.volume.value = -10;
+
+		const foulOptions: Partial<Tone.MonoSynthOptions> = {
 			oscillator: { type: "square" },
 			filter: { Q: 6, type: "lowpass", rolloff: -24 },
 			envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 1 },
@@ -154,50 +192,53 @@ class SoundManager {
 				baseFrequency: 200,
 				octaves: 2,
 			},
-		} as any).toDestination() as any;
-		this.clickSynth = new Tone.Synth({
+		};
+		this.foulSynth = new Tone.MonoSynth(foulOptions).toDestination();
+
+		const clickOptions: Partial<Tone.SynthOptions> = {
 			oscillator: { type: "sine" },
 			envelope: { attack: 0.001, decay: 0.06, sustain: 0.02, release: 0.06 },
-		} as any).toDestination() as any;
-		if (this.clickSynth.volume) this.clickSynth.volume.value = -3;
+		};
+		this.clickSynth = new Tone.Synth(clickOptions).toDestination();
+		this.clickSynth.volume.value = -3;
+
 		this.isInitialized = true;
 		console.log("SoundManager initialized.");
 	}
 
-	// 衝突速度を音量レベルに変換
-	_impactToLevel(velocity, maxVelocity, minLevel = 0.0, maxLevel = 1.0) {
-		const norm = Math.min(1.0, Math.max(0.0, velocity / maxVelocity));
-		const level = norm ** 2; // レベルを強調
+	private impactToLevel(
+		velocity: number,
+		maxVelocity: number,
+		minLevel = 0.0,
+		maxLevel = 1.0,
+	): number {
+		const norm = Math.min(1, Math.max(0, velocity / maxVelocity));
+		const level = norm ** 2;
 		return minLevel + level * (maxLevel - minLevel);
 	}
 
-	// レベルに基づいてノートを選択
-	_pickNote(palette, level) {
-		const idx = Math.min(
-			palette.length - 1,
-			Math.floor(level * palette.length),
-		);
-		return palette[idx];
-	}
-
-	// 衝突音を再生する共通メソッド
-	_playCollision(impactVelocity, maxVelocity, notePalette, isBowl) {
+	private playCollision(
+		impactVelocity: number,
+		maxVelocity: number,
+		notePalette: string[],
+		isBowl: boolean,
+	): void {
 		if (!this.isInitialized || !this.clinkSynth) return;
-		const key = isBowl ? "bowl" : "dice"; // キー設定
-		if (!this._canPlay(key, isBowl ? 0.08 : 0.07)) return; // スロットリング
-		const baseLevel = this._impactToLevel(
+		const key = isBowl ? "bowl" : "dice";
+		if (!this.canPlay(key, isBowl ? 0.08 : 0.07)) return;
+		const baseLevel = this.impactToLevel(
 			impactVelocity,
 			maxVelocity,
 			0.02,
 			1.0,
 		);
-		const time = this._now();
-		const clatterCount = 1 + Math.floor(baseLevel * 4); // クラッター数
+		const time = this.now();
+		const clatterCount = 1 + Math.floor(baseLevel * 4);
 		for (let i = 0; i < clatterCount; i++) {
-			const clatterTime = time + i * 0.03 + Math.random() * 0.02; // ランダム遅延
+			const clatterTime = time + i * 0.03 + Math.random() * 0.02;
 			const clatterNote =
-				notePalette[Math.floor(Math.random() * notePalette.length)]; // ノート選択
-			const clatterLevel = baseLevel * (0.5 + Math.random() * 0.5); // レベル調整
+				notePalette[Math.floor(Math.random() * notePalette.length)];
+			const clatterLevel = baseLevel * (0.5 + Math.random() * 0.5);
 			this.clinkSynth.triggerAttackRelease(
 				clatterNote,
 				"16n",
@@ -207,9 +248,8 @@ class SoundManager {
 		}
 	}
 
-	// サイコロ衝突音を再生
-	playDiceCollision(impactVelocity) {
-		this._playCollision(
+	playDiceCollision(impactVelocity: number): void {
+		this.playCollision(
 			impactVelocity,
 			this.MAX_IMPACT_VELOCITY_DICE,
 			["A4", "C5", "D#5", "F#5", "A5"],
@@ -217,9 +257,8 @@ class SoundManager {
 		);
 	}
 
-	// 丼衝突音を再生
-	playBowlCollision(impactVelocity) {
-		this._playCollision(
+	playBowlCollision(impactVelocity: number): void {
+		this.playCollision(
 			impactVelocity,
 			this.MAX_IMPACT_VELOCITY_BOWL,
 			["C4", "E4", "G4", "A#4"],
@@ -227,74 +266,72 @@ class SoundManager {
 		);
 	}
 
-	// 勝利音を再生
-	playWinSound() {
-		if (!this.isInitialized || !this.winSynth || !this._canPlay("win", 0.2))
-			return;
-		const t0 = this._now();
-		["E4", "G4", "C5", "E5"].forEach((n, i) =>
-			this.winSynth.triggerAttackRelease(n, "8n", t0 + i * 0.06),
-		); // アルペジオ再生
+	playWinSound(): void {
+		const synth = this.winSynth;
+		if (!this.isInitialized || !synth || !this.canPlay("win", 0.2)) return;
+		const startTime = this.now();
+		["E4", "G4", "C5", "E5"].forEach((note, index) => {
+			synth.triggerAttackRelease(note, "8n", startTime + index * 0.06);
+		});
 	}
 
-	// ペア音を再生
-	playPairSound() {
-		if (!this.isInitialized || !this.pairSynth || !this._canPlay("pair", 0.2))
+	playPairSound(): void {
+		if (!this.isInitialized || !this.pairSynth || !this.canPlay("pair", 0.2))
 			return;
-		this.pairSynth.triggerAttackRelease(["C4", "E4", "G4"], "8n", this._now()); // 和音再生
+		this.pairSynth.triggerAttackRelease(["C4", "E4", "G4"], "8n", this.now());
 	}
 
-	// 敗北音を再生
-	playLoseSound() {
-		if (!this.isInitialized || !this.loseSynth || !this._canPlay("lose", 0.2))
+	playLoseSound(): void {
+		if (!this.isInitialized || !this.loseSynth || !this.canPlay("lose", 0.2))
 			return;
-		const t = this._now();
-		this.loseSynth.triggerAttackRelease("C3", "16n", t); // 低音1
-		this.loseSynth.triggerAttackRelease("Bb2", "16n", t + 0.08); // 低音2
+		const time = this.now();
+		this.loseSynth.triggerAttackRelease("C3", "16n", time);
+		this.loseSynth.triggerAttackRelease("Bb2", "16n", time + 0.08);
 	}
 
-	// ファウル音を再生
-	playFoulSound() {
-		if (!this.isInitialized || !this.foulSynth || !this._canPlay("foul", 0.5))
+	playFoulSound(): void {
+		if (!this.isInitialized || !this.foulSynth || !this.canPlay("foul", 0.5))
 			return;
-		this.foulSynth.triggerAttackRelease("C2", "0.5"); // 長めの低音
+		this.foulSynth.triggerAttackRelease("C2", "0.5");
 	}
 
-	// クリック音を再生
-	playClickSound() {
-		if (
-			!this.isInitialized ||
-			!this.clickSynth ||
-			!this._canPlay("click", 0.05)
-		)
+	playClickSound(): void {
+		if (!this.isInitialized || !this.clickSynth || !this.canPlay("click", 0.05))
 			return;
-		this.clickSynth.triggerAttackRelease("C5", "16n", this._now(), 0.5); // 短いクリック音
+		this.clickSynth.triggerAttackRelease("C5", "16n", this.now(), 0.5);
 	}
 }
-let soundManager;
+
+let soundManager: SoundManager;
 
 /**
  * @class ParticleEmitter
  * @description 視覚的なフィードバックのためのシンプルなパーティクル効果を作成します。
  */
-class ParticleEmitter {
-	// Fields
-	scene: any;
-	particles: Array<{
-		position: THREE.Vector3;
-		velocity: THREE.Vector3;
-		life: number;
-	}>;
-	positions: Float32Array;
-	colors: Float32Array;
-	points: THREE.Points;
-	tempVec: THREE.Vector3;
+type Particle = {
+	position: THREE.Vector3;
+	velocity: THREE.Vector3;
+	life: number;
+};
 
-	constructor(scene: THREE.Scene, count = 100) {
-		this.scene = scene;
-		this.particles = [];
-		const geometry = new THREE.BufferGeometry();
-		const material = new THREE.PointsMaterial({
+class ParticleEmitter {
+	private readonly particles: Particle[] = [];
+	private readonly positions: Float32Array;
+	private readonly colors: Float32Array;
+	private readonly geometry: THREE.BufferGeometry;
+	private readonly material: THREE.PointsMaterial;
+	private readonly points: THREE.Points<
+		THREE.BufferGeometry,
+		THREE.PointsMaterial
+	>;
+	private readonly tempVec = new THREE.Vector3();
+
+	constructor(
+		private readonly scene: THREE.Scene,
+		count = 100,
+	) {
+		this.geometry = new THREE.BufferGeometry();
+		this.material = new THREE.PointsMaterial({
 			color: 0xf0ead6,
 			size: 0.2,
 			transparent: true,
@@ -304,12 +341,15 @@ class ParticleEmitter {
 		});
 		this.positions = new Float32Array(count * 3);
 		this.colors = new Float32Array(count * 3);
-		geometry.setAttribute(
+		this.geometry.setAttribute(
 			"position",
 			new THREE.BufferAttribute(this.positions, 3),
 		);
-		geometry.setAttribute("color", new THREE.BufferAttribute(this.colors, 3));
-		this.points = new THREE.Points(geometry, material);
+		this.geometry.setAttribute(
+			"color",
+			new THREE.BufferAttribute(this.colors, 3),
+		);
+		this.points = new THREE.Points(this.geometry, this.material);
 		this.points.frustumCulled = false;
 		this.points.visible = false;
 		this.scene.add(this.points);
@@ -320,66 +360,69 @@ class ParticleEmitter {
 				life: 0,
 			});
 		}
-		// Preallocate temp vector to avoid allocations in the loop
-		this.tempVec = new THREE.Vector3();
 	}
-	// パーティクルをトリガーして発生させる
-	trigger(origin) {
-		const particleColor = new THREE.Color(0xf0ead6); // パーティクル色
+
+	trigger(origin: THREE.Vector3 | { x: number; y: number; z: number }): void {
+		const particleColor = new THREE.Color(0xf0ead6);
 		this.points.visible = true;
 		const originVec =
-			origin && origin.isVector3
+			origin instanceof THREE.Vector3
 				? origin
-				: new THREE.Vector3(origin.x, origin.y, origin.z); // 原点ベクトル
-		this.particles.forEach((p, i) => {
-			p.position.copy(originVec); // 位置設定
-			const speed = 5 + Math.random() * 5; // 速度設定
-			p.velocity.set(
+				: new THREE.Vector3(origin.x, origin.y, origin.z);
+		for (let i = 0; i < this.particles.length; i++) {
+			const particle = this.particles[i];
+			particle.position.copy(originVec);
+			const speed = 5 + Math.random() * 5;
+			particle.velocity.set(
 				(Math.random() - 0.5) * speed,
 				Math.random() * 0.5 * speed,
 				(Math.random() - 0.5) * speed,
 			);
-			p.life = 1.0; // ライフ設定
-			this.positions[i * 3] = p.position.x;
-			this.positions[i * 3 + 1] = p.position.y;
-			this.positions[i * 3 + 2] = p.position.z;
+			particle.life = 1;
+			this.positions[i * 3] = particle.position.x;
+			this.positions[i * 3 + 1] = particle.position.y;
+			this.positions[i * 3 + 2] = particle.position.z;
 			this.colors[i * 3] = particleColor.r;
 			this.colors[i * 3 + 1] = particleColor.g;
 			this.colors[i * 3 + 2] = particleColor.b;
-		});
-		this.points.geometry.attributes.position.needsUpdate = true; // 位置更新
-		this.points.geometry.attributes.color.needsUpdate = true; // 色更新
+		}
+		(
+			this.geometry.getAttribute("position") as THREE.BufferAttribute
+		).needsUpdate = true;
+		(this.geometry.getAttribute("color") as THREE.BufferAttribute).needsUpdate =
+			true;
 	}
 
-	// パーティクルを更新
-	update(deltaTime) {
+	update(deltaTime: number): void {
 		if (!this.points.visible) return;
-		let aliveParticles = 0; // 生存パーティクル数
+		let aliveParticles = 0;
 		for (let i = 0; i < this.particles.length; i++) {
-			const p = this.particles[i];
-			if (p.life > 0) {
-				p.life -= deltaTime; // ライフ減少
-				p.velocity.y -= 9.8 * deltaTime; // 重力適用
-				// オブジェクトを再利用して計算
-				this.tempVec.copy(p.velocity).multiplyScalar(deltaTime);
-				p.position.add(this.tempVec);
-				this.positions[i * 3] = p.position.x;
-				this.positions[i * 3 + 1] = p.position.y;
-				this.positions[i * 3 + 2] = p.position.z;
+			const particle = this.particles[i];
+			if (particle.life > 0) {
+				particle.life -= deltaTime;
+				particle.velocity.y -= 9.8 * deltaTime;
+				this.tempVec.copy(particle.velocity).multiplyScalar(deltaTime);
+				particle.position.add(this.tempVec);
+				this.positions[i * 3] = particle.position.x;
+				this.positions[i * 3 + 1] = particle.position.y;
+				this.positions[i * 3 + 2] = particle.position.z;
 				aliveParticles++;
 			}
 		}
-		const life0 =
-			this.particles[0] && typeof this.particles[0].life === "number"
-				? this.particles[0].life
-				: 0;
-		(this.points.material as THREE.PointsMaterial).opacity = Math.max(0, life0); // 不透明度設定
-		this.points.geometry.attributes.position.needsUpdate = true;
-		this.points.geometry.attributes.color.needsUpdate = true;
-		if (aliveParticles === 0) this.points.visible = false; // 非表示
+		const leadingLife = this.particles[0]?.life ?? 0;
+		this.material.opacity = Math.max(0, leadingLife);
+		(
+			this.geometry.getAttribute("position") as THREE.BufferAttribute
+		).needsUpdate = true;
+		(this.geometry.getAttribute("color") as THREE.BufferAttribute).needsUpdate =
+			true;
+		if (aliveParticles === 0) {
+			this.points.visible = false;
+		}
 	}
 }
-let particleEmitter;
+
+let particleEmitter: ParticleEmitter;
 
 /**
  * @function init
@@ -455,8 +498,9 @@ function init() {
 	// より自然な落下速度になりますが、ゲームとしてのダイナミックさも維持されます。
 	world = new CANNON.World({ gravity: new CANNON.Vec3(0, -40, 0) });
 	world.allowSleep = true;
-	world.sleepSpeedLimit = 0.05;
-	world.sleepTimeLimit = 0.5;
+	const worldWithSleep = world as WorldWithSleepSettings;
+	worldWithSleep.sleepSpeedLimit = 0.05;
+	worldWithSleep.sleepTimeLimit = 0.5;
 
 	// Why: ソルバーの反復回数を20から30に増やします。
 	// これは、特に複数のサイコロが同時に衝突するような複雑な状況で、
@@ -464,7 +508,8 @@ function init() {
 	// 反復回数を増やすことで、衝突解決の精度が向上し、より安定した物理シミュレーションが実現されます。
 	// パフォーマンスへの影響は軽微であると判断しました。
 	// ソルバー反復回数の設定
-	world.solver.iterations = 30;
+	const solver = world.solver as SolverWithIterations;
+	solver.iterations = 30;
 
 	// 物理マテリアルの作成
 	const dicePhysicsMaterial = new CANNON.Material("dice");
@@ -544,14 +589,17 @@ function setupEventListeners() {
 	// リアレンジボタンクリックでサイコロをリセット
 	rearrangeButton.addEventListener("click", resetDiceToStartPosition);
 	// サイコロタイプ変更でマテリアル更新
-	diceTypeSelector.addEventListener("change", (e) => {
+	diceTypeSelector.addEventListener("change", (event: Event) => {
 		// クリック音の再生
 		soundManager.playClickSound();
-		// サイコロタイプの更新
-		const target = e.target as HTMLSelectElement;
-		diceType = target.value;
-		// マテリアルの更新
-		updateDiceMaterials();
+		const target = event.target as HTMLSelectElement;
+		const selectedType = target.value;
+		if (isDiceType(selectedType)) {
+			diceType = selectedType;
+			updateDiceMaterials();
+		} else {
+			console.warn(`Unexpected dice type selected: ${selectedType}`);
+		}
 	});
 	// キャンバスクリックでパワー決定
 	canvasContainer.addEventListener("click", decidePower);
@@ -563,7 +611,10 @@ function setupEventListeners() {
  * @function createBowl
  * @description 視覚（Three.js）と物理（cannon-es）の丼を作成します。
  */
-function createBowl(bowlFloorMaterial, bowlWallMaterial) {
+function createBowl(
+	bowlFloorMaterial: CANNON.Material,
+	bowlWallMaterial: CANNON.Material,
+): void {
 	// 丼壁の厚さ設定
 	const bowlWallThickness = 0.2;
 	// 物理壁の厚さ設定
@@ -646,13 +697,13 @@ function createBowl(bowlFloorMaterial, bowlWallMaterial) {
  * @function createDice
  * @description 3つのサイコロを視覚的および物理的に作成します。
  */
-function createDice(dicePhysicsMaterial) {
+function createDice(dicePhysicsMaterial: CANNON.Material): void {
 	// サイコロジオメトリの作成
 	const diceGeometry = new THREE.BoxGeometry(diceSize, diceSize, diceSize);
 	// 3つのサイコロを作成
 	for (let i = 0; i < 3; i++) {
-		// サイコロメッシュの作成
-		const die = new THREE.Mesh(diceGeometry, []);
+		const dieMaterials: DiceMaterial[] = [];
+		const die: DiceMesh = new THREE.Mesh(diceGeometry, dieMaterials);
 		// シャドウキャストの有効化
 		die.castShadow = true;
 		// シーンへの追加
@@ -677,11 +728,7 @@ function createDice(dicePhysicsMaterial) {
 		});
 		// 衝突応答の有効化
 		body.collisionResponse = true;
-		// CCD速度閾値の設定
-		// Some cannon-es builds add CCD props dynamically; cast to any to assign
-		(body as any).ccdSpeedThreshold = 0.01;
-		// CCDモーション閾値の設定
-		(body as any).ccdMotionThreshold = diceSize / 4;
+		enableContinuousCollisionDetection(body);
 
 		// 衝突イベントリスナーの追加
 		body.addEventListener("collide", (event) => {
@@ -721,7 +768,11 @@ function createDice(dicePhysicsMaterial) {
  * 摩擦を上げることで、サイコロは滑るよりも転がりやすくなります。
  * 反発を微調整することで、硬い表面での現実的な跳ね返りを再現します。
  */
-function setupContactMaterials(diceMat, floorMat, wallMat) {
+function setupContactMaterials(
+	diceMat: CANNON.Material,
+	floorMat: CANNON.Material,
+	wallMat: CANNON.Material,
+): void {
 	// サイコロと丼の底の接触
 	const diceBowlFloorContact = new CANNON.ContactMaterial(floorMat, diceMat, {
 		friction: 0.3, // 摩擦を増加させ、転がりを促進
@@ -754,8 +805,8 @@ function setupContactMaterials(diceMat, floorMat, wallMat) {
  * @function updateDiceMaterials
  * @description 選択されたサイコロの種類に基づいて、テクスチャを適用します。
  */
-function updateDiceMaterials() {
-	let faceSet;
+function updateDiceMaterials(): void {
+	let faceSet: number[];
 	switch (diceType) {
 		case "shigoro":
 			faceSet = [4, 4, 5, 5, 6, 6];
@@ -770,27 +821,35 @@ function updateDiceMaterials() {
 			faceSet = [1, 6, 2, 5, 3, 4];
 			break;
 	}
-	dice.forEach((die) => {
-		die.material.forEach((m) => m.dispose());
+	for (const die of dice) {
+		for (const material of die.material) {
+			material.dispose();
+		}
 		die.material = faceSet.map(
-			(val) => new THREE.MeshStandardMaterial({ map: createDiceTexture(val) }),
+			(value) =>
+				new THREE.MeshStandardMaterial({ map: createDiceTexture(value) }),
 		);
-	});
+	}
 }
 
 /**
  * @function createDiceTexture
  * @description サイコロの面のテクスチャを生成します。
  */
-function createDiceTexture(value) {
+function createDiceTexture(value: number): THREE.CanvasTexture {
 	const canvas = document.createElement("canvas");
 	canvas.width = 128;
 	canvas.height = 128;
 	const context = canvas.getContext("2d");
+	if (!context) {
+		throw new Error(
+			"2D rendering context is not available in this environment.",
+		);
+	}
 	context.fillStyle = "#f0ead6";
 	context.fillRect(0, 0, 128, 128);
 	const dotRadius = 12;
-	const positions = {
+	const positions: Record<number, Array<[number, number]>> = {
 		1: [[0.5, 0.5]],
 		2: [
 			[0.25, 0.25],
@@ -824,12 +883,13 @@ function createDiceTexture(value) {
 		],
 	};
 	context.fillStyle = value === 1 ? "#c0392b" : "#2c3e50";
-	if (positions[value]) {
-		positions[value].forEach((pos) => {
+	const activePositions = positions[value];
+	if (activePositions) {
+		for (const [x, y] of activePositions) {
 			context.beginPath();
-			context.arc(pos[0] * 128, pos[1] * 128, dotRadius, 0, Math.PI * 2);
+			context.arc(x * 128, y * 128, dotRadius, 0, Math.PI * 2);
 			context.fill();
-		});
+		}
 	}
 	return new THREE.CanvasTexture(canvas);
 }
@@ -908,7 +968,10 @@ function updatePowerMeter() {
 function decidePower() {
 	if (gameState !== "charging") return;
 	soundManager.playClickSound();
-	cancelAnimationFrame(powerAnimationId);
+	if (powerAnimationId !== null) {
+		cancelAnimationFrame(powerAnimationId);
+		powerAnimationId = null;
+	}
 	rearrangeButton.style.display = "none";
 	rollDice(power);
 }
@@ -922,7 +985,7 @@ function decidePower() {
  * 自然かつ同時に発生し、よりリアルで予測不可能な転がり方が生まれます。
  * これは、手の中でサイコロを振って投げる実際の物理現象を忠実に模倣しています。
  */
-function rollDice(throwPower, isInitialSetup = false) {
+function rollDice(throwPower: number, isInitialSetup = false): void {
 	gameState = isInitialSetup ? "initializing" : "rolling";
 	if (!isInitialSetup) {
 		rollStartTime = performance.now();
@@ -962,8 +1025,15 @@ function rollDice(throwPower, isInitialSetup = false) {
 		diceBodies.forEach((body, i) => {
 			dice[i].visible = true;
 			body.wakeUp();
-			body.position.copy(dice[i].position);
-			body.quaternion.copy(dice[i].quaternion);
+			const meshPosition = dice[i].position;
+			body.position.set(meshPosition.x, meshPosition.y, meshPosition.z);
+			const meshQuaternion = dice[i].quaternion;
+			body.quaternion.set(
+				meshQuaternion.x,
+				meshQuaternion.y,
+				meshQuaternion.z,
+				meshQuaternion.w,
+			);
 
 			// インパルスの大きさを計算
 			const minImpulse = 4.5;
@@ -1021,7 +1091,7 @@ function nudgeDice() {
  * @function getDiceFace
  * @description サイコロのどの面が上を向いているかを決定します。
  */
-function getDiceFace(body) {
+function getDiceFace(body: CANNON.Body): number {
 	const up = new CANNON.Vec3(0, 1, 0);
 	let maxDot = -1,
 		topFace = -1;
@@ -1033,7 +1103,7 @@ function getDiceFace(body) {
 		new CANNON.Vec3(0, 0, 1),
 		new CANNON.Vec3(0, 0, -1),
 	];
-	let faceValues;
+	let faceValues: number[];
 	switch (diceType) {
 		case "shigoro":
 			faceValues = [4, 4, 5, 5, 6, 6];
@@ -1063,7 +1133,7 @@ function getDiceFace(body) {
  * @function finishRoll
  * @description 結果をUIに更新し、ゲーム状態をリセットします。
  */
-function finishRoll(result, desc) {
+function finishRoll(result: string, desc: string): void {
 	resultTitle.textContent = result;
 	resultDescription.textContent = desc;
 	nudgeButton.style.display = "none";
@@ -1078,10 +1148,11 @@ function finishRoll(result, desc) {
  * @function areAllDiceStable
  * @description サイコロが平らな面に落ち着いているかチェックします。
  */
-function areAllDiceStable() {
+function areAllDiceStable(): boolean {
 	const STABILITY_THRESHOLD = 0.99;
-	for (const body of diceBodies) {
-		if (!dice[diceBodies.indexOf(body)].visible) continue;
+	for (let i = 0; i < diceBodies.length; i++) {
+		if (!dice[i].visible) continue;
+		const body = diceBodies[i];
 		let isStable = false;
 		const localAxes = [
 			new CANNON.Vec3(1, 0, 0),
@@ -1105,9 +1176,11 @@ function areAllDiceStable() {
  * @function checkAndDisplayResult
  * @description サイコロの値をチェックし、結果を表示します。
  */
-function checkAndDisplayResult() {
+function checkAndDisplayResult(): void {
 	rollButton.disabled = true;
-	const visibleDiceBodies = diceBodies.filter((body, i) => dice[i].visible);
+	const visibleDiceBodies = diceBodies.filter(
+		(_, index) => dice[index].visible,
+	);
 
 	if (visibleDiceBodies.length < 3) {
 		soundManager.playFoulSound();
@@ -1116,30 +1189,33 @@ function checkAndDisplayResult() {
 	}
 
 	const values = visibleDiceBodies.map(getDiceFace).sort((a, b) => a - b);
-	let title = "",
-		description = `出目: ${values.join(", ")}`;
-	const counts = {};
-	values.forEach((v) => {
-		counts[v] = (counts[v] || 0) + 1;
-	});
-
+	let title = "";
+	const description = `出目: ${values.join(", ")}`;
+	const counts = new Map<number, number>();
+	for (const value of values) {
+		counts.set(value, (counts.get(value) ?? 0) + 1);
+	}
+	const countValues = [...counts.values()];
 	let hasWon = false;
-	if (Object.values(counts).includes(3)) {
+	if (countValues.some((count) => count === 3)) {
 		title = values[0] === 1 ? "ピンゾロ" : "アラシ";
 		hasWon = true;
-	} else if (Object.values(counts).includes(2)) {
-		const singleValue = Object.keys(counts).find((k) => counts[k] === 1);
-		title = `${["", "一", "二", "三", "四", "五", "六"][singleValue]}の目`;
-	} else {
-		// 'ヒフミ賽'でも他の役を判定できるようにロジックを修正
-		if (values.join("") === "123") {
-			title = "ヒフミ";
-		} else if (values.join("") === "456") {
-			title = "シゴロ";
-			hasWon = true;
+	} else if (countValues.some((count) => count === 2)) {
+		const singleEntry = [...counts.entries()].find(([, count]) => count === 1);
+		if (singleEntry) {
+			const diceFaceKanji = ["", "一", "二", "三", "四", "五", "六"] as const;
+			const singleValue = singleEntry[0];
+			title = `${diceFaceKanji[singleValue] ?? singleValue.toString()}の目`;
 		} else {
 			title = "目なし";
 		}
+	} else if (values.join("") === "123") {
+		title = "ヒフミ";
+	} else if (values.join("") === "456") {
+		title = "シゴロ";
+		hasWon = true;
+	} else {
+		title = "目なし";
 	}
 
 	if (title === "ヒフミ") {

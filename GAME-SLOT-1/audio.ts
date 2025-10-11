@@ -3,16 +3,18 @@
  * - マスター音量と、音種別（spinStart/reelStop/win）ごとの個別音量をサポート
  * - 外部ファイル指定がある場合はプリロードして再生、なければ簡易合成音でフォールバック
  */
+import type { SlotAudioVolumes, SlotGameConfig } from "../types/slot";
+
 export class SlotSoundManager {
-	config: any;
+	config: Partial<SlotGameConfig>;
 	enabled: boolean;
 	masterVolume: number;
 	perVolume: { [key: string]: number };
 	files: { [key: string]: string };
 	ctx: AudioContext | null;
 	buffers: { [key: string]: AudioBuffer };
-	_loopTimer: any;
-	constructor(config) {
+	_loopTimer: ReturnType<typeof setInterval> | null;
+	constructor(config: Partial<SlotGameConfig>) {
 		this.config = config || {};
 		this.enabled = Boolean(this.config.sounds?.enabled);
 		this.masterVolume = Number(this.config.sounds?.volume ?? 0.8);
@@ -22,7 +24,13 @@ export class SlotSoundManager {
 			reelStop: typeof v.reelStop === "number" ? v.reelStop : 0.5, // 既定で半分
 			win: typeof v.win === "number" ? v.win : 1.0,
 		};
-		this.files = this.config.sounds?.files || {};
+		const files = this.config.sounds?.files || {};
+		// Normalize optional file entries to a strict string map
+		this.files = Object.fromEntries(
+			Object.entries(files).filter(([, v]) => typeof v === "string") as Array<
+				[string, string]
+			>,
+		);
 		this.ctx = null;
 		this.buffers = {};
 		this._loopTimer = null;
@@ -31,15 +39,20 @@ export class SlotSoundManager {
 
 	async _init() {
 		try {
-			// Cast window to any to allow non-standard webkitAudioContext while keeping runtime behavior
-			const Win = /** @type {any} */ (window);
-			this.ctx = new (Win.AudioContext || Win.webkitAudioContext)();
+			// Allow non-standard webkitAudioContext while keeping type safety
+			const Win = window as Window &
+				typeof globalThis & {
+					webkitAudioContext?: typeof AudioContext;
+				};
+			const Ctor = Win.AudioContext || Win.webkitAudioContext;
+			this.ctx = Ctor ? new Ctor() : null;
 			for (const key of ["spinStart", "reelStop", "win"]) {
 				const path = this.files[key];
 				if (path) {
 					try {
 						const res = await fetch(path);
 						const ab = await res.arrayBuffer();
+						if (!this.ctx) continue;
 						const buf = await this.ctx.decodeAudioData(ab.slice(0));
 						this.buffers[key] = buf;
 					} catch (e) {
@@ -53,10 +66,10 @@ export class SlotSoundManager {
 		}
 	}
 
-	_clampVol(x) {
+	_clampVol(x: unknown) {
 		return Math.max(0, Math.min(1, Number(x) || 0));
 	}
-	_finalVol(kind) {
+	_finalVol(kind: string) {
 		return this._clampVol(this.masterVolume * (this.perVolume?.[kind] ?? 1));
 	}
 
@@ -92,7 +105,11 @@ export class SlotSoundManager {
 		o.stop(now + dur + 0.02);
 	}
 
-	_synthSequence(freqs = [440, 660], dur = 0.12, finalVol = this.masterVolume) {
+	_synthSequence(
+		freqs: number[] = [440, 660],
+		dur = 0.12,
+		finalVol = this.masterVolume,
+	) {
 		if (!this.ctx) return;
 		let t = this.ctx.currentTime;
 		const vol = this._clampVol(finalVol);
@@ -165,7 +182,7 @@ export class SlotSoundManager {
 	 * マスター音量を設定します。
 	 * @param {number} volume - 新しいマスター音量 (0.0 - 1.0)
 	 */
-	setMasterVolume(volume) {
+	setMasterVolume(volume: number) {
 		if (typeof volume === "number") {
 			this.masterVolume = this._clampVol(volume);
 			console.log(
@@ -179,8 +196,11 @@ export class SlotSoundManager {
 	 * @param {string} kind - サウンドの種類 ('spinStart', 'reelStop', 'win')
 	 * @param {number} volume - 新しい個別音量 (0.0 - 1.0)
 	 */
-	setPerVolume(kind, volume) {
-		if (Object.hasOwn(this.perVolume, kind) && typeof volume === "number") {
+	setPerVolume(kind: keyof SlotAudioVolumes | string, volume: number) {
+		if (
+			Object.hasOwn(this.perVolume, kind as string) &&
+			typeof volume === "number"
+		) {
 			this.perVolume[kind] = this._clampVol(volume);
 			console.log(
 				`[SlotSoundManager] Volume for '${kind}' set to: ${this.perVolume[kind]}`,

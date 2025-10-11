@@ -1,5 +1,5 @@
+import fs from "node:fs";
 import { generateMoves } from "./ts/game";
-import fs from "fs";
 
 // --- 定数 ---
 const OUTCOME = {

@@ -3,16 +3,16 @@
 // so it can be imported both as an ES module (`import * as UI from './ui'`) and
 // used as a global namespace (`UI.*`) when bundled as UMD.
 
-export function performAiAttackAnim(...args: any[]): any;
-export function performAiSplitAnim(...args: any[]): any;
-export function cacheDom(...args: any[]): any;
-export function openSplitModal(...args: any[]): any;
-export function updateDisplay(...args: any[]): any;
-export function updateMessage(...args: any[]): any;
-export function clearActionHighlights(...args: any[]): any;
-export function applyActionHighlights(...args: any[]): any;
-export function displayPlayerHints(...args: any[]): any;
-export function fitUIToViewport(...args: any[]): any;
+export function performAiAttackAnim(...args: unknown[]): unknown;
+export function performAiSplitAnim(...args: unknown[]): unknown;
+export function cacheDom(...args: unknown[]): unknown;
+export function openSplitModal(...args: unknown[]): unknown;
+export function updateDisplay(...args: unknown[]): unknown;
+export function updateMessage(...args: unknown[]): unknown;
+export function clearActionHighlights(...args: unknown[]): unknown;
+export function applyActionHighlights(...args: unknown[]): unknown;
+export function displayPlayerHints(...args: unknown[]): unknown;
+export function fitUIToViewport(...args: unknown[]): unknown;
 
 declare const _default: {
 	performAiAttackAnim: typeof performAiAttackAnim;

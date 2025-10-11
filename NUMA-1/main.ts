@@ -65,9 +65,13 @@ const world = new CANNON.World({
 // 物理シミュレーションの安定性を向上
 world.defaultContactMaterial.contactEquationStiffness = 1e7;
 world.defaultContactMaterial.contactEquationRelaxation = 3;
-// cannon-es の型定義が完全でない場合があるため、一時的に any 経由で設定
-(world.solver as any).iterations = 10;
-(world.solver as any).tolerance = 0.01;
+// cannon-es の型定義が完全でない場合があるため、unknown経由で安全にアクセス
+(
+	world.solver as unknown as { iterations: number; tolerance: number }
+).iterations = 10;
+(
+	world.solver as unknown as { iterations: number; tolerance: number }
+).tolerance = 0.01;
 
 // --- マテリアル ---
 const ballMaterial = new CANNON.Material("ballMaterial");
@@ -97,7 +101,17 @@ const ballGroundContactMaterial = new CANNON.ContactMaterial(
 world.addContactMaterial(ballGroundContactMaterial);
 
 // --- 削除予定のオブジェクトを管理する配列 ---
-const objectsToRemove = [];
+interface BallWithMesh {
+	body: CANNON.Body;
+	mesh: THREE.Mesh;
+}
+
+interface RemovableObject {
+	body: CANNON.Body;
+	mesh: THREE.Mesh;
+}
+
+const objectsToRemove: RemovableObject[] = [];
 
 // --- クルーンの作成 ---
 const cruunRadius = 10;
@@ -107,10 +121,10 @@ const numHoles = 10;
 const cruunYPositions = [15, 7.5, 0];
 
 cruunYPositions.forEach((yPos, index) => {
-	createCruun(new THREE.Vector3(0, yPos, 0), index);
+	createCruun(new CANNON.Vec3(0, yPos, 0), index);
 });
 
-function createCruun(position, stageIndex) {
+function createCruun(position: CANNON.Vec3, stageIndex: number) {
 	const cruunGroup = new THREE.Group();
 	scene.add(cruunGroup);
 
@@ -209,10 +223,7 @@ function createCruun(position, stageIndex) {
 		wallBody.quaternion.copy(qFinal);
 
 		// Three.js 側の回転（ローカルYaw。グループに傾斜と位置が入るため、ここではYawのみ）
-		const qYThree = new THREE.Quaternion().setFromAxisAngle(
-			new THREE.Vector3(0, 1, 0),
-			angle,
-		);
+		new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
 
 		// 位置にも傾斜を反映
 		const localWallPos = new CANNON.Vec3(wallX, 0, wallZ);
@@ -275,29 +286,35 @@ function createCruun(position, stageIndex) {
 		world.addBody(triggerBody);
 
 		const isWinHole = i === 0;
-		triggerBody.addEventListener("collide", (event) => {
-			const ballBody = event.body;
-			if (ballBody.isBall) {
-				const alreadyMarked = objectsToRemove.some(
-					(item) => item.body === ballBody,
-				);
-				if (!alreadyMarked) {
-					objectsToRemove.push({ body: ballBody, mesh: ballBody.mesh });
-					if (isWinHole) {
-						if (stageIndex < cruunYPositions.length - 1) {
-							addBall(cruunYPositions[stageIndex + 1] + 5);
-						} else {
-							showWinMessage();
+		triggerBody.addEventListener(
+			"collide",
+			(event: { target: CANNON.Body; body: CANNON.Body }) => {
+				const ballBody = event.body as CANNON.Body & {
+					isBall?: boolean;
+					mesh?: THREE.Mesh;
+				};
+				if (ballBody.isBall) {
+					const alreadyMarked = objectsToRemove.some(
+						(item) => item.body === ballBody,
+					);
+					if (!alreadyMarked && ballBody.mesh) {
+						objectsToRemove.push({ body: ballBody, mesh: ballBody.mesh });
+						if (isWinHole) {
+							if (stageIndex < cruunYPositions.length - 1) {
+								addBall(cruunYPositions[stageIndex + 1] + 5);
+							} else {
+								showWinMessage();
+							}
 						}
 					}
 				}
-			}
-		});
+			},
+		);
 	}
 }
 
 // --- パチンコ玉 ---
-const balls = [];
+const balls: BallWithMesh[] = [];
 const ballRadius = 0.3; // 少し小さくして安定性向上
 const ballGeometry = new THREE.SphereGeometry(ballRadius, 16, 16); // ポリゴン数を減らして軽量化
 const ballThreeMaterial = new THREE.MeshStandardMaterial({
@@ -324,9 +341,11 @@ function addBall(startY = 22) {
 	ballBody.position.set(randomX, startY, randomZ);
 	world.addBody(ballBody);
 
-	// 型定義に存在しないランタイム拡張プロパティは any にキャストして扱う
-	(ballBody as any).isBall = true;
-	(ballBody as any).mesh = ballMesh;
+	// 型定義に存在しないランタイム拡張プロパティは適切な型キャストで扱う
+	(ballBody as CANNON.Body & { isBall: boolean; mesh: THREE.Mesh }).isBall =
+		true;
+	(ballBody as CANNON.Body & { isBall: boolean; mesh: THREE.Mesh }).mesh =
+		ballMesh;
 	balls.push({ mesh: ballMesh, body: ballBody });
 }
 

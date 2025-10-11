@@ -83,7 +83,7 @@ function applyUrlOverrides() {
 			CONFIG.FORCE_CPU_STRENGTH =
 				v === "null" ? null : v || CONFIG.FORCE_CPU_STRENGTH;
 		}
-	} catch (e) {
+	} catch (_e) {
 		// ignore in non-browser contexts
 	}
 }
@@ -97,7 +97,7 @@ try {
 		"location.search:",
 		typeof window !== "undefined" ? window.location.search : null,
 	);
-} catch (e) {
+} catch (_e) {
 	/* ignore when not running in browser */
 }
 

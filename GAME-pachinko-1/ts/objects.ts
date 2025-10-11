@@ -14,8 +14,9 @@
  *  5) 役物（風車）の複合ボディ生成（createRotatingYakumono）
  */
 
-import Matter from "matter-js";
+import * as Matter from "matter-js";
 import decomp from "poly-decomp"; // Matter.jsのBodies.fromVerticesで必要
+import type { BallOptions, ObjectSpec } from "../../types/matter-augment";
 import { GAME_CONFIG, GAME_MATERIALS } from "../ts/config";
 
 Matter.Common.setDecomp(decomp); // 凹多角形を扱えるように設定
@@ -28,7 +29,7 @@ function getObjectDef(key) {
 
 // Matter.Body 生成用オプションを、GAME_CONFIG のデフォルト + 呼び出し元の上書きで合成する
 // Matter.Body 作成時のオプションを GAME_CONFIG の定義と呼び出し側の上書きで合成して返す
-function makeBodyOptions(key, overrides: any = {}) {
+function makeBodyOptions(key, overrides: Record<string, unknown> = {}) {
 	const def = getObjectDef(key);
 	const baseOpts = Object.assign({}, def.options || {});
 	const baseRender = Object.assign({ layer: 1 }, def.render || {});
@@ -88,9 +89,9 @@ function normalizeMaterialId(m) {
  */
 
 // 新しいボール（動的円形ボディ）を作成して返す
-export function createBall(x, y, options: any = {}) {
+export function createBall(x: number, y: number, options: BallOptions = {}) {
 	const ballConfig = getObjectDef("ball");
-	const optionFill = options && options.render && options.render.fillStyle;
+	const optionFill = options?.render?.fillStyle;
 	const useRandom =
 		typeof ballConfig.randomColor === "undefined"
 			? true
@@ -98,13 +99,8 @@ export function createBall(x, y, options: any = {}) {
 	const generatedColor = `hsl(${Math.random() * 360}, 90%, 60%)`;
 	const fill =
 		optionFill ||
-		(useRandom
-			? generatedColor
-			: (ballConfig.render && ballConfig.render.fillStyle) || "#ccc");
-	const layerVal =
-		(options && options.render && options.render.layer) ??
-		(ballConfig.render && ballConfig.render.layer) ??
-		1;
+		(useRandom ? generatedColor : ballConfig.render?.fillStyle || "#ccc");
+	const layerVal = options?.render?.layer ?? ballConfig.render?.layer ?? 1;
 	const opt = makeBodyOptions("ball", {
 		render: { fillStyle: fill, layer: layerVal },
 	});
@@ -465,7 +461,7 @@ export function addBoundsToWorld(bounds, world) {
  * spec: { x, y, width, height, angleDeg?, isStatic?, material?, color?, label?, layer?, anchor? }
  */
 // 任意長方形ボディを作成するヘルパー（anchor により座標基準を処理）
-export function createRectangle(spec: any = {}) {
+export function createRectangle(spec: ObjectSpec = {}) {
 	let x = Number(spec.x) || 0;
 	let y = Number(spec.y) || 0;
 	const w = Math.max(1, Number(spec.width) || 1);
@@ -492,7 +488,7 @@ export function createRectangle(spec: any = {}) {
 		spec.layer != null
 			? Number(spec.layer)
 			: (getObjectDef("rect").render?.layer ?? 1);
-	const renderOverride: any = {};
+	const renderOverride: Record<string, unknown> = {};
 	if (color) renderOverride.fillStyle = color;
 	renderOverride.layer = layer;
 	const opts = makeBodyOptions(
@@ -528,7 +524,7 @@ export function createRectangle(spec: any = {}) {
  * 描画専用（非干渉）長方形
  */
 // 描画専用（物理干渉しない）長方形を作成する
-export function createDecorRectangle(spec: any = {}) {
+export function createDecorRectangle(spec: ObjectSpec = {}) {
 	const base = Object.assign(
 		{
 			material: getObjectDef("decor").material,
@@ -557,7 +553,7 @@ export function createDecorRectangle(spec: any = {}) {
  * - 角度/位置オフセット、任意ピボットを用いた回転にも対応
  */
 // 任意多角形ボディを生成する。world/local 座標モードと回転オフセットをサポート
-export function createPolygon(spec: any = {}) {
+export function createPolygon(spec: ObjectSpec = {}) {
 	const pts = Array.isArray(spec.points) ? spec.points : [];
 	if (pts.length < 3) return null; // 要三点以上
 	const angleDeg = Number(spec.angleDeg || spec.angle || 0);
@@ -603,7 +599,7 @@ export function createPolygon(spec: any = {}) {
 		),
 	);
 
-	let body;
+	let body: Matter.Body;
 	if (mode === "world") {
 		// ワールド座標で与えられた頂点群を、その重心位置にボディを配置してローカル化
 		let worldVerts = pts.map((p) => ({
@@ -611,7 +607,7 @@ export function createPolygon(spec: any = {}) {
 			y: Number(p.y) || 0,
 		}));
 		// 可能なら Matter の重心計算を使用
-		let c;
+		let c: { x: number; y: number } | null;
 		try {
 			c =
 				Matter.Vertices && typeof Matter.Vertices.centre === "function"
@@ -720,7 +716,7 @@ export function createPolygon(spec: any = {}) {
  * 描画専用多角形（非干渉）
  */
 // 描画専用の多角形（センサー/静的）を作るラッパー
-export function createDecorPolygon(spec: any = {}) {
+export function createDecorPolygon(spec: ObjectSpec = {}) {
 	const base = Object.assign(
 		{ material: getObjectDef("decorPolygon").material, isStatic: true },
 		spec,
@@ -738,7 +734,7 @@ export function createDecorPolygon(spec: any = {}) {
  * 発射台（キャンバス描画用、非干渉）
  */
 // 発射台用の非干渉ボディ（描画のみ）を生成する
-export function createLaunchPadBody(spec: any = {}) {
+export function createLaunchPadBody(spec: ObjectSpec = {}) {
 	const padW = Math.max(1, Number(spec.width || 64));
 	const padH = Math.max(1, Number(spec.height || 14));
 	const color = spec.color || spec.background || "#444";
@@ -985,7 +981,7 @@ export function createRotatingYakumono(blueprint) {
  * - 物理干渉せず、通過イベントをカウントする領域を定義
  * - カウントデータは GAME_CONFIG.sensorCounters.counters に保存
  */
-export function createSensorCounter(spec: any = {}) {
+export function createSensorCounter(spec: ObjectSpec = {}) {
 	const counterId = spec.id || "default_counter";
 	const x = Number(spec.x) || 0;
 	const y = Number(spec.y) || 0;
@@ -1121,7 +1117,7 @@ export function createSensorCounter(spec: any = {}) {
  * - 物理干渉せず、通過イベントをカウントする任意形状の領域を定義
  * - カウントデータは GAME_CONFIG.sensorCounters.counters に保存
  */
-export function createSensorCounterPolygon(spec: any = {}) {
+export function createSensorCounterPolygon(spec: ObjectSpec = {}) {
 	const counterId = spec.id || "default_polygon_counter";
 	const pts = Array.isArray(spec.points) ? spec.points : [];
 	if (pts.length < 3) return null; // 要三点以上
@@ -1201,7 +1197,7 @@ export function createSensorCounterPolygon(spec: any = {}) {
 	const pivotX = Number(spec.pivot && spec.pivot.x);
 	const pivotY = Number(spec.pivot && spec.pivot.y);
 
-	let body;
+	let body: Matter.Body;
 	if (mode === "world") {
 		// ワールド座標で与えられた頂点群を、その重心位置にボディを配置してローカル化
 		let worldVerts = pts.map((p) => ({
@@ -1209,7 +1205,7 @@ export function createSensorCounterPolygon(spec: any = {}) {
 			y: Number(p.y) || 0,
 		}));
 		// 可能なら Matter の重心計算を使用
-		let c;
+		let c: { x: number; y: number } | null;
 		try {
 			c =
 				Matter.Vertices && typeof Matter.Vertices.centre === "function"

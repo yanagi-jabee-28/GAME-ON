@@ -1,3 +1,5 @@
+/// <reference path="../global.d.ts" />
+
 /**
  * @file ui.js
  * @description UIの描画や更新を担当するファイル
@@ -6,6 +8,65 @@
 
 import { CONFIG } from "./config.ts";
 import { ITEMS } from "./items.ts";
+
+// Minimal, focused types for UI interactions. Keep these narrow and
+// representative so UIManager can rely on proper typings without
+// coupling to the entire GameManager implementation.
+interface Character {
+	id: string;
+	name?: string;
+	trust?: number;
+	notes?: string;
+}
+
+interface EffectEntry {
+	displayName?: string;
+	turns?: number;
+}
+
+interface ReportEntry {
+	title: string;
+	progress: number;
+	required: number;
+}
+
+interface HistoryDetail {
+	itemId?: string;
+	itemName?: string;
+	price?: number;
+	shopId?: string;
+	shopLabel?: string;
+	label?: string;
+	purchased?: boolean;
+}
+
+interface HistoryEntry {
+	day: number;
+	turn?: string | number;
+	type: string;
+	detail?: HistoryDetail & { _label?: string };
+	_label?: string;
+}
+
+interface GameStatus {
+	day: number;
+	turnIndex?: number;
+	money?: number | string;
+	cp?: number | string;
+	items?: string[];
+	reports?: ReportEntry[];
+	history?: HistoryEntry[];
+	characters?: Character[];
+	effects?: Record<string, EffectEntry> | {};
+	stats?: {
+		physical?: number | string;
+		mental?: number | string;
+		technical?: number | string;
+		academic?: number | string;
+	};
+	reportDebt?: string | number;
+	menuLocked?: boolean;
+}
 
 export class UIManager {
 	// Screen containers
@@ -156,16 +217,24 @@ export class UIManager {
 		setTimeout(() => {
 			try {
 				const buttons = Array.from(
-					document.querySelectorAll("#title-screen .title-buttons button"),
+					document.querySelectorAll<HTMLButtonElement>(
+						"#title-screen .title-buttons button",
+					),
 				);
 				if (buttons.length > 0) {
-					buttons.forEach((b) => b.classList.remove("focused"));
+					buttons.forEach((b) => {
+						b.classList.remove("focused");
+					});
 					buttons[0].classList.add("focused");
 					try {
 						buttons[0].focus();
-					} catch (e) {}
+					} catch {
+						/* ignore focus failure */
+					}
 				}
-			} catch (e) {}
+			} catch {
+				/* ignore DOM query failure */
+			}
 		}, 40);
 	}
 
@@ -174,13 +243,18 @@ export class UIManager {
 	 * @param {Element[]} buttons
 	 * @param {number} index
 	 */
-	_setTitleButtonFocus(buttons, index) {
+	_setTitleButtonFocus(
+		buttons: Element[] | HTMLButtonElement[],
+		index: number,
+	) {
 		buttons.forEach((b, i) => {
 			if (i === index) {
 				b.classList.add("focused");
 				try {
-					b.focus();
-				} catch (e) {}
+					(b as HTMLElement).focus();
+				} catch {
+					/* ignore */
+				}
 			} else {
 				b.classList.remove("focused");
 			}
@@ -196,7 +270,7 @@ export class UIManager {
 	 * メニューの専用ウィンドウを開く
 	 * @param {'item'|'history'|'character'|'report'} type
 	 */
-	async openMenuWindow(type) {
+	async openMenuWindow(type: "item" | "history" | "character" | "report") {
 		try {
 			// メニュー自体が閉じている場合は開く（ただしフリー行動チェックは openMenu が行う）
 			if (this.menuOverlay && this.menuOverlay.classList.contains("hidden")) {
@@ -205,7 +279,7 @@ export class UIManager {
 			// Mark as user-opened because this is invoked from a user action
 			try {
 				if (this.menuOverlay) this.menuOverlay.dataset.userOpened = "1";
-			} catch (e) {}
+			} catch {}
 
 			if (type === "item") {
 				const win = document.getElementById("menu-item-window");
@@ -218,7 +292,7 @@ export class UIManager {
 					li.textContent = "(アイテムはありません)";
 					list.appendChild(li);
 				} else {
-					status.items.forEach((itemId) => {
+					for (const itemId of status.items) {
 						const item = ITEMS[itemId];
 						const li = document.createElement("li");
 						li.innerHTML = `<span>${item ? item.name : itemId} - ${item ? item.description : ""}</span>`;
@@ -231,29 +305,29 @@ export class UIManager {
 							useBtn.disabled = true;
 							try {
 								const ok = await gameManager.useItem(itemId);
-								// 使用が成功していればこのウィンドウを再描画して所持数を反映する
 								if (ok) {
 									await this.openMenuWindow("item");
 								} else {
-									// 失敗（所持していない等）はトーストで通知して再描画
 									try {
 										if (typeof soundManager !== "undefined")
 											soundManager.play("error");
-									} catch (e) {}
+									} catch {
+										/* ignore */
+									}
 									this.showTransientNotice("アイテムを所持していません。", {
 										duration: 1200,
 									});
 									await this.openMenuWindow("item");
 								}
-							} catch (e) {
-								console.error("useItem error (window)", e);
+							} catch (err) {
+								console.error("useItem error (window)", err);
 							} finally {
 								useBtn.disabled = false;
 							}
 						};
 						li.appendChild(useBtn);
 						list.appendChild(li);
-					});
+					}
 				}
 				win.classList.remove("hidden");
 				// When the item window is open, disable the main menu close controls to avoid accidental closure
@@ -274,7 +348,7 @@ export class UIManager {
 					list.appendChild(li);
 				} else {
 					const entries = history.slice().reverse();
-					entries.forEach((h) => {
+					for (const h of entries) {
 						const li = document.createElement("li");
 						const time = `${h.day}日目 ${h.turn || ""}`.trim();
 						let text = "";
@@ -303,7 +377,7 @@ export class UIManager {
 						}
 						li.textContent = text;
 						list.appendChild(li);
-					});
+					}
 				}
 				win.classList.remove("hidden");
 				return;
@@ -321,7 +395,7 @@ export class UIManager {
 					// wire close
 					win
 						.querySelector(".menu-window-close")
-						.addEventListener("click", (e) => {
+						.addEventListener("click", () => {
 							this.closeMenuWindow(win);
 						});
 				}
@@ -357,7 +431,7 @@ export class UIManager {
 								// wire close
 								detail
 									.querySelector(".menu-window-close")
-									.addEventListener("click", (e) => {
+									.addEventListener("click", () => {
 										this.closeMenuWindow(detail);
 									});
 							}
@@ -400,7 +474,7 @@ export class UIManager {
 					document.getElementById("game-container").appendChild(win);
 					win
 						.querySelector(".menu-window-close")
-						.addEventListener("click", (e) => {
+						.addEventListener("click", () => {
 							this.closeMenuWindow(win);
 						});
 				}
@@ -450,7 +524,7 @@ export class UIManager {
 				(charWin && !charWin.classList.contains("hidden")) ||
 				(charDetail && !charDetail.classList.contains("hidden"));
 			if (!stillOpen) this._setMenuCloseEnabled(true);
-		} catch (e) {}
+		} catch {}
 	}
 
 	/**
@@ -472,7 +546,7 @@ export class UIManager {
 				if (!enabled) this.menuCloseFloating.classList.add("disabled");
 				else this.menuCloseFloating.classList.remove("disabled");
 			}
-		} catch (e) {}
+		} catch {}
 	}
 
 	/**
@@ -505,8 +579,8 @@ export class UIManager {
 			// academic may be added in the header chips
 			if (!this.academicDisplay || !document.contains(this.academicDisplay))
 				this.academicDisplay = document.getElementById("academic-display");
-		} catch (e) {
-			console.warn("Error checking status display elements", e);
+		} catch {
+			console.warn("Error checking status display elements");
 		}
 
 		if (this.dateDisplay)
@@ -534,7 +608,7 @@ export class UIManager {
 					? status.stats.technical
 					: "";
 		// 通貨単位は CONFIG.LABELS.currencyUnit を優先
-		const unit = (CONFIG as any)?.LABELS?.currencyUnit ?? "円";
+		const unit = CONFIG?.LABELS?.currencyUnit ?? "円";
 		this.moneyDisplay.textContent = `${status.money}${unit}`;
 		this.cpDisplay.textContent = status.cp;
 	}
@@ -590,7 +664,9 @@ export class UIManager {
 		// 常にメッセージウィンドウを前面に出しておく（overlay が残っている場合の救済策）
 		try {
 			this.messageWindow.style.zIndex = "2000"; // overlay (1000) より高くしておく
-		} catch (e) {}
+		} catch {
+			/* ignore */
+		}
 		if (this.menuOverlay && !this.menuOverlay.classList.contains("hidden")) {
 			// 元の zIndex を保存しておく
 			if (typeof this.messageWindow.dataset.origZ === "undefined") {
@@ -614,7 +690,9 @@ export class UIManager {
 				"zIndex:",
 				this.messageWindow.style.zIndex,
 			);
-		} catch (e) {}
+		} catch {
+			/* ignore logging failure */
+		}
 	}
 
 	/**
@@ -627,7 +705,9 @@ export class UIManager {
 		// クリックインジケーターを確実に消す
 		try {
 			this.clickIndicator.style.display = "none";
-		} catch (e) {}
+		} catch {
+			/* ignore */
+		}
 		// 保存してあった zIndex を復元
 		if (
 			this.messageWindow &&
@@ -654,7 +734,9 @@ export class UIManager {
 					this.menuOverlay.classList.add("hidden");
 				}
 			}
-		} catch (e) {}
+		} catch {
+			/* ignore */
+		}
 	}
 
 	/**
@@ -676,7 +758,9 @@ export class UIManager {
 				try {
 					if (typeof soundManager !== "undefined")
 						soundManager.play("ui_action");
-				} catch (e) {}
+				} catch {
+					/* ignore */
+				}
 
 				this.clearMessage(); // メッセージをクリア
 
@@ -710,7 +794,9 @@ export class UIManager {
 				try {
 					if (typeof soundManager !== "undefined")
 						soundManager.play("ui_action");
-				} catch (e) {}
+				} catch {
+					/* ignore */
+				}
 				// 選択肢をクリックしたら、選択履歴を記録
 				try {
 					if (
@@ -744,7 +830,9 @@ export class UIManager {
 			this.choicesArea.querySelectorAll(".choice-button"),
 		);
 		if (buttons.length > 0) {
-			buttons.forEach((b) => b.classList.remove("focused"));
+			buttons.forEach((b) => {
+				b.classList.remove("focused");
+			});
 			buttons[0].classList.add("focused");
 		}
 	}
@@ -772,10 +860,14 @@ export class UIManager {
 			// メニューを開けない場合は一時的なダイアログで通知（イベントメッセージの上書きは避ける）
 			try {
 				if (typeof soundManager !== "undefined") soundManager.play("error");
-			} catch (e) {}
+			} catch {
+				/* ignore */
+			}
 			try {
 				if (typeof soundManager !== "undefined") soundManager.play("error");
-			} catch (e) {}
+			} catch {
+				/* ignore */
+			}
 			this.showTransientNotice("メニューは自由行動時間のみ開けます。", {
 				duration: 1200,
 			});
@@ -792,19 +884,23 @@ export class UIManager {
 				this.messageWindow.dataset.wasVisible = "1";
 				this.messageWindow.style.display = "none";
 			}
-		} catch (e) {}
+		} catch {
+			/* ignore */
+		}
 		this.menuOverlay.classList.remove("hidden");
 		// Mark that the menu was opened by user action so automatic
 		// safety code does not hide it unexpectedly.
 		try {
 			if (this.menuOverlay) this.menuOverlay.dataset.userOpened = "1";
-		} catch (e) {}
-		if (this.menuCloseFloating)
-			this.menuCloseFloating.setAttribute("aria-visible", "true");
+		} catch {
+			/* ignore DOM query failure */
+		}
 		this.updateMenuDisplay(); // メニューを開く際に最新の情報を表示
 		try {
 			if (typeof soundManager !== "undefined") soundManager.play("ui_action");
-		} catch (e) {}
+		} catch {
+			/* ignore */
+		}
 	}
 
 	/**
@@ -824,7 +920,9 @@ export class UIManager {
 				this._setMenuCloseEnabled(false);
 				return;
 			}
-		} catch (e) {}
+		} catch {
+			/* ignore */
+		}
 		const status = gameManager.getStatus();
 		this.menuOverlay.classList.add("hidden");
 		if (this.menuCloseFloating)
@@ -835,7 +933,9 @@ export class UIManager {
 				this.messageWindow.style.display = "block";
 				delete this.messageWindow.dataset.wasVisible;
 			}
-		} catch (e) {}
+		} catch {
+			/* ignore */
+		}
 		// Clear the userOpened marker when the menu is explicitly closed
 		try {
 			if (
@@ -844,10 +944,14 @@ export class UIManager {
 				this.menuOverlay.dataset.userOpened
 			)
 				delete this.menuOverlay.dataset.userOpened;
-		} catch (e) {}
+		} catch {
+			/* ignore */
+		}
 		try {
 			if (typeof soundManager !== "undefined") soundManager.play("ui_action");
-		} catch (e) {}
+		} catch {
+			/* ignore */
+		}
 	}
 
 	/**
@@ -857,7 +961,7 @@ export class UIManager {
 		const status = gameManager.getAllStatus(); // GameManagerから全ステータスを取得
 
 		// ラベル定義を取得（なければデフォルト）
-		const labels: any = (CONFIG as any)?.LABELS ?? {};
+		const labels = CONFIG?.LABELS ?? ({} as Record<string, string>);
 
 		// メニューの見出しなど静的ラベルを設定（存在すれば）
 		const headerEl = document.getElementById("menu-header");
@@ -870,11 +974,11 @@ export class UIManager {
 		if (historyEl) historyEl.textContent = labels.history || "行動履歴";
 
 		// ステータスセクションの更新
-		this.menuAcademic.textContent = status.stats.academic;
-		this.menuPhysical.textContent = status.stats.physical;
-		this.menuMental.textContent = status.stats.mental;
-		this.menuTechnical.textContent = status.stats.technical;
-		this.menuReportDebt.textContent = status.reportDebt;
+		this.menuAcademic.textContent = String(status?.stats?.academic ?? "");
+		this.menuPhysical.textContent = String(status?.stats?.physical ?? "");
+		this.menuMental.textContent = String(status?.stats?.mental ?? "");
+		this.menuTechnical.textContent = String(status?.stats?.technical ?? "");
+		this.menuReportDebt.textContent = String(status?.reportDebt ?? "");
 
 		// 個別レポートの表示（存在すれば）
 		const reportListId = "menu-report-list";
@@ -887,11 +991,11 @@ export class UIManager {
 		}
 		reportList.innerHTML = "";
 		if (status.reports && status.reports.length > 0) {
-			status.reports.forEach((r) => {
+			for (const r of status.reports) {
 				const li = document.createElement("li");
 				li.textContent = `${r.title} (${r.progress}/${r.required})`;
 				reportList.appendChild(li);
-			});
+			}
 		} else {
 			const li = document.createElement("li");
 			li.textContent =
@@ -901,12 +1005,12 @@ export class UIManager {
 
 		// アイテムリストの更新
 		this.menuItemList.innerHTML = ""; // 一度クリア
-		if (status.items.length === 0) {
+		if (!status.items || status.items.length === 0) {
 			const li = document.createElement("li");
 			li.textContent = labels.noItemsMessage || "アイテムはありません。";
 			this.menuItemList.appendChild(li);
 		} else {
-			status.items.forEach((itemId) => {
+			for (const itemId of status.items) {
 				const item = ITEMS[itemId]; // config.jsからアイテム情報を取得
 				if (item) {
 					const li = document.createElement("li");
@@ -921,15 +1025,15 @@ export class UIManager {
 						useButton.disabled = true;
 						try {
 							const ok = await gameManager.useItem(itemId);
-							// 使用が成功していればメニューを再描画して反映
 							if (ok) {
 								this.updateMenuDisplay();
-								// Ensure item window is hidden and re-enable close controls before closing the menu
 								try {
 									const itemWin = document.getElementById("menu-item-window");
 									if (itemWin) itemWin.classList.add("hidden");
 									this._setMenuCloseEnabled(true);
-								} catch (e) {}
+								} catch {
+									/* ignore */
+								}
 								this.closeMenu();
 								if (
 									typeof GameEventManager !== "undefined" &&
@@ -948,14 +1052,13 @@ export class UIManager {
 									}
 								}
 							} else {
-								// 使用に失敗した場合はトーストで通知し、メニューを再描画
 								this.showTransientNotice("アイテムを所持していません。", {
 									duration: 1200,
 								});
 								this.updateMenuDisplay();
 							}
-						} catch (e) {
-							console.error("useItem error", e);
+						} catch (err) {
+							console.error("useItem error", err);
 						} finally {
 							useButton.disabled = false;
 						}
@@ -963,7 +1066,7 @@ export class UIManager {
 					li.appendChild(useButton);
 					this.menuItemList.appendChild(li);
 				}
-			});
+			}
 		}
 
 		// 履歴表示の更新
@@ -990,7 +1093,7 @@ export class UIManager {
 		}
 		historyList.innerHTML = "";
 		const history = status.history || [];
-		const unit = (CONFIG as any)?.LABELS?.currencyUnit ?? "円";
+		const unit = CONFIG?.LABELS?.currencyUnit ?? "円";
 		if (history.length === 0) {
 			const li = document.createElement("li");
 			li.textContent = "(履歴はありません)";
@@ -998,45 +1101,32 @@ export class UIManager {
 		} else {
 			// 最新が最後尾に入っている想定なので逆順で表示（最新が上）
 			const entries = history.slice().reverse();
-			entries.forEach((h) => {
+			for (const h of entries) {
 				const li = document.createElement("li");
 				const time = `${h.day}日目 ${h.turn || ""}`.trim();
 				let text = "";
 
 				// ユーザー向けのラベルを優先して取得するユーティリティ
-				const resolveShopLabel = (shopId, detail) => {
-					if (detail && detail.shopLabel) return detail.shopLabel;
-					if (
-						shopId &&
-						(CONFIG as any) &&
-						(CONFIG as any).SHOPS &&
-						(CONFIG as any).SHOPS[shopId] &&
-						(CONFIG as any).SHOPS[shopId].label
-					)
-						return (CONFIG as any).SHOPS[shopId].label;
-					return shopId || "";
+				const resolveShopLabel = (shopId?: string, detail?: HistoryDetail) => {
+					if (detail?.shopLabel) return detail.shopLabel;
+					const shopLabel = CONFIG?.SHOPS?.[shopId ?? ""]?.label;
+					return shopLabel ?? shopId ?? "";
 				};
 
 				switch (h.type) {
 					case "shop_visit": {
-						const shopLabel = resolveShopLabel(
-							h.detail && h.detail.shopId,
-							h.detail,
-						);
+						const shopLabel = resolveShopLabel(h.detail?.shopId, h.detail);
 						text = `${time}: ${shopLabel}に入店`;
 						break;
 					}
 					case "shop_leave": {
-						const shopLabel = resolveShopLabel(
-							h.detail && h.detail.shopId,
-							h.detail,
-						);
-						if (h.detail && h.detail.purchased) {
+						const shopLabel = resolveShopLabel(h.detail?.shopId, h.detail);
+						if (h.detail?.purchased) {
 							const itemName = h.detail.itemName
 								? h.detail.itemName
 								: h.detail.itemId && ITEMS[h.detail.itemId]
 									? ITEMS[h.detail.itemId].name
-									: h.detail.itemId || "アイテム";
+									: (h.detail.itemId ?? "アイテム");
 							text = `${time}: ${shopLabel}で購入して退店（${itemName}、${h.detail.price || ""}${unit}）`;
 						} else {
 							text = `${time}: ${shopLabel}を訪れて何も買わず退店`;
@@ -1044,35 +1134,26 @@ export class UIManager {
 						break;
 					}
 					case "purchase": {
-						const shopLabel = resolveShopLabel(
-							h.detail && h.detail.shopId,
-							h.detail,
-						);
-						const itemName =
-							h.detail && h.detail.itemName
-								? h.detail.itemName
-								: h.detail && h.detail.itemId && ITEMS[h.detail.itemId]
-									? ITEMS[h.detail.itemId].name
-									: h.detail && h.detail.itemId
-										? h.detail.itemId
-										: "アイテム";
+						const shopLabel = resolveShopLabel(h.detail?.shopId, h.detail);
+						const itemName = h.detail?.itemName
+							? h.detail.itemName
+							: h.detail?.itemId && ITEMS[h.detail.itemId]
+								? ITEMS[h.detail.itemId].name
+								: (h.detail?.itemId ?? "アイテム");
 						text = `${time}: ${itemName} を ${shopLabel}で購入（${h.detail.price || ""}${unit}）`;
 						break;
 					}
 					case "choice": {
-						const label = h.detail && h.detail.label ? h.detail.label : "";
+						const label = h.detail?.label ?? "";
 						text = `${time}: 選択 - ${label}`;
 						break;
 					}
 					case "use_item": {
-						const itemName =
-							h.detail && h.detail.itemName
-								? h.detail.itemName
-								: h.detail && h.detail.itemId && ITEMS[h.detail.itemId]
-									? ITEMS[h.detail.itemId].name
-									: h.detail && h.detail.itemId
-										? h.detail.itemId
-										: "アイテム";
+						const itemName = h.detail?.itemName
+							? h.detail.itemName
+							: h.detail?.itemId && ITEMS[h.detail.itemId]
+								? ITEMS[h.detail.itemId].name
+								: (h.detail?.itemId ?? "アイテム");
 						text = `${time}: アイテム使用 - ${itemName}`;
 						break;
 					}
@@ -1082,7 +1163,7 @@ export class UIManager {
 
 				li.textContent = text;
 				historyList.appendChild(li);
-			});
+			}
 		}
 
 		// --- 効果表示 (effects) ---
@@ -1238,7 +1319,9 @@ export class UIManager {
 					return;
 				}
 			}
-		} catch (e) {}
+		} catch {
+			/* ignore */
+		}
 
 		menuMsg.textContent = text;
 		menuMsg.style.display = "block";
@@ -1278,7 +1361,9 @@ export class UIManager {
 		try {
 			// No-op: do not restore or toggle menu overlay here. Menu visibility is
 			// strictly controlled via openMenu/closeMenu and GameEventManager.isInFreeAction.
-		} catch (e) {}
+		} catch {
+			/* ignore */
+		}
 	}
 
 	/**
@@ -1292,10 +1377,7 @@ export class UIManager {
 		// @ts-expect-error - widen options type for TS
 		options = options || {};
 		if (!text || ("" + text).trim() === "") return;
-		const dur =
-			typeof (options as any).duration === "number"
-				? (options as any).duration
-				: 1200;
+		const dur = typeof options.duration === "number" ? options.duration : 1200;
 		let el = document.getElementById("transient-notice");
 		if (!el) {
 			el = document.createElement("div");
@@ -1316,7 +1398,9 @@ export class UIManager {
 				setTimeout(() => {
 					try {
 						el.remove();
-					} catch (e) {}
+					} catch {
+						/* ignore */
+					}
 				}, 220);
 			}
 		}, dur);
@@ -1360,7 +1444,9 @@ export class UIManager {
 							// クリック音
 							if (typeof soundManager !== "undefined")
 								soundManager.play("ui_action");
-						} catch (e) {}
+						} catch {
+							/* ignore */
+						}
 						// リスナーを外して進行
 						this.messageWindow.removeEventListener("click", listener);
 						// クリックインジケーターは次行表示前に消す
@@ -1379,7 +1465,9 @@ export class UIManager {
 							this.messageWindow.removeEventListener("click", listener);
 							try {
 								this.clickIndicator.style.display = "none";
-							} catch (e) {}
+							} catch {
+								/* ignore */
+							}
 							resolve();
 						}, options.lineDelay);
 					}
@@ -1572,9 +1660,9 @@ export class UIManager {
 				}
 			} catch (e) {}
 
-			volEl.addEventListener("input", (e) => {
+			volEl.addEventListener("input", (evt) => {
 				const input = /** @type {HTMLInputElement} */ (
-					e.currentTarget || e.target
+					evt.currentTarget || evt.target
 				);
 				const v = parseFloat(String(input.value ?? ""));
 				if (
@@ -1585,7 +1673,9 @@ export class UIManager {
 				}
 				try {
 					localStorage.setItem("game_sound_volume", String(v));
-				} catch (e) {}
+				} catch {
+					/* ignore */
+				}
 			});
 		}
 		if (muteBtn) {
@@ -1601,7 +1691,7 @@ export class UIManager {
 				}
 			} catch (e) {}
 
-			muteBtn.addEventListener("click", (e) => {
+			muteBtn.addEventListener("click", () => {
 				if (typeof soundManager === "undefined") return;
 				soundManager.toggleMute();
 				muteBtn.textContent = soundManager.muted ? "ミュート解除" : "ミュート";
@@ -1610,7 +1700,9 @@ export class UIManager {
 						"game_sound_muted",
 						soundManager.muted ? "1" : "0",
 					);
-				} catch (e) {}
+				} catch {
+					/* ignore */
+				}
 			});
 		}
 

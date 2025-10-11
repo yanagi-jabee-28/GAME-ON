@@ -4,6 +4,12 @@
  *        リールの生成、回転アニメーション、停止制御、ゲームモードの切り替えなどを担当します。
  */
 
+import type {
+	SlotCreditConfig,
+	SlotGameConfig,
+	SlotGameInstance,
+	SlotReelConfig,
+} from "../types/slot.d.ts";
 import { SlotSoundManager } from "./audio.ts";
 import { gameConfig } from "./config.ts";
 
@@ -15,10 +21,12 @@ function clamp(v: number, min: number, max: number): number {
 
 /**
  * 重み付き乱択。
- * @param {Array<{key:any, weight:number}>} items - weight>0 の要素のみ考慮
- * @returns any 選択された key（候補が無い場合はnull）
+ * @param {Array<{key:string, weight:number}>} items - weight>0 の要素のみ考慮
+ * @returns string | null 選択された key（候補が無い場合はnull）
  */
-function weightedChoice(items: Array<{ key: any; weight: number }>) {
+function weightedChoice(
+	items: Array<{ key: string; weight: number }>,
+): string | null {
 	const valid = items.filter(
 		(it) => it && typeof it.weight === "number" && it.weight > 0,
 	);
@@ -63,17 +71,17 @@ type UIElementMap = {
 } & Record<string, Element | Element[] | null | undefined>;
 
 class UIManager {
-	config: any;
+	config: SlotGameConfig;
 	elements: UIElementMap;
 	/**
 	 * UIManagerクラスのコンストラクタ。
-	 * @param {object} config - ゲームの設定オブジェクト
+	 * @param {SlotGameConfig} config - ゲームの設定オブジェクト
 	 * 契約:
 	 * - 入力: config.selectors の CSS セレクタに該当する要素が DOM 上に存在すること。
 	 * - 副作用: DOM を探索し、主要要素を this.elements にキャッシュします。
 	 * 注意: セレクタ変更時は HTML 側と必ず同期し、null 参照による TypeError を防止してください。
 	 */
-	constructor(config: any) {
+	constructor(config: SlotGameConfig) {
 		this.config = config;
 		this.elements = {}; // 取得したDOM要素を格納するオブジェクト
 		this.getElements();
@@ -272,8 +280,8 @@ class UIManager {
  * スロットゲーム全体を管理するクラス。
  * ゲームの状態、DOM要素、アニメーションロジックをカプセル化します。
  */
-class SlotGame {
-	config: any;
+class SlotGame implements SlotGameInstance {
+	config: SlotGameConfig;
 	ui: UIManager;
 	soundManager: SlotSoundManager;
 	ROW_NAMES: string[];
@@ -281,16 +289,16 @@ class SlotGame {
 	slotContainer: HTMLElement | null;
 	actionBtn: HTMLElement | null;
 	modeBtn: HTMLElement | null;
-	reels: any[];
+	reels: SlotReelConfig[];
 	isSpinning: boolean;
 	isAutoMode: boolean;
 	manualStopCount: number;
 	balance: number;
 	debt: number;
-	creditConfig: any;
+	creditConfig: SlotCreditConfig;
 	_continuousDir: number | undefined;
-	_continuousTimer: any;
-	_continuousStarter: any;
+	_continuousTimer: ReturnType<typeof setInterval> | null = null;
+	_continuousStarter: ReturnType<typeof setTimeout> | null = null;
 	_continuousInterval: number | undefined;
 	_continuousStarted: boolean | undefined;
 	elBet: HTMLInputElement | null = null;
@@ -299,33 +307,22 @@ class SlotGame {
 	elStepDown: HTMLElement | null = null;
 	_suppressNextClick: boolean = false;
 	// 追加: 欠落していたプロパティ
-	_toastTimer: any = null;
+	_toastTimer: ReturnType<typeof setTimeout> | null = null;
 	leverEl: HTMLElement | null = null;
-	_leverTimer: any = null;
+	_leverTimer: ReturnType<typeof setTimeout> | null = null;
 	currentBet: number = 0;
-	_winMsgTimer: any = null;
+	_winMsgTimer: ReturnType<typeof setTimeout> | null = null;
 	/**
 	 * SlotGameクラスのコンストラクタ。
 	 * ゲームの初期設定とDOM要素の紐付けを行います。
 	 * @param {HTMLElement} element - スロットマシンのコンテナとなるHTML要素（例: <div id="slot-machine">）
-	 * @param {object} config - ゲームの動作を定義する設定オブジェクト
+	 * @param {SlotGameConfig} config - ゲームの動作を定義する設定オブジェクト
 	 * 契約:
 	 * - 入力: element は現状未使用（将来の複数インスタンス・スコープ分離で利用予定）。
 	 * - 出力: reels 配列やフラグ類を初期化し、DOM構築とイベント登録を完了します。
 	 * 注意: selectors への依存が強いため、element ベースのクエリへ段階的に移行するとテスタビリティが向上します。
 	 */
-	constructor(element: HTMLElement, config: any) {
-		/** @type {any} */
-		this._toastTimer = null;
-		/** @type {HTMLElement|null} */
-		this.leverEl = null;
-		/** @type {any} */
-		this._leverTimer = null;
-		/** @type {number} */
-		this.currentBet = 0;
-		/** @type {any} */
-		this._winMsgTimer = null;
-		// ...existing code...
+	constructor(element: HTMLElement, config: SlotGameConfig) {
 		this.config = config;
 		this.ui = new UIManager(config); // UIManagerのインスタンスを生成
 
@@ -429,7 +426,9 @@ class SlotGame {
 					minInterval,
 					Math.round(this._continuousInterval * accelFactor),
 				);
-				clearInterval(this._continuousTimer);
+				if (this._continuousTimer) {
+					clearInterval(this._continuousTimer);
+				}
 				this._continuousTimer = setInterval(() => {
 					this._adjustBetByAdaptiveStep(dir);
 				}, this._continuousInterval);
@@ -705,17 +704,26 @@ class SlotGame {
 			// 長押しで加速度的に増やす: pointer イベントで統一的に扱う
 			this.elStepUp.addEventListener("pointerdown", (e) => {
 				e.preventDefault();
-				const el = e.currentTarget as any;
+				const el = e.currentTarget as HTMLElement | null;
 				try {
-					el?.setPointerCapture?.((e as any).pointerId);
+					const pe = e as PointerEvent;
+					if (el?.setPointerCapture && pe.pointerId) {
+						el.setPointerCapture(pe.pointerId);
+					}
 				} catch (err) {}
 				this._startContinuousAdjust && this._startContinuousAdjust(+1);
 			});
 			this.elStepUp.addEventListener("pointerup", (e) => {
 				this._suppressNextClick = !!this._continuousStarted;
-				const el = e.currentTarget as any;
+				const el = e.currentTarget as HTMLElement;
 				try {
-					el?.releasePointerCapture?.((e as any).pointerId);
+					if (el && "releasePointerCapture" in el) {
+						(
+							el as HTMLElement & {
+								releasePointerCapture: (id: number) => void;
+							}
+						).releasePointerCapture(e.pointerId);
+					}
 				} catch (err) {}
 				this._stopContinuousAdjust && this._stopContinuousAdjust();
 			});
@@ -737,19 +745,29 @@ class SlotGame {
 			});
 			this.elStepDown.addEventListener("pointerdown", (e) => {
 				e.preventDefault();
-				const el = e.currentTarget as any;
+				const el = e.currentTarget as HTMLElement;
 				try {
-					el?.setPointerCapture?.((e as any).pointerId);
+					if (el && "setPointerCapture" in el) {
+						(
+							el as HTMLElement & { setPointerCapture: (id: number) => void }
+						).setPointerCapture(e.pointerId);
+					}
 				} catch (err) {}
-				this._startContinuousAdjust && this._startContinuousAdjust(-1);
+				this._startContinuousAdjust?.(-1);
 			});
 			this.elStepDown.addEventListener("pointerup", (e) => {
 				this._suppressNextClick = !!this._continuousStarted;
-				const el = e.currentTarget as any;
+				const el = e.currentTarget as HTMLElement;
 				try {
-					el?.releasePointerCapture?.((e as any).pointerId);
+					if (el && "releasePointerCapture" in el) {
+						(
+							el as HTMLElement & {
+								releasePointerCapture: (id: number) => void;
+							}
+						).releasePointerCapture(e.pointerId);
+					}
 				} catch (err) {}
-				this._stopContinuousAdjust && this._stopContinuousAdjust();
+				this._stopContinuousAdjust?.();
 			});
 			this.elStepDown.addEventListener("pointercancel", () => {
 				this._suppressNextClick = !!this._continuousStarted;
@@ -822,12 +840,14 @@ class SlotGame {
 		this.elAvailable.textContent = String(val);
 	}
 
-	_showToast(msg, timeout = 2200) {
+	_showToast(msg: string, timeout = 2200) {
 		const t = document.getElementById("toast");
 		if (!t) return;
 		t.textContent = msg;
 		t.classList.add("show");
-		clearTimeout(this._toastTimer);
+		if (this._toastTimer) {
+			clearTimeout(this._toastTimer);
+		}
 		this._toastTimer = setTimeout(() => {
 			t.classList.remove("show");
 		}, timeout);
@@ -1513,7 +1533,7 @@ class SlotGame {
 			const useTargetsThisSpin =
 				targets.length > 0 && Math.random() < activationP;
 
-			let scheduled;
+			let scheduled: Array<{ i: number; time: number }> | null;
 			const hasMinMax =
 				typeof this.config.autoStopMinTime === "number" &&
 				typeof this.config.autoStopMaxTime === "number";
@@ -1637,14 +1657,14 @@ class SlotGame {
 						}));
 					} else if (winType === "diagonal") {
 						// 3リール想定の斜め: ↘ (top,middle,bottom) or ↗ (bottom,middle,top)
-						let dir;
+						let dir: "down" | "up";
 						const mode = this.config.winDiagonalMode;
 						if (mode === "up" || mode === "down") {
 							dir = mode;
 						} else {
 							dir = Math.random() < 0.5 ? "down" : "up";
 						}
-						let positions;
+						let positions: string[];
 						if (this.config.reelCount === 3) {
 							positions =
 								dir === "down"
@@ -1710,7 +1730,7 @@ class SlotGame {
 			if (!reel.spinning) return; // 停止命令が出ていればアニメーションを終了
 
 			const elapsed = currentTime - startTime; // アニメーション開始からの経過時間
-			let currentSpeed; // 現在のフレームでの速度
+			let currentSpeed: number; // 現在のフレームでの速度
 
 			// 加速処理: 設定された加速時間内で徐々に速度を上げる
 			if (elapsed < this.config.accelerationTime) {
@@ -1741,7 +1761,15 @@ class SlotGame {
 	 * @param {number} index - 停止させるリールのインデックス番号
 	 * @param {object} [target=null] - 停止目標オブジェクト。自動モードの狙い撃ち停止時に使用。
 	 */
-	stopReel(index: number, target: any = null) {
+	stopReel(
+		index: number,
+		target: {
+			reelIndex: number;
+			symbol?: string;
+			symbolIndex?: number;
+			position?: string;
+		} | null = null,
+	) {
 		const reel = this.reels[index];
 		if (!reel.spinning) return; // 既に停止している場合は何もしない
 
@@ -1749,8 +1777,8 @@ class SlotGame {
 
 		const currentY = this.ui.getCurrentTranslateY(reel.element); // 現在のY座標を取得
 
-		let targetY;
-		let duration;
+		let targetY: number;
+		let duration: number;
 
 		if (target) {
 			// --- ターゲット停止ロジック（目標に合わせて最短で前方に停止させる） ---
@@ -1804,9 +1832,9 @@ class SlotGame {
 				return y;
 			};
 
-			let targetSymbolTopIndex;
-			let baseTargetY;
-			let animTargetY;
+			let targetSymbolTopIndex: number;
+			let baseTargetY: number;
+			let animTargetY: number;
 
 			if (
 				typeof target.symbolIndex === "number" &&
@@ -1930,7 +1958,7 @@ class SlotGame {
 				reel.totalHeight;
 
 			// 停止に必要な距離を、進行方向に沿って単方向で算出
-			let distanceToStop;
+			let distanceToStop: number;
 			if (this.config.reverseRotation) {
 				// 下方向に進むため、animTargetY が currentY より小さい（負の差）なら一周分追加して正にする
 				distanceToStop = animTargetY - currentY;
@@ -2022,7 +2050,7 @@ class SlotGame {
 			const totalHeight = reel.totalHeight;
 
 			// 現在のY座標から、次に最も近いシンボル境界のY座標を計算します。
-			let remainder;
+			let remainder: number;
 			if (this.config.reverseRotation) {
 				const pos = currentY + totalHeight;
 				remainder = pos % symbolHeight;
@@ -2280,8 +2308,8 @@ class SlotGame {
 	 * 注意: この方式は暗号的に強固ではありません。より強い保護が必要なら server-side の署名や Web Crypto を使った HMAC を導入してください。
 	 */
 	getPersistenceSalt() {
-		const cfgAny = gameConfig as any;
-		if (cfgAny && cfgAny.persistenceSalt) return String(cfgAny.persistenceSalt);
+		const cfg = gameConfig as SlotGameConfig;
+		if (cfg?.persistenceSalt) return String(cfg.persistenceSalt);
 		// デフォルトの salt（将来変更すると復元できなくなるため注意）
 		return "GAME-ON-PERSIST-V1";
 	}
@@ -2411,15 +2439,13 @@ class SlotGame {
 	 */
 	getPerReelSymbolProbs(): Array<Record<string, number>> {
 		return this.reels.map((r) => {
-			/** @type {Record<string, number>} */
-			const counts: Record<string, number> =
-				/** @type {Record<string, number>} */ ({});
+			const counts: Record<string, number> = {};
 			for (const s of r.symbols) counts[s] = (counts[s] || 0) + 1;
 			const total = r.symbols.length;
-			/** @type {Record<string, number>} */
-			const probs: Record<string, number> =
-				/** @type {Record<string, number>} */ ({});
-			Object.keys(counts).forEach((k) => (probs[k] = counts[k] / total));
+			const probs: Record<string, number> = {};
+			Object.keys(counts).forEach((k) => {
+				probs[k] = counts[k] / total;
+			});
 			return probs;
 		});
 	}
@@ -2502,21 +2528,21 @@ class SlotGame {
 	/**
 	 * クアドラティック（2次）イーズアウト。
 	 */
-	easeOutQuad(t) {
+	easeOutQuad(t: number): number {
 		return 1 - (1 - t) * (1 - t);
 	}
 
 	/**
 	 * サイン型イーズアウト。
 	 */
-	easeOutSine(t) {
+	easeOutSine(t: number): number {
 		return Math.sin((t * Math.PI) / 2);
 	}
 
 	/**
 	 * リニア（直線）イージング。
 	 */
-	easeLinear(t) {
+	easeLinear(t: number): number {
 		return t;
 	}
 }
@@ -2547,8 +2573,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Helper for embedders: create a SlotGame inside a container element or selector.
 // Usage: window.createSlotIn(containerElementOrSelector, cfg)
-const Win = /** @type {any} */ (window);
-Win.createSlotIn = (container, cfg) => {
+const Win = window as Window & typeof globalThis;
+Win.createSlotIn = (
+	container: Element | string,
+	cfg?: Partial<typeof gameConfig>,
+) => {
 	try {
 		let el = container;
 		if (typeof container === "string") el = document.querySelector(container);

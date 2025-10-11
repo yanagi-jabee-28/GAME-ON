@@ -14,6 +14,42 @@
  * - 可能であれば changes.stats 内に academic/physical/mental/technical を入れる形で記述してください。
  */
 
+export interface StatChanges {
+	physical?: number;
+	mental?: number;
+	technical?: number;
+	academic?: number;
+	condition?: number;
+}
+
+export interface EventChanges {
+	stats?: StatChanges;
+	money?: number;
+	cp?: number;
+	reportDebt?: number;
+	itemsAdd?: string[];
+	itemsRemove?: string[];
+	// legacy top-level stat fields (normalized at runtime)
+	physical?: number;
+	mental?: number;
+	technical?: number;
+	academic?: number;
+	condition?: number;
+	[key: string]: unknown;
+}
+
+export type EventNextAction = "showMainActions" | string;
+
+export interface EventData {
+	name?: string;
+	message?: string;
+	changes?: EventChanges;
+	afterMessage?: string;
+	nextAction?: EventNextAction;
+	noSpeaker?: boolean;
+	noSpeakerForAfterMessage?: boolean;
+}
+
 export const EVENTS = {
 	STUDY_ACTION: {
 		name: "主人公",
@@ -90,11 +126,49 @@ export const EVENTS = {
 		afterMessage:
 			"プレイを終了します。リスタートまたはタイトルへ戻ってください。",
 	},
-};
+} satisfies Record<string, EventData>;
+
+export type EventMap = typeof EVENTS;
+export type EventActionId = keyof EventMap;
+export type EventDefinition = EventMap[EventActionId];
 
 /**
  * RANDOM_EVENTS: ランダムイベントのデータ定義（分割を減らすため本ファイルに集約）
  */
+export interface RandomEventConditions {
+	turn?: string[];
+	weekday?: boolean;
+	status?: Record<string, unknown>;
+}
+
+export interface RandomEventOutcome {
+	message?: string;
+	changes?: EventChanges;
+}
+
+export interface RandomEventProbabilityOutcome {
+	probability: number;
+	success: RandomEventOutcome;
+	failure: RandomEventOutcome;
+}
+
+export type RandomEventConsequences =
+	| RandomEventOutcome
+	| RandomEventProbabilityOutcome;
+
+export interface RandomEventChoice {
+	text: string;
+	consequences: RandomEventConsequences;
+}
+
+export interface RandomEventConfig {
+	id: string;
+	name?: string;
+	conditions?: RandomEventConditions;
+	message?: string;
+	choices?: RandomEventChoice[];
+}
+
 export const RANDOM_EVENTS = {
 	PROFESSOR_TALK: {
 		id: "PROFESSOR_TALK",
@@ -210,4 +284,13 @@ export const RANDOM_EVENTS = {
 			},
 		],
 	},
-};
+} satisfies Record<string, RandomEventConfig>;
+
+export type RandomEventMap = typeof RANDOM_EVENTS;
+export type RandomEventId = keyof RandomEventMap;
+export type RandomEventEntry = RandomEventMap[RandomEventId];
+export type RandomEventChoiceEntry = NonNullable<
+	RandomEventEntry["choices"]
+>[number];
+export type RandomEventConsequencesEntry =
+	RandomEventChoiceEntry["consequences"];

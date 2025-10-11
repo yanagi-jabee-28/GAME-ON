@@ -2,14 +2,43 @@
 // ゲームのコア状態（プレイヤーの手、AI の手、現在のターンなど）と
 // それを変更するための純粋な操作群を提供します。
 // ロジックはここで行い、UI 表示やアニメーションは別モジュールに委譲します。
-export let playerHands = [1, 1]; // プレイヤーの左右の手の指の数
-export let aiHands = [1, 1]; // AI の左右の手の指の数
-export let currentPlayer = "player"; // 'player' or 'ai'
-export let selectedHand = { owner: null, index: null }; // 選択中の手の情報
+
+type HandPair = [number, number];
+type PlayerType = "player" | "ai";
+
+interface SelectedHand {
+	owner: PlayerType | null;
+	index: number | null;
+}
+
+interface GameState {
+	playerHands: HandPair;
+	aiHands: HandPair;
+	currentPlayer?: PlayerType;
+	selectedHand?: SelectedHand;
+	gameOver?: boolean;
+	isAnimating?: boolean;
+	moveCount?: number;
+	playerLost?: boolean;
+}
+
+interface HistoryEntry {
+	playerHands: HandPair;
+	aiHands: HandPair;
+	currentPlayer: PlayerType;
+	selectedHand: SelectedHand;
+	gameOver: boolean;
+}
+
+export let playerHands: HandPair = [1, 1]; // プレイヤーの左右の手の指の数
+export let aiHands: HandPair = [1, 1]; // AI の左右の手の指の数
+export let currentPlayer: PlayerType = "player"; // 'player' or 'ai'
+export let selectedHand: SelectedHand = { owner: null, index: null }; // 選択中の手の情報
 export let gameOver = false; // ゲーム終了フラグ
+
 export let isAnimating = false; // アニメーション中フラグ（将来の制御用）
 // Simple history stack for undo functionality. Each entry is a snapshot of the public state.
-let history = [];
+let history: HistoryEntry[] = [];
 
 const HISTORY_LIMIT = 100;
 
@@ -18,11 +47,11 @@ export const MOVE_TYPES = Object.freeze({
 	SPLIT: "split",
 });
 
-function cloneHandPair(source) {
+function cloneHandPair(source: HandPair): HandPair {
 	return [source[0], source[1]];
 }
 
-function cloneSelected(source) {
+function cloneSelected(source: SelectedHand): SelectedHand {
 	return {
 		owner: source?.owner ?? null,
 		index: typeof source?.index === "number" ? source.index : null,
@@ -254,9 +283,12 @@ export function simulateMove(baseState, move) {
 	const winCheck = evaluateWinCondition(state.playerHands, state.aiHands);
 	state.gameOver = winCheck.gameOver;
 	try {
-		if (typeof winCheck.playerLost !== "undefined")
-			(state as any).playerLost = !!winCheck.playerLost;
-		else delete (state as any).playerLost;
+		if (typeof winCheck.playerLost !== "undefined") {
+			(state as typeof state & { playerLost?: boolean }).playerLost =
+				!!winCheck.playerLost;
+		} else {
+			delete (state as typeof state & { playerLost?: boolean }).playerLost;
+		}
 	} catch (_) {
 		/* ignore */
 	}

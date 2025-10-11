@@ -56,3 +56,6 @@ export const ITEMS = {
 		effect: { changes: { stats: { mental: 16 } } },
 	},
 };
+
+export type ItemId = keyof typeof ITEMS;
+export type ItemData = (typeof ITEMS)[ItemId];

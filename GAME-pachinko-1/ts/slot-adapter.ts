@@ -1,6 +1,7 @@
 // Simple adapter to embed GAME-SLOT-1 into the pachinko page and provide a programmatic API.
 
 import { gameConfig } from "../../GAME-SLOT-1/config";
+import type { SlotGameInstance } from "../../types/slot";
 
 // Diagnostic: mark adapter load and expose quick helpers for debugging
 try {
@@ -141,7 +142,14 @@ function injectSlotHtml() {
 }
 
 // Public API
-const API: any = {
+const API: {
+	init: (opts?: { show?: boolean }) => boolean;
+	startSpin: () => boolean;
+	stopSpin: () => boolean;
+	getInstance: () => SlotGameInstance | null;
+	diagnose?: () => void;
+	_instance?: SlotGameInstance | null;
+} = {
 	init: (opts) => {
 		opts = opts || {};
 		const area = document.getElementById(EMBED_AREA_ID);

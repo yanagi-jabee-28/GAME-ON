@@ -3,7 +3,7 @@ import { GAME_CONFIG } from "../ts/config";
 // 開発者向けツール集: UI 拡張やデバッグ操作をここに集約
 (function setupDevTools() {
 	// 最新の Engine 参照を保持し、常にそれを使う
-	let CURRENT_ENGINE = null;
+	let CURRENT_ENGINE: unknown = null;
 	function getEngine() {
 		return CURRENT_ENGINE || window.__engine_for_devtools__ || null;
 	}
@@ -49,7 +49,7 @@ import { GAME_CONFIG } from "../ts/config";
 	}
 
 	// .controls がまだ無い場合に待ち受けて注入
-	function waitControlsAndInject(engineRef?: any) {
+	function waitControlsAndInject(_engineRef?: unknown) {
 		if (!devEnabled()) return;
 		if (ensureDevPanel()) {
 			injectTimeScaleSlider();

@@ -5,7 +5,7 @@
 		"useDefineForClassFields": true,
 		"module": "ESNext",
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
-		"types": ["vite/client"],
+		"composite": true,
 		"baseUrl": ".",
 		"paths": {
 			"vite/client": ["types/vite/client"]
@@ -14,21 +14,25 @@
 		"skipLibCheck": true,
 		"allowJs": true,
 		"checkJs": true,
-
-		/* Bundler mode */
 		"moduleResolution": "bundler",
 		"allowImportingTsExtensions": true,
 		"verbatimModuleSyntax": true,
 		"moduleDetection": "force",
 		"noEmit": true,
-
-		/* Linting */
-		// jsもあるので緩めの設定
-		"strict": false,
-		"noImplicitAny": false,
-		"noUnusedLocals": false,
-		"noUnusedParameters": false
+		"strict": true,
+		"noImplicitAny": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true
 	},
-	"include": ["./**/*.ts"],
-	"exclude": ["legacy", "node_modules", "dist"]
+	"include": ["./**/*.ts", "./**/*.d.ts"],
+	"exclude": [
+		"dist",
+		"node_modules",
+		".git",
+		".github",
+		".vscode",
+		"lefthook.yml",
+		"vite.config.ts",
+		"**/*.bak.ts"
+	]
 }

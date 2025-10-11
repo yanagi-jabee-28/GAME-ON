@@ -47,11 +47,12 @@ const chargeButton = document.getElementById(
 // --- ゲームの状態管理 ---
 let playerState = { hp: 3, charge: 0 };
 let cpuState = { hp: 3, charge: 0 };
-let playerAction = "CHARGE"; // 3拍目までに入力がない場合のデフォルト
-let lockedPlayerAction = "CHARGE"; // 2拍目終了時に確定するアクション
-let cpuAction = "";
-let lastPlayerAction = "";
-let lastCpuAction = "";
+type ActionKind = "CHARGE" | "GUARD" | "ATTACK";
+let playerAction: ActionKind = "CHARGE"; // 3拍目までに入力がない場合のデフォルト
+let lockedPlayerAction: "CHARGE" | "GUARD" | "ATTACK" = "CHARGE"; // 2拍目終了時に確定するアクション
+let cpuAction: "CHARGE" | "GUARD" | "ATTACK" = "CHARGE";
+let lastPlayerAction: "CHARGE" | "GUARD" | "ATTACK" = "CHARGE";
+let lastCpuAction: "CHARGE" | "GUARD" | "ATTACK" = "CHARGE";
 let currentBeat = 0;
 let isGameRunning = false;
 let audioInitialized = false;
@@ -69,9 +70,9 @@ function initGame() {
 	cpuState = { hp: 3, charge: 0 };
 	playerAction = "CHARGE";
 	lockedPlayerAction = "CHARGE";
-	cpuAction = "";
-	lastPlayerAction = "";
-	lastCpuAction = "";
+	cpuAction = "CHARGE";
+	lastPlayerAction = "CHARGE";
+	lastCpuAction = "CHARGE";
 	currentBeat = 0;
 	updateUI();
 	updateGuardAvailability();
@@ -108,7 +109,7 @@ function updateGuardAvailability() {
 }
 
 // --- ゲームループ ---
-const gameLoop = (time) => {
+const gameLoop = (time: number) => {
 	currentBeat = (currentBeat % 4) + 1;
 	Tone.Draw.schedule(() => {
 		updateBeatIndicator();
@@ -159,25 +160,21 @@ function updateBeatIndicator() {
 }
 
 // --- 3拍目: アクションの実行 ---
-function executeActions(time) {
+function executeActions(time: number) {
 	// CPUのアクション決定
 	cpuAction = getCpuAction();
 
 	// サウンド再生
-	playActionSound(lockedPlayerAction, time);
-	playActionSound(cpuAction, time + 0.05); // 少しだけ時間をずらす
-
-	// UIにアクションを表示
-	playerActionDisplay.textContent = lockedPlayerAction;
-	cpuActionDisplay.textContent = cpuAction;
-
-	// アクションの文字色を設定
-	setActionColor(playerActionDisplay, lockedPlayerAction);
-	setActionColor(cpuActionDisplay, cpuAction);
-
-	// パネルのスタイルを設定
-	setPanelStyle(playerPanel, lockedPlayerAction);
-	setPanelStyle(cpuPanel, cpuAction);
+	if (lockedPlayerAction) {
+		playActionSound(lockedPlayerAction, time);
+		setActionColor(playerActionDisplay, lockedPlayerAction);
+		setPanelStyle(playerPanel, lockedPlayerAction);
+	}
+	if (cpuAction) {
+		playActionSound(cpuAction, time + 0.05); // 少しだけ時間をずらす
+		setActionColor(cpuActionDisplay, cpuAction);
+		setPanelStyle(cpuPanel, cpuAction);
+	}
 }
 
 // アクションの表示・非表示
@@ -217,7 +214,10 @@ function hideActions() {
 }
 
 // --- アクション表示の文字色を設定 ---
-function setActionColor(element, action) {
+function setActionColor(
+	element: HTMLElement,
+	action: "CHARGE" | "GUARD" | "ATTACK",
+) {
 	// Remove existing colors first
 	element.classList.remove("text-yellow-400", "text-red-500", "text-blue-400");
 	switch (action) {
@@ -234,7 +234,10 @@ function setActionColor(element, action) {
 }
 
 // --- パネルのスタイル（枠と背景色）を設定 ---
-function setPanelStyle(panel, action) {
+function setPanelStyle(
+	panel: HTMLElement,
+	action: "CHARGE" | "GUARD" | "ATTACK",
+) {
 	// Remove default and other action colors first
 	panel.classList.remove(
 		"border-gray-300",
@@ -261,8 +264,8 @@ function setPanelStyle(panel, action) {
 }
 
 // --- CPUのAIロジック ---
-function getCpuAction() {
-	const actions = ["CHARGE", "GUARD"];
+function getCpuAction(): "CHARGE" | "GUARD" | "ATTACK" {
+	const actions: ("CHARGE" | "GUARD" | "ATTACK")[] = ["CHARGE", "GUARD"];
 
 	// 連続ガードを防止
 	if (lastCpuAction === "GUARD") {
@@ -298,7 +301,7 @@ function getCpuAction() {
 }
 
 // --- 4拍目: 結果判定 ---
-function resolveTurn(time) {
+function resolveTurn(time: number) {
 	let turnMessage = "";
 	const pa = lockedPlayerAction;
 	const ca = cpuAction;
@@ -397,12 +400,14 @@ function checkGameOver() {
 		Tone.Transport.cancel();
 
 		const gameOverMessage = document.getElementById("game-over-message");
-		if (playerState.hp <= 0 && cpuState.hp <= 0) {
-			gameOverMessage.textContent = "DRAW";
-		} else if (playerState.hp <= 0) {
-			gameOverMessage.textContent = "YOU LOSE...";
-		} else {
-			gameOverMessage.textContent = "YOU WIN!";
+		if (gameOverMessage) {
+			if (playerState.hp <= 0 && cpuState.hp <= 0) {
+				gameOverMessage.textContent = "DRAW";
+			} else if (playerState.hp <= 0) {
+				gameOverMessage.textContent = "YOU LOSE...";
+			} else {
+				gameOverMessage.textContent = "YOU WIN!";
+			}
 		}
 
 		gameScreen.classList.add("hidden");
@@ -411,7 +416,7 @@ function checkGameOver() {
 }
 
 // --- アクション音の再生 ---
-function playActionSound(action, time) {
+function playActionSound(action: "CHARGE" | "GUARD" | "ATTACK", time: number) {
 	switch (action) {
 		case "CHARGE":
 			synth.triggerAttackRelease("E5", "8n", time);
@@ -458,7 +463,10 @@ restartButton.addEventListener("click", () => {
 actionButtons.forEach((button) => {
 	button.addEventListener("click", () => {
 		if (!isGameRunning || currentBeat >= 3 || button.disabled) return;
-		playerAction = button.dataset.action;
+		const action = button.dataset.action;
+		if (action === "CHARGE" || action === "GUARD" || action === "ATTACK") {
+			playerAction = action;
+		}
 
 		// プレイヤーにフィードバック
 		button.classList.add("ring-4", "ring-white");
@@ -470,7 +478,7 @@ actionButtons.forEach((button) => {
 document.addEventListener("keydown", (event) => {
 	if (!isGameRunning || currentBeat >= 3) return;
 
-	let selectedAction = "";
+	let selectedAction: "CHARGE" | "GUARD" | "ATTACK" | null = null;
 	let buttonToHighlight: HTMLButtonElement | null = null;
 
 	switch (event.code) {
@@ -494,8 +502,7 @@ document.addEventListener("keydown", (event) => {
 
 	if (selectedAction) {
 		if (selectedAction === "ATTACK" && playerState.charge === 0) return;
-		playerAction = selectedAction;
-		// プレイヤーにフィードバック
+		playerAction = selectedAction; // プレイヤーにフィードバック
 		if (buttonToHighlight) {
 			buttonToHighlight.classList.add("ring-4", "ring-white");
 			setTimeout(

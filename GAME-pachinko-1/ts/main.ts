@@ -117,7 +117,9 @@ function pachiInit() {
 	try {
 		// prefer a window-scoped counterId if present; avoid referencing a possibly-undefined local symbol
 		const runtimeCounterId =
-			(typeof window !== "undefined" && (window as any).counterId) || null;
+			(typeof window !== "undefined" &&
+				(window as Window & { counterId?: string }).counterId) ||
+			null;
 		if (runtimeCounterId) {
 			const cfgEntry2 =
 				GAME_CONFIG.sensorCounters.counters[runtimeCounterId] || {};
@@ -139,20 +141,24 @@ function pachiInit() {
 
 	// Ensure embedded slot is visible and initialized (if adapter is present)
 	try {
+		const windowWithSlot = window as Window & {
+			EmbeddedSlot?: EmbeddedSlot;
+			ensureEmbeddedSlotVisible?: () => void;
+		};
 		// prefer dynamic import/style: adapter exports ensureEmbeddedSlotVisible
-		if (typeof (window as any).EmbeddedSlot === "undefined") {
+		if (typeof windowWithSlot.EmbeddedSlot === "undefined") {
 			// adapter module may be loaded as module script; attempt to call exported helper if available on window
 			// fallback: call window.EmbeddedSlot.init via adapter's global if present
-			if (typeof (window as any).ensureEmbeddedSlotVisible === "function") {
+			if (typeof windowWithSlot.ensureEmbeddedSlotVisible === "function") {
 				try {
-					(window as any).ensureEmbeddedSlotVisible();
+					windowWithSlot.ensureEmbeddedSlotVisible();
 				} catch (_) {
 					/* no-op */
 				}
 			}
 		} else {
 			try {
-				(window as any).EmbeddedSlot.init({ show: false });
+				windowWithSlot.EmbeddedSlot.init({ show: false });
 			} catch (_) {
 				/* no-op */
 			}
@@ -179,7 +185,7 @@ function pachiInit() {
 	// スリープ閾値を少し下げて微小振動を抑止し、負荷を軽減
 	// engine.timing may have custom properties; cast to any to avoid tsserver property errors
 	try {
-		(engine.timing as any).isFixed = true;
+		engine.timing.isFixed = true;
 	} catch (_) {
 		/** no-op */
 	}
@@ -238,7 +244,7 @@ function pachiInit() {
 		options: {
 			width,
 			height,
-			pixelRatio: "auto" as any,
+			pixelRatio: "auto",
 			...renderOptions,
 			showSleeping: false,
 		},
@@ -336,10 +342,10 @@ function pachiInit() {
 	try {
 		if (
 			document &&
-			(document as any).fonts &&
-			typeof (document as any).fonts.ready !== "undefined"
+			document.fonts &&
+			typeof document.fonts.ready !== "undefined"
 		) {
-			(document as any).fonts.ready
+			document.fonts.ready
 				.then(() => {
 					fontsReady = true;
 				})
@@ -390,12 +396,12 @@ function pachiInit() {
 			const timer = setTimeout(() => {
 				stylesLoaded = true;
 				try {
-					(window as any).__pachi_stylesheetTimeout = true;
+					window.__pachi_stylesheetTimeout = true;
 				} catch (_) {}
 			}, 3000);
 			for (const l of links) {
 				try {
-					if ((l as any).sheet) {
+					if (l.sheet) {
 						markLoaded();
 						continue;
 					}
@@ -423,7 +429,7 @@ function pachiInit() {
 					clearInterval(poll);
 					clearTimeout(timer);
 					try {
-						(window as any).__pachi_stylesLoaded = true;
+						window.__pachi_stylesLoaded = true;
 					} catch (_) {}
 				}
 			}, 50);
@@ -564,7 +570,7 @@ function pachiInit() {
 					sizedReady = true;
 					// expose for debugging
 					try {
-						(window as any).__pachi_sizedReady = true;
+						window.__pachi_sizedReady = true;
 					} catch (_) {}
 					try {
 						container.style.visibility = "";
@@ -601,8 +607,8 @@ function pachiInit() {
 	// dev-tools へ Engine/Render を通知（UI 拡張で利用）
 	try {
 		// 開発者ツール向けに参照を公開し、イベントも通知
-		(window as any).__engine_for_devtools__ = engine;
-		(window as any).__render_for_devtools__ = render;
+		window.__engine_for_devtools__ = engine;
+		window.__render_for_devtools__ = render;
 		window.dispatchEvent(
 			new CustomEvent("devtools:engine-ready", { detail: { engine, render } }),
 		);
@@ -632,8 +638,8 @@ function pachiInit() {
 			return Number.isFinite(v) ? v : 1;
 		};
 		// use any-cast on Render to avoid type complaints when adding .bodies override
-		const origBodies = (Render as any).bodies;
-		(Render as any).bodies = function (render, bodies, context) {
+		const origBodies = Render.bodies;
+		Render.bodies = function (render, bodies, context) {
 			try {
 				const sorted = Array.isArray(bodies)
 					? bodies.slice().sort((a, b) => {
@@ -663,8 +669,8 @@ function pachiInit() {
 		// device memory hint (Chrome/Edge support)
 		// navigator.deviceMemory is a non-standard hint; guard and cast to any
 		const deviceMem =
-			typeof navigator !== "undefined" && (navigator as any).deviceMemory
-				? Number((navigator as any).deviceMemory)
+			typeof navigator !== "undefined" && navigator.deviceMemory
+				? Number(navigator.deviceMemory)
 				: null;
 		const lowMemDevice = deviceMem != null ? deviceMem <= 4 : false;
 		if (lowMemDevice) {
@@ -710,7 +716,7 @@ function pachiInit() {
 		}
 
 		// Expose a lightweight recorder called from the rAF loop
-		(window as any).__recordPhysicsPerf__ = (frameMs) => {
+		window.__recordPhysicsPerf__ = (frameMs) => {
 			try {
 				pushSample(frameMs);
 				const avg = avgMs();
@@ -785,8 +791,8 @@ function pachiInit() {
 			const paused = Boolean(GAME_CONFIG.physics?.paused);
 			// record elapsed to adaptive physics manager (if present)
 			try {
-				if (typeof (window as any).__recordPhysicsPerf__ === "function")
-					(window as any).__recordPhysicsPerf__(elapsed);
+				if (typeof window.__recordPhysicsPerf__ === "function")
+					window.__recordPhysicsPerf__(elapsed);
 			} catch (_) {
 				/* no-op */
 			}
@@ -1741,7 +1747,7 @@ function pachiInit() {
 
 	// helper: compute spawn start coords based on GAME_CONFIG and offsets
 	function computeSpawnCoords() {
-		const spawnCfg: any =
+		const spawnCfg: Record<string, unknown> =
 			(GAME_CONFIG.launch && GAME_CONFIG.launch.spawn) || {};
 		const { xOffset: sxOff, yOffset: syOff } =
 			typeof getOffsets === "function"
@@ -1752,7 +1758,11 @@ function pachiInit() {
 		const startY =
 			typeof spawnCfg.y === "number"
 				? spawnCfg.y + syOff
-				: height - (spawnCfg.yOffsetFromBottom || 40) + syOff;
+				: height -
+					(typeof spawnCfg.yOffsetFromBottom === "number"
+						? spawnCfg.yOffsetFromBottom
+						: 40) +
+					syOff;
 		return { x: startX, y: startY };
 	}
 
@@ -1761,7 +1771,7 @@ function pachiInit() {
 	if (legacyPad) legacyPad.style.display = "none";
 
 	// キャンバス側の発射台ボディを生成して追加
-	const padCfg0: any = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
+	const padCfg0 = GAME_CONFIG.launch?.pad || {};
 	const launchPadBody = createLaunchPadBody({
 		width: padCfg0.width || 64,
 		height: padCfg0.height || 14,
@@ -1772,17 +1782,19 @@ function pachiInit() {
 	World.add(world, launchPadBody);
 
 	function applyPadConfig() {
-		const padCfg: any = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
+		const padCfg = GAME_CONFIG.launch?.pad || {};
 		// サイズ・見た目はボディ生成時のまま。必要なら再生成やスケール対応を追加可能。
 		// レイヤー変更のみ反映
 		const layer = Number(padCfg.layer ?? 1);
-		(launchPadBody.render as any).layer = Number.isFinite(layer) ? layer : 1;
+		if (launchPadBody.render) {
+			launchPadBody.render.layer = Number.isFinite(layer) ? layer : 1;
+		}
 	}
 
 	function updateLaunchPadPosition() {
 		const p = computeSpawnCoords();
-		const padCfg: any = (GAME_CONFIG.launch && GAME_CONFIG.launch.pad) || {};
-		const padCfgAny: any = padCfg;
+		const padCfg = GAME_CONFIG.launch?.pad || {};
+		const padCfgAny = padCfg;
 		const padW = Number(padCfgAny.width || 64);
 		const padH = Number(padCfgAny.height || 14);
 		const longIsWidth = padW >= padH;
@@ -1828,8 +1840,8 @@ function pachiInit() {
 			// debug dump (one-shot) to help diagnose mobile init timing
 			try {
 				const gw = /** @type {any} */ (window);
-				if (!(window as any).__pachi_init_logged__) {
-					(window as any).__pachi_init_logged__ = true;
+				if (!window.__pachi_init_logged__) {
+					window.__pachi_init_logged__ = true;
 					console.debug("[PACHINKO] init dbg", {
 						rect: c,
 						client: { w: container.clientWidth, h: container.clientHeight },
@@ -1867,7 +1879,7 @@ function pachiInit() {
 			try {
 				const ro = new ResizeObserver((entries) => {
 					for (const e of entries) {
-						const cr: any = e && e.contentRect ? e.contentRect : {};
+						const cr = e?.contentRect || {};
 						const w = Number(cr.width || 0);
 						const h = Number(cr.height || 0);
 						if (w > 0 && h > 0) {
@@ -2192,8 +2204,8 @@ function pachiInit() {
 			el.textContent = msg;
 			el.style.display = "";
 			// 既存タイマーをクリア
-			clearTimeout((showToastMessage as any)._hideTimer);
-			clearTimeout((showToastMessage as any)._fadeTimer);
+			clearTimeout(window.__toast_hideTimer);
+			clearTimeout(window.__toast_fadeTimer);
 			// フェードイン（次フレームで）
 			requestAnimationFrame(() => {
 				el.style.opacity = "1";
@@ -2203,13 +2215,13 @@ function pachiInit() {
 			const total = Math.max(400, Number(durationMs || 2000));
 			const fadeMs = 220;
 			const fadeOutDelay = Math.max(0, total - fadeMs);
-			(showToastMessage as any)._fadeTimer = setTimeout(() => {
+			window.__toast_fadeTimer = setTimeout(() => {
 				try {
 					el.style.opacity = "0";
 					el.style.transform = "translate(-50%, -6px)";
 				} catch (_) {}
 			}, fadeOutDelay);
-			(showToastMessage as any)._hideTimer = setTimeout(() => {
+			window.__toast_hideTimer = setTimeout(() => {
 				try {
 					el.style.display = "none";
 				} catch (_) {}
@@ -2298,7 +2310,7 @@ function pachiInit() {
 	// スライダー長押し連射モード（設定で有効化時のみ）
 	(function wireHoldToFire() {
 		/** @type {any} */
-		const launchCfg: any = GAME_CONFIG.launch || {};
+		const launchCfg = GAME_CONFIG.launch || {};
 		if (!launchCfg || !launchCfg.holdToFireEnabled) return;
 		injectHoldUiStyles();
 		if (speedSlider) speedSlider.classList.add("hold-ui");
@@ -2366,10 +2378,10 @@ function pachiInit() {
 			}
 
 			// 材質に基づいた物理係数の動的適用
-			if ((bodyA as any).material && (bodyB as any).material) {
+			if (bodyA.material && bodyB.material) {
 				const interaction = getMaterialInteraction(
-					(bodyA as any).material,
-					(bodyB as any).material,
+					bodyA.material,
+					bodyB.material,
 				);
 				pair.restitution = interaction.restitution;
 				pair.friction = interaction.friction;
@@ -2418,24 +2430,32 @@ function pachiInit() {
 			// 床とボールの衝突判定（パーティクル発生のオプション対応）
 			const ballLabel = GAME_CONFIG.objects.ball.label;
 			const floorLabel = GAME_CONFIG.objects.floor.label;
-			const eff: any = (GAME_CONFIG.effects && GAME_CONFIG.effects.floor) || {};
-			const particleCfg = /** @type {any} */ (
-				eff && eff.particle ? eff.particle : {}
-			);
+			const eff = GAME_CONFIG.effects?.floor || {};
+			const particleCfg =
+				eff && typeof eff === "object" && "particle" in eff ? eff.particle : {};
 			function handleFloorHit(ballBody) {
 				if (!ballBody) return;
 				try {
 					if (
+						particleCfg &&
+						typeof particleCfg === "object" &&
+						"enabled" in particleCfg &&
 						particleCfg.enabled &&
 						typeof createParticleBurst === "function"
 					) {
 						const pColor = pickParticleColor(particleCfg, ballBody);
-						const cnt = Number.isFinite(particleCfg.count)
-							? particleCfg.count
-							: 12;
-						const life = Number.isFinite(particleCfg.lifeMs)
-							? particleCfg.lifeMs
-							: 700;
+						const cnt =
+							particleCfg &&
+							"count" in particleCfg &&
+							Number.isFinite(particleCfg.count)
+								? (particleCfg.count as number)
+								: 12;
+						const life =
+							particleCfg &&
+							"lifeMs" in particleCfg &&
+							Number.isFinite(particleCfg.lifeMs)
+								? (particleCfg.lifeMs as number)
+								: 700;
 						createParticleBurst(
 							world,
 							ballBody.position.x,
