@@ -109,8 +109,25 @@
 			/* 操作説明のテキスト */
 			#instruction {
 				font-size: 0.95rem;
-				text-align: center;
+				text-align: left;
 				opacity: 0.85;
+				margin-top: 96px; /* スポーンラインより下に配置 */
+			}
+
+			#instruction > strong {
+				display: block;
+				text-align: center;
+				margin-bottom: 0.4rem;
+			}
+
+			#instruction ul {
+				list-style: disc;
+				padding-left: 1.4rem;
+				margin: 0;
+			}
+
+			#instruction li + li {
+				margin-top: 0.25rem;
 			}
 
 			/* デバッグマーカーのスタイル */
@@ -131,16 +148,18 @@
 				</div>
 			</div>
 			<!-- 操作説明 -->
-			<p id="instruction">
-				<strong>操作方法:</strong><br />
-				• 矢印キーまたは WASD でハートを移動<br />
-				• スペースキーでハートの色を変更<br />
-				• 数字キー 1 / 2 でスポーンパターンを切り替え<br />
-				• M でデバッグ表示のオン/オフ<br />
-				• P でスポーンマーカーのオン/オフ<br />
-				• Q / E でプレイフィールド幅を調整<br />
-				• R / F でプレイフィールド高さを調整
-			</p>
+			<div id="instruction">
+				<strong>操作方法:</strong>
+				<ul>
+					<li>矢印キーまたは WASD でハートを移動</li>
+					<li>スペースキーでハートの色を変更</li>
+					<li>数字キー 1 / 2 でスポーンパターンを切り替え</li>
+					<li>M でデバッグ表示のオン/オフ</li>
+					<li>P でスポーンマーカーのオン/オフ</li>
+					<li>Q / E でプレイフィールド幅を調整</li>
+					<li>R / F でプレイフィールド高さを調整</li>
+				</ul>
+			</div>
 		</div>
 		<!-- メインのスクリプトを読み込み -->
 		<script type="module" src="./main.ts"></script>
