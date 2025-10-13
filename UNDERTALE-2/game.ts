@@ -1,4 +1,5 @@
 import { DIRECTION_MAP } from "./constants.js";
+import debug from "./debug.js";
 import {
 	detectCollisions,
 	getHomingEnabled,
@@ -43,6 +44,13 @@ export const handleKeyDown = (event: KeyboardEvent) => {
 		setHomingEnabled(newValue);
 		console.log(`Homing: ${newValue ? "ON" : "OFF"}`);
 		event.preventDefault();
+	} else if (key === "m") {
+		debug.toggleDebug();
+		console.log(`Debug markers: ${debug.isDebugEnabled() ? "ON" : "OFF"}`);
+		event.preventDefault();
+	} else if (key === "M") {
+		debug.clearDebugMarkers();
+		event.preventDefault();
 	}
 };
 
@@ -56,6 +64,12 @@ export const clearKeys = () => pressedKeys.clear();
 export const startDemoScenario = (playfield?: HTMLElement) => {
 	const pf = playfield ?? document.getElementById("playfield");
 	if (!(pf instanceof HTMLElement)) return;
+	// draw spawn-line overlays for debugging
+	// call drawSpawnLines if available on debug module
+	const dbg = debug as unknown as {
+		drawSpawnLines?: (pf: HTMLElement) => void;
+	};
+	if (typeof dbg.drawSpawnLines === "function") dbg.drawSpawnLines(pf);
 	const width = pf.clientWidth;
 	const height = pf.clientHeight;
 

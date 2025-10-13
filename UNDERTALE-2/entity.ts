@@ -4,6 +4,7 @@ import {
 	LIFETIME,
 	REMOVAL_MARGIN,
 } from "./constants.js";
+import debug, { isDebugEnabled } from "./debug.js";
 import {
 	getHeartElement,
 	getHeartPath,
@@ -78,6 +79,10 @@ export const spawnEntity = ({
 		collisionOpacity: 1,
 	};
 	entities.push(entity);
+	// mark spawn for debugging
+	if (isDebugEnabled()) {
+		debug.markSpawn(position, `id:${entity.id}`);
+	}
 	return entity;
 };
 
