@@ -9,7 +9,11 @@ import {
 	spawnEntity,
 	updateEntities,
 } from "./entity.js";
-import { changeHeartColor, updatePlayerPosition } from "./player.js";
+import {
+	changeHeartColor,
+	clampPlayerToBounds,
+	updatePlayerPosition,
+} from "./player.js";
 
 /** 前回のフレーム更新時刻のタイムスタンプ */
 let lastTimestamp = performance.now();
@@ -24,12 +28,20 @@ const PATTERN_EDGE_MAP: Record<SpawnPattern, SpawnEdge[]> = {
 	"top-only": ["top"],
 };
 
+const PLAYFIELD_MIN_WIDTH = 240;
+const PLAYFIELD_MAX_WIDTH = 720;
+const PLAYFIELD_MIN_HEIGHT = 240;
+const PLAYFIELD_MAX_HEIGHT = 720;
+const PLAYFIELD_SIZE_STEP = 40;
+
 /** 現在のスポーンパターン */
 let currentPattern: SpawnPattern = "omnidirectional";
 /** スポーン制御に利用するプレイフィールド要素 */
 let activePlayfield: HTMLElement | null = null;
 /** シナリオ用のスポーンinterval */
 let activeSpawnTimer: number | null = null;
+let playfieldWidth = 360;
+let playfieldHeight = 360;
 
 /** パターンに応じてデバッグラインを更新する */
 const refreshSpawnLines = () => {
@@ -37,11 +49,45 @@ const refreshSpawnLines = () => {
 	debug.drawSpawnLines(activePlayfield, PATTERN_EDGE_MAP[currentPattern]);
 };
 
+const clampSize = (value: number, min: number, max: number) =>
+	Math.max(min, Math.min(value, max));
+
+const applyPlayfieldSize = () => {
+	if (!activePlayfield) return;
+	activePlayfield.style.width = `${Math.round(playfieldWidth)}px`;
+	activePlayfield.style.height = `${Math.round(playfieldHeight)}px`;
+	clampPlayerToBounds(activePlayfield);
+	refreshSpawnLines();
+};
+
+const changePlayfieldSize = (deltaWidth: number, deltaHeight: number) => {
+	if (!activePlayfield) return;
+	playfieldWidth = clampSize(
+		playfieldWidth + deltaWidth,
+		PLAYFIELD_MIN_WIDTH,
+		PLAYFIELD_MAX_WIDTH,
+	);
+	playfieldHeight = clampSize(
+		playfieldHeight + deltaHeight,
+		PLAYFIELD_MIN_HEIGHT,
+		PLAYFIELD_MAX_HEIGHT,
+	);
+	applyPlayfieldSize();
+	console.log(
+		`Playfield size: ${Math.round(playfieldWidth)} x ${Math.round(playfieldHeight)}`,
+	);
+};
+
 /**
  * ゲームのメインループを開始する
  * @param {HTMLElement} playfield - プレイフィールドのHTML要素
  */
 export const startGameLoop = (playfield: HTMLElement) => {
+	activePlayfield = playfield;
+	playfieldWidth = playfield.clientWidth;
+	playfieldHeight = playfield.clientHeight;
+	applyPlayfieldSize();
+
 	const loop = (timestamp: number) => {
 		// 前フレームからの経過秒数を算出
 		const delta = (timestamp - lastTimestamp) / 1000;
@@ -97,6 +143,22 @@ export const handleKeyDown = (event: KeyboardEvent) => {
 			`Spawn markers: ${debug.isSpawnMarkersEnabled() ? "ON" : "OFF"}`,
 		);
 		event.preventDefault();
+	} else if (key === "q") {
+		// Q: プレイフィールド幅を縮小
+		changePlayfieldSize(-PLAYFIELD_SIZE_STEP, 0);
+		event.preventDefault();
+	} else if (key === "e") {
+		// E: プレイフィールド幅を拡張
+		changePlayfieldSize(PLAYFIELD_SIZE_STEP, 0);
+		event.preventDefault();
+	} else if (key === "r") {
+		// R: プレイフィールド高さを縮小
+		changePlayfieldSize(0, -PLAYFIELD_SIZE_STEP);
+		event.preventDefault();
+	} else if (key === "f") {
+		// F: プレイフィールド高さを拡張
+		changePlayfieldSize(0, PLAYFIELD_SIZE_STEP);
+		event.preventDefault();
 	} else if (key === "1") {
 		// 1: スポーンパターン1（全方向）
 		setSpawnPattern("omnidirectional");
@@ -142,16 +204,18 @@ export const startDemoScenario = (
 
 	activePlayfield = pf;
 	currentPattern = pattern;
+	playfieldWidth = pf.clientWidth;
+	playfieldHeight = pf.clientHeight;
+	applyPlayfieldSize();
 	refreshSpawnLines();
-
-	const width = pf.clientWidth;
-	const height = pf.clientHeight;
 
 	if (activeSpawnTimer !== null) {
 		window.clearInterval(activeSpawnTimer);
 	}
 
 	const spawnOnce = () => {
+		const width = pf.clientWidth;
+		const height = pf.clientHeight;
 		const edges = PATTERN_EDGE_MAP[currentPattern];
 		const edgeLabel = edges[Math.floor(Math.random() * edges.length)] ?? "top";
 		const speed = 80 + Math.random() * 60;

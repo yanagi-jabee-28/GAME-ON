@@ -78,6 +78,15 @@ export const setHeartOpacity = (wasHit: boolean) => {
 	getHeartElement().style.opacity = wasHit ? `${0.3}` : "1";
 };
 
+/** プレイフィールド内に収まるように現在位置を補正する */
+export const clampPlayerToBounds = (playfield: HTMLElement) => {
+	const maxX = playfield.clientWidth - getHeartElement().clientWidth;
+	const maxY = playfield.clientHeight - getHeartElement().clientHeight;
+	x = Math.max(0, Math.min(x, maxX));
+	y = Math.max(0, Math.min(y, maxY));
+	getHeartElement().style.transform = `translate(${x}px, ${y}px)`;
+};
+
 /**
  * ハートのSVGを非同期に読み込み、初期位置と色を設定する
  * エラー時には詳細をコンソールへ出力する
