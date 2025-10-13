@@ -32,11 +32,16 @@ type Bullet = {
 	vy: number;
 	r: number;
 	color: string;
+	homing?: boolean;
 };
 const bullets: Bullet[] = [];
 let bulletTimer = 0; // seconds
 const BULLET_SPAWN_INTERVAL = 1.0; // seconds
 const BULLET_SPEED = 80; // px/s downward
+const BULLET_TURN_RATE = Math.PI / 2; // radians per second max turn for homing bullets
+
+// Bullet pattern selector
+let bulletPattern = 2; // 1 = random sides, 2 = top-center aimed at player
 
 // Play area (logical coordinates)
 let logicalW = CANVAS.width / (window.devicePixelRatio || 1);
@@ -70,6 +75,8 @@ window.addEventListener("keydown", (e) => {
 	if (k === "arrowdown" || k === "s") keys.down = true;
 	if (k === "arrowleft" || k === "a") keys.left = true;
 	if (k === "arrowright" || k === "d") keys.right = true;
+	if (k === "1") bulletPattern = 1;
+	if (k === "2") bulletPattern = 2;
 });
 window.addEventListener("keyup", (e) => {
 	const k = e.key.toLowerCase();
@@ -134,40 +141,62 @@ function tick(now: number) {
 	bulletTimer += dt;
 	if (bulletTimer >= BULLET_SPAWN_INTERVAL) {
 		bulletTimer -= BULLET_SPAWN_INTERVAL;
-		// spawn from a random side outside the play rectangle (playX,playY,PLAY_SIZE)
-		const side = Math.floor(Math.random() * 4); // 0=top,1=right,2=bottom,3=left
+		// spawn according to current pattern
 		const margin = 12;
 		const br = 8;
 		let bx = 0;
 		let by = 0;
 		let bvx = 0;
 		let bvy = 0;
-		if (side === 0) {
-			// top
-			bx = playX + Math.random() * (PLAY_SIZE - 20) + 10;
-			by = playY - margin - br;
-			bvx = (Math.random() - 0.5) * 20;
-			bvy = BULLET_SPEED;
-		} else if (side === 1) {
-			// right
-			bx = playX + PLAY_SIZE + margin + br;
-			by = playY + Math.random() * (PLAY_SIZE - 20) + 10;
-			bvx = -BULLET_SPEED;
-			bvy = (Math.random() - 0.5) * 20;
-		} else if (side === 2) {
-			// bottom
-			bx = playX + Math.random() * (PLAY_SIZE - 20) + 10;
-			by = playY + PLAY_SIZE + margin + br;
-			bvx = (Math.random() - 0.5) * 20;
-			bvy = -BULLET_SPEED;
+		if (bulletPattern === 1) {
+			const side = Math.floor(Math.random() * 4); // 0=top,1=right,2=bottom,3=left
+			if (side === 0) {
+				// top
+				bx = playX + Math.random() * (PLAY_SIZE - 20) + 10;
+				by = playY - margin - br;
+				bvx = (Math.random() - 0.5) * 20;
+				bvy = BULLET_SPEED;
+			} else if (side === 1) {
+				// right
+				bx = playX + PLAY_SIZE + margin + br;
+				by = playY + Math.random() * (PLAY_SIZE - 20) + 10;
+				bvx = -BULLET_SPEED;
+				bvy = (Math.random() - 0.5) * 20;
+			} else if (side === 2) {
+				// bottom
+				bx = playX + Math.random() * (PLAY_SIZE - 20) + 10;
+				by = playY + PLAY_SIZE + margin + br;
+				bvx = (Math.random() - 0.5) * 20;
+				bvy = -BULLET_SPEED;
+			} else {
+				// left
+				bx = playX - margin - br;
+				by = playY + Math.random() * (PLAY_SIZE - 20) + 10;
+				bvx = BULLET_SPEED;
+				bvy = (Math.random() - 0.5) * 20;
+			}
 		} else {
-			// left
-			bx = playX - margin - br;
-			by = playY + Math.random() * (PLAY_SIZE - 20) + 10;
-			bvx = BULLET_SPEED;
-			bvy = (Math.random() - 0.5) * 20;
+			// Pattern 2: top-center aiming at player (homing)
+			bx = playX + PLAY_SIZE / 2;
+			by = playY - margin - br;
+			const dx = state.x - bx;
+			const dy = state.y - by;
+			const len = Math.hypot(dx, dy) || 1;
+			const speed = BULLET_SPEED * 1.1;
+			bvx = (dx / len) * speed;
+			bvy = (dy / len) * speed;
 		}
-		bullets.push({ x: bx, y: by, vx: bvx, vy: bvy, r: br, color: "#88f" });
+		// mark homing for pattern 2 bullets
+		const homing = bulletPattern === 2;
+		bullets.push({
+			x: bx,
+			y: by,
+			vx: bvx,
+			vy: bvy,
+			r: br,
+			color: "#88f",
+			homing,
+		});
 	}
 
 	// If arrow keys / WASD are used, move immediately with speed 0 or 1 per tick (no acceleration)
@@ -243,6 +272,23 @@ function tick(now: number) {
 	const logicalH = CANVAS.height / (window.devicePixelRatio || 1);
 	for (let i = bullets.length - 1; i >= 0; i--) {
 		const b = bullets[i];
+		// homing behavior: rotate velocity toward player up to BULLET_TURN_RATE*dt
+		if (b.homing) {
+			const s = Math.hypot(b.vx, b.vy) || 1;
+			const targetDx = state.x - b.x;
+			const targetDy = state.y - b.y;
+			const targetAngle = Math.atan2(targetDy, targetDx);
+			const velAngle = Math.atan2(b.vy, b.vx);
+			let angleDiff = targetAngle - velAngle;
+			while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+			while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+			const maxTurn = BULLET_TURN_RATE * dt;
+			if (angleDiff > maxTurn) angleDiff = maxTurn;
+			if (angleDiff < -maxTurn) angleDiff = -maxTurn;
+			const newAngle = velAngle + angleDiff;
+			b.vx = Math.cos(newAngle) * s;
+			b.vy = Math.sin(newAngle) * s;
+		}
 		b.x += b.vx * dt;
 		b.y += b.vy * dt;
 		// draw
