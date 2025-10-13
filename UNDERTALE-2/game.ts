@@ -73,14 +73,6 @@ export const startDemoScenario = (playfield?: HTMLElement) => {
 	const width = pf.clientWidth;
 	const height = pf.clientHeight;
 
-	spawnEntity({
-		position: { x: width / 2 - 18, y: -80 },
-		velocity: { x: 0, y: 60 },
-		size: 36,
-		color: "hsl(0 80% 60%)",
-		shape: "circle",
-	});
-
 	setInterval(() => {
 		const edge = Math.floor(Math.random() * 4);
 		const speed = 80 + Math.random() * 60;
