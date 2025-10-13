@@ -4,7 +4,7 @@ import {
 	LIFETIME,
 	REMOVAL_MARGIN,
 } from "./constants.js";
-import debug, { isDebugEnabled } from "./debug.js";
+import debug, { isSpawnMarkersEnabled } from "./debug.js";
 import {
 	getHeartElement,
 	getHeartPath,
@@ -120,7 +120,7 @@ export const spawnEntity = ({
 	entities.push(entity);
 
 	// デバッグが有効ならスポーン位置を可視化する
-	if (isDebugEnabled()) {
+	if (isSpawnMarkersEnabled()) {
 		debug.markSpawn(position, `id:${entity.id}`);
 	}
 	return entity;

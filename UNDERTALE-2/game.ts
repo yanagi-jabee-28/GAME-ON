@@ -1,5 +1,5 @@
 import { DIRECTION_MAP } from "./constants.js";
-import debug from "./debug.js";
+import debug, { type SpawnEdge } from "./debug.js";
 import {
 	detectCollisions,
 	getHomingEnabled,
@@ -15,6 +15,27 @@ import { changeHeartColor, updatePlayerPosition } from "./player.js";
 let lastTimestamp = performance.now();
 /** 現在押されているキーのセット */
 const pressedKeys = new Set<string>();
+/** スポーンパターンの種類 */
+export type SpawnPattern = "omnidirectional" | "top-only";
+
+/** パターンごとに有効なスポーン辺を定義 */
+const PATTERN_EDGE_MAP: Record<SpawnPattern, SpawnEdge[]> = {
+	omnidirectional: ["top", "right", "bottom", "left"],
+	"top-only": ["top"],
+};
+
+/** 現在のスポーンパターン */
+let currentPattern: SpawnPattern = "omnidirectional";
+/** スポーン制御に利用するプレイフィールド要素 */
+let activePlayfield: HTMLElement | null = null;
+/** シナリオ用のスポーンinterval */
+let activeSpawnTimer: number | null = null;
+
+/** パターンに応じてデバッグラインを更新する */
+const refreshSpawnLines = () => {
+	if (!activePlayfield || typeof debug.drawSpawnLines !== "function") return;
+	debug.drawSpawnLines(activePlayfield, PATTERN_EDGE_MAP[currentPattern]);
+};
 
 /**
  * ゲームのメインループを開始する
@@ -69,6 +90,23 @@ export const handleKeyDown = (event: KeyboardEvent) => {
 		debug.toggleDebug();
 		console.log(`Debug markers: ${debug.isDebugEnabled() ? "ON" : "OFF"}`);
 		event.preventDefault();
+	} else if (key === "s") {
+		// S: スポーンマーカーの切り替え
+		debug.toggleSpawnMarkers();
+		console.log(
+			`Spawn markers: ${debug.isSpawnMarkersEnabled() ? "ON" : "OFF"}`,
+		);
+		event.preventDefault();
+	} else if (key === "1") {
+		// 1: スポーンパターン1（全方向）
+		setSpawnPattern("omnidirectional");
+		console.log("Spawn pattern: 1 (omnidirectional)");
+		event.preventDefault();
+	} else if (key === "2") {
+		// 2: スポーンパターン2（上からのみ）
+		setSpawnPattern("top-only");
+		console.log("Spawn pattern: 2 (top-only)");
+		event.preventDefault();
 	} else if (key === "M") {
 		// Shift+M: 配置済みマーカーを一括クリア
 		debug.clearDebugMarkers();
@@ -93,23 +131,29 @@ export const clearKeys = () => pressedKeys.clear();
 /**
  * デモ用のシナリオを開始し、定期的にエンティティを生成する
  * @param {HTMLElement} [playfield] - プレイフィールドのHTML要素
+ * @param {SpawnPattern} [pattern] - 使用するスポーンパターン
  */
-export const startDemoScenario = (playfield?: HTMLElement) => {
+export const startDemoScenario = (
+	playfield?: HTMLElement,
+	pattern: SpawnPattern = "omnidirectional",
+) => {
 	const pf = playfield ?? document.getElementById("playfield");
 	if (!(pf instanceof HTMLElement)) return;
 
-	// スポーンライン描画はデバッグ向けの補助機能
-	const dbg = debug as unknown as {
-		drawSpawnLines?: (pf: HTMLElement) => void;
-	};
-	if (typeof dbg.drawSpawnLines === "function") dbg.drawSpawnLines(pf);
+	activePlayfield = pf;
+	currentPattern = pattern;
+	refreshSpawnLines();
 
 	const width = pf.clientWidth;
 	const height = pf.clientHeight;
 
-	// 一定間隔でエンティティを生成
-	setInterval(() => {
-		const edge = Math.floor(Math.random() * 4); // 0: top, 1: right, 2: bottom, 3: left
+	if (activeSpawnTimer !== null) {
+		window.clearInterval(activeSpawnTimer);
+	}
+
+	const spawnOnce = () => {
+		const edges = PATTERN_EDGE_MAP[currentPattern];
+		const edgeLabel = edges[Math.floor(Math.random() * edges.length)] ?? "top";
 		const speed = 80 + Math.random() * 60;
 		let position: { x: number; y: number };
 
@@ -120,17 +164,17 @@ export const startDemoScenario = (playfield?: HTMLElement) => {
 		};
 
 		// プレイフィールドの外周からエンティティを出現させる
-		switch (edge) {
-			case 0: // Top
+		switch (edgeLabel) {
+			case "top":
 				position = { x: Math.random() * width, y: -60 };
 				break;
-			case 1: // Right
+			case "right":
 				position = { x: width + 60, y: Math.random() * height };
 				break;
-			case 2: // Bottom
+			case "bottom":
 				position = { x: Math.random() * width, y: height + 60 };
 				break;
-			default: // Left
+			default:
 				position = { x: -60, y: Math.random() * height };
 		}
 
@@ -161,5 +205,14 @@ export const startDemoScenario = (playfield?: HTMLElement) => {
 			color: `hsl(${Math.floor(Math.random() * 360)} 80% 60%)`,
 			rotationSpeed: (Math.random() - 0.5) * Math.PI,
 		});
-	}, 1600);
+	};
+
+	activeSpawnTimer = window.setInterval(spawnOnce, 1600);
+};
+
+/** スポーンパターンを切り替える */
+export const setSpawnPattern = (pattern: SpawnPattern) => {
+	if (currentPattern === pattern) return;
+	currentPattern = pattern;
+	refreshSpawnLines();
 };
