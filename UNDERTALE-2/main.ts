@@ -27,6 +27,7 @@ let x = 0;
 let y = 0;
 let lastTimestamp = performance.now();
 let heartSvg: SVGSVGElement | null = null;
+let heartPath: SVGGeometryElement | null = null;
 // ソウルカラーを HSL で定義（順序は切り替わる順）
 const colors: string[] = [
 	"hsl(180 100% 50%)", // 水色: 忍耐
@@ -42,6 +43,9 @@ const colors: string[] = [
 // 現在の色インデックス（初期は赤 = 決意）。colors 配列のインデックスで管理します。
 let currentIndex = 6;
 let currentColor = colors[currentIndex];
+
+const HEART_MIN_OPACITY = 0.3;
+const ENTITY_MIN_OPACITY = 0.3;
 
 type EntityShape = "circle" | "square";
 
@@ -68,6 +72,23 @@ type EntitySpawnOptions = {
 
 const entities: Entity[] = [];
 let nextEntityId = 1;
+
+const getEntitySamplePoints = (entity: Entity) => {
+	const centerX = entity.position.x + entity.size / 2;
+	const centerY = entity.position.y + entity.size / 2;
+	const radius =
+		entity.shape === "circle"
+			? entity.size / 2
+			: (entity.size / 2) * Math.SQRT2 * 0.8;
+
+	return [
+		{ x: centerX, y: centerY },
+		{ x: centerX + radius, y: centerY },
+		{ x: centerX - radius, y: centerY },
+		{ x: centerX, y: centerY + radius },
+		{ x: centerX, y: centerY - radius },
+	];
+};
 
 const spawnEntity = ({
 	position,
@@ -131,6 +152,75 @@ const updateEntities = (deltaSeconds: number) => {
 			entities.splice(i, 1);
 		}
 	}
+};
+
+const detectCollisions = () => {
+	if (!heartSvg || !heartPath || entities.length === 0) return;
+
+	const heartMatrix = heartSvg.getScreenCTM();
+	if (!heartMatrix) return;
+
+	const inverseMatrix = heartMatrix.inverse();
+	const stageRect = playfield.getBoundingClientRect();
+	const svgPoint = heartSvg.createSVGPoint();
+	const heartLeft = x;
+	const heartTop = y;
+	const heartRight = heartLeft + heart.clientWidth;
+	const heartBottom = heartTop + heart.clientHeight;
+
+	let heartWasHit = false;
+
+	for (const entity of entities) {
+		const entityLeft = entity.position.x;
+		const entityTop = entity.position.y;
+		const entityRight = entityLeft + entity.size;
+		const entityBottom = entityTop + entity.size;
+
+		// AABB check first
+		if (
+			entityRight < heartLeft ||
+			entityLeft > heartRight ||
+			entityBottom < heartTop ||
+			entityTop > heartBottom
+		) {
+			entity.element.style.opacity = "1";
+			continue;
+		}
+
+		const samples = getEntitySamplePoints(entity);
+		const hit = samples.some((sample) => {
+			// sample in playfield space -> convert to screen then to SVG coords
+			if (
+				sample.x < heartLeft ||
+				sample.x > heartRight ||
+				sample.y < heartTop ||
+				sample.y > heartBottom
+			) {
+				return false;
+			}
+			svgPoint.x = stageRect.left + sample.x;
+			svgPoint.y = stageRect.top + sample.y;
+			const transformed = svgPoint.matrixTransform(inverseMatrix);
+			// isPointInFill exists on SVGGeometryElement
+			if (heartPath) {
+				try {
+					return heartPath.isPointInFill(transformed);
+				} catch {
+					return false;
+				}
+			}
+			return false;
+		});
+
+		if (hit) {
+			entity.element.style.opacity = `${ENTITY_MIN_OPACITY}`;
+			heartWasHit = true;
+		} else {
+			entity.element.style.opacity = "1";
+		}
+	}
+
+	heart.style.opacity = heartWasHit ? `${HEART_MIN_OPACITY}` : "1";
 };
 
 const startDemoScenario = () => {
@@ -253,6 +343,7 @@ const loop = (timestamp: number) => {
 	lastTimestamp = timestamp;
 	updatePosition(delta);
 	updateEntities(delta);
+	detectCollisions();
 	requestAnimationFrame(loop);
 };
 
@@ -270,10 +361,13 @@ const handleKeyDown = (event: KeyboardEvent) => {
 const changeHeartColor = () => {
 	currentIndex = (currentIndex + 1) % colors.length;
 	currentColor = colors[currentIndex];
-	if (heartSvg) {
+	if (heartPath) {
+		heartPath.style.fill = currentColor;
+	} else if (heartSvg) {
 		const path = heartSvg.querySelector("path");
-		if (path) {
-			path.style.fill = currentColor;
+		if (path instanceof SVGGeometryElement) {
+			heartPath = path;
+			heartPath.style.fill = currentColor;
 		}
 	}
 };
@@ -301,8 +395,9 @@ const loadSvg = async () => {
 		heart.appendChild(heartSvg);
 		// 初期色を設定
 		const path = heartSvg.querySelector("path");
-		if (path) {
-			path.style.fill = currentColor;
+		if (path instanceof SVGGeometryElement) {
+			heartPath = path;
+			heartPath.style.fill = currentColor;
 		}
 		centerHeart();
 		startDemoScenario();
