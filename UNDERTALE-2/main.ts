@@ -61,6 +61,7 @@ type Entity = {
 	rotationSpeed: number;
 	shape: EntityShape;
 	color: string;
+	lifetime: number;
 };
 
 type EntitySpawnOptions = {
@@ -125,6 +126,7 @@ const spawnEntity = ({
 		rotationSpeed,
 		shape,
 		color,
+		lifetime: 5,
 	};
 
 	entities.push(entity);
@@ -138,6 +140,44 @@ const updateEntities = (deltaSeconds: number) => {
 
 	for (let i = entities.length - 1; i >= 0; i -= 1) {
 		const entity = entities[i];
+		entity.lifetime -= deltaSeconds;
+		if (entity.lifetime <= 0) {
+			entity.element.remove();
+			entities.splice(i, 1);
+			continue;
+		}
+
+		const originalSpeed = Math.hypot(entity.velocity.x, entity.velocity.y);
+
+		if (homingEnabled && originalSpeed > 0) {
+			const playerCenterX = x + heart.clientWidth / 2;
+			const playerCenterY = y + heart.clientHeight / 2;
+			const entityCenterX = entity.position.x + entity.size / 2;
+			const entityCenterY = entity.position.y + entity.size / 2;
+			const dx = playerCenterX - entityCenterX;
+			const dy = playerCenterY - entityCenterY;
+			const dist = Math.hypot(dx, dy);
+			if (dist > 0) {
+				const targetDirX = dx / dist;
+				const targetDirY = dy / dist;
+				const currentDirX = entity.velocity.x / originalSpeed;
+				const currentDirY = entity.velocity.y / originalSpeed;
+				const perpX = -currentDirY;
+				const perpY = currentDirX;
+				const dot = perpX * targetDirX + perpY * targetDirY;
+				const force = originalSpeed * 5; // proportional to speed
+				const accX = perpX * force * Math.sign(dot);
+				const accY = perpY * force * Math.sign(dot);
+				entity.velocity.x += accX * deltaSeconds;
+				entity.velocity.y += accY * deltaSeconds;
+				const newSpeed = Math.hypot(entity.velocity.x, entity.velocity.y);
+				if (newSpeed > 0) {
+					entity.velocity.x = (entity.velocity.x / newSpeed) * originalSpeed;
+					entity.velocity.y = (entity.velocity.y / newSpeed) * originalSpeed;
+				}
+			}
+		}
+
 		entity.position.x += entity.velocity.x * deltaSeconds;
 		entity.position.y += entity.velocity.y * deltaSeconds;
 		entity.rotation += entity.rotationSpeed * deltaSeconds;
@@ -377,6 +417,10 @@ const handleKeyDown = (event: KeyboardEvent) => {
 	} else if (key === "t") {
 		removeBulletsOnHit = !removeBulletsOnHit;
 		console.log(`Bullet removal on hit: ${removeBulletsOnHit ? "ON" : "OFF"}`);
+		event.preventDefault();
+	} else if (key === "h") {
+		homingEnabled = !homingEnabled;
+		console.log(`Homing: ${homingEnabled ? "ON" : "OFF"}`);
 		event.preventDefault();
 	}
 };
