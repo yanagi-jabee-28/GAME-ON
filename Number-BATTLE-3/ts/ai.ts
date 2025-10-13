@@ -14,29 +14,85 @@
 // - AI は候補手を simulateMove で適用した "相手のターン" のキーを引き、テーブルに基づいて手を分類します。
 // - 選択ロジックは CPU 強度（hard/normal/weak/weakest）に基づく確率的/ルールベースの方法です。
 // - UI アニメーションの完了コールバック内で `applyAttack` / `applySplit` を呼び出して状態変更を行い、勝敗判定・ターン切り替えを行います。
+
+import TABLEBASE_URL from "../chopsticks-tablebase.json?url";
+import CONFIG from "./config";
 import {
 	applyAttack,
 	applySplit,
-	switchTurnTo,
 	generateMoves,
-	simulateMove,
 	getStateKey,
 	invertOutcomeLabel,
+	simulateMove,
+	switchTurnTo,
 } from "./game";
-import CONFIG from "./config";
 import { performAiAttackAnim, performAiSplitAnim } from "./ui";
 
-import TABLEBASE_URL from "../chopsticks-tablebase.json?url";
+// --- Types ---
+type PlayerType = "player" | "ai";
 
-let tablebase = null;
-let tablebasePromise = null;
+type HandPair = [number, number];
+
+interface GameState {
+	playerHands: HandPair;
+	aiHands: HandPair;
+	currentPlayer?: PlayerType;
+	gameOver?: boolean;
+}
+
+type OutcomeLabel = "WIN" | "LOSS" | "DRAW";
+
+interface TableEntry {
+	outcome: OutcomeLabel;
+	distance?: number | null;
+}
+
+type TableBase = Record<string, TableEntry> | null;
+
+export type AttackMove = {
+	type: "attack";
+	from: PlayerType;
+	fromIndex: number;
+	to: PlayerType;
+	toIndex: number;
+};
+
+export type SplitMove = {
+	type: "split";
+	owner: PlayerType;
+	values: [number, number];
+	// legacy fields optional
+	val0?: number;
+	val1?: number;
+};
+
+export type Move = AttackMove | SplitMove;
+
+interface ScoredEntry {
+	move: Move;
+	outcome: OutcomeLabel | "UNKNOWN";
+	distance: number | null;
+	tableKey?: string;
+}
+
+let tablebase: TableBase = null;
+let tablebasePromise: Promise<TableBase> | null = null;
+
+interface StateAccessor {
+	playerHands: HandPair;
+	aiHands: HandPair;
+	currentPlayer?: PlayerType;
+	gameOver?: boolean;
+	checkWin?: () => { gameOver: boolean; playerLost?: boolean };
+	selectedHand?: { owner: PlayerType | null; index: number | null } | null;
+}
 
 function dispatchTablebaseLoaded() {
 	try {
 		if (typeof window !== "undefined") {
 			window.dispatchEvent(new Event("tablebase-loaded"));
 		}
-	} catch (e) {
+	} catch {
 		// ignore when window is unavailable (e.g., tests)
 	}
 }
@@ -54,7 +110,7 @@ async function requestTablebase() {
 				tablebase = data;
 				try {
 					console.info("Tablebase loaded successfully.");
-				} catch (e) {
+				} catch {
 					/* ignore */
 				}
 				dispatchTablebaseLoaded();
@@ -78,32 +134,49 @@ function resolveCpuStrength() {
 		const select = document.getElementById(
 			"cpu-strength-select",
 		) as HTMLSelectElement | null;
-		if (select && select.value) return select.value;
+		if (select?.value) return select.value;
 	}
 	return CONFIG.DEFAULT_CPU_STRENGTH || "hard";
 }
 
-function evaluateMovesWithOutcome(state, actor, table, perspective = "actor") {
+type Perspective = "actor" | "opponent";
+
+type Entry = Partial<ScoredEntry> & { move: Move };
+
+function evaluateMovesWithOutcome(
+	state: GameState | null | undefined,
+	actor: PlayerType,
+	table: TableBase,
+	perspective: Perspective = "actor",
+): Entry[] {
 	if (!state) return [];
 	const base = { playerHands: state.playerHands, aiHands: state.aiHands };
 	const moves = generateMoves(base, actor);
-	const opponentTurn = actor === "player" ? "ai" : "player";
+	const opponentTurn: PlayerType = actor === "player" ? "ai" : "player";
 
-	return moves.reduce((acc, move) => {
+	return moves.reduce<Entry[]>((acc, move) => {
 		const simulated = simulateMove({ ...state, currentPlayer: actor }, move);
 		const key = getStateKey(simulated, opponentTurn);
 		const info = table?.[key];
 		if (!info) return acc;
 		const distance = typeof info.distance === "number" ? info.distance : null;
-		const outcome =
-			perspective === "actor" ? invertOutcomeLabel(info.outcome) : info.outcome;
-		acc.push({ move, outcome, distance, tableKey: key });
+		const outcome: OutcomeLabel =
+			perspective === "actor"
+				? invertOutcomeLabel(info.outcome as OutcomeLabel)
+				: (info.outcome as OutcomeLabel);
+		acc.push({ move: move as Move, outcome, distance, tableKey: key });
 		return acc;
 	}, []);
 }
 
-function groupByOutcome(entries) {
-	const buckets = { WIN: [], DRAW: [], LOSS: [], UNKNOWN: [], ALL: entries };
+function groupByOutcome(entries: Entry[]) {
+	const buckets: {
+		WIN: Entry[];
+		DRAW: Entry[];
+		LOSS: Entry[];
+		UNKNOWN: Entry[];
+		ALL: Entry[];
+	} = { WIN: [], DRAW: [], LOSS: [], UNKNOWN: [], ALL: entries };
 	for (const entry of entries) {
 		if (entry.outcome === "WIN") buckets.WIN.push(entry);
 		else if (entry.outcome === "DRAW") buckets.DRAW.push(entry);
@@ -113,72 +186,84 @@ function groupByOutcome(entries) {
 	return buckets;
 }
 
-function pickRandom(entries) {
+function pickRandom<T>(entries: T[] | null | undefined): T | null {
 	if (!entries || entries.length === 0) return null;
 	const idx = Math.floor(Math.random() * entries.length);
 	return entries[idx];
 }
 
-function pickBestWin(entries) {
+function pickBestWin(entries: Entry[] | null | undefined): Entry | null {
 	if (!entries || entries.length === 0) return null;
 	const sorted = [...entries].sort(
 		(a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity),
 	);
-	return sorted[0];
+	return sorted[0] || null;
 }
 
-function pickRandomDraw(entries) {
-	return pickRandom(entries);
+function pickRandomDraw(entries: Entry[] | null | undefined): Entry | null {
+	return pickRandom(entries ?? []);
 }
 
-function pickLossWithMinDistance(entries, minDistance) {
+function pickLossWithMinDistance(
+	entries: Entry[] | null | undefined,
+	minDistance: number,
+): Entry | null {
 	if (!entries || entries.length === 0) return null;
 	const candidates = entries.filter(
 		(entry) =>
-			typeof entry.distance === "number" && entry.distance >= minDistance,
+			typeof entry.distance === "number" &&
+			(entry.distance as number) >= minDistance,
 	);
 	if (candidates.length === 0) return null;
 	candidates.sort(
 		(a, b) => (b.distance ?? -Infinity) - (a.distance ?? -Infinity),
 	);
-	return candidates[0];
+	return candidates[0] || null;
 }
 
-function pickLongestLoss(entries) {
+function pickLongestLoss(entries: Entry[] | null | undefined): Entry | null {
 	if (!entries || entries.length === 0) return null;
 	const sorted = [...entries].sort(
 		(a, b) => (b.distance ?? -Infinity) - (a.distance ?? -Infinity),
 	);
-	return sorted[0];
+	return sorted[0] || null;
 }
 
-function pickShortestDistance(entries) {
+function pickShortestDistance(
+	entries: Entry[] | null | undefined,
+): Entry | null {
 	if (!entries || entries.length === 0) return null;
 	const sorted = [...entries].sort(
 		(a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity),
 	);
-	return sorted[0];
+	return sorted[0] || null;
 }
 
-function filterOutImmediatePlayerKills(entries, baseState) {
+function filterOutImmediatePlayerKills(
+	entries: Entry[] | null | undefined,
+	baseState: GameState | null | undefined,
+): Entry[] {
 	if (!entries || entries.length === 0) return [];
 	return entries.filter((entry) => {
 		const next = simulateMove(
-			{ ...baseState, currentPlayer: "ai" },
-			entry.move,
+			{ ...(baseState ?? undefined), currentPlayer: "ai" } as GameState,
+			entry.move as Move,
 		);
 		const playerHands = next.playerHands ?? [0, 0];
 		return !(playerHands[0] === 0 && playerHands[1] === 0);
 	});
 }
 
-function findMovesAllowingImmediatePlayerWin(entries, baseState) {
+function findMovesAllowingImmediatePlayerWin(
+	entries: Entry[] | null | undefined,
+	baseState: GameState | null | undefined,
+): Entry[] {
 	if (!entries || entries.length === 0) return [];
-	const result = [];
+	const result: Entry[] = [];
 	for (const entry of entries) {
 		const aiNext = simulateMove(
-			{ ...baseState, currentPlayer: "ai" },
-			entry.move,
+			{ ...(baseState ?? undefined), currentPlayer: "ai" } as GameState,
+			entry.move as Move,
 		);
 		const playerResponses = generateMoves(
 			{ playerHands: aiNext.playerHands, aiHands: aiNext.aiHands },
@@ -186,8 +271,8 @@ function findMovesAllowingImmediatePlayerWin(entries, baseState) {
 		);
 		for (const response of playerResponses) {
 			const afterPlayer = simulateMove(
-				{ ...aiNext, currentPlayer: "player" },
-				response,
+				{ ...aiNext, currentPlayer: "player" } as GameState,
+				response as Move,
 			);
 			const aiHands = afterPlayer.aiHands ?? [0, 0];
 			if (aiHands[0] === 0 && aiHands[1] === 0) {
@@ -199,17 +284,21 @@ function findMovesAllowingImmediatePlayerWin(entries, baseState) {
 	return result;
 }
 
-function findMovesForcingPlayerWin(entries, baseState, table) {
+function findMovesForcingPlayerWin(
+	entries: Entry[] | null | undefined,
+	baseState: GameState | null | undefined,
+	table: TableBase,
+) {
 	// Return subset of entries such that after AI plays the entry.move,
 	// for every legal player response the resulting position (with AI to move)
 	// is recorded in the table as a LOSS for the AI (→ player eventually wins).
 	if (!entries || entries.length === 0) return [];
 	if (!table) return []; // cannot guarantee without table
-	const forced = [];
-	for (const entry of entries) {
+	const forced: Entry[] = [];
+	for (const entry of entries ?? []) {
 		const aiNext = simulateMove(
-			{ ...baseState, currentPlayer: "ai" },
-			entry.move,
+			{ ...(baseState ?? undefined), currentPlayer: "ai" } as GameState,
+			entry.move as Move,
 		);
 		const playerResponses = generateMoves(
 			{ playerHands: aiNext.playerHands, aiHands: aiNext.aiHands },
@@ -219,8 +308,8 @@ function findMovesForcingPlayerWin(entries, baseState, table) {
 		let allLeadToPlayerWin = true;
 		for (const response of playerResponses) {
 			const afterPlayer = simulateMove(
-				{ ...aiNext, currentPlayer: "player" },
-				response,
+				{ ...aiNext, currentPlayer: "player" } as GameState,
+				response as Move,
 			);
 			const key = getStateKey(afterPlayer, "ai");
 			const info = table?.[key];
@@ -235,7 +324,11 @@ function findMovesForcingPlayerWin(entries, baseState, table) {
 	return forced;
 }
 
-function selectMoveForStrength(strength, grouped, baseState) {
+function selectMoveForStrength(
+	strength: string,
+	grouped: ReturnType<typeof groupByOutcome>,
+	baseState: GameState | null | undefined,
+) {
 	let choice = null;
 
 	if (strength === "hard") {
@@ -333,33 +426,37 @@ function selectMoveForStrength(strength, grouped, baseState) {
 	);
 }
 
-function commitAiMove(move, getState) {
+function commitAiMove(
+	move: Move | null | undefined,
+	getState: () => StateAccessor,
+) {
 	if (!move) return Promise.resolve();
 	if (move.type === "attack") {
-		return new Promise((resolve) => {
-			performAiAttackAnim(move.fromIndex, move.toIndex, resolve);
+		return new Promise<void>((resolve) => {
+			performAiAttackAnim(move.fromIndex, move.toIndex, () => resolve());
 		}).then(() => {
 			applyAttack("ai", move.fromIndex, "player", move.toIndex);
-			const result = getState().checkWin();
+			const check = getState().checkWin;
+			const result = check ? check() : { gameOver: false };
 			if (!result.gameOver) switchTurnTo("player");
 		});
 	}
 	if (move.type === "split") {
-		return new Promise((resolve) => {
-			performAiSplitAnim(resolve);
+		return new Promise<void>((resolve) => {
+			performAiSplitAnim(() => resolve());
 		}).then(() => {
-			const values = Array.isArray(move.values)
+			const values: [number, number] = Array.isArray(move.values)
 				? move.values
-				: [move.val0, move.val1];
-			applySplit("ai", values[0], values[1]);
-			const result = getState().checkWin();
+				: [move.val0 ?? 0, move.val1 ?? 0];
+			applySplit("ai", values[0] ?? 0, values[1] ?? 0);
+			const check2 = getState().checkWin;
+			const result = check2 ? check2() : { gameOver: false };
 			if (!result.gameOver) switchTurnTo("player");
 		});
 	}
 	return Promise.resolve();
 }
-
-export async function aiTurnWrapper(getState) {
+export async function aiTurnWrapper(getState: () => StateAccessor) {
 	const state = getState();
 	if (!state || state.gameOver) return;
 
@@ -373,7 +470,7 @@ export async function aiTurnWrapper(getState) {
 	}
 
 	const table = await requestTablebase();
-	let scoredEntries = [];
+	let scoredEntries: Entry[] = [];
 	if (table)
 		scoredEntries = evaluateMovesWithOutcome(state, "ai", table, "actor");
 
@@ -427,19 +524,23 @@ export async function aiTurnWrapper(getState) {
 	}
 
 	if (!choice) {
-		const fallbackEntries = legalMoves.map((move) => ({ move }));
+		const fallbackEntries: Entry[] = legalMoves.map(
+			(move) => ({ move }) as Entry,
+		);
 		choice = pickRandom(fallbackEntries) || fallbackEntries[0];
 	}
 
-	await commitAiMove(choice.move, getState);
+	await commitAiMove((choice as Entry).move, getState);
 }
 
-export function getPlayerMovesAnalysis(state) {
+export function getPlayerMovesAnalysis(state: GameState | null | undefined) {
 	if (!tablebase) return null;
 	return evaluateMovesWithOutcome(state, "player", tablebase, "actor");
 }
 
-export function getAIMovesAnalysisFromPlayerView(state) {
+export function getAIMovesAnalysisFromPlayerView(
+	state: GameState | null | undefined,
+) {
 	if (!tablebase) return null;
 	return evaluateMovesWithOutcome(state, "ai", tablebase, "opponent");
 }

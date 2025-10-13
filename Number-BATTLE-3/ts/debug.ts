@@ -11,22 +11,24 @@
 // Implementation notes: handlers are installed in the capture phase so they
 // can intercept clicks before the normal player handlers in main.ts.
 
-import * as Game from "./game";
-import * as UI from "./ui";
+import type { AttackMove, SplitMove } from "./ai";
 import { getAIMovesAnalysisFromPlayerView } from "./ai";
 import CONFIG from "./config";
+import * as Game from "./game";
+import type { UiState } from "./ui";
+import * as UI from "./ui";
 
-let debugSelected = null; // index of selected AI hand or null
+let debugSelected: number | null = null; // index of selected AI hand or null
 
 /**
  * @returns {HTMLInputElement | null}
  */
-function getAiControlToggle() {
+function getAiControlToggle(): HTMLInputElement | null {
 	const el = document.getElementById("toggle-ai-control-cb");
 	return el instanceof HTMLInputElement ? el : null;
 }
 
-function clearSelectionVisual() {
+function clearSelectionVisual(): void {
 	if (debugSelected !== null) {
 		const prev = document.getElementById(`ai-hand-${debugSelected}`);
 		if (prev) prev.classList.remove("selected");
@@ -34,21 +36,21 @@ function clearSelectionVisual() {
 	debugSelected = null;
 }
 
-function handleContainerClick(e) {
+function handleContainerClick(e: Event) {
 	// Only active when AI's turn and game not over
 	try {
 		if (Game.gameOver) return;
-	} catch (e2) {
+	} catch {
 		return;
 	}
 	// Check the UI toggle: only intercept when allowed
 	if (!CONFIG.SHOW_AI_MANUAL_TOGGLE) return;
 	const aiToggle = getAiControlToggle();
-	const enabled = !!(aiToggle && aiToggle.checked);
+	const enabled = !!aiToggle?.checked;
 	if (!enabled) return;
 	try {
 		if (Game.currentPlayer !== "ai") return;
-	} catch (e3) {
+	} catch {
 		return;
 	}
 
@@ -77,7 +79,7 @@ function handleContainerClick(e) {
 			UI.updateMessage("AIの手の選択をキャンセルしました。");
 			try {
 				UI.clearActionHighlights();
-			} catch (e) {}
+			} catch {}
 			return;
 		}
 		// select new
@@ -96,27 +98,19 @@ function handleContainerClick(e) {
 				aiHands: Game.aiHands,
 			});
 			if (analysis && Array.isArray(analysis)) {
-				// Filter only attack moves from this AI hand
-				const attacks = analysis.filter(
-					(a) =>
-						a.move.type === "attack" &&
-						a.move.from === "ai" &&
-						a.move.fromIndex === index,
+				const uiAnalysis = analysis.map((entry) => ({
+					move: entry.move as AttackMove | SplitMove,
+					outcome: entry.outcome,
+					distance: entry.distance ?? null,
+				}));
+				UI.applyActionHighlights(
+					uiAnalysis as unknown as Parameters<
+						typeof UI.applyActionHighlights
+					>[0],
+					{ owner: "ai", index },
 				);
-				// Clear any previous highlights and then apply to player hands
-				UI.clearActionHighlights();
-				attacks.forEach((a) => {
-					const tIdx = a.move.toIndex;
-					const elT = document.getElementById(`player-hand-${tIdx}`);
-					if (!elT) return;
-					elT.classList.add("border-4");
-					if (a.outcome === "WIN")
-						elT.classList.add("border-green-400"); // プレイヤー勝ち＝AIにとって不利
-					else if (a.outcome === "DRAW") elT.classList.add("border-blue-400");
-					else elT.classList.add("border-red-400"); // プレイヤー負け＝AIにとって有利
-				});
 			}
-		} catch (e) {
+		} catch {
 			/* ignore hint errors */
 		}
 		return;
@@ -129,7 +123,7 @@ function handleContainerClick(e) {
 		// remove selection visual
 		const prevEl = document.getElementById(`ai-hand-${debugSelected}`);
 		if (prevEl) prevEl.classList.remove("selected");
-		const attackerIndex = debugSelected;
+		const attackerIndex = debugSelected as number;
 		debugSelected = null;
 
 		UI.performAiAttackAnim(attackerIndex, index, () => {
@@ -143,7 +137,9 @@ function handleContainerClick(e) {
 			});
 			try {
 				UI.clearActionHighlights();
-			} catch (e) {}
+			} catch {
+				/* ignore */
+			}
 			const res = Game.checkWin();
 			if (res.gameOver) {
 				if (res.playerLost) UI.updateMessage("あなたの負けです...");
@@ -156,7 +152,7 @@ function handleContainerClick(e) {
 	}
 }
 
-function handleSplitButtonClick(e) {
+function handleSplitButtonClick(e: Event) {
 	// Intercept split button when it's AI's turn: open modal to choose AI split
 	if (Game.gameOver) return;
 	if (Game.currentPlayer !== "ai") return; // only for AI turn
@@ -173,28 +169,33 @@ function handleSplitButtonClick(e) {
 			aiHands: Game.aiHands,
 		});
 		splitAnalysis = Array.isArray(a)
-			? a.filter((x) => x.move.type === "split" && x.move.owner === "ai")
+			? a
+					.filter(
+						(x) =>
+							x.move.type === "split" && (x.move as SplitMove).owner === "ai",
+					)
+					.map((x) => ({
+						move: {
+							type: "split",
+							owner: "player",
+							values: (x.move as SplitMove).values,
+						},
+						outcome: x.outcome as "WIN" | "LOSS" | "DRAW" | string,
+						distance: x.distance ?? null,
+					}))
 			: null;
-		// Map analysis to fake state's coordinate where values appear in player slot
-		if (splitAnalysis) {
-			splitAnalysis = splitAnalysis.map((x) => ({
-				move: { type: "split", owner: "player", values: x.move.values },
-				outcome: x.outcome,
-				distance: x.distance,
-			}));
-		}
-	} catch (e) {
+	} catch {
 		/* ignore */
 	}
 
 	// Fake state: AI hands -> playerHands, Player hands -> aiHands
-	const fakeState = {
-		playerHands: Game.aiHands.slice(),
-		aiHands: Game.playerHands.slice(),
+	const fakeState: UiState = {
+		playerHands: [Game.aiHands[0], Game.aiHands[1]] as [number, number],
+		aiHands: [Game.playerHands[0], Game.playerHands[1]] as [number, number],
 		currentPlayer: "player",
 		gameOver: Game.gameOver,
 	};
-	UI.openSplitModal(fakeState, splitAnalysis, (val0, val1) => {
+	UI.openSplitModal(fakeState, splitAnalysis, (val0: number, val1: number) => {
 		UI.performAiSplitAnim(() => {
 			Game.applySplit("ai", val0, val1);
 			UI.updateDisplay({
@@ -206,7 +207,7 @@ function handleSplitButtonClick(e) {
 			});
 			try {
 				UI.clearActionHighlights();
-			} catch (e) {}
+			} catch {}
 			const res = Game.checkWin();
 			if (res.gameOver) {
 				if (res.playerLost) UI.updateMessage("あなたの負けです...");

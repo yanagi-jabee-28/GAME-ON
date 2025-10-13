@@ -3,7 +3,17 @@
 
 // Centralized, mutable configuration object.
 // Use `CONFIG` at runtime so code can override values (for example from URL query params).
-export const CONFIG = {
+export interface Config {
+	SHOW_HINT_CONTROLS: boolean;
+	SHOW_CPU_STRENGTH_SELECT: boolean;
+	SHOW_AI_MANUAL_TOGGLE: boolean;
+	DEFAULT_CPU_STRENGTH: string;
+	FORCE_CPU_STRENGTH: string | null;
+	SHOW_HINTS_BY_DEFAULT: boolean;
+	DEFAULT_HINT_MODE: "full" | "simple";
+}
+
+export const CONFIG: Config = {
 	// Show hint controls (toggle + mode select) and allow hint rendering
 	SHOW_HINT_CONTROLS: true,
 
@@ -29,7 +39,7 @@ export const CONFIG = {
 
 // Apply URL query overrides. Example params:
 //  ?showHints=false&showCpuStrength=false&showAiManual=true&defaultStrength=normal&forceStrength=hard
-function parseBool(v) {
+function parseBool(v: string | null): boolean | null {
 	if (v === "true") return true;
 	if (v === "false") return false;
 	return null;

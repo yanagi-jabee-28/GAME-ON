@@ -1,17 +1,18 @@
 // main.ts - 初期化とイベントバインド
 // このファイルはゲームの初期化、イベントの登録、ターン管理のオーケストレーションを担当します。
 // 実際のゲーム状態は `game.ts`、表示/アニメーションは `ui.ts`、AI ロジックは `ai.ts` に委譲します。
-import * as Game from "./game";
+
 import * as AI from "./ai";
-import * as UI from "./ui";
-import { initDebug } from "./debug";
 import CONFIG from "./config";
+import { initDebug } from "./debug";
+import * as Game from "./game";
+import * as UI from "./ui";
 
 /**
  * @param {string} id
  * @returns {HTMLInputElement | null}
  */
-function getCheckboxById(id) {
+function getCheckboxById(id: string): HTMLInputElement | null {
 	const el = document.getElementById(id);
 	return el instanceof HTMLInputElement ? el : null;
 }
@@ -20,29 +21,28 @@ function getCheckboxById(id) {
  * @param {string} id
  * @returns {HTMLSelectElement | null}
  */
-function getSelectById(id) {
+function getSelectById(id: string): HTMLSelectElement | null {
 	const el = document.getElementById(id);
 	return el instanceof HTMLSelectElement ? el : null;
 }
 
-function areHintsEnabled() {
+function areHintsEnabled(): boolean {
 	if (!CONFIG.SHOW_HINT_CONTROLS) return false;
 	const toggle = getCheckboxById("toggle-hints-cb");
-	return !!(toggle && toggle.checked);
+	return !!toggle?.checked;
 }
 
-function getHintMode() {
+function getHintMode(): "full" | "simple" {
 	if (!CONFIG.SHOW_HINT_CONTROLS) return "full";
 	const select = getSelectById("hint-mode-select");
-	return select && typeof select.value === "string" && select.value
-		? String(select.value)
-		: "full";
+	const val = select?.value;
+	return val === "simple" ? "simple" : "full";
 }
 
-function isAiManualControlEnabled() {
+function isAiManualControlEnabled(): boolean {
 	if (!CONFIG.SHOW_AI_MANUAL_TOGGLE) return false;
 	const toggle = getCheckboxById("toggle-ai-control-cb");
-	return !!(toggle && toggle.checked);
+	return !!toggle?.checked;
 }
 
 /**
@@ -107,7 +107,7 @@ function setTurnMessage() {
 		// Also remove any action/border highlights that may remain from player's full-hint view
 		try {
 			UI.clearActionHighlights();
-		} catch (e) {
+		} catch {
 			/* ignore */
 		}
 	}
@@ -261,13 +261,10 @@ function setupEventDelegation() {
 				if (Game.aiHands[index] === 0) return; // 相手の手が 0 の場合は攻撃不可
 				// capture attacker index
 				const attackerIndex = Game.selectedHand.index; // 攻撃手のインデックス
+				if (attackerIndex === null || attackerIndex === undefined) return;
 				// UX: 選択表示はすぐ外す
-				if (attackerIndex !== null && attackerIndex !== undefined) {
-					const prevEl = document.getElementById(
-						`player-hand-${attackerIndex}`,
-					);
-					if (prevEl) prevEl.classList.remove("selected"); // 行末コメント: 選択クラスを消す
-				}
+				const prevEl = document.getElementById(`player-hand-${attackerIndex}`);
+				if (prevEl) prevEl.classList.remove("selected"); // 行末コメント: 選択クラスを消す
 				Game.setSelectedHand(null, null); // 内部選択状態をリセット
 				// animate first, then apply attack and update UI
 				UI.performPlayerAttackAnim(attackerIndex, index, () => {
@@ -323,11 +320,11 @@ function setupEventDelegation() {
 	const undoBtn = document.getElementById("undo-btn");
 	if (undoBtn) {
 		undoBtn.addEventListener("click", () => {
-			if (Game.canUndo && Game.canUndo()) {
+			if (Game.canUndo?.()) {
 				// try to undo up to two steps (2手戻し)
 				let undone = 0;
 				for (let i = 0; i < 2; i++) {
-					if (Game.canUndo && Game.canUndo()) {
+					if (Game.canUndo?.()) {
 						const ok = Game.undoLastMove();
 						if (ok) undone++;
 					}
@@ -408,13 +405,13 @@ window.addEventListener("DOMContentLoaded", () => {
 				hintModeSelect.value = "simple";
 			else hintModeSelect.value = "full";
 		}
-	} catch (e) {
+	} catch {
 		/* ignore DOM errors */
 	}
 
 	try {
 		console.info("main DOMContentLoaded, CONFIG:", CONFIG);
-	} catch (e) {}
+	} catch {}
 
 	// Apply feature toggles to UI visibility immediately
 	try {
@@ -428,7 +425,7 @@ window.addEventListener("DOMContentLoaded", () => {
 			if (hintMode) hintMode.classList.add("hidden");
 			try {
 				UI.clearPlayerHints();
-			} catch (e) {}
+			} catch {}
 		}
 		// AI manual toggle: hide the checkbox and its label when feature disabled
 		if (!CONFIG.SHOW_AI_MANUAL_TOGGLE) {
@@ -444,7 +441,7 @@ window.addEventListener("DOMContentLoaded", () => {
 			const cpuSelect = document.getElementById("cpu-strength-select");
 			if (cpuSelect) cpuSelect.classList.add("hidden");
 		}
-	} catch (e) {
+	} catch {
 		/* ignore */
 	}
 
@@ -459,12 +456,12 @@ window.addEventListener("DOMContentLoaded", () => {
 				// Only set when the option exists to avoid creating new options
 				try {
 					cpuSelect.value = desired;
-				} catch (e) {
+				} catch {
 					/* ignore */
 				}
 			}
 		}
-	} catch (e) {
+	} catch {
 		/* ignore */
 	}
 	setupEventDelegation();
@@ -477,10 +474,10 @@ window.addEventListener("DOMContentLoaded", () => {
 	if (typeof UI.fitUIToViewport === "function") UI.fitUIToViewport();
 
 	// Debounced resize handler to recompute scale on resize/orientation change
-	let resizeTimer = null;
+	let resizeTimer: number | null = null;
 	const onResize = () => {
 		if (resizeTimer) clearTimeout(resizeTimer);
-		resizeTimer = setTimeout(() => {
+		resizeTimer = window.setTimeout(() => {
 			if (typeof UI.fitUIToViewport === "function") UI.fitUIToViewport();
 		}, 120);
 	};
