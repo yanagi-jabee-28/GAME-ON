@@ -62,6 +62,7 @@ type Entity = {
 	shape: EntityShape;
 	color: string;
 	lifetime: number;
+	collisionOpacity: number;
 };
 
 type EntitySpawnOptions = {
@@ -127,6 +128,7 @@ const spawnEntity = ({
 		shape,
 		color,
 		lifetime: 5,
+		collisionOpacity: 1,
 	};
 
 	entities.push(entity);
@@ -165,7 +167,7 @@ const updateEntities = (deltaSeconds: number) => {
 				const perpX = -currentDirY;
 				const perpY = currentDirX;
 				const dot = perpX * targetDirX + perpY * targetDirY;
-				const force = originalSpeed * 5; // proportional to speed
+				const force = originalSpeed * 2.5; // proportional to speed
 				const accX = perpX * force * Math.sign(dot);
 				const accY = perpY * force * Math.sign(dot);
 				entity.velocity.x += accX * deltaSeconds;
@@ -186,6 +188,10 @@ const updateEntities = (deltaSeconds: number) => {
 		const rotate =
 			entity.rotation !== 0 ? ` rotate(${entity.rotation}rad)` : "";
 		entity.element.style.transform = translate + rotate;
+
+		const fadeOpacity =
+			entity.lifetime > 0.5 ? 1 : Math.max(0, entity.lifetime / 0.5);
+		entity.element.style.opacity = `${fadeOpacity * entity.collisionOpacity}`;
 
 		const isOutOfBounds =
 			entity.position.x < -removalMargin ||
@@ -230,7 +236,7 @@ const detectCollisions = () => {
 			entityBottom < heartTop ||
 			entityTop > heartBottom
 		) {
-			entity.element.style.opacity = "1";
+			entity.collisionOpacity = 1;
 			continue;
 		}
 
@@ -264,11 +270,11 @@ const detectCollisions = () => {
 				entity.element.remove();
 				entities.splice(i, 1);
 			} else {
-				entity.element.style.opacity = `${ENTITY_MIN_OPACITY}`;
+				entity.collisionOpacity = ENTITY_MIN_OPACITY;
 				heartWasHit = true;
 			}
 		} else {
-			entity.element.style.opacity = "1";
+			entity.collisionOpacity = 1;
 		}
 	}
 
