@@ -28,6 +28,7 @@ let y = 0;
 let lastTimestamp = performance.now();
 let heartSvg: SVGSVGElement | null = null;
 let heartPath: SVGGeometryElement | null = null;
+let removeBulletsOnHit = false;
 // ソウルカラーを HSL で定義（順序は切り替わる順）
 const colors: string[] = [
 	"hsl(180 100% 50%)", // 水色: 忍耐
@@ -170,7 +171,8 @@ const detectCollisions = () => {
 
 	let heartWasHit = false;
 
-	for (const entity of entities) {
+	for (let i = entities.length - 1; i >= 0; i--) {
+		const entity = entities[i];
 		const entityLeft = entity.position.x;
 		const entityTop = entity.position.y;
 		const entityRight = entityLeft + entity.size;
@@ -213,8 +215,13 @@ const detectCollisions = () => {
 		});
 
 		if (hit) {
-			entity.element.style.opacity = `${ENTITY_MIN_OPACITY}`;
-			heartWasHit = true;
+			if (removeBulletsOnHit) {
+				entity.element.remove();
+				entities.splice(i, 1);
+			} else {
+				entity.element.style.opacity = `${ENTITY_MIN_OPACITY}`;
+				heartWasHit = true;
+			}
 		} else {
 			entity.element.style.opacity = "1";
 		}
@@ -354,6 +361,10 @@ const handleKeyDown = (event: KeyboardEvent) => {
 		event.preventDefault();
 	} else if (key === " ") {
 		changeHeartColor();
+		event.preventDefault();
+	} else if (key === "t") {
+		removeBulletsOnHit = !removeBulletsOnHit;
+		console.log(`Bullet removal on hit: ${removeBulletsOnHit ? "ON" : "OFF"}`);
 		event.preventDefault();
 	}
 };
