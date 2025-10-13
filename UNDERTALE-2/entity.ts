@@ -62,21 +62,110 @@ export const getHomingEnabled = () => homingEnabled;
  * @param {Entity} entity - 対象のエンティティ
  * @returns {{ x: number; y: number }[]} サンプルポイントの座標配列
  */
-const getEntitySamplePoints = (entity: Entity) => {
-	const centerX = entity.position.x + entity.size / 2;
-	const centerY = entity.position.y + entity.size / 2;
-	// 円形は半径、それ以外は対角線長の半分を基準にして、少し広めにヒットチェックする
-	const radius =
-		entity.shape === "circle"
-			? entity.size / 2
-			: (entity.size / 2) * Math.SQRT2 * 0.8;
-	return [
-		{ x: centerX, y: centerY }, // Center
-		{ x: centerX + radius, y: centerY }, // Right
-		{ x: centerX - radius, y: centerY }, // Left
-		{ x: centerX, y: centerY + radius }, // Bottom
-		{ x: centerX, y: centerY - radius }, // Top
-	];
+/* 既存の粗いサンプルポイント生成は廃止し、形状ベースの判定へ置き換えました */
+
+/**
+ * ポイントがポリゴン内にあるか判定する（非高速だが信頼性あり）
+ */
+const pointInPolygon = (
+	x: number,
+	y: number,
+	poly: { x: number; y: number }[],
+) => {
+	let inside = false;
+	for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+		const xi = poly[i].x,
+			yi = poly[i].y;
+		const xj = poly[j].x,
+			yj = poly[j].y;
+
+		const intersect =
+			yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+		if (intersect) inside = !inside;
+	}
+	return inside;
+};
+
+/** ローカル座標系での三角形ポリゴン（clip-pathと一致） */
+const TRIANGLE_UNIT_POLYGON = [
+	{ x: 0.5, y: 0 },
+	{ x: 0, y: 0.866 },
+	{ x: 1, y: 0.866 },
+];
+
+/** ローカル座標系での星形ポリゴン（clip-pathと一致） */
+const STAR_UNIT_POLYGON = [
+	{ x: 0.5, y: 0 },
+	{ x: 0.61, y: 0.35 },
+	{ x: 0.98, y: 0.35 },
+	{ x: 0.68, y: 0.57 },
+	{ x: 0.79, y: 0.91 },
+	{ x: 0.5, y: 0.7 },
+	{ x: 0.21, y: 0.91 },
+	{ x: 0.32, y: 0.57 },
+	{ x: 0.02, y: 0.35 },
+	{ x: 0.39, y: 0.35 },
+];
+
+/** サンプリング間隔（ピクセル）。1px ごとにサンプリングして精度を最優先 */
+const COLLISION_SAMPLE_STEP = 1;
+
+/**
+ * ワールド座標のポイントがエンティティ形状内に含まれるかどうかを判定する
+ * @param {number} worldX
+ * @param {number} worldY
+ * @param {Entity} entity
+ * @param {number} rotationCos - エンティティ回転の余弦（キャッシュして渡す）
+ * @param {number} rotationSin - エンティティ回転の正弦（キャッシュして渡す）
+ */
+const isPointInEntity = (
+	worldX: number,
+	worldY: number,
+	entity: Entity,
+	rotationCos: number,
+	rotationSin: number,
+) => {
+	const radius = entity.size / 2;
+	const centerX = entity.position.x + radius;
+	const centerY = entity.position.y + radius;
+	const dx = worldX - centerX;
+	const dy = worldY - centerY;
+
+	if (entity.shape === "circle") {
+		return dx * dx + dy * dy <= radius * radius;
+	}
+
+	// 回転を打ち消してローカル座標（左上原点）に変換
+	const localX = rotationCos * dx + rotationSin * dy + radius;
+	const localY = -rotationSin * dx + rotationCos * dy + radius;
+
+	if (
+		localX < 0 ||
+		localX > entity.size ||
+		localY < 0 ||
+		localY > entity.size
+	) {
+		return false;
+	}
+
+	if (entity.shape === "square") {
+		return true;
+	}
+
+	const normalizedX = localX / entity.size;
+	const normalizedY = localY / entity.size;
+	const polygon =
+		entity.shape === "triangle"
+			? TRIANGLE_UNIT_POLYGON
+			: entity.shape === "star"
+				? STAR_UNIT_POLYGON
+				: null;
+
+	if (!polygon) {
+		return true;
+	}
+
+	return pointInPolygon(normalizedX, normalizedY, polygon);
 };
 
 /**
@@ -249,6 +338,8 @@ export const detectCollisions = () => {
 		const entityTop = entity.position.y;
 		const entityRight = entityLeft + entity.size;
 		const entityBottom = entityTop + entity.size;
+		const rotationCos = Math.cos(entity.rotation);
+		const rotationSin = Math.sin(entity.rotation);
 
 		// まずはAABBで粗い衝突判定を行う
 		if (
@@ -261,30 +352,49 @@ export const detectCollisions = () => {
 			continue;
 		}
 
-		// AABBでヒットしたものだけサンプルポイントで詳細判定
-		const samples = getEntitySamplePoints(entity);
-		const hit = samples.some((sample) => {
-			// サンプルポイントがハートのバウンディングボックス外ならスキップ
-			if (
-				sample.x < heartLeft ||
-				sample.x > heartRight ||
-				sample.y < heartTop ||
-				sample.y > heartBottom
-			)
-				return false;
+		// AABBでヒットしたものだけ、エンティティの見た目領域に沿って厳密判定
+		let hit = false;
+		// サンプリング領域をエンティティの矩形に限定し、ピクセル近似で判定
+		for (
+			let sx = Math.floor(entityLeft);
+			sx <= Math.ceil(entityRight);
+			sx += COLLISION_SAMPLE_STEP
+		) {
+			if (hit) break;
+			for (
+				let sy = Math.floor(entityTop);
+				sy <= Math.ceil(entityBottom);
+				sy += COLLISION_SAMPLE_STEP
+			) {
+				// サンプル点がハートのバウンディングボックス外ならスキップ
+				if (
+					sx < heartLeft ||
+					sx > heartRight ||
+					sy < heartTop ||
+					sy > heartBottom
+				)
+					continue;
 
-			// スクリーン座標 → SVG座標へ変換
-			svgPoint.x = stageRect.left + sample.x;
-			svgPoint.y = stageRect.top + sample.y;
-			const transformed = svgPoint.matrixTransform(inverseMatrix);
-			try {
-				// SVGパス内に点が含まれているか判定
-				return heartPath.isPointInFill(transformed);
-			} catch {
-				// isPointInFillは時々エラーをスローすることがあるため、安全に処理
-				return false;
+				// サンプル点がエンティティ形状の内部かどうかをローカル判定
+				if (
+					!isPointInEntity(sx + 0.5, sy + 0.5, entity, rotationCos, rotationSin)
+				)
+					continue;
+
+				// スクリーン座標 → SVG座標へ変換して、ハート内か確認
+				svgPoint.x = stageRect.left + sx;
+				svgPoint.y = stageRect.top + sy;
+				const transformed = svgPoint.matrixTransform(inverseMatrix);
+				try {
+					if (heartPath.isPointInFill(transformed)) {
+						hit = true;
+						break;
+					}
+				} catch {
+					// isPointInFillが失敗した場合は安全にスキップ
+				}
 			}
-		});
+		}
 
 		if (hit) {
 			if (removeBulletsOnHit) {
