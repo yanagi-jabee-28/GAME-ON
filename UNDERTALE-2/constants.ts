@@ -1,21 +1,29 @@
-export const SPEED = 180; // pixels per second
+/** プレイヤー（ハート）の移動速度（px/s） */
+export const SPEED = 180;
+/** ハートがダメージを受けた際の最低不透明度 */
 export const HEART_MIN_OPACITY = 0.3;
+/** エンティティがハートと衝突した際の最低不透明度 */
 export const ENTITY_MIN_OPACITY = 0.3;
+/** プレイフィールド外のエンティティを削除する際のマージン */
 export const REMOVAL_MARGIN = 160;
+/** エンティティが消える前のフェードアウト時間 (秒) */
 export const FADE_DURATION = 0.5;
+/** エンティティの生存期間 (秒) */
 export const LIFETIME = 5;
 
+/** ハートが巡回するカラーパレット */
 export const COLORS: string[] = [
-	"hsl(180 100% 50%)",
-	"hsl(30 100% 50%)",
-	"hsl(220 100% 50%)",
-	"hsl(285 100% 50%)",
-	"hsl(120 100% 50%)",
-	"hsl(60 100% 50%)",
-	"hsl(0 100% 50%)",
-	"hsl(0 0% 100%)",
+	"hsl(180 100% 50%)", // Cyan
+	"hsl(30 100% 50%)", // Orange
+	"hsl(220 100% 50%)", // Blue
+	"hsl(285 100% 50%)", // Purple
+	"hsl(120 100% 50%)", // Green
+	"hsl(60 100% 50%)", // Yellow
+	"hsl(0 100% 50%)", // Red
+	"hsl(0 0% 100%)", // White
 ];
 
+/** キー入力と移動方向ベクトルのマッピング */
 export const DIRECTION_MAP: Record<string, Readonly<[number, number]>> = {
 	arrowup: [0, -1],
 	w: [0, -1],

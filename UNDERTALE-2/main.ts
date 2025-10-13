@@ -7,6 +7,7 @@ import {
 } from "./game.js";
 import { loadSvg } from "./player.js";
 
+// 主要DOMノードをキャッシュしておき、ゲーム開始時の初期化に利用する
 const playfield = document.getElementById("playfield");
 const heart = document.getElementById("heart");
 const entityLayer = document.getElementById("entity-layer");

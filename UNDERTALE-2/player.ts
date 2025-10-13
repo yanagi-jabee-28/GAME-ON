@@ -7,15 +7,25 @@ let heartPath: SVGGeometryElement | null = null;
 let currentIndex = 6;
 let currentColor = COLORS[currentIndex];
 
+/** 現在のハート座標を返す */
 export const getPlayerPosition = () => ({ x, y });
+/** ハートのDOM要素を取得し、存在しなければ例外を送出する */
 export const getHeartElement = (): HTMLElement => {
 	const el = document.getElementById("heart");
 	if (!el) throw new Error("#heart が見つかりません");
 	return el as HTMLElement;
 };
+/** 描画済みのハートSVGを返す */
 export const getHeartSvg = () => heartSvg;
+/** ハートSVG内のパスを返す */
 export const getHeartPath = () => heartPath;
 
+/**
+ * プレイヤーの座標を入力キーと経過時間から更新する
+ * @param deltaSeconds 前フレームからの経過秒数
+ * @param pressedKeys 押下中キーの集合（小文字）
+ * @param playfield 移動範囲となるプレイフィールド要素
+ */
 export const updatePlayerPosition = (
 	deltaSeconds: number,
 	pressedKeys: Set<string>,
@@ -32,6 +42,7 @@ export const updatePlayerPosition = (
 	});
 
 	if (dx !== 0 || dy !== 0) {
+		// 対角移動でも一定速度となるように正規化
 		const length = Math.hypot(dx, dy) || 1;
 		dx /= length;
 		dy /= length;
@@ -47,6 +58,7 @@ export const updatePlayerPosition = (
 	}
 };
 
+/** ハートの色をカラーパレット順に切り替える */
 export const changeHeartColor = () => {
 	currentIndex = (currentIndex + 1) % COLORS.length;
 	currentColor = COLORS[currentIndex];
@@ -61,10 +73,15 @@ export const changeHeartColor = () => {
 	}
 };
 
+/** 被弾状況に応じてハートの不透明度を更新する */
 export const setHeartOpacity = (wasHit: boolean) => {
 	getHeartElement().style.opacity = wasHit ? `${0.3}` : "1";
 };
 
+/**
+ * ハートのSVGを非同期に読み込み、初期位置と色を設定する
+ * エラー時には詳細をコンソールへ出力する
+ */
 export const loadSvg = async () => {
 	try {
 		const response = await fetch("./assets/heart-shape-svgrepo-com.svg");

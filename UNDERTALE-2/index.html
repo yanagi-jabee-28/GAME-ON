@@ -5,6 +5,7 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>UNDERTALE ハート移動テスト</title>
 		<style>
+			/* 余白をリセットし、描画の基準を揃える */
 			* {
 				box-sizing: border-box;
 			}
@@ -20,6 +21,7 @@
 				font-family: "Segoe UI", "Noto Sans JP", sans-serif;
 			}
 
+			/* ゲームUIを縦方向に並べるラッパー */
 			#game-root {
 				display: flex;
 				flex-direction: column;
@@ -27,34 +29,40 @@
 				gap: 1rem;
 			}
 
+			/* シールド領域となる360px四方のプレイフィールド */
 			#playfield {
 				width: 360px;
 				height: 360px;
 				border: 4px solid #f9f9f9;
 				position: relative;
-				overflow: visible;
+				overflow: visible; /* 画面外からエンティティが入ってくるため */
 				background: #111;
 			}
 
+			/* 可視オブジェクトをプレイフィールド上に重ねる基底クラス */
 			.layer {
 				position: absolute;
 				inset: 0;
 				overflow: visible;
-				pointer-events: none;
+				pointer-events: none; /* レイヤー自体はクリックできないようにする */
 			}
 
+			/* 敵エンティティを載せるレイヤー */
 			#entity-layer {
 				z-index: 1;
 			}
 
+			/* プレイヤー（ハート）用レイヤー */
 			#player-layer {
 				z-index: 2;
 			}
 
+			/* デバッグ描画用レイヤー */
 			#debug-layer {
 				z-index: 4;
 			}
 
+			/* ハート本体のベーススタイル */
 			#heart {
 				position: absolute;
 				width: 42px;
@@ -62,19 +70,22 @@
 				pointer-events: none;
 				user-select: none;
 				transform: translate(0, 0);
-				will-change: transform;
+				will-change: transform; /* パフォーマンス向上のため */
 			}
 
+			/* 敵エンティティ共通スタイル */
 			.entity {
 				position: absolute;
 				pointer-events: none;
-				will-change: transform;
+				will-change: transform; /* パフォーマンス向上のため */
 			}
 
+			/* 円形エンティティ */
 			.entity--circle {
 				border-radius: 9999px;
 			}
 
+			/* 星形エンティティ */
 			.entity--star {
 				clip-path: polygon(
 					50% 0%,
@@ -90,17 +101,19 @@
 				);
 			}
 
+			/* 三角形エンティティ */
 			.entity--triangle {
 				clip-path: polygon(50% 0%, 0% 86.6%, 100% 86.6%);
 			}
 
+			/* 操作説明のテキスト */
 			#instruction {
 				font-size: 0.95rem;
 				text-align: center;
 				opacity: 0.85;
 			}
 
-			/* debug markers */
+			/* デバッグマーカーのスタイル */
 			.debug-marker {
 				mix-blend-mode: screen;
 			}
@@ -108,17 +121,22 @@
 	</head>
 	<body>
 		<div id="game-root">
+			<!-- ゲーム画面 -->
 			<div id="playfield">
+				<!-- エンティティ（敵など）を描画するレイヤー -->
 				<div class="layer" id="entity-layer"></div>
+				<!-- プレイヤー（ハート）を描画するレイヤー -->
 				<div class="layer" id="player-layer">
 					<div id="heart"></div>
 				</div>
 			</div>
+			<!-- 操作説明 -->
 			<p id="instruction">
 				矢印キーまたは WASD
 				でハートを動かしてください。スペースキーで色を変更します。
 			</p>
 		</div>
+		<!-- メインのスクリプトを読み込み -->
 		<script type="module" src="./main.ts"></script>
 	</body>
 </html>

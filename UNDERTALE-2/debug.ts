@@ -1,9 +1,18 @@
+/** デバッグ情報を描画するHTMLレイヤー */
 let debugLayer: HTMLElement | null = null;
+/** デバッグマーカー（エンティティのスポーン位置など）を格納する配列 */
 const markers: HTMLElement[] = [];
+/** デバッグ用のスポーンラインを格納する配列 */
 const lines: HTMLElement[] = [];
+/** デバッグ表示が有効かどうかのフラグ */
 let enabled = true; // default ON
+/** スポーンラインの表示が有効かどうかのフラグ */
 let spawnLinesEnabled = true;
 
+/**
+ * デバッグレイヤーがなければ作成し、取得する
+ * @returns {HTMLElement | null} デバッグレイヤーのHTML要素
+ */
 const ensureLayer = (): HTMLElement | null => {
 	if (debugLayer) return debugLayer;
 	const playfield = document.getElementById("playfield");
@@ -23,8 +32,16 @@ const ensureLayer = (): HTMLElement | null => {
 	return debugLayer;
 };
 
+/**
+ * デバッグ表示が有効かどうかを返す
+ * @returns {boolean} 有効な場合はtrue
+ */
 export const isDebugEnabled = () => enabled;
 
+/**
+ * デバッグ表示の有効/無効を設定する
+ * @param {boolean} v - 有効にする場合はtrue
+ */
 export const setDebugEnabled = (v: boolean) => {
 	enabled = v;
 	const layer = ensureLayer();
@@ -37,8 +54,14 @@ export const setDebugEnabled = (v: boolean) => {
 	});
 };
 
+/**
+ * デバッグ表示の有効/無効を切り替える
+ */
 export const toggleDebug = () => setDebugEnabled(!enabled);
 
+/**
+ * すべてのデバッグマーカーをクリアする
+ */
 export const clearDebugMarkers = () => {
 	while (markers.length) {
 		const m = markers.pop();
@@ -46,6 +69,9 @@ export const clearDebugMarkers = () => {
 	}
 };
 
+/**
+ * すべてのスポーンラインをクリアする
+ */
 export const clearSpawnLines = () => {
 	while (lines.length) {
 		const l = lines.pop();
@@ -53,6 +79,10 @@ export const clearSpawnLines = () => {
 	}
 };
 
+/**
+ * エンティティのスポーン領域を示すデバッグ用のラインを描画する
+ * @param {HTMLElement} playfield - プレイフィールドのHTML要素
+ */
 export const drawSpawnLines = (playfield: HTMLElement) => {
 	clearSpawnLines();
 	const layer = ensureLayer();
@@ -78,15 +108,20 @@ export const drawSpawnLines = (playfield: HTMLElement) => {
 		layer.appendChild(div);
 		lines.push(div);
 	};
-	makeLine(0, -60, w, 2);
-	makeLine(0, h + 60, w, 2);
-	makeLine(-60, 0, 2, h);
-	makeLine(w + 60, 0, 2, h);
+	// スポーンラインをプレイフィールドの外枠より外側に描画
+	makeLine(0, -60, w, 2); // Top
+	makeLine(0, h + 60, w, 2); // Bottom
+	makeLine(-60, 0, 2, h); // Left
+	makeLine(w + 60, 0, 2, h); // Right
 	lines.forEach((l) => {
 		l.style.display = enabled && spawnLinesEnabled ? "block" : "none";
 	});
 };
 
+/**
+ * スポーンライン表示の有効/無効を設定する
+ * @param {boolean} v - 有効にする場合はtrue
+ */
 export const setSpawnLinesEnabled = (v: boolean) => {
 	spawnLinesEnabled = v;
 	lines.forEach((l) => {
@@ -94,8 +129,16 @@ export const setSpawnLinesEnabled = (v: boolean) => {
 	});
 };
 
+/**
+ * スポーンライン表示の有効/無効を切り替える
+ */
 export const toggleSpawnLines = () => setSpawnLinesEnabled(!spawnLinesEnabled);
 
+/**
+ * 指定した位置にデバッグマーカー（ドット）を配置する
+ * @param {{ x: number; y: number }} pos - マーカーを配置する座標
+ * @param {string} [label] - マーカーに表示するラベル
+ */
 export const markSpawn = (pos: { x: number; y: number }, label?: string) => {
 	const layer = ensureLayer();
 	if (!layer) return;
@@ -127,6 +170,7 @@ export const markSpawn = (pos: { x: number; y: number }, label?: string) => {
 	dot.style.display = enabled ? "block" : "none";
 };
 
+/** デバッグ関連の関数をまとめたオブジェクト */
 export default {
 	markSpawn,
 	clearDebugMarkers,
