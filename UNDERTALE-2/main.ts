@@ -22,18 +22,21 @@ let x = 0;
 let y = 0;
 let lastTimestamp = performance.now();
 let heartSvg: SVGSVGElement | null = null;
-let currentColor = "#ff0000"; // 初期色: 赤 (決意)
-
-const colors = [
-	"#00ffff", // 水色 (忍耐)
-	"#ffa500", // オレンジ (勇気)
-	"#0000ff", // 青 (誠実)
-	"#800080", // 紫 (不屈)
-	"#00ff00", // 緑 (親切)
-	"#ffff00", // 黄 (正義)
-	"#ff0000", // 赤 (決意)
-	"#ffffff", // 白 (モンスター)
+// ソウルカラーを HSL で定義（順序は切り替わる順）
+const colors: string[] = [
+	"hsl(180 100% 50%)", // 水色: 忍耐
+	"hsl(30 100% 50%)", // オレンジ: 勇気
+	"hsl(220 100% 50%)", // 青: 誠実
+	"hsl(285 100% 50%)", // 紫: 不屈
+	"hsl(120 100% 50%)", // 緑: 親切
+	"hsl(60 100% 50%)", // 黄: 正義
+	"hsl(0 100% 50%)", // 赤: 決意
+	"hsl(0 0% 100%)", // 白: モンスター
 ];
+
+// 現在の色インデックス（初期は赤 = 決意）。colors 配列のインデックスで管理します。
+let currentIndex = 6;
+let currentColor = colors[currentIndex];
 
 const clamp = (value: number, min: number, max: number) => {
 	if (value < min) {
@@ -93,9 +96,8 @@ const handleKeyDown = (event: KeyboardEvent) => {
 };
 
 const changeHeartColor = () => {
-	const currentIndex = colors.indexOf(currentColor);
-	const nextIndex = (currentIndex + 1) % colors.length;
-	currentColor = colors[nextIndex];
+	currentIndex = (currentIndex + 1) % colors.length;
+	currentColor = colors[currentIndex];
 	if (heartSvg) {
 		const path = heartSvg.querySelector("path");
 		if (path) {
