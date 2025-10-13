@@ -90,8 +90,8 @@ export const handleKeyDown = (event: KeyboardEvent) => {
 		debug.toggleDebug();
 		console.log(`Debug markers: ${debug.isDebugEnabled() ? "ON" : "OFF"}`);
 		event.preventDefault();
-	} else if (key === "s") {
-		// S: スポーンマーカーの切り替え
+	} else if (key === "p") {
+		// P: スポーンマーカーの切り替え
 		debug.toggleSpawnMarkers();
 		console.log(
 			`Spawn markers: ${debug.isSpawnMarkersEnabled() ? "ON" : "OFF"}`,
