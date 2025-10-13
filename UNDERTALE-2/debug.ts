@@ -5,6 +5,15 @@ const markers: HTMLElement[] = [];
 /** スポーンラインに対応する方角 */
 export type SpawnEdge = "top" | "right" | "bottom" | "left";
 
+/** スポーンパターンの種類 */
+export type SpawnPattern = "omnidirectional" | "top-only";
+
+/** パターンごとに有効なスポーン辺を定義 */
+export const PATTERN_EDGE_MAP: Record<SpawnPattern, SpawnEdge[]> = {
+	omnidirectional: ["top", "right", "bottom", "left"],
+	"top-only": ["top"],
+};
+
 /** デバッグ用のスポーンラインを格納する配列 */
 const lines: HTMLElement[] = [];
 /** デバッグ表示が有効かどうかのフラグ */
@@ -13,6 +22,99 @@ let enabled = true; // default ON
 let spawnLinesEnabled = true;
 /** スポーンマーカーの表示が有効かどうかのフラグ */
 let spawnMarkersEnabled = false;
+
+/** プレイフィールドサイズ変更の定数 */
+export const PLAYFIELD_MIN_WIDTH = 240;
+export const PLAYFIELD_MAX_WIDTH = 720;
+export const PLAYFIELD_MIN_HEIGHT = 240;
+export const PLAYFIELD_MAX_HEIGHT = 720;
+export const PLAYFIELD_SIZE_STEP = 40;
+
+/** 現在のプレイフィールドサイズ */
+export let playfieldWidth = 360;
+export let playfieldHeight = 360;
+/** スポーン制御に利用するプレイフィールド要素 */
+export let activePlayfield: HTMLElement | null = null;
+/** 現在のスポーンパターン */
+export let currentPattern: SpawnPattern = "omnidirectional";
+
+/**
+ * パターンに応じてデバッグラインを更新する
+ */
+export const refreshSpawnLines = () => {
+	if (!activePlayfield || typeof drawSpawnLines !== "function") return;
+	drawSpawnLines(activePlayfield, PATTERN_EDGE_MAP[currentPattern]);
+};
+
+/**
+ * スポーンパターンを設定する
+ * @param {SpawnPattern} pattern - 新しいパターン
+ */
+export const setSpawnPattern = (pattern: SpawnPattern) => {
+	currentPattern = pattern;
+	refreshSpawnLines();
+};
+
+/**
+ * アクティブなプレイフィールドを設定する
+ * @param {HTMLElement} pf - プレイフィールド要素
+ */
+export const setActivePlayfield = (pf: HTMLElement) => {
+	activePlayfield = pf;
+	playfieldWidth = pf.clientWidth;
+	playfieldHeight = pf.clientHeight;
+};
+
+/**
+ * サイズを範囲内に収める
+ * @param {number} value - 対象値
+ * @param {number} min - 最小値
+ * @param {number} max - 最大値
+ * @returns {number} 範囲内に収めた値
+ */
+const clampSize = (value: number, min: number, max: number) =>
+	Math.max(min, Math.min(value, max));
+
+/**
+ * プレイフィールドサイズを適用し、関連要素を更新する
+ */
+export const applyPlayfieldSize = () => {
+	const playfield = document.getElementById("playfield");
+	if (!(playfield instanceof HTMLElement)) return;
+	playfield.style.width = `${Math.round(playfieldWidth)}px`;
+	playfield.style.height = `${Math.round(playfieldHeight)}px`;
+	// プレイヤー位置を補正
+	import("./player.js").then(({ clampPlayerToBounds }) => {
+		clampPlayerToBounds(playfield);
+	});
+	// スポーンラインを更新
+	refreshSpawnLines();
+};
+
+/**
+ * プレイフィールドサイズを変更する
+ * @param {number} deltaWidth - 幅の増減量
+ * @param {number} deltaHeight - 高さの増減量
+ */
+export const changePlayfieldSize = (
+	deltaWidth: number,
+	deltaHeight: number,
+) => {
+	playfieldWidth = clampSize(
+		playfieldWidth + deltaWidth,
+		PLAYFIELD_MIN_WIDTH,
+		PLAYFIELD_MAX_WIDTH,
+	);
+	playfieldHeight = clampSize(
+		playfieldHeight + deltaHeight,
+		PLAYFIELD_MIN_HEIGHT,
+		PLAYFIELD_MAX_HEIGHT,
+	);
+	applyPlayfieldSize();
+	console.log(
+		`Playfield size: ${Math.round(playfieldWidth)} x ${Math.round(playfieldHeight)}`,
+	);
+};
 
 /**
  * デバッグレイヤーがなければ作成し、取得する

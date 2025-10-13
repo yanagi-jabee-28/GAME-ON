@@ -1,5 +1,20 @@
 import { DIRECTION_MAP } from "./constants.js";
-import debug, { type SpawnEdge } from "./debug.js";
+import {
+	applyPlayfieldSize,
+	changePlayfieldSize,
+	clearDebugMarkers,
+	currentPattern,
+	isDebugEnabled,
+	isSpawnMarkersEnabled,
+	PATTERN_EDGE_MAP,
+	PLAYFIELD_SIZE_STEP,
+	refreshSpawnLines,
+	type SpawnPattern,
+	setActivePlayfield,
+	setSpawnPattern,
+	toggleDebug,
+	toggleSpawnMarkers,
+} from "./debug.js";
 import {
 	detectCollisions,
 	getHomingEnabled,
@@ -9,83 +24,21 @@ import {
 	spawnEntity,
 	updateEntities,
 } from "./entity.js";
-import {
-	changeHeartColor,
-	clampPlayerToBounds,
-	updatePlayerPosition,
-} from "./player.js";
+import { changeHeartColor, updatePlayerPosition } from "./player.js";
 
 /** 前回のフレーム更新時刻のタイムスタンプ */
 let lastTimestamp = performance.now();
 /** 現在押されているキーのセット */
 const pressedKeys = new Set<string>();
-/** スポーンパターンの種類 */
-export type SpawnPattern = "omnidirectional" | "top-only";
-
-/** パターンごとに有効なスポーン辺を定義 */
-const PATTERN_EDGE_MAP: Record<SpawnPattern, SpawnEdge[]> = {
-	omnidirectional: ["top", "right", "bottom", "left"],
-	"top-only": ["top"],
-};
-
-const PLAYFIELD_MIN_WIDTH = 240;
-const PLAYFIELD_MAX_WIDTH = 720;
-const PLAYFIELD_MIN_HEIGHT = 240;
-const PLAYFIELD_MAX_HEIGHT = 720;
-const PLAYFIELD_SIZE_STEP = 40;
-
-/** 現在のスポーンパターン */
-let currentPattern: SpawnPattern = "omnidirectional";
-/** スポーン制御に利用するプレイフィールド要素 */
-let activePlayfield: HTMLElement | null = null;
 /** シナリオ用のスポーンinterval */
 let activeSpawnTimer: number | null = null;
-let playfieldWidth = 360;
-let playfieldHeight = 360;
-
-/** パターンに応じてデバッグラインを更新する */
-const refreshSpawnLines = () => {
-	if (!activePlayfield || typeof debug.drawSpawnLines !== "function") return;
-	debug.drawSpawnLines(activePlayfield, PATTERN_EDGE_MAP[currentPattern]);
-};
-
-const clampSize = (value: number, min: number, max: number) =>
-	Math.max(min, Math.min(value, max));
-
-const applyPlayfieldSize = () => {
-	if (!activePlayfield) return;
-	activePlayfield.style.width = `${Math.round(playfieldWidth)}px`;
-	activePlayfield.style.height = `${Math.round(playfieldHeight)}px`;
-	clampPlayerToBounds(activePlayfield);
-	refreshSpawnLines();
-};
-
-const changePlayfieldSize = (deltaWidth: number, deltaHeight: number) => {
-	if (!activePlayfield) return;
-	playfieldWidth = clampSize(
-		playfieldWidth + deltaWidth,
-		PLAYFIELD_MIN_WIDTH,
-		PLAYFIELD_MAX_WIDTH,
-	);
-	playfieldHeight = clampSize(
-		playfieldHeight + deltaHeight,
-		PLAYFIELD_MIN_HEIGHT,
-		PLAYFIELD_MAX_HEIGHT,
-	);
-	applyPlayfieldSize();
-	console.log(
-		`Playfield size: ${Math.round(playfieldWidth)} x ${Math.round(playfieldHeight)}`,
-	);
-};
 
 /**
  * ゲームのメインループを開始する
  * @param {HTMLElement} playfield - プレイフィールドのHTML要素
  */
 export const startGameLoop = (playfield: HTMLElement) => {
-	activePlayfield = playfield;
-	playfieldWidth = playfield.clientWidth;
-	playfieldHeight = playfield.clientHeight;
+	setActivePlayfield(playfield);
 	applyPlayfieldSize();
 
 	const loop = (timestamp: number) => {
@@ -133,15 +86,13 @@ export const handleKeyDown = (event: KeyboardEvent) => {
 		event.preventDefault();
 	} else if (key === "m") {
 		// M: デバッグ表示の切り替え
-		debug.toggleDebug();
-		console.log(`Debug markers: ${debug.isDebugEnabled() ? "ON" : "OFF"}`);
+		toggleDebug();
+		console.log(`Debug markers: ${isDebugEnabled() ? "ON" : "OFF"}`);
 		event.preventDefault();
 	} else if (key === "p") {
 		// P: スポーンマーカーの切り替え
-		debug.toggleSpawnMarkers();
-		console.log(
-			`Spawn markers: ${debug.isSpawnMarkersEnabled() ? "ON" : "OFF"}`,
-		);
+		toggleSpawnMarkers();
+		console.log(`Spawn markers: ${isSpawnMarkersEnabled() ? "ON" : "OFF"}`);
 		event.preventDefault();
 	} else if (key === "q") {
 		// Q: プレイフィールド幅を縮小
@@ -171,7 +122,7 @@ export const handleKeyDown = (event: KeyboardEvent) => {
 		event.preventDefault();
 	} else if (key === "M") {
 		// Shift+M: 配置済みマーカーを一括クリア
-		debug.clearDebugMarkers();
+		clearDebugMarkers();
 		event.preventDefault();
 	}
 };
@@ -202,10 +153,8 @@ export const startDemoScenario = (
 	const pf = playfield ?? document.getElementById("playfield");
 	if (!(pf instanceof HTMLElement)) return;
 
-	activePlayfield = pf;
-	currentPattern = pattern;
-	playfieldWidth = pf.clientWidth;
-	playfieldHeight = pf.clientHeight;
+	setActivePlayfield(pf);
+	setSpawnPattern(pattern);
 	applyPlayfieldSize();
 	refreshSpawnLines();
 
@@ -272,11 +221,4 @@ export const startDemoScenario = (
 	};
 
 	activeSpawnTimer = window.setInterval(spawnOnce, 1600);
-};
-
-/** スポーンパターンを切り替える */
-export const setSpawnPattern = (pattern: SpawnPattern) => {
-	if (currentPattern === pattern) return;
-	currentPattern = pattern;
-	refreshSpawnLines();
 };
