@@ -29,10 +29,10 @@
 				gap: 1rem;
 			}
 
-			/* シールド領域となる360px四方のプレイフィールド */
+			/* シールド領域となる240px四方のプレイフィールド */
 			#playfield {
-				width: 360px;
-				height: 360px;
+				width: 240px;
+				height: 240px;
 				border: 4px solid #f9f9f9;
 				position: relative;
 				overflow: visible; /* 画面外からエンティティが入ってくるため */
@@ -65,8 +65,8 @@
 			/* ハート本体のベーススタイル */
 			#heart {
 				position: absolute;
-				width: 42px;
-				height: 42px;
+				width: 21px;
+				height: 21px;
 				pointer-events: none;
 				user-select: none;
 				transform: translate(0, 0);
@@ -132,10 +132,14 @@
 			</div>
 			<!-- 操作説明 -->
 			<p id="instruction">
-				矢印キーまたは WASD でハートを動かしてください。スペースキーで色を
-				変更、数字キー 1 / 2 でスポーンパターンを切り替えられます。 M
-				でデバッグ表示、P でスポーンマーカーをオンオフ、Q / E で幅、R / F
-				で高さを調整できます。
+				<strong>操作方法:</strong><br />
+				• 矢印キーまたは WASD でハートを移動<br />
+				• スペースキーでハートの色を変更<br />
+				• 数字キー 1 / 2 でスポーンパターンを切り替え<br />
+				• M でデバッグ表示のオン/オフ<br />
+				• P でスポーンマーカーのオン/オフ<br />
+				• Q / E でプレイフィールド幅を調整<br />
+				• R / F でプレイフィールド高さを調整
 			</p>
 		</div>
 		<!-- メインのスクリプトを読み込み -->

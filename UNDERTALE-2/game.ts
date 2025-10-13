@@ -39,7 +39,6 @@ let activeSpawnTimer: number | null = null;
  */
 export const startGameLoop = (playfield: HTMLElement) => {
 	setActivePlayfield(playfield);
-	applyPlayfieldSize();
 
 	const loop = (timestamp: number) => {
 		// 前フレームからの経過秒数を算出

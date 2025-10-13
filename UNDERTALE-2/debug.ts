@@ -31,8 +31,8 @@ export const PLAYFIELD_MAX_HEIGHT = 720;
 export const PLAYFIELD_SIZE_STEP = 40;
 
 /** 現在のプレイフィールドサイズ */
-export let playfieldWidth = 360;
-export let playfieldHeight = 360;
+export let playfieldWidth = PLAYFIELD_MIN_WIDTH;
+export let playfieldHeight = PLAYFIELD_MIN_HEIGHT;
 /** スポーン制御に利用するプレイフィールド要素 */
 export let activePlayfield: HTMLElement | null = null;
 /** 現在のスポーンパターン */
