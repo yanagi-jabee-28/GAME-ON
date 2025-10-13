@@ -24,6 +24,7 @@ if (
 }
 
 addEnemySymbol("skull", "emoji", "☠");
+addEnemySymbol("fish", "emoji", "🐟️");
 
 document.addEventListener("keydown", handleKeyDown, { passive: false });
 document.addEventListener("keyup", handleKeyUp, { passive: false });
