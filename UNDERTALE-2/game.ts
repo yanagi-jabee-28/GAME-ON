@@ -25,6 +25,7 @@ import {
 	updateEntities,
 } from "./entity.js";
 import { changeHeartColor, updatePlayerPosition } from "./player.js";
+import type { EnemySymbol } from "./types.js";
 
 /** 前回のフレーム更新時刻のタイムスタンプ */
 let lastTimestamp = performance.now();
@@ -32,6 +33,8 @@ let lastTimestamp = performance.now();
 const pressedKeys = new Set<string>();
 /** シナリオ用のスポーンinterval */
 let activeSpawnTimer: number | null = null;
+/** 敵シンボルの配列 */
+const enemySymbols: EnemySymbol[] = [];
 
 /**
  * ゲームのメインループを開始する
@@ -220,4 +223,65 @@ export const startDemoScenario = (
 	};
 
 	activeSpawnTimer = window.setInterval(spawnOnce, 1600);
+};
+
+/**
+ * 敵シンボルを追加する
+ * @param {string} id - 敵シンボルのID
+ * @param {"emoji" | "image"} type - タイプ
+ * @param {string} content - コンテンツ（絵文字または画像URL）
+ */
+export const addEnemySymbol = (
+	id: string,
+	type: "emoji" | "image",
+	content: string,
+) => {
+	const enemyDisplay = document.getElementById("enemy-display");
+	if (!(enemyDisplay instanceof HTMLElement)) return;
+
+	// 既存のシンボルがある場合は削除
+	removeEnemySymbol(id);
+
+	const symbol: EnemySymbol = { id, type, content };
+
+	if (type === "emoji") {
+		const textNode = document.createTextNode(content);
+		symbol.element = textNode;
+		enemyDisplay.appendChild(textNode);
+	} else if (type === "image") {
+		const img = document.createElement("img");
+		img.src = content;
+		img.alt = `Enemy ${id}`;
+		symbol.element = img;
+		enemyDisplay.appendChild(img);
+	}
+
+	enemySymbols.push(symbol);
+};
+
+/**
+ * 敵シンボルを削除する
+ * @param {string} id - 敵シンボルのID
+ */
+export const removeEnemySymbol = (id: string) => {
+	const index = enemySymbols.findIndex((s) => s.id === id);
+	if (index === -1) return;
+
+	const symbol = enemySymbols[index];
+	if (symbol.element?.parentElement) {
+		symbol.element.parentElement.removeChild(symbol.element);
+	}
+	enemySymbols.splice(index, 1);
+};
+
+/**
+ * すべての敵シンボルをクリアする
+ */
+export const clearEnemySymbols = () => {
+	enemySymbols.forEach((symbol) => {
+		if (symbol.element?.parentElement) {
+			symbol.element.parentElement.removeChild(symbol.element);
+		}
+	});
+	enemySymbols.length = 0;
 };

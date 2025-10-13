@@ -22,3 +22,12 @@ export type EntitySpawnOptions = {
 	color?: string;
 	rotationSpeed?: number;
 };
+
+export type EnemySymbolType = "emoji" | "image";
+
+export type EnemySymbol = {
+	id: string;
+	type: EnemySymbolType;
+	content: string; // emoji or image URL
+	element?: HTMLElement | Text;
+};

@@ -1,4 +1,5 @@
 import {
+	addEnemySymbol,
 	clearKeys,
 	handleKeyDown,
 	handleKeyUp,
@@ -22,7 +23,7 @@ if (
 	throw new Error("必要な要素が見つかりませんでした。");
 }
 
-enemyDisplay.textContent = "☠";
+addEnemySymbol("skull", "emoji", "☠");
 
 document.addEventListener("keydown", handleKeyDown, { passive: false });
 document.addEventListener("keyup", handleKeyUp, { passive: false });
