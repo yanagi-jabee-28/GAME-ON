@@ -29,6 +29,7 @@ let lastTimestamp = performance.now();
 let heartSvg: SVGSVGElement | null = null;
 let heartPath: SVGGeometryElement | null = null;
 let removeBulletsOnHit = false;
+let homingEnabled = false;
 // ソウルカラーを HSL で定義（順序は切り替わる順）
 const colors: string[] = [
 	"hsl(180 100% 50%)", // 水色: 忍耐
@@ -48,7 +49,7 @@ let currentColor = colors[currentIndex];
 const HEART_MIN_OPACITY = 0.3;
 const ENTITY_MIN_OPACITY = 0.3;
 
-type EntityShape = "circle" | "square";
+type EntityShape = "circle" | "square" | "star" | "triangle";
 
 type Entity = {
 	id: number;
@@ -103,6 +104,10 @@ const spawnEntity = ({
 	element.classList.add("entity");
 	if (shape === "circle") {
 		element.classList.add("entity--circle");
+	} else if (shape === "star") {
+		element.classList.add("entity--star");
+	} else if (shape === "triangle") {
+		element.classList.add("entity--triangle");
 	}
 	element.style.width = `${size}px`;
 	element.style.height = `${size}px`;
@@ -299,7 +304,14 @@ const startDemoScenario = () => {
 			position,
 			velocity,
 			size: 20 + Math.random() * 16,
-			shape: Math.random() > 0.5 ? "circle" : "square",
+			shape:
+				Math.random() > 0.5
+					? "circle"
+					: Math.random() > 0.5
+						? "square"
+						: Math.random() > 0.5
+							? "star"
+							: "triangle",
 			color: `hsl(${Math.floor(Math.random() * 360)} 80% 60%)`,
 			rotationSpeed: (Math.random() - 0.5) * Math.PI,
 		});
