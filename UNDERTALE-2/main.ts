@@ -1,5 +1,5 @@
 const playfield = document.getElementById("playfield");
-const heart = document.getElementById("heart") as HTMLImageElement | null;
+const heart = document.getElementById("heart") as HTMLElement | null;
 
 if (!(playfield instanceof HTMLElement) || !heart) {
 	throw new Error("必要な要素が見つかりませんでした。");
@@ -21,6 +21,19 @@ const directionMap: Record<string, Readonly<[number, number]>> = {
 let x = 0;
 let y = 0;
 let lastTimestamp = performance.now();
+let heartSvg: SVGSVGElement | null = null;
+let currentColor = "#ff0000"; // 初期色: 赤 (決意)
+
+const colors = [
+	"#00ffff", // 水色 (忍耐)
+	"#ffa500", // オレンジ (勇気)
+	"#0000ff", // 青 (誠実)
+	"#800080", // 紫 (不屈)
+	"#00ff00", // 緑 (親切)
+	"#ffff00", // 黄 (正義)
+	"#ff0000", // 赤 (決意)
+	"#ffffff", // 白 (モンスター)
+];
 
 const clamp = (value: number, min: number, max: number) => {
 	if (value < min) {
@@ -73,6 +86,21 @@ const handleKeyDown = (event: KeyboardEvent) => {
 	if (directionMap[key]) {
 		pressedKeys.add(key);
 		event.preventDefault();
+	} else if (key === " ") {
+		changeHeartColor();
+		event.preventDefault();
+	}
+};
+
+const changeHeartColor = () => {
+	const currentIndex = colors.indexOf(currentColor);
+	const nextIndex = (currentIndex + 1) % colors.length;
+	currentColor = colors[nextIndex];
+	if (heartSvg) {
+		const path = heartSvg.querySelector("path");
+		if (path) {
+			path.style.fill = currentColor;
+		}
 	}
 };
 
@@ -87,18 +115,32 @@ document.addEventListener("keydown", handleKeyDown, { passive: false });
 document.addEventListener("keyup", handleKeyUp, { passive: false });
 window.addEventListener("blur", () => pressedKeys.clear());
 
+const loadSvg = async () => {
+	try {
+		const response = await fetch("./assets/heart-shape-svgrepo-com.svg");
+		const svgText = await response.text();
+		const parser = new DOMParser();
+		const svgDoc = parser.parseFromString(svgText, "image/svg+xml");
+		heartSvg = svgDoc.documentElement as unknown as SVGSVGElement;
+		heartSvg.style.width = "100%";
+		heartSvg.style.height = "100%";
+		heart.appendChild(heartSvg);
+		// 初期色を設定
+		const path = heartSvg.querySelector("path");
+		if (path) {
+			path.style.fill = currentColor;
+		}
+		centerHeart();
+		requestAnimationFrame(loop);
+	} catch (error) {
+		console.error("SVG の読み込みに失敗しました:", error);
+	}
+};
+
 const centerHeart = () => {
 	x = (playfield.clientWidth - heart.clientWidth) / 2;
 	y = (playfield.clientHeight - heart.clientHeight) / 2;
 	heart.style.transform = `translate(${x}px, ${y}px)`;
 };
 
-if (heart.complete) {
-	centerHeart();
-	requestAnimationFrame(loop);
-} else {
-	heart.addEventListener("load", () => {
-		centerHeart();
-		requestAnimationFrame(loop);
-	});
-}
+loadSvg();
