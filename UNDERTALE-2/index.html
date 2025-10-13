@@ -2,57 +2,68 @@
 <html lang="ja">
 	<head>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>UNDERTALE-2 — Heart Demo</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>UNDERTALE ハート移動テスト</title>
 		<style>
-			html,
+			* {
+				box-sizing: border-box;
+			}
+
 			body {
-				height: 100%;
 				margin: 0;
-				font-family:
-					system-ui,
-					Segoe UI,
-					Roboto,
-					"Hiragino Kaku Gothic ProN",
-					sans-serif;
-				background: #111;
-				color: #eee;
+				min-height: 100vh;
 				display: flex;
 				align-items: center;
 				justify-content: center;
-			}
-			#container {
-				width: 520px;
-				max-width: 94vw;
-			}
-			h1 {
-				font-size: 18px;
-				margin: 0 0 8px;
-			}
-			canvas {
-				display: block;
-				border: 6px solid #222;
 				background: #000;
-				width: 100%;
-				height: auto;
+				color: #f9f9f9;
+				font-family: "Segoe UI", "Noto Sans JP", sans-serif;
 			}
-			.help {
-				font-size: 12px;
-				opacity: 0.8;
-				margin-top: 6px;
+
+			#game-root {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 1rem;
+			}
+
+			#playfield {
+				width: 360px;
+				height: 360px;
+				border: 4px solid #f9f9f9;
+				position: relative;
+				overflow: hidden;
+				background: #111;
+			}
+
+			#heart {
+				position: absolute;
+				width: 42px;
+				height: 42px;
+				pointer-events: none;
+				user-select: none;
+				transform: translate(0, 0);
+				will-change: transform;
+			}
+
+			#instruction {
+				font-size: 0.95rem;
+				text-align: center;
+				opacity: 0.85;
 			}
 		</style>
 	</head>
 	<body>
-		<div id="container">
-			<h1>UNDERTALE-2: 赤いハートを動かすデモ</h1>
-			<canvas id="game" width="400" height="400"></canvas>
-			<div class="help">
-				矢印キー / WASD で移動。マウスでドラッグしても動かせます。
+		<div id="game-root">
+			<div id="playfield">
+				<img
+					id="heart"
+					src="./assets/heart-shape-svgrepo-com.svg"
+					alt="赤いハート"
+				/>
 			</div>
+			<p id="instruction">矢印キーまたは WASD でハートを動かしてください。</p>
 		</div>
-
-		<!-- Vite を使っているワークスペースなので module として TypeScript をインポートします -->
 		<script type="module" src="./main.ts"></script>
 	</body>
 </html>
