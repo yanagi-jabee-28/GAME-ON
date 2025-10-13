@@ -39,6 +39,21 @@
 				background: #111;
 			}
 
+			/* プレイフィールド上部に配置する敵シンボル表示領域 */
+			#enemy-display {
+				position: absolute;
+				top: -56px;
+				left: 50%;
+				transform: translateX(-50%);
+				display: flex;
+				gap: 0.5rem;
+				justify-content: center;
+				align-items: center;
+				font-size: 2.2rem;
+				text-shadow: 0 0 6px rgba(0, 0, 0, 0.65);
+				pointer-events: none;
+			}
+
 			/* 可視オブジェクトをプレイフィールド上に重ねる基底クラス */
 			.layer {
 				position: absolute;
@@ -140,6 +155,8 @@
 		<div id="game-root">
 			<!-- ゲーム画面 -->
 			<div id="playfield">
+				<!-- 敵を絵文字で表現する静的表示領域 -->
+				<div id="enemy-display"></div>
 				<!-- エンティティ（敵など）を描画するレイヤー -->
 				<div class="layer" id="entity-layer"></div>
 				<!-- プレイヤー（ハート）を描画するレイヤー -->

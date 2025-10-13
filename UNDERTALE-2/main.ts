@@ -11,14 +11,18 @@ import { loadSvg } from "./player.js";
 const playfield = document.getElementById("playfield");
 const heart = document.getElementById("heart");
 const entityLayer = document.getElementById("entity-layer");
+const enemyDisplay = document.getElementById("enemy-display");
 
 if (
 	!(playfield instanceof HTMLElement) ||
 	!(heart instanceof HTMLElement) ||
-	!(entityLayer instanceof HTMLElement)
+	!(entityLayer instanceof HTMLElement) ||
+	!(enemyDisplay instanceof HTMLElement)
 ) {
 	throw new Error("必要な要素が見つかりませんでした。");
 }
+
+enemyDisplay.textContent = "☠";
 
 document.addEventListener("keydown", handleKeyDown, { passive: false });
 document.addEventListener("keyup", handleKeyUp, { passive: false });
