@@ -68,6 +68,30 @@ function drawHeart(x: number, y: number, size: number, color = "#e22") {
 	CTX.restore();
 }
 
+// Homing helper: rotate bullet velocity toward target up to turnRate*dt radians, keeping speed magnitude
+function applyHoming(
+	b: Bullet,
+	tx: number,
+	ty: number,
+	turnRate: number,
+	dt: number,
+) {
+	const s = Math.hypot(b.vx, b.vy) || 1;
+	const targetDx = tx - b.x;
+	const targetDy = ty - b.y;
+	const targetAngle = Math.atan2(targetDy, targetDx);
+	const velAngle = Math.atan2(b.vy, b.vx);
+	let angleDiff = targetAngle - velAngle;
+	while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+	while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+	const maxTurn = turnRate * dt;
+	if (angleDiff > maxTurn) angleDiff = maxTurn;
+	if (angleDiff < -maxTurn) angleDiff = -maxTurn;
+	const newAngle = velAngle + angleDiff;
+	b.vx = Math.cos(newAngle) * s;
+	b.vy = Math.sin(newAngle) * s;
+}
+
 // Input handlers
 window.addEventListener("keydown", (e) => {
 	const k = e.key.toLowerCase();
@@ -272,22 +296,9 @@ function tick(now: number) {
 	const logicalH = CANVAS.height / (window.devicePixelRatio || 1);
 	for (let i = bullets.length - 1; i >= 0; i--) {
 		const b = bullets[i];
-		// homing behavior: rotate velocity toward player up to BULLET_TURN_RATE*dt
+		// homing behavior via helper
 		if (b.homing) {
-			const s = Math.hypot(b.vx, b.vy) || 1;
-			const targetDx = state.x - b.x;
-			const targetDy = state.y - b.y;
-			const targetAngle = Math.atan2(targetDy, targetDx);
-			const velAngle = Math.atan2(b.vy, b.vx);
-			let angleDiff = targetAngle - velAngle;
-			while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-			while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-			const maxTurn = BULLET_TURN_RATE * dt;
-			if (angleDiff > maxTurn) angleDiff = maxTurn;
-			if (angleDiff < -maxTurn) angleDiff = -maxTurn;
-			const newAngle = velAngle + angleDiff;
-			b.vx = Math.cos(newAngle) * s;
-			b.vy = Math.sin(newAngle) * s;
+			applyHoming(b, state.x, state.y, BULLET_TURN_RATE, dt);
 		}
 		b.x += b.vx * dt;
 		b.y += b.vy * dt;
