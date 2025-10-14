@@ -245,13 +245,17 @@ export const addEnemySymbol = (
 	const symbol: EnemySymbol = { id, type, content };
 
 	if (type === "emoji") {
-		const textNode = document.createTextNode(content);
-		symbol.element = textNode;
-		enemyDisplay.appendChild(textNode);
+		// テキストノードではなく span を使って flex の子要素にする
+		const span = document.createElement("span");
+		span.className = "enemy-symbol";
+		span.textContent = content;
+		symbol.element = span;
+		enemyDisplay.appendChild(span);
 	} else if (type === "image") {
 		const img = document.createElement("img");
 		img.src = content;
 		img.alt = `Enemy ${id}`;
+		img.className = "enemy-symbol";
 		symbol.element = img;
 		enemyDisplay.appendChild(img);
 	}

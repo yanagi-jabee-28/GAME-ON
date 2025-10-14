@@ -25,6 +25,7 @@ if (
 
 addEnemySymbol("skull", "emoji", "☠");
 addEnemySymbol("fish", "emoji", "🐟️");
+addEnemySymbol("papyrus", "image", "./assets/icons8-パピルス-100.png");
 
 document.addEventListener("keydown", handleKeyDown, { passive: false });
 document.addEventListener("keyup", handleKeyUp, { passive: false });
