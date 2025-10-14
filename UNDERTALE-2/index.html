@@ -165,6 +165,75 @@
 			.debug-marker {
 				mix-blend-mode: screen;
 			}
+
+			/* プレイヤー情報のステータス表示 */
+			#player-status {
+				width: 340px; /* 少し幅を広げて重なりを防ぐ */
+				margin-top: 1.75rem; /* プレイフィールドと余白を増やす */
+				margin-bottom: 1rem;
+				padding: 0.6rem 0.9rem;
+				display: flex;
+				align-items: center;
+				justify-content: space-between; /* 左中右を均等に配置 */
+				background: #111;
+				border: 2px solid #f9f9f9;
+				font-size: 0.95rem;
+				letter-spacing: 0.03em;
+				gap: 0.75rem;
+			}
+
+			#player-status .status-left,
+			#player-status .status-right {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.6rem;
+				min-width: 72px;
+			}
+
+			#player-status .status-name {
+				font-weight: 700;
+				color: #e6f7e6;
+			}
+
+			#player-status .status-level {
+				opacity: 0.9;
+			}
+
+			#player-status .status-hp-value {
+				font-weight: 600;
+				min-width: 32px;
+				text-align: right;
+				color: #e6f7e6;
+			}
+
+			#player-status .status-center {
+				display: inline-flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 0.35rem;
+				min-width: 160px;
+			}
+
+			#player-status .status-label {
+				font-weight: 600;
+			}
+
+			#player-status .status-hp-bar {
+				position: relative;
+				width: 160px;
+				height: 12px;
+				border: 2px solid #f9f9f9;
+				background: #222;
+				border-radius: 4px;
+				overflow: hidden;
+			}
+
+			#player-status .status-hp-fill {
+				height: 100%;
+				width: 92%; /* HP 92 を視覚的に表現 */
+				background: linear-gradient(90deg,#ff6b35,#ffd57a);
+				transition: width 180ms ease;
+			}
 		</style>
 	</head>
 	<body>
@@ -178,6 +247,28 @@
 				<!-- プレイヤー（ハート）を描画するレイヤー -->
 				<div class="layer" id="player-layer">
 					<div id="heart"></div>
+				</div>
+			</div>
+			<!-- プレイヤー情報 -->
+			<div id="player-status" role="group" aria-label="プレイヤー情報">
+				<div class="status-left">
+					<span class="status-name">Chra</span>
+					<span class="status-level"><span class="status-label">LV</span> 19</span>
+				</div>
+				<div class="status-center">
+					<span class="status-label">HP</span>
+					<div
+						class="status-hp-bar"
+						role="progressbar"
+						aria-valuenow="92"
+						aria-valuemin="0"
+						aria-valuemax="92"
+					>
+						<div class="status-hp-fill"></div>
+					</div>
+				</div>
+				<div class="status-right">
+					<span class="status-hp-value" aria-hidden="false">92</span>
 				</div>
 			</div>
 			<!-- 操作説明 -->
