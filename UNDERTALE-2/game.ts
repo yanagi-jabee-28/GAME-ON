@@ -43,6 +43,11 @@ const enemySymbols: EnemySymbol[] = [];
 export const startGameLoop = (playfield: HTMLElement) => {
 	setActivePlayfield(playfield);
 
+	// Log initial setting so it's visible on start (helpful during development)
+	console.log(
+		`Bullet removal on hit (default): ${getRemoveBulletsOnHit() ? "ON" : "OFF"}`,
+	);
+
 	const loop = (timestamp: number) => {
 		// 前フレームからの経過秒数を算出
 		const delta = (timestamp - lastTimestamp) / 1000;

@@ -19,7 +19,7 @@ const entities: Entity[] = [];
 /** 次に生成されるエンティティに割り当てるID */
 let nextEntityId = 1;
 /** ハートに当たったエンティティを削除するかどうかのフラグ */
-let removeBulletsOnHit = false;
+let removeBulletsOnHit = true; // default: remove entities when they hit the player
 /** エンティティがプレイヤーを追尾（ホーミング）するかどうかのフラグ */
 let homingEnabled = false;
 

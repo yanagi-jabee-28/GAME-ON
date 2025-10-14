@@ -169,16 +169,23 @@
 			/* プレイヤー情報のステータス表示 */
 			#player-status {
 				width: 640px;
-				--hp-offset: -24px; /* ガイド: 中央カラムをこのオフセットだけ左へ移動 */
-				position: relative; /* center pseudo-element and children relative to this box */
-				margin-top: 1.75rem; /* プレイフィールドと余白を増やす */
+				--hp-offset: -24px;
+				/* base font size for player status - change this to scale all labels */
+				--player-font-size: 1.5rem;
+				position: relative;
+				margin-top: 1.75rem;
 				margin-bottom: 1rem;
 				padding: 0.6rem 1rem;
 				display: grid;
-				grid-template-columns: auto 240px auto; /* 中央カラムをプレイフィールド幅に固定 */
+				grid-template-columns: auto 240px auto;
 				align-items: center;
-				background: #000; /* 背景をプレイフィールドに馴染ませる */
-				border: 0; /* 枠は下の白枠で表現します */
+				background: #000;
+				border: 0;
+				font-family:
+					"VT323", "PixelMplus12", "Press Start 2P", "Consolas", "monospace";
+				font-size: var(--player-font-size);
+				font-weight: bold;
+				letter-spacing: 0.04em;
 			}
 
 			#player-status .status-left,
@@ -190,19 +197,23 @@
 			}
 
 			#player-status .status-name {
-				font-weight: 700;
+				font-weight: bold;
 				color: #e6f7e6;
+				font-size: var(--player-font-size);
 			}
 
 			#player-status .status-level {
 				opacity: 0.9;
+				font-weight: bold;
+				font-size: var(--player-font-size);
 			}
 
 			#player-status .status-hp-value {
-				font-weight: 600;
+				font-weight: bold;
 				min-width: 32px;
 				text-align: right;
 				color: #e6f7e6;
+				font-size: var(--player-font-size);
 			}
 
 			#player-status .status-center {
@@ -215,8 +226,8 @@
 			}
 
 			#player-status .status-label {
-				font-weight: 500;
-				font-size: 1rem;
+				font-weight: bold;
+				font-size: var(--player-font-size);
 				color: #ffffff;
 				min-width: 28px;
 				text-align: left;
@@ -242,31 +253,18 @@
 			/* large typographic styles to match reference */
 			.status-left .status-level {
 				font-weight: 900;
-				font-size: 1.6rem;
+				/* keep a slightly smaller display for the LV label compared to base */
+				font-size: calc(var(--player-font-size) * 0.76);
 				letter-spacing: 0.06em;
 			}
 
 			.status-right {
 				justify-self: end;
 				font-weight: 800;
-				font-size: 1.2rem;
+				font-size: calc(var(--player-font-size) * 0.57);
 			}
 
-			/* white framed box under the bar to echo screenshot */
-			#player-status::before {
-				content: "";
-				display: block;
-				position: absolute;
-				left: 50%;
-				transform: translateX(calc(-50% + var(--hp-offset)));
-				width: calc(
-					240px + 160px
-				); /* center bar + some padding to match screenshot */
-				height: 44px;
-				border: 4px solid #fff;
-				pointer-events: none;
-				z-index: -1;
-			}
+			/* white framed box removed per user request */
 		</style>
 	</head>
 	<body>
@@ -287,7 +285,7 @@
 				<div class="status-left">
 					<span class="status-name">Chra</span>
 					<span class="status-level"
-						><span class="status-label">LV</span> 19</span
+						><span class="status-label">LV</span> 1</span
 					>
 				</div>
 				<div class="status-center">
@@ -295,16 +293,16 @@
 					<div
 						class="status-hp-bar"
 						role="progressbar"
-						aria-valuenow="92"
+						aria-valuenow="20"
 						aria-valuemin="0"
-						aria-valuemax="92"
+						aria-valuemax="20"
 					>
 						<div class="status-hp-fill"></div>
 					</div>
 				</div>
 				<div class="status-right">
 					<span class="status-hp-value" aria-hidden="false"
-						>92&nbsp;/&nbsp;92</span
+						>20&nbsp;/&nbsp;20</span
 					>
 				</div>
 			</div>
@@ -317,6 +315,7 @@
 					<li>数字キー 1 / 2 でスポーンパターンを切り替え</li>
 					<li>M でデバッグ表示のオン/オフ</li>
 					<li>P でスポーンマーカーのオン/オフ</li>
+					<li>T で衝突時にエンティティを削除するモードを切り替え</li>
 					<li>Q / E でプレイフィールド幅を調整</li>
 					<li>R / F でプレイフィールド高さを調整</li>
 				</ul>
