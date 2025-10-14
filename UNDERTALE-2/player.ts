@@ -95,9 +95,13 @@ export const loadSvg = async () => {
 	try {
 		// Resolve the asset relative to this module so builds (Vite, bundlers)
 		// and GitHub Pages subpaths are handled correctly.
-		const url = new URL("./assets/heart-shape-svgrepo-com.svg", import.meta.url).href;
+		const url = new URL("./assets/heart-shape-svgrepo-com.svg", import.meta.url)
+			.href;
 		const response = await fetch(url);
-		if (!response.ok) throw new Error(`SVG fetch failed: ${response.status} ${response.statusText} (${url})`);
+		if (!response.ok)
+			throw new Error(
+				`SVG fetch failed: ${response.status} ${response.statusText} (${url})`,
+			);
 		const svgText = await response.text();
 		const parser = new DOMParser();
 		const svgDoc = parser.parseFromString(svgText, "image/svg+xml");
