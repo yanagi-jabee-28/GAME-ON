@@ -60,15 +60,15 @@
 				object-fit: contain;
 			}
 
-				/* 各敵シンボルを横並びに揃える */
-				.enemy-symbol {
-					display: inline-flex;
-					align-items: center;
-					justify-content: center;
-					width: 2.2rem;
-					height: 2.2rem;
-					font-size: 2.2rem;
-				}
+			/* 各敵シンボルを横並びに揃える */
+			.enemy-symbol {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 2.2rem;
+				height: 2.2rem;
+				font-size: 2.2rem;
+			}
 
 			/* 可視オブジェクトをプレイフィールド上に重ねる基底クラス */
 			.layer {
@@ -168,26 +168,23 @@
 
 			/* プレイヤー情報のステータス表示 */
 			#player-status {
-				width: 340px; /* 少し幅を広げて重なりを防ぐ */
+				width: 640px;
 				margin-top: 1.75rem; /* プレイフィールドと余白を増やす */
 				margin-bottom: 1rem;
-				padding: 0.6rem 0.9rem;
-				display: flex;
+				padding: 0.6rem 1rem;
+				display: grid;
+				grid-template-columns: auto 240px auto; /* 中央カラムをプレイフィールド幅に固定 */
 				align-items: center;
-				justify-content: space-between; /* 左中右を均等に配置 */
-				background: #111;
-				border: 2px solid #f9f9f9;
-				font-size: 0.95rem;
-				letter-spacing: 0.03em;
-				gap: 0.75rem;
+				background: #000; /* 背景をプレイフィールドに馴染ませる */
+				border: 0; /* 枠は下の白枠で表現します */
 			}
 
 			#player-status .status-left,
 			#player-status .status-right {
 				display: inline-flex;
 				align-items: center;
-				gap: 0.6rem;
-				min-width: 72px;
+				gap: 0.8rem;
+				padding: 0 0.5rem;
 			}
 
 			#player-status .status-name {
@@ -207,11 +204,11 @@
 			}
 
 			#player-status .status-center {
-				display: inline-flex;
+				display: flex;
 				flex-direction: column;
 				align-items: center;
 				gap: 0.35rem;
-				min-width: 160px;
+				justify-self: center; /* 中央カラムを中央に */
 			}
 
 			#player-status .status-label {
@@ -220,19 +217,46 @@
 
 			#player-status .status-hp-bar {
 				position: relative;
-				width: 160px;
-				height: 12px;
-				border: 2px solid #f9f9f9;
+				width: 100%; /* 中央カラム幅に一致（240px） */
+				height: 18px;
+				border: 4px solid #ffffff; /* 白枠でプレイ画面と揃える */
 				background: #222;
-				border-radius: 4px;
+				border-radius: 2px;
 				overflow: hidden;
 			}
 
 			#player-status .status-hp-fill {
 				height: 100%;
 				width: 92%; /* HP 92 を視覚的に表現 */
-				background: linear-gradient(90deg,#ff6b35,#ffd57a);
+				background: linear-gradient(90deg,#d6b800,#e6d24a);
 				transition: width 180ms ease;
+			}
+
+			/* large typographic styles to match reference */
+			.status-left .status-level {
+				font-weight: 900;
+				font-size: 1.6rem;
+				letter-spacing: 0.06em;
+			}
+
+			.status-right {
+				justify-self: end;
+				font-weight: 800;
+				font-size: 1.2rem;
+			}
+
+			/* white framed box under the bar to echo screenshot */
+			#player-status::before {
+				content: "";
+				display: block;
+				position: absolute;
+				left: 50%;
+				transform: translateX(-50%);
+				width: 520px;
+				height: 44px;
+				border: 4px solid #fff;
+				pointer-events: none;
+				z-index: -1;
 			}
 		</style>
 	</head>
@@ -253,7 +277,9 @@
 			<div id="player-status" role="group" aria-label="プレイヤー情報">
 				<div class="status-left">
 					<span class="status-name">Chra</span>
-					<span class="status-level"><span class="status-label">LV</span> 19</span>
+					<span class="status-level"
+						><span class="status-label">LV</span> 19</span
+					>
 				</div>
 				<div class="status-center">
 					<span class="status-label">HP</span>
@@ -268,7 +294,7 @@
 					</div>
 				</div>
 				<div class="status-right">
-					<span class="status-hp-value" aria-hidden="false">92</span>
+					<span class="status-hp-value" aria-hidden="false">KR&nbsp;92&nbsp;/&nbsp;92</span>
 				</div>
 			</div>
 			<!-- 操作説明 -->
