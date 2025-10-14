@@ -169,6 +169,7 @@
 			/* プレイヤー情報のステータス表示 */
 			#player-status {
 				width: 640px;
+				--hp-offset: -24px; /* ガイド: 中央カラムをこのオフセットだけ左へ移動 */
 				position: relative; /* center pseudo-element and children relative to this box */
 				margin-top: 1.75rem; /* プレイフィールドと余白を増やす */
 				margin-bottom: 1rem;
@@ -210,6 +211,7 @@
 				align-items: center;
 				gap: 0.75rem;
 				justify-self: center; /* 中央カラムを中央に */
+				transform: translateX(var(--hp-offset)); /* 少し左へ移動 */
 			}
 
 			#player-status .status-label {
@@ -222,7 +224,7 @@
 
 			#player-status .status-hp-bar {
 				position: relative;
-				width: 200px; /* 明示的にプレイフィールド幅に合わせる */
+				width: 175px; /* 約 240px の 0.7 倍 */
 				height: 18px;
 				border: 4px solid #ffffff; /* 白枠でプレイ画面と揃える */
 				background: #222;
@@ -232,7 +234,7 @@
 
 			#player-status .status-hp-fill {
 				height: 100%;
-				width: 92%; /* HP 92 を視覚的に表現 */
+				width: 100%; /* デフォルトは満タン表示。JSで aria 属性に基づき実サイズを設定します */
 				background: linear-gradient(90deg, #d6b800, #e6d24a);
 				transition: width 180ms ease;
 			}
@@ -256,8 +258,10 @@
 				display: block;
 				position: absolute;
 				left: 50%;
-				transform: translateX(-50%);
-				width: calc(240px + 160px); /* center bar + some padding to match screenshot */
+				transform: translateX(calc(-50% + var(--hp-offset)));
+				width: calc(
+					240px + 160px
+				); /* center bar + some padding to match screenshot */
 				height: 44px;
 				border: 4px solid #fff;
 				pointer-events: none;
@@ -320,5 +324,20 @@
 		</div>
 		<!-- メインのスクリプトを読み込み -->
 		<script type="module" src="./main.ts"></script>
+		<!-- HPバーの初期表示を aria 属性に基づき反映する小さな初期化スクリプト -->
+		<script>
+			(function initHpBar() {
+				const bar = document.querySelector(
+					'#player-status .status-hp-bar[role="progressbar"]',
+				);
+				const fill = bar?.querySelector(".status-hp-fill");
+				if (!bar || !fill) return;
+				const now = Number(bar.getAttribute("aria-valuenow") ?? 0);
+				const max = Number(bar.getAttribute("aria-valuemax") ?? 100);
+				const pct =
+					!isFinite(now) || !isFinite(max) || max <= 0 ? 0 : (now / max) * 100;
+				fill.style.width = pct + "%";
+			})();
+		</script>
 	</body>
 </html>
