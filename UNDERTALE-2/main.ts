@@ -25,7 +25,12 @@ if (
 
 addEnemySymbol("skull", "emoji", "☠");
 addEnemySymbol("fish", "emoji", "🐟️");
-addEnemySymbol("papyrus", "image", "./assets/icons8-パピルス-100.png");
+// Resolve image path relative to this module to work under bundlers / GH Pages
+addEnemySymbol(
+	"papyrus",
+	"image",
+	new URL("./assets/icons8-パピルス-100.png", import.meta.url).href,
+);
 
 document.addEventListener("keydown", handleKeyDown, { passive: false });
 document.addEventListener("keyup", handleKeyUp, { passive: false });

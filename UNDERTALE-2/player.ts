@@ -93,11 +93,20 @@ export const clampPlayerToBounds = (playfield: HTMLElement) => {
  */
 export const loadSvg = async () => {
 	try {
-		const response = await fetch("./assets/heart-shape-svgrepo-com.svg");
+		// Resolve the asset relative to this module so builds (Vite, bundlers)
+		// and GitHub Pages subpaths are handled correctly.
+		const url = new URL("./assets/heart-shape-svgrepo-com.svg", import.meta.url).href;
+		const response = await fetch(url);
+		if (!response.ok) throw new Error(`SVG fetch failed: ${response.status} ${response.statusText} (${url})`);
 		const svgText = await response.text();
 		const parser = new DOMParser();
 		const svgDoc = parser.parseFromString(svgText, "image/svg+xml");
-		heartSvg = svgDoc.documentElement as unknown as SVGSVGElement;
+		// Try to find a real <svg> element (parser may return HTML on 404 pages)
+		const svgEl = svgDoc.querySelector("svg");
+		if (!svgEl || !(svgEl instanceof SVGSVGElement)) {
+			throw new Error("取得したファイルは有効なSVGではありませんでした。");
+		}
+		heartSvg = svgEl as SVGSVGElement;
 		heartSvg.style.width = "100%";
 		heartSvg.style.height = "100%";
 		getHeartElement().appendChild(heartSvg);
