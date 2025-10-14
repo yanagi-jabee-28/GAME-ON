@@ -300,7 +300,7 @@ function setupEventDelegation() {
 					gameOver: Game.gameOver,
 				},
 				splitAnalysis,
-				(val0, val1) => {
+			(val0: number, val1: number) => {
 					// Animate split first, then apply split and update UI
 					UI.performPlayerSplitAnim(val0, val1, () => {
 						Game.applySplit("player", val0, val1); // ゲーム状態に分割を反映

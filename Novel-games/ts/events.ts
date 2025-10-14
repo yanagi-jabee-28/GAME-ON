@@ -518,7 +518,7 @@ export const GameEventManager = {
 			return;
 		}
 
-		const eventData = EVENTS["REPORT_ACTION"];
+		const eventData = EVENTS.REPORT_ACTION;
 		console.log(
 			"[doReport] eventData exists:",
 			!!eventData,
@@ -754,7 +754,7 @@ export const GameEventManager = {
 		if (typeof gameManager !== "undefined")
 			gameManager.playerStatus.gameOver = true;
 
-		const eventData = Object.assign({}, EVENTS["GAME_OVER_EVENT"]);
+		const eventData = Object.assign({}, EVENTS.GAME_OVER_EVENT);
 		if (customMessage) eventData.message = customMessage;
 
 		// メッセージ表示

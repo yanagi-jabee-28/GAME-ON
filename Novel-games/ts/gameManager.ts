@@ -9,7 +9,63 @@
 import { CONFIG } from "./config.ts";
 import { GameEventManager } from "./events.ts";
 import { RANDOM_EVENTS, type RandomEventConfig } from "./eventsData.ts";
+import type { ItemData, ItemId } from "./items.ts";
 import { ITEMS } from "./items.ts";
+import type { UIManager } from "./ui.ts";
+
+declare const ui: UIManager;
+
+const ITEM_CATALOG = ITEMS as Record<
+	string,
+	(typeof ITEMS)[keyof typeof ITEMS] | undefined
+>;
+
+// soundManager を直接 any にキャストするのを避けるための安全ラッパー
+function safePlaySound(name: string) {
+	try {
+		const g = globalThis as unknown as {
+			soundManager?: { play?: (n: string) => void };
+		};
+		g.soundManager?.play?.(name);
+	} catch (err) {
+		console.warn("soundManager.play failed", err);
+	}
+}
+
+// 効果IDやアイテムIDから安全にアイテム情報を解決するヘルパー群
+const resolveItemByFlag = (flagId?: string | null) => {
+	if (!flagId) return undefined;
+	for (const id of Object.keys(ITEMS) as Array<keyof typeof ITEMS>) {
+		const item = ITEMS[id];
+		const effect = item.effect;
+		if (
+			effect &&
+			typeof effect === "object" &&
+			"flagId" in effect &&
+			effect.flagId === flagId
+		) {
+			return item;
+		}
+	}
+	return undefined;
+};
+
+const resolveEffectDisplayName = (
+	item?: (typeof ITEMS)[keyof typeof ITEMS] | undefined,
+) => {
+	const effect = item?.effect;
+	if (effect && typeof effect === "object" && "displayName" in effect) {
+		const candidate = (effect as { displayName?: string }).displayName;
+		if (typeof candidate === "string") return candidate;
+	}
+	return undefined;
+};
+
+const resolveItemName = (id?: string | null, fallback?: string) => {
+	if (!id) return fallback ?? "";
+	const item = ITEM_CATALOG[id];
+	return item?.name ?? fallback ?? id;
+};
 
 // ----------------------
 // Type definitions (TS)
@@ -32,6 +88,8 @@ type ChangeSet = {
 	menuLocked?: boolean;
 };
 
+type StatDefKey = keyof typeof CONFIG.STAT_DEFS;
+
 type ApplyOptions = {
 	suppressDisplay?: boolean;
 };
@@ -41,11 +99,12 @@ type EffectMap = Record<
 	{ turns: number; displayName?: string } | undefined
 >;
 
-type Character = {
+export type Character = {
 	id?: string;
 	name?: string;
 	trust?: number;
 	status?: Record<string, unknown>;
+	notes?: string; // optional metadata commonly used by UI
 };
 
 type Report = {
@@ -84,7 +143,7 @@ type HistoryEntry = {
 	turn?: string;
 };
 
-type PlayerStatus = {
+export type PlayerStatus = {
 	day: number;
 	turnIndex: number;
 	condition: number;
@@ -119,14 +178,11 @@ export class GameManager {
 		// 変更リスナー (UIやイベントが購読可能)
 		this._listeners = [];
 		// STAT_DEFS に基づいて stats の欠損キーを初期化する
-		if (
-			typeof CONFIG !== "undefined" &&
-			CONFIG.STAT_DEFS &&
-			this.playerStatus.stats
-		) {
-			for (const key of Object.keys(CONFIG.STAT_DEFS)) {
+		const statDefs = CONFIG?.STAT_DEFS;
+		if (statDefs && this.playerStatus.stats) {
+			for (const key of Object.keys(statDefs) as StatDefKey[]) {
 				if (typeof this.playerStatus.stats[key] === "undefined") {
-					this.playerStatus.stats[key] = CONFIG.STAT_DEFS[key].default || 0;
+					this.playerStatus.stats[key] = statDefs[key]?.default || 0;
 				}
 			}
 		}
@@ -139,11 +195,10 @@ export class GameManager {
 				technical: 0,
 			};
 		["academic", "physical", "mental", "technical"].forEach((k) => {
-			if (
-				typeof this.playerStatus.stats[k] === "undefined" &&
-				CONFIG.STAT_DEFS[k]
-			) {
-				this.playerStatus.stats[k] = CONFIG.STAT_DEFS[k].default || 0;
+			const statKey = k as StatDefKey;
+			const def = statDefs?.[statKey];
+			if (typeof this.playerStatus.stats[statKey] === "undefined" && def) {
+				this.playerStatus.stats[statKey] = def.default || 0;
 			}
 		});
 	}
@@ -160,7 +215,7 @@ export class GameManager {
 	 * }
 	 * @param {object} changes
 	 */
-	applyChanges(changes: ChangeSet = {}, options: ApplyOptions = {}) {
+	applyChanges(changes: ChangeSet = {}, _options: ApplyOptions = {}) {
 		// スナップショットを取り、差分を計算してメッセージを生成する
 		const before = JSON.parse(JSON.stringify(this.playerStatus));
 		let mutated = false;
@@ -192,9 +247,9 @@ export class GameManager {
 		}
 
 		if (Array.isArray(changes.itemsAdd)) {
-			changes.itemsAdd.forEach((itemId) =>
-				this.playerStatus.items.push(itemId),
-			);
+			changes.itemsAdd.forEach((itemId) => {
+				this.playerStatus.items.push(itemId);
+			});
 			mutated = true;
 		}
 
@@ -214,18 +269,20 @@ export class GameManager {
 
 			// stats の差分（physical/mental/technical/academic を個別に表示）
 			if (before.stats && after.stats) {
-				const map = {
+				const map: Record<string, string> = {
 					academic: "学力",
 					physical: "体力",
 					mental: "精神力",
 					technical: "技術力",
 					condition: "コンディション",
 				};
-				for (const key of Object.keys(after.stats)) {
-					const delta = after.stats[key] - (before.stats[key] || 0);
+				for (const key of Object.keys(after.stats) as Array<keyof Stats>) {
+					const delta = (after.stats[key] ?? 0) - (before.stats[key] ?? 0);
 					if (delta !== 0) {
 						const sign = delta > 0 ? "+" : "";
-						messages.push(`${map[key] || key}: ${sign}${delta}`);
+						messages.push(
+							`${map[key as string] ?? (key as string)}: ${sign}${delta}`,
+						);
 					}
 				}
 			}
@@ -258,15 +315,13 @@ export class GameManager {
 
 			// itemsAdd: show added items
 			if (Array.isArray(changes.itemsAdd) && changes.itemsAdd.length > 0) {
-				const itemNames = changes.itemsAdd.map((id) =>
-					ITEMS[id] && ITEMS[id].name ? ITEMS[id].name : id,
-				);
+				const catalog = ITEMS as Record<string, ItemData | undefined>;
+				const itemNames = changes.itemsAdd.map((id) => catalog[id]?.name ?? id);
 				messages.push(`アイテム入手: ${itemNames.join(", ")}`);
-				// play item get sound
+				// play item get sound (safe global call)
 				try {
-					if (typeof soundManager !== "undefined")
-						soundManager.play("item_get");
-				} catch (e) {}
+					(globalThis as any).soundManager?.play?.("item_get");
+				} catch (_e) {}
 			}
 
 			// menuLocked
@@ -280,14 +335,16 @@ export class GameManager {
 			try {
 				// stats
 				if (before.stats && after.stats) {
-					for (const key of Object.keys(after.stats)) {
-						const delta = after.stats[key] - (before.stats[key] || 0);
+					for (const key of Object.keys(after.stats) as Array<keyof Stats>) {
+						const delta = (after.stats[key] ?? 0) - (before.stats[key] ?? 0);
 						if (delta > 0) {
-							if (typeof soundManager !== "undefined")
-								soundManager.play("stat_up");
+							try {
+								(globalThis as any).soundManager?.play?.("stat_up");
+							} catch (_e) {}
 						} else if (delta < 0) {
-							if (typeof soundManager !== "undefined")
-								soundManager.play("stat_down");
+							try {
+								(globalThis as any).soundManager?.play?.("stat_down");
+							} catch (_e) {}
 						}
 					}
 				}
@@ -295,24 +352,29 @@ export class GameManager {
 				if (typeof after.money === "number" && after.money !== before.money) {
 					const delta = after.money - (before.money || 0);
 					if (delta > 0) {
-						if (typeof soundManager !== "undefined")
-							soundManager.play("money_up");
+						try {
+							(globalThis as any).soundManager?.play?.("money_up");
+						} catch (_e) {}
 					} else if (delta < 0) {
-						if (typeof soundManager !== "undefined")
-							soundManager.play("money_down");
+						try {
+							(globalThis as any).soundManager?.play?.("money_down");
+						} catch (_e) {}
 					}
 				}
 				// cp
 				if (typeof after.cp === "number" && after.cp !== before.cp) {
 					const delta = after.cp - (before.cp || 0);
 					if (delta > 0) {
-						if (typeof soundManager !== "undefined") soundManager.play("cp_up");
+						try {
+							(globalThis as any).soundManager?.play?.("cp_up");
+						} catch (_e) {}
 					} else if (delta < 0) {
-						if (typeof soundManager !== "undefined")
-							soundManager.play("cp_down");
+						try {
+							(globalThis as any).soundManager?.play?.("cp_down");
+						} catch (_e) {}
 					}
 				}
-			} catch (e) {
+			} catch (_e) {
 				/* ignore sound errors */
 			}
 
@@ -325,7 +387,7 @@ export class GameManager {
 	 * 変更リスナーを登録する
 	 * @param {function} listener - (newStatus) => void
 	 */
-	subscribe(listener) {
+	subscribe(listener: (newStatus: PlayerStatus) => void) {
 		if (typeof listener === "function") this._listeners.push(listener);
 	}
 
@@ -485,20 +547,19 @@ export class GameManager {
 			this.playerStatus.stats,
 		); // デバッグ用ログ
 
-		for (const key in changes) {
+		for (const key of Object.keys(changes) as (keyof Stats)[]) {
+			const delta = changes[key];
+			if (typeof delta !== "number") continue;
 			if (key in this.playerStatus.stats) {
 				console.log(
-					`Changing ${key}: ${this.playerStatus.stats[key]} + ${changes[key]}`,
+					`Changing ${key}: ${this.playerStatus.stats[key]} + ${delta}`,
 				); // デバッグ用ログ
-				this.playerStatus.stats[key] += changes[key];
+				this.playerStatus.stats[key] += delta;
 
 				// clamp using STAT_DEFS if available
-				if (
-					typeof CONFIG !== "undefined" &&
-					CONFIG.STAT_DEFS &&
-					CONFIG.STAT_DEFS[key]
-				) {
-					const def = CONFIG.STAT_DEFS[key];
+				const statKey = key as StatDefKey;
+				if (CONFIG?.STAT_DEFS?.[statKey]) {
+					const def = CONFIG.STAT_DEFS[statKey];
 					if (typeof def.min === "number")
 						this.playerStatus.stats[key] = Math.max(
 							def.min,
@@ -516,15 +577,11 @@ export class GameManager {
 						this.playerStatus.stats[key] = 100;
 				}
 				console.log(`New value for ${key}: ${this.playerStatus.stats[key]}`); // デバッグ用ログ
-			} else if (
-				typeof CONFIG !== "undefined" &&
-				CONFIG.STAT_DEFS &&
-				CONFIG.STAT_DEFS[key]
-			) {
+			} else if (CONFIG?.STAT_DEFS?.[statKey]) {
 				// 未定義だが STAT_DEFS にあれば新しく作る
-				const def = CONFIG.STAT_DEFS[key];
+				const def = CONFIG.STAT_DEFS[statKey];
 				this.playerStatus.stats[key] = def.default || 0;
-				this.playerStatus.stats[key] += changes[key];
+				this.playerStatus.stats[key] += delta;
 				if (typeof def.min === "number")
 					this.playerStatus.stats[key] = Math.max(
 						def.min,
@@ -551,7 +608,7 @@ export class GameManager {
 	 */
 	async nextTurn() {
 		// ゲームオーバーであればこれ以上進めない
-		if (this.playerStatus && this.playerStatus.gameOver) {
+		if (this.playerStatus?.gameOver) {
 			console.log("Game is over. nextTurn aborted.");
 			return;
 		}
@@ -610,15 +667,11 @@ export class GameManager {
 	 */
 	async runExamIfNeeded() {
 		try {
-			if (!CONFIG || !CONFIG.EXAM) return;
+			if (!CONFIG?.EXAM) return;
 			// 週次繰り返し設定がある場合は曜日ベースで判定
 			const examDay = Number(CONFIG.EXAM.day) || 7;
-			const repeatWeekly =
-				CONFIG.EXAM_EXT && CONFIG.EXAM_EXT.repeatWeekly ? true : false;
-			const targetWeekday =
-				CONFIG.EXAM_EXT && CONFIG.EXAM_EXT.weekday
-					? CONFIG.EXAM_EXT.weekday
-					: null;
+			const repeatWeekly = CONFIG.EXAM_EXT?.repeatWeekly ?? false;
+			const targetWeekday = CONFIG.EXAM_EXT?.weekday ?? null;
 
 			// 既にその日で試験を実行済みなら二重実行を防止
 			if (
@@ -658,10 +711,7 @@ export class GameManager {
 				afterMessage: "",
 			};
 			if (academic >= threshold) {
-				const rewards =
-					CONFIG.EXAM_REWARDS && CONFIG.EXAM_REWARDS.pass
-						? CONFIG.EXAM_REWARDS.pass
-						: { money: 500, cp: 0 };
+				const rewards = CONFIG.EXAM_REWARDS?.pass ?? { money: 500, cp: 0 };
 				const detail = `判定: 合格\n学力: ${academic} / 合格基準: ${threshold}\n報酬: 所持金 ${rewards.money >= 0 ? "+" : ""}${rewards.money}円、人脈 ${rewards.cp >= 0 ? "+" : ""}${rewards.cp}`;
 				eventData.message = header + "\n" + detail;
 				eventData.changes = {
@@ -673,10 +723,7 @@ export class GameManager {
 					detail: { result: "pass", academic, threshold },
 				});
 			} else {
-				const punish =
-					CONFIG.EXAM_REWARDS && CONFIG.EXAM_REWARDS.fail
-						? CONFIG.EXAM_REWARDS.fail
-						: { money: -200, cp: 0 };
+				const punish = CONFIG.EXAM_REWARDS?.fail ?? { money: -200, cp: 0 };
 				const detail = `判定: 不合格\n学力: ${academic} / 合格基準: ${threshold}\nペナルティ: 所持金 ${punish.money >= 0 ? "+" : ""}${punish.money}円、人脈 ${punish.cp >= 0 ? "+" : ""}${punish.cp}\n留年の可能性が発生しました。`;
 				eventData.message = header + "\n" + detail;
 				eventData.changes = {
@@ -755,7 +802,6 @@ export class GameManager {
 		// - フィルタリングされたイベントの中からランダムに一つ選択
 		// - 選択されたイベントを GameEventManager.handleRandomEvent などに渡して実行
 		console.log("Checking for random events...");
-		const currentStatus = this.getStatus();
 		const currentTurnName = this.getCurrentTurnName();
 		const currentWeekdayName = this.getWeekdayName();
 
@@ -839,125 +885,99 @@ export class GameManager {
 		try {
 			switch (e.type) {
 				case "effect_applied": {
-					const flag = e.detail && e.detail.effect;
-					let name = flag || "";
-					// Try to read displayName from current effects (if already registered)
-					if (
-						flag &&
-						this.playerStatus.effects &&
-						this.playerStatus.effects[flag] &&
-						this.playerStatus.effects[flag].displayName
-					) {
-						name = this.playerStatus.effects[flag].displayName;
-					} else {
-						// Fallback: search ITEMS for an effect with matching flagId
-						for (const id of Object.keys(ITEMS || {})) {
-							const it = ITEMS[id];
-							if (it && it.effect && it.effect.flagId === flag) {
-								name = it.effect.displayName || it.name || flag;
-								break;
-							}
-						}
-					}
-					e._label =
-						`効果付与: ${name}` +
-						(e.detail && typeof e.detail.turns === "number"
+					const flag = e.detail?.effect ?? "";
+					const currentEffect = flag
+						? this.playerStatus.effects?.[flag]
+						: undefined;
+					const itemSource = resolveItemByFlag(flag);
+					const itemDisplayName = resolveEffectDisplayName(itemSource);
+					const name =
+						currentEffect?.displayName ??
+						itemDisplayName ??
+						itemSource?.name ??
+						flag;
+					const turnsLabel =
+						typeof e.detail?.turns === "number"
 							? ` (${e.detail.turns}ターン)`
-							: "");
+							: "";
+					e._label = `効果付与: ${name}${turnsLabel}`;
 					break;
 				}
 				case "effect_expired": {
-					const flag = e.detail && e.detail.effect;
-					let name = flag || "";
-					if (
-						flag &&
-						this.playerStatus.effects &&
-						this.playerStatus.effects[flag] &&
-						this.playerStatus.effects[flag].displayName
-					) {
-						name = this.playerStatus.effects[flag].displayName;
-					} else {
-						for (const id of Object.keys(ITEMS || {})) {
-							const it = ITEMS[id];
-							if (it && it.effect && it.effect.flagId === flag) {
-								name = it.effect.displayName || it.name || flag;
-								break;
-							}
-						}
-					}
+					const flag = e.detail?.effect ?? "";
+					const currentEffect = flag
+						? this.playerStatus.effects?.[flag]
+						: undefined;
+					const itemSource = resolveItemByFlag(flag);
+					const itemDisplayName = resolveEffectDisplayName(itemSource);
+					const name =
+						currentEffect?.displayName ??
+						itemDisplayName ??
+						itemSource?.name ??
+						flag;
 					e._label = `効果終了: ${name}`;
 					break;
 				}
 				case "use_item": {
 					const itemName =
-						e.detail &&
-						(e.detail.itemName ||
-							(e.detail.itemId && ITEMS[e.detail.itemId]
-								? ITEMS[e.detail.itemId].name
-								: e.detail.itemId));
+						e.detail?.itemName ||
+						resolveItemName(e.detail?.itemId, e.detail?.itemName);
 					e._label = itemName ? `アイテム使用 - ${itemName}` : "アイテム使用";
 					break;
 				}
 				case "add_character": {
-					e._label =
-						e.detail && e.detail.name
-							? `キャラクター追加 - ${e.detail.name}`
-							: "キャラクター追加";
+					e._label = e.detail?.name
+						? `キャラクター追加 - ${e.detail.name}`
+						: "キャラクター追加";
 					break;
 				}
 				case "trust_change": {
-					const ch = e.detail || {};
-					const who =
-						ch.id && this.getCharacter(ch.id)
-							? this.getCharacter(ch.id).name
-							: ch.id || "キャラクター";
-					e._label = `信頼度変動 - ${who}: ${ch.delta > 0 ? "+" + ch.delta : ch.delta}`;
+					const ch = (e.detail ?? {}) as { id?: string; delta?: number };
+					const who = ch.id
+						? (this.getCharacter(ch.id)?.name ?? ch.id)
+						: "キャラクター";
+					const delta = ch.delta ?? 0;
+					e._label = `信頼度変動 - ${who}: ${delta > 0 ? `+${delta}` : delta}`;
 					break;
 				}
 				case "choice": {
-					e._label =
-						e.detail && e.detail.label ? `選択 - ${e.detail.label}` : "選択";
+					e._label = e.detail?.label ? `選択 - ${e.detail.label}` : "選択";
 					break;
 				}
 				case "shop_visit": {
-					e._label =
-						e.detail && e.detail.shopLabel
-							? `${e.detail.shopLabel}に入店`
-							: "店に入店";
+					e._label = e.detail?.shopLabel
+						? `${e.detail.shopLabel}に入店`
+						: "店に入店";
 					break;
 				}
 				case "purchase": {
 					const itemName =
-						e.detail &&
-						(e.detail.itemName ||
-							(e.detail.itemId && ITEMS[e.detail.itemId]
-								? ITEMS[e.detail.itemId].name
-								: e.detail.itemId));
+						e.detail?.itemName ||
+						resolveItemName(e.detail?.itemId, e.detail?.itemName);
 					e._label = itemName ? `購入 - ${itemName}` : "購入";
 					break;
 				}
 				case "shop_leave": {
-					const shopId = e.detail && e.detail.shopId;
-					const purchased = e.detail && !!e.detail.purchased;
+					const shopId = e.detail?.shopId ?? null;
+					const purchased = Boolean(e.detail?.purchased);
 					const shopLabel = (() => {
-						if (e.detail && e.detail.shopLabel) {
-							return e.detail.shopLabel;
-						}
+						if (e.detail?.shopLabel) return e.detail.shopLabel;
 						if (typeof shopId === "string" && shopId in CONFIG.SHOPS) {
 							const shopKey = shopId as keyof typeof CONFIG.SHOPS;
-							return CONFIG.SHOPS[shopKey].label;
+							return CONFIG.SHOPS[shopKey]?.label ?? shopId;
 						}
-						return shopId || "店";
+						return shopId ?? "店";
 					})();
 					if (purchased) {
 						const itemName =
-							e.detail &&
-							(e.detail.itemName ||
-								(e.detail.itemId && ITEMS[e.detail.itemId]
-									? ITEMS[e.detail.itemId].name
-									: e.detail.itemId));
+							e.detail?.itemName ||
+							resolveItemName(e.detail?.itemId, e.detail?.itemName);
+						const priceLabel =
+							e.detail?.price != null
+								? `${e.detail.price}${CONFIG.LABELS?.currencyUnit ?? ""}`
+								: "";
 						e._label = itemName
-							? `${shopLabel}で購入して退店（${itemName}、${e.detail.price || ""}${CONFIG.LABELS?.currencyUnit ?? ""}）`
+							? `${shopLabel}で購入して退店（${itemName}${priceLabel ? `、${priceLabel}` : ""}）`
 							: `${shopLabel}で購入して退店`;
 					} else {
 						e._label = `${shopLabel}を訪れて何も買わず退店`;
@@ -1035,7 +1055,6 @@ export class GameManager {
 		if (idx === -1) return null; // 何も起きなかった
 
 		const report = this.playerStatus.reports[idx];
-		const oldProgress = report.progress;
 		report.progress += amount;
 
 		// Collect messages: allow per-report custom messages and per-progress/complete changes
@@ -1046,7 +1065,7 @@ export class GameManager {
 			try {
 				const msgs =
 					this.applyChanges(report.changes, { suppressDisplay: true }) || [];
-				if (msgs && msgs.length) outMsgs.push(...msgs);
+				if (msgs?.length) outMsgs.push(...msgs);
 			} catch (e) {
 				console.warn("report.changes apply failed", e);
 			}
@@ -1060,7 +1079,7 @@ export class GameManager {
 						this.applyChanges(report.completeChanges, {
 							suppressDisplay: true,
 						}) || [];
-					if (msgs2 && msgs2.length) outMsgs.push(...msgs2);
+					if (msgs2?.length) outMsgs.push(...msgs2);
 				} catch (e) {
 					console.warn("report.completeChanges apply failed", e);
 				}
@@ -1101,7 +1120,7 @@ export class GameManager {
 	 */
 	async useItem(itemId: string) {
 		// ここに async を追加
-		const item = ITEMS[itemId];
+		const item = ITEM_CATALOG[itemId];
 		if (!item) {
 			console.error(`Item not found: ${itemId}`);
 			return false;
@@ -1116,7 +1135,7 @@ export class GameManager {
 		this.playerStatus.items.splice(itemIndex, 1); // アイテムを消費
 
 		// アイテムの効果を適用
-		if (item.effect && item.effect.changes) {
+		if (item.effect?.changes) {
 			// 汎用イベントデータを作成してイベントフローで実行する
 			const eventData = {
 				name: item.name,
@@ -1131,8 +1150,7 @@ export class GameManager {
 				// message window from being pulled above the menu overlay.
 				if (
 					typeof ui !== "undefined" &&
-					ui.menuOverlay &&
-					!ui.menuOverlay.classList.contains("hidden") &&
+					ui.menuOverlay?.classList?.contains("hidden") === false &&
 					typeof GameEventManager !== "undefined" &&
 					GameEventManager.isInFreeAction
 				) {
@@ -1152,8 +1170,7 @@ export class GameManager {
 							} else if (typeof ui.waitForClick === "function") {
 								await ui.waitForClick();
 							}
-							if (typeof ui.clearMenuMessage === "function")
-								ui.clearMenuMessage();
+							ui.clearMenuMessage?.();
 						}
 					} catch (innerErr) {
 						console.warn("Menu-display item use flow failed", innerErr);
@@ -1162,8 +1179,8 @@ export class GameManager {
 					// Default: use the normal event flow which shows messages in the main window
 					await GameEventManager.performChangesEvent(eventData);
 				}
-			} catch (e) {
-				console.warn("performChangesEvent failed for useItem", e);
+			} catch (err) {
+				console.warn("performChangesEvent failed for useItem", err);
 				// フォールバック: 直接適用して差分をまとめて表示
 				const messages =
 					this.applyChanges(item.effect.changes, { suppressDisplay: true }) ||
@@ -1185,7 +1202,7 @@ export class GameManager {
 							} else if (typeof ui.waitForClick === "function") {
 								await ui.waitForClick();
 							}
-							ui.clearMenuMessage && ui.clearMenuMessage();
+							ui.clearMenuMessage?.();
 						}
 					} else if (typeof ui.displayMessage === "function") {
 						ui.displayMessage(combined, "システム");
@@ -1219,8 +1236,8 @@ export class GameManager {
 						this.playerStatus.effects[item.effect.flagId],
 					);
 				}
-			} catch (e) {
-				console.warn("Failed to apply item effect flag", e);
+			} catch (err) {
+				console.warn("Failed to apply item effect flag", err);
 			}
 		} else {
 			console.warn(`Item ${itemId} has no defined effect.`);
@@ -1253,13 +1270,12 @@ export class GameManager {
 			typeof this.playerStatus.stats.mental === "number"
 				? this.playerStatus.stats.mental
 				: undefined;
-		let cond;
+		let cond: number | undefined;
 		if (typeof p === "number" && typeof m === "number") {
 			cond = Math.round((p + m) / 2);
 		} else if (typeof p === "number") {
-			cond = p;
-		} else if (typeof m === "number") {
-			cond = m;
+			const messages =
+				this.applyChanges(item.effect.changes, { suppressDisplay: true }) || [];
 		} else {
 			// 後方互換: 旧 stats.condition or 既存の condition を使用
 			const legacy = this.playerStatus.stats
@@ -1272,8 +1288,7 @@ export class GameManager {
 	}
 
 	/**
-	 * ゲームデータをロードする
-	 * @param {object} loadedData - ロードされたゲームデータオブジェクト
+						ui.clearMenuMessage?.();
 	 */
 	loadGame(loadedData: PlayerStatus) {
 		// ロードされたデータを現在のプレイヤーの状態に適用
@@ -1288,8 +1303,10 @@ export class GameManager {
 		}
 		// コンディションを再計算・更新
 		this.updateCondition();
-		// UIに状態の変更を通知
-		this._notifyListeners();
-		console.log("Game data loaded successfully.");
+		try {
+			if (typeof globalThis.soundManager !== "undefined") {
+				globalThis.soundManager.play("item_use");
+			}
+		} catch (_err) {}
 	}
 }

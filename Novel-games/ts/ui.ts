@@ -7,7 +7,23 @@
  */
 
 import { CONFIG } from "./config.ts";
+import type { GameManager, PlayerStatus } from "./gameManager.ts";
+import type { ItemData } from "./items.ts";
 import { ITEMS } from "./items.ts";
+import type { SoundManager } from "./soundManager.ts";
+
+// `main.ts` wires runtime instances onto window; declare them here with types
+// so this module can use them without falling back to `any`.
+declare const gameManager: GameManager;
+declare const soundManager: SoundManager;
+// Reference the runtime GameEventManager exported in ./events.ts
+type GameEventManagerType = typeof import("./events").GameEventManager;
+declare const GameEventManager: GameEventManagerType;
+// runtime global UI instance (wired in main.ts)
+declare const ui: UIManager;
+
+// initializeGame is wired by the runtime (main.ts). Declare it so TS knows its shape.
+declare function initializeGame(name: string): void;
 
 // Minimal, focused types for UI interactions. Keep these narrow and
 // representative so UIManager can rely on proper typings without
@@ -25,9 +41,9 @@ interface EffectEntry {
 }
 
 interface ReportEntry {
-	title: string;
-	progress: number;
-	required: number;
+	title?: string;
+ 	progress: number;
+ 	required: number;
 }
 
 interface HistoryDetail {
@@ -48,82 +64,65 @@ interface HistoryEntry {
 	_label?: string;
 }
 
-interface GameStatus {
-	day: number;
-	turnIndex?: number;
-	money?: number | string;
-	cp?: number | string;
-	items?: string[];
-	reports?: ReportEntry[];
-	history?: HistoryEntry[];
-	characters?: Character[];
-	effects?: Record<string, EffectEntry> | {};
-	stats?: {
-		physical?: number | string;
-		mental?: number | string;
-		technical?: number | string;
-		academic?: number | string;
-	};
-	reportDebt?: string | number;
-	menuLocked?: boolean;
-}
+// Use PlayerStatus from gameManager for the canonical runtime state shape
+type GameStatus = PlayerStatus;
 
 export class UIManager {
 	// Screen containers
-	private titleScreen: HTMLElement;
-	private gameScreen: HTMLElement;
+	private titleScreen: HTMLElement | null = null;
+	private gameScreen: HTMLElement | null = null;
 
 	// Status displays
-	private dateDisplay: HTMLElement;
-	private timeOfDayDisplay: HTMLElement;
-	private physicalDisplay: HTMLElement;
-	private mentalDisplay: HTMLElement;
-	private technicalDisplay: HTMLElement;
-	private academicDisplay: HTMLElement; // may be attached dynamically
-	private moneyDisplay: HTMLElement;
-	private cpDisplay: HTMLElement;
+	private dateDisplay: HTMLElement | null = null;
+	private timeOfDayDisplay: HTMLElement | null = null;
+	private physicalDisplay: HTMLElement | null = null;
+	private mentalDisplay: HTMLElement | null = null;
+	private technicalDisplay: HTMLElement | null = null;
+	private academicDisplay: HTMLElement | null = null; // may be attached dynamically
+	private moneyDisplay: HTMLElement | null = null;
+	private cpDisplay: HTMLElement | null = null;
 
 	// Message window
-	private messageWindow: HTMLElement;
-	private characterName: HTMLElement;
-	private messageText: HTMLElement;
-	private clickIndicator: HTMLElement;
+	private messageWindow: HTMLElement | null = null;
+	private characterName: HTMLElement | null = null;
+	private messageText: HTMLElement |null = null;
+	private clickIndicator: HTMLElement | null = null;
 
 	// Choices
-	private choicesArea: HTMLElement;
+	private choicesArea: HTMLElement | null = null;
 
 	// Menu elements
-	private menuButton: HTMLElement;
-	private menuCloseButton: HTMLElement & { disabled?: boolean };
-	public menuOverlay: HTMLElement & { dataset?: DOMStringMap };
-	private menuAcademic: HTMLElement;
-	private menuPhysical: HTMLElement;
-	private menuMental: HTMLElement;
-	private menuTechnical: HTMLElement;
-	private menuReportDebt: HTMLElement;
-	private menuItemList: HTMLElement;
-	private menuCloseFloating: HTMLElement;
-	private menuItemSection: HTMLElement;
-	private menuHistorySection: HTMLElement;
-	private toggleItemsButton: HTMLElement;
-	private toggleHistoryButton: HTMLElement;
-	private toggleCharactersButton: HTMLElement;
-	private menuCharactersSection: HTMLElement;
+	private menuButton: HTMLElement | null = null;
+	private menuCloseButton: (HTMLElement & { disabled?: boolean }) | null = null;
+	public menuOverlay: (HTMLElement & { dataset?: DOMStringMap }) | null = null;
+	private menuAcademic: HTMLElement | null = null;
+	private menuPhysical: HTMLElement | null = null;
+	private menuMental: HTMLElement | null = null;
+	private menuTechnical: HTMLElement | null = null;
+	private menuReportDebt: HTMLElement | null = null;
+	private menuItemList: HTMLElement | null = null;
+	private menuCloseFloating: HTMLElement | null = null;
+	private menuItemSection: HTMLElement | null = null;
+	private menuHistorySection: HTMLElement | null = null;
+	private toggleItemsButton: HTMLElement | null = null;
+	private toggleHistoryButton: HTMLElement | null = null;
+	private toggleCharactersButton: HTMLElement | null = null;
+	private menuCharactersSection: HTMLElement | null = null;
 
 	// Character focused area
-	private focusedCharacterWrap: HTMLElement;
-	private focusedCharacterName: HTMLElement;
-	private focusedCharacterTrust: HTMLElement;
+	private focusedCharacterWrap: HTMLElement | null = null;
+	private focusedCharacterName: HTMLElement | null = null;
+	private focusedCharacterTrust: HTMLElement | null = null;
 
 	// Save/Load
-	private saveGameButton: HTMLElement;
-	private loadGameButton: HTMLElement;
-	private loadGameFileInput: HTMLElement;
+	private saveGameButton: HTMLElement | null = null;
+	private loadGameButton: HTMLElement | null = null;
+	private loadGameFileInput: HTMLElement | null = null;
 
 	// Keyboard handler
 	private _boundKeyboardHandler?: (e: KeyboardEvent) => void;
 	private _keyboardHandler?: (e: KeyboardEvent) => void;
-	private toggleReportButton?: HTMLElement | null;
+	private toggleReportButton?: HTMLElement | null = null;
 	/**
 	 * UIManagerのコンストラクタ
 	 */
@@ -188,7 +187,7 @@ export class UIManager {
 			typeof gameManager !== "undefined" &&
 			typeof gameManager.subscribe === "function"
 		) {
-			gameManager.subscribe((status) => {
+			gameManager.subscribe((status: GameStatus) => {
 				this.updateStatusDisplay(status);
 				// メニューが開いている場合はメニューの内容も更新する
 				if (
@@ -273,18 +272,19 @@ export class UIManager {
 	async openMenuWindow(type: "item" | "history" | "character" | "report") {
 		try {
 			// メニュー自体が閉じている場合は開く（ただしフリー行動チェックは openMenu が行う）
-			if (this.menuOverlay && this.menuOverlay.classList.contains("hidden")) {
+			if (this.menuOverlay?.classList.contains("hidden")) {
 				this.menuOverlay.classList.remove("hidden");
 			}
 			// Mark as user-opened because this is invoked from a user action
 			try {
 				if (this.menuOverlay) this.menuOverlay.dataset.userOpened = "1";
-			} catch {}
+			} catch (_e) {}
 
 			if (type === "item") {
 				const win = document.getElementById("menu-item-window");
 				if (!win) return;
 				const list = document.getElementById("menu-item-window-list");
+				if (!list) return;
 				list.innerHTML = "";
 				const status = gameManager.getAllStatus();
 				if (!status.items || status.items.length === 0) {
@@ -293,7 +293,9 @@ export class UIManager {
 					list.appendChild(li);
 				} else {
 					for (const itemId of status.items) {
-						const item = ITEMS[itemId];
+						const item = (ITEMS as Record<string, ItemData>)[
+							itemId as keyof typeof ITEMS as string
+						];
 						const li = document.createElement("li");
 						li.innerHTML = `<span>${item ? item.name : itemId} - ${item ? item.description : ""}</span>`;
 
@@ -339,6 +341,7 @@ export class UIManager {
 				const win = document.getElementById("menu-history-window");
 				if (!win) return;
 				const list = document.getElementById("menu-history-window-list");
+				if (!list) return;
 				list.innerHTML = "";
 				const status = gameManager.getAllStatus();
 				const history = status.history || [];
@@ -354,23 +357,22 @@ export class UIManager {
 						let text = "";
 
 						// If a human-readable label was attached by gameManager.addHistory, prefer it.
-						if (h && h._label) {
+						if (h._label) {
 							li.textContent = `${time}: ${h._label}`;
 							list.appendChild(li);
-							return;
+							continue;
 						}
 						if (h.type === "use_item") {
 							const itemName =
-								h.detail && h.detail.itemName
-									? h.detail.itemName
-									: h.detail && h.detail.itemId && ITEMS[h.detail.itemId]
-										? ITEMS[h.detail.itemId].name
-										: h.detail && h.detail.itemId
-											? h.detail.itemId
-											: "アイテム";
+								h.detail?.itemName ??
+								(h.detail?.itemId
+									? (ITEMS as Record<string, ItemData>)[h.detail.itemId]?.name
+									: undefined) ??
+								h.detail?.itemId ??
+								"アイテム";
 							text = `${time}: アイテム使用 - ${itemName}`;
 						} else if (h.type === "choice") {
-							const label = h.detail && h.detail.label ? h.detail.label : "";
+							const label = h.detail?.label ?? "";
 							text = `${time}: 選択 - ${label}`;
 						} else {
 							text = `${time}: ${h.type}`;
@@ -391,7 +393,9 @@ export class UIManager {
 					win.id = winId;
 					win.className = "menu-window";
 					win.innerHTML = `<div class="menu-window-header">キャラクター一覧<button class="menu-window-close">✕</button></div><div class="menu-window-body" id="menu-character-window-list"></div>`;
-					document.getElementById("game-container").appendChild(win);
+					const container = document.getElementById("game-container");
+					if (container) container.appendChild(win);
+					else if (document.body) document.body.appendChild(win);
 					// wire close
 					win
 						.querySelector(".menu-window-close")
@@ -400,6 +404,7 @@ export class UIManager {
 						});
 				}
 				const listEl = document.getElementById("menu-character-window-list");
+				if (!listEl) return;
 				listEl.innerHTML = "";
 				const status = gameManager.getAllStatus();
 				const chars = (status.characters || []).filter(
@@ -427,13 +432,17 @@ export class UIManager {
 								detail.id = "menu-character-detail-window";
 								detail.className = "menu-window";
 								detail.innerHTML = `<div class="menu-window-header">キャラクター詳細<button class="menu-window-close">✕</button></div><div class="menu-window-body" id="menu-character-detail-body"></div>`;
-								document.getElementById("game-container").appendChild(detail);
+								const gameContainer = document.getElementById("game-container");
+								if (gameContainer) gameContainer.appendChild(detail);
 								// wire close
-								detail
-									.querySelector(".menu-window-close")
-									.addEventListener("click", () => {
+								const closeBtn = detail.querySelector(
+									".menu-window-close",
+								);
+								if (closeBtn) {
+									closeBtn.addEventListener("click", () => {
 										this.closeMenuWindow(detail);
 									});
+								}
 							}
 							const body = document.getElementById(
 								"menu-character-detail-body",
@@ -479,7 +488,7 @@ export class UIManager {
 						});
 				}
 				const body = document.getElementById("menu-report-window-body");
-				body.innerHTML = "";
+				if (body) body.innerHTML = "";
 				const status = gameManager.getAllStatus();
 				const reports = status.reports || [];
 				if (reports.length === 0) {
@@ -499,8 +508,8 @@ export class UIManager {
 				this._setMenuCloseEnabled(false);
 				return;
 			}
-		} catch (e) {
-			console.error("openMenuWindow error", e);
+		} catch (_e) {
+			console.error("openMenuWindow error", _e);
 		}
 	}
 
@@ -508,7 +517,7 @@ export class UIManager {
 	 * メニュー専用ウィンドウを閉じる
 	 * @param {Element} winEl
 	 */
-	closeMenuWindow(winEl) {
+	closeMenuWindow(winEl: Element | null) {
 		if (!winEl) return;
 		winEl.classList.add("hidden");
 		// If the closed window was an item or character window, re-enable main menu close controls
@@ -520,9 +529,9 @@ export class UIManager {
 			);
 			const reportWin = document.getElementById("menu-report-window");
 			const stillOpen =
-				(itemWin && !itemWin.classList.contains("hidden")) ||
-				(charWin && !charWin.classList.contains("hidden")) ||
-				(charDetail && !charDetail.classList.contains("hidden"));
+				(itemWin?.classList.contains("hidden") === false) ||
+				(charWin?.classList.contains("hidden") === false) ||
+				(charDetail?.classList.contains("hidden") === false);
 			if (!stillOpen) this._setMenuCloseEnabled(true);
 		} catch {}
 	}
@@ -531,7 +540,7 @@ export class UIManager {
 	 * Enable or disable the main menu close controls while modal-like windows are open
 	 * @param {boolean} enabled
 	 */
-	_setMenuCloseEnabled(enabled) {
+	_setMenuCloseEnabled(enabled: boolean) {
 		try {
 			if (this.menuCloseButton) {
 				this.menuCloseButton.disabled = !enabled;
@@ -553,7 +562,7 @@ export class UIManager {
 	 * ステータス表示を更新する
 	 * @param {object} status - 表示するステータス情報 (GameManagerから取得)
 	 */
-	updateStatusDisplay(status) {
+	updateStatusDisplay(status: GameStatus) {
 		console.log("UI.updateStatusDisplay called with status:", status);
 		// 日付表示に曜日を付与
 		const weekday =
@@ -585,51 +594,57 @@ export class UIManager {
 
 		if (this.dateDisplay)
 			this.dateDisplay.textContent = `${status.day}日目 (${weekday}曜日)`;
-		if (this.timeOfDayDisplay)
+		if (this.timeOfDayDisplay && typeof status.turnIndex !== "undefined")
 			this.timeOfDayDisplay.textContent = CONFIG.TURNS[status.turnIndex];
-		if (this.physicalDisplay)
+		if (this.physicalDisplay) {
+			const stats = status.stats;
 			this.physicalDisplay.textContent =
-				status.stats && typeof status.stats.physical !== "undefined"
-					? status.stats.physical
-					: "";
-		if (this.mentalDisplay)
+				typeof stats?.physical !== "undefined" ? String(stats.physical) : "";
+		}
+		if (this.mentalDisplay) {
+			const stats = status.stats;
 			this.mentalDisplay.textContent =
-				status.stats && typeof status.stats.mental !== "undefined"
-					? status.stats.mental
-					: "";
-		if (this.academicDisplay)
+				typeof stats?.mental !== "undefined" ? String(stats.mental) : "";
+		}
+		if (this.academicDisplay) {
+			const stats = status.stats;
 			this.academicDisplay.textContent =
-				status.stats && typeof status.stats.academic !== "undefined"
-					? status.stats.academic
-					: "";
-		if (this.technicalDisplay)
+				typeof stats?.academic !== "undefined" ? String(stats.academic) : "";
+		}
+		if (this.technicalDisplay) {
+			const stats = status.stats;
 			this.technicalDisplay.textContent =
-				status.stats && typeof status.stats.technical !== "undefined"
-					? status.stats.technical
-					: "";
+				typeof stats?.technical !== "undefined" ? String(stats.technical) : "";
+		}
 		// 通貨単位は CONFIG.LABELS.currencyUnit を優先
 		const unit = CONFIG?.LABELS?.currencyUnit ?? "円";
-		this.moneyDisplay.textContent = `${status.money}${unit}`;
-		this.cpDisplay.textContent = status.cp;
+		if (this.moneyDisplay)
+			this.moneyDisplay.textContent = `${status.money}${unit}`;
+		if (this.cpDisplay) this.cpDisplay.textContent = String(status.cp ?? "");
 	}
 
 	/**
 	 * フォーカス中のキャラクター表示を更新する
 	 */
-	updateFocusedCharacter(status) {
+	updateFocusedCharacter(_status?: GameStatus) {
 		try {
 			if (!this.focusedCharacterWrap) return;
-			const player = gameManager.getCharacter("player");
+			const player =
+				typeof gameManager !== "undefined"
+					? gameManager.getCharacter("player")
+					: null;
 			if (!player) {
 				this.focusedCharacterWrap.style.display = "none";
 				return;
 			}
-			this.focusedCharacterName.textContent = player.name || "";
-			this.focusedCharacterTrust.textContent =
-				typeof player.trust === "number" ? `${player.trust}` : "";
+			if (this.focusedCharacterName)
+				this.focusedCharacterName.textContent = player.name || "";
+			if (this.focusedCharacterTrust)
+				this.focusedCharacterTrust.textContent =
+					typeof player.trust === "number" ? `${player.trust}` : "";
 			this.focusedCharacterWrap.style.display = "flex";
-		} catch (e) {
-			console.warn("updateFocusedCharacter error", e);
+		} catch (_e) {
+			console.warn("updateFocusedCharacter error", _e);
 		}
 	}
 
@@ -638,7 +653,7 @@ export class UIManager {
 	 * @param {string} text - 表示するメッセージ本文
 	 * @param {string} [characterName=''] - 表示するキャラクター名 (省略可能)
 	 */
-	displayMessage(text, characterName = "") {
+	displayMessage(text: string | undefined | null, characterName: string = "") {
 		// Guard: ignore empty or whitespace-only messages to avoid showing
 		// an empty message window that only waits for a click.
 		if (text === null || typeof text === "undefined") return;
@@ -651,7 +666,7 @@ export class UIManager {
 		let finalCharacterName = characterName;
 		if (characterName === "主人公" && typeof gameManager !== "undefined") {
 			const player = gameManager.getCharacter("player");
-			if (player && player.name) {
+			if (player?.name) {
 				finalCharacterName = player.name;
 			}
 		}
@@ -663,32 +678,37 @@ export class UIManager {
 		// メニューが開いている場合はメッセージウィンドウを前面に出す
 		// 常にメッセージウィンドウを前面に出しておく（overlay が残っている場合の救済策）
 		try {
-			this.messageWindow.style.zIndex = "2000"; // overlay (1000) より高くしておく
+			if (this.messageWindow) this.messageWindow.style.zIndex = "2000"; // overlay (1000) より高くしておく
 		} catch {
 			/* ignore */
 		}
-		if (this.menuOverlay && !this.menuOverlay.classList.contains("hidden")) {
+		if (this.menuOverlay?.classList.contains("hidden") === false) {
 			// 元の zIndex を保存しておく
-			if (typeof this.messageWindow.dataset.origZ === "undefined") {
+			if (
+				this.messageWindow &&
+				typeof this.messageWindow.dataset.origZ === "undefined"
+			) {
 				this.messageWindow.dataset.origZ =
 					this.messageWindow.style.zIndex || "";
 			}
-			this.messageWindow.style.zIndex = "10001"; // menuより前面
+			if (this.messageWindow) this.messageWindow.style.zIndex = "10001"; // menuより前面
 			// メッセージウィンドウが非表示になっている場合は表示する
-			this.messageWindow.style.display = "block";
+			if (this.messageWindow) this.messageWindow.style.display = "block";
 		}
 
-		this.characterName.textContent = finalCharacterName;
-		this.messageText.textContent = text;
+		if (this.characterName) this.characterName.textContent = finalCharacterName;
+		if (this.messageText) this.messageText.textContent = String(text ?? "");
 		// 追加デバッグ: メッセージDOMの内容を確認
 		try {
 			console.log(
 				"messageText.innerHTML:",
-				this.messageText.innerHTML,
+				this.messageText?.innerHTML,
 				"computed display:",
-				window.getComputedStyle(this.messageWindow).display,
+				this.messageWindow
+					? window.getComputedStyle(this.messageWindow).display
+					: "",
 				"zIndex:",
-				this.messageWindow.style.zIndex,
+				this.messageWindow?.style.zIndex,
 			);
 		} catch {
 			/* ignore logging failure */
@@ -746,14 +766,14 @@ export class UIManager {
 	waitForClick(): Promise<void> {
 		return new Promise<void>((resolve) => {
 			// クリックインジケーターを表示
-			this.clickIndicator.style.display = "block";
+			if (this.clickIndicator) this.clickIndicator.style.display = "block";
 
 			const listener = () => {
 				console.log("UI.waitForClick: click detected, resolving");
 				// イベントリスナーを一度実行したら削除する
-				this.messageWindow.removeEventListener("click", listener);
-				// インジケーターを非表示にする
-				this.clickIndicator.style.display = "none";
+				if (this.messageWindow)
+					this.messageWindow.removeEventListener("click", listener);
+				if (this.clickIndicator) this.clickIndicator.style.display = "none";
 				// クリック音を鳴らす（存在すれば）
 				try {
 					if (typeof soundManager !== "undefined")
@@ -769,7 +789,8 @@ export class UIManager {
 			};
 
 			// メッセージウィンドウにクリックイベントを設定
-			this.messageWindow.addEventListener("click", listener);
+			if (this.messageWindow)
+				this.messageWindow.addEventListener("click", listener);
 		});
 	}
 
@@ -777,9 +798,9 @@ export class UIManager {
 	 * 選択肢を表示する
 	 * @param {Array<object>} choices - 選択肢の配列。各オブジェクトは { text: '選択肢の文言', callback: 選択されたときの関数 } を持つ
 	 */
-	displayChoices(choices) {
+	displayChoices(choices: Array<{ text: string; callback?: () => void }>) {
 		// 既存の選択肢をクリア
-		this.choicesArea.innerHTML = "";
+		if (this.choicesArea) this.choicesArea.innerHTML = "";
 
 		if (!choices || choices.length === 0) {
 			return; // 選択肢がなければ何もしない
@@ -805,8 +826,8 @@ export class UIManager {
 					) {
 						gameManager.recordChoice(choice.text);
 					}
-				} catch (e) {
-					console.error("recordChoice error", e);
+				} catch (_e) {
+					console.error("recordChoice error", _e);
 				}
 
 				// 先に既存の選択肢を消してからコールバックを実行する
@@ -818,17 +839,17 @@ export class UIManager {
 					if (choice.callback) {
 						choice.callback();
 					}
-				} catch (e) {
-					console.error("choice callback error", e);
+				} catch (_e) {
+					console.error("choice callback error", _e);
 				}
 			};
-			this.choicesArea.appendChild(button);
+			if (this.choicesArea) this.choicesArea.appendChild(button);
 		});
 
 		// 初期選択を一つ目に設定（キーボード操作のため）
-		const buttons = Array.from(
-			this.choicesArea.querySelectorAll(".choice-button"),
-		);
+		const buttons: HTMLElement[] = this.choicesArea
+			? Array.from(this.choicesArea.querySelectorAll<HTMLElement>(".choice-button"))
+			: [];
 		if (buttons.length > 0) {
 			buttons.forEach((b) => {
 				b.classList.remove("focused");
@@ -841,7 +862,7 @@ export class UIManager {
 	 * 選択肢を非表示にする
 	 */
 	clearChoices() {
-		this.choicesArea.innerHTML = "";
+		if (this.choicesArea) this.choicesArea.innerHTML = "";
 	}
 
 	// --- メニュー関連のメソッド ---
@@ -877,17 +898,17 @@ export class UIManager {
 		// メニューを開く際、もしメッセージウィンドウが表示中であれば
 		// メニューとの重なりを防ぐため一時的に非表示にする
 		try {
-			if (
-				this.messageWindow &&
-				window.getComputedStyle(this.messageWindow).display !== "none"
-			) {
-				this.messageWindow.dataset.wasVisible = "1";
+					if (
+						this.messageWindow &&
+						window.getComputedStyle(this.messageWindow).display !== "none"
+					) {
+				this.messageWindow.dataset.wasVisible = "1"; // Store visibility state
 				this.messageWindow.style.display = "none";
 			}
 		} catch {
 			/* ignore */
 		}
-		this.menuOverlay.classList.remove("hidden");
+		this.menuOverlay?.classList.remove("hidden");
 		// Mark that the menu was opened by user action so automatic
 		// safety code does not hide it unexpectedly.
 		try {
@@ -911,10 +932,11 @@ export class UIManager {
 		try {
 			const itemWin = document.getElementById("menu-item-window");
 			if (itemWin && !itemWin.classList.contains("hidden")) {
-				// keep menu open and notify user
 				this.showTransientNotice(
 					"アイテム効果表示中はメニューを閉じられません。",
-					{ duration: 1200 },
+					{
+						duration: 1200,
+					},
 				);
 				// ensure close controls remain disabled
 				this._setMenuCloseEnabled(false);
@@ -923,28 +945,23 @@ export class UIManager {
 		} catch {
 			/* ignore */
 		}
-		const status = gameManager.getStatus();
-		this.menuOverlay.classList.add("hidden");
+	// hide menu overlay
+	this.menuOverlay?.classList.add("hidden");
 		if (this.menuCloseFloating)
 			this.menuCloseFloating.setAttribute("aria-visible", "false");
 		// メッセージウィンドウを一時的に隠していた場合は復元する
 		try {
-			if (this.messageWindow && this.messageWindow.dataset.wasVisible) {
+			if (this.messageWindow?.dataset.wasVisible) {
 				this.messageWindow.style.display = "block";
 				delete this.messageWindow.dataset.wasVisible;
 			}
-		} catch {
+		} catch (_e) {
 			/* ignore */
 		}
 		// Clear the userOpened marker when the menu is explicitly closed
 		try {
-			if (
-				this.menuOverlay &&
-				this.menuOverlay.dataset &&
-				this.menuOverlay.dataset.userOpened
-			)
-				delete this.menuOverlay.dataset.userOpened;
-		} catch {
+			if (this.menuOverlay?.dataset?.userOpened) delete this.menuOverlay.dataset.userOpened;
+		} catch (_e) {
 			/* ignore */
 		}
 		try {
@@ -973,12 +990,12 @@ export class UIManager {
 		const historyEl = document.getElementById("menu-history-heading");
 		if (historyEl) historyEl.textContent = labels.history || "行動履歴";
 
-		// ステータスセクションの更新
-		this.menuAcademic.textContent = String(status?.stats?.academic ?? "");
-		this.menuPhysical.textContent = String(status?.stats?.physical ?? "");
-		this.menuMental.textContent = String(status?.stats?.mental ?? "");
-		this.menuTechnical.textContent = String(status?.stats?.technical ?? "");
-		this.menuReportDebt.textContent = String(status?.reportDebt ?? "");
+	// ステータスセクションの更新
+	if (this.menuAcademic) this.menuAcademic.textContent = String(status?.stats?.academic ?? "");
+	if (this.menuPhysical) this.menuPhysical.textContent = String(status?.stats?.physical ?? "");
+	if (this.menuMental) this.menuMental.textContent = String(status?.stats?.mental ?? "");
+	if (this.menuTechnical) this.menuTechnical.textContent = String(status?.stats?.technical ?? "");
+	if (this.menuReportDebt) this.menuReportDebt.textContent = String(status?.reportDebt ?? "");
 
 		// 個別レポートの表示（存在すれば）
 		const reportListId = "menu-report-list";
@@ -1004,14 +1021,14 @@ export class UIManager {
 		}
 
 		// アイテムリストの更新
-		this.menuItemList.innerHTML = ""; // 一度クリア
+		if (this.menuItemList) this.menuItemList.innerHTML = ""; // 一度クリア
 		if (!status.items || status.items.length === 0) {
 			const li = document.createElement("li");
 			li.textContent = labels.noItemsMessage || "アイテムはありません。";
-			this.menuItemList.appendChild(li);
+			this.menuItemList?.appendChild(li);
 		} else {
 			for (const itemId of status.items) {
-				const item = ITEMS[itemId]; // config.jsからアイテム情報を取得
+				const item = (ITEMS as Record<string, ItemData>)[itemId as string]; // config.jsからアイテム情報を取得
 				if (item) {
 					const li = document.createElement("li");
 					li.innerHTML = `<span>${item.name} - ${item.description}</span>`;
@@ -1064,7 +1081,7 @@ export class UIManager {
 						}
 					};
 					li.appendChild(useButton);
-					this.menuItemList.appendChild(li);
+					this.menuItemList?.appendChild(li);
 				}
 			}
 		}
@@ -1072,24 +1089,24 @@ export class UIManager {
 		// 履歴表示の更新
 		const historyListId = "menu-history-list";
 		let historyList = document.getElementById(historyListId);
-		if (!historyList) {
+			if (!historyList) {
 			historyList = document.createElement("ul");
 			historyList.id = historyListId;
 			const section = document.getElementById("menu-item-section");
-			if (section) {
-				// 履歴セクションはアイテムセクションの下に配置
-				const historySectionHeader = document.createElement("h3");
-				historySectionHeader.id = "menu-history-heading";
-				historySectionHeader.textContent = labels.history || "行動履歴";
-				section.parentNode.insertBefore(
-					historySectionHeader,
-					section.nextSibling,
-				);
-				section.parentNode.insertBefore(
-					historyList,
-					historySectionHeader.nextSibling,
-				);
-			}
+					if (section?.parentNode) {
+					// 履歴セクションはアイテムセクションの下に配置
+					const historySectionHeader = document.createElement("h3");
+					historySectionHeader.id = "menu-history-heading";
+					historySectionHeader.textContent = labels.history || "行動履歴";
+					section.parentNode.insertBefore(
+						historySectionHeader,
+						section.nextSibling,
+					);
+					section.parentNode.insertBefore(
+						historyList,
+						historySectionHeader.nextSibling,
+					);
+				}
 		}
 		historyList.innerHTML = "";
 		const history = status.history || [];
@@ -1109,8 +1126,17 @@ export class UIManager {
 				// ユーザー向けのラベルを優先して取得するユーティリティ
 				const resolveShopLabel = (shopId?: string, detail?: HistoryDetail) => {
 					if (detail?.shopLabel) return detail.shopLabel;
-					const shopLabel = CONFIG?.SHOPS?.[shopId ?? ""]?.label;
+					// shopId may not be a known key; guard access
+					if (!shopId) return "";
+					const shopLabel = (CONFIG?.SHOPS as Record<string, any> | undefined)?.[shopId]?.label;
 					return shopLabel ?? shopId ?? "";
+				};
+
+				// safe ITEMS name lookup when only a string id is available
+				const getItemNameSafe = (id?: string) => {
+					if (!id) return undefined;
+					const catalog = ITEMS as Record<string, ItemData | undefined>;
+					return catalog[id]?.name;
 				};
 
 				switch (h.type) {
@@ -1122,11 +1148,7 @@ export class UIManager {
 					case "shop_leave": {
 						const shopLabel = resolveShopLabel(h.detail?.shopId, h.detail);
 						if (h.detail?.purchased) {
-							const itemName = h.detail.itemName
-								? h.detail.itemName
-								: h.detail.itemId && ITEMS[h.detail.itemId]
-									? ITEMS[h.detail.itemId].name
-									: (h.detail.itemId ?? "アイテム");
+							const itemName = h.detail?.itemName ?? getItemNameSafe(h.detail?.itemId) ?? (h.detail?.itemId ?? "アイテム");
 							text = `${time}: ${shopLabel}で購入して退店（${itemName}、${h.detail.price || ""}${unit}）`;
 						} else {
 							text = `${time}: ${shopLabel}を訪れて何も買わず退店`;
@@ -1136,9 +1158,9 @@ export class UIManager {
 					case "purchase": {
 						const shopLabel = resolveShopLabel(h.detail?.shopId, h.detail);
 						const itemName = h.detail?.itemName
-							? h.detail.itemName
-							: h.detail?.itemId && ITEMS[h.detail.itemId]
-								? ITEMS[h.detail.itemId].name
+							? h.detail?.itemName
+							: h.detail?.itemId && (ITEMS as Record<string, ItemData>)[h.detail.itemId]
+								? (ITEMS as Record<string, ItemData>)[h.detail.itemId].name
 								: (h.detail?.itemId ?? "アイテム");
 						text = `${time}: ${itemName} を ${shopLabel}で購入（${h.detail.price || ""}${unit}）`;
 						break;
@@ -1162,13 +1184,13 @@ export class UIManager {
 				}
 
 				li.textContent = text;
-				historyList.appendChild(li);
+					historyList.appendChild(li);
 			}
 		}
 
 		// --- 効果表示 (effects) ---
 		const effectsSectionId = "menu-effects-section";
-		let effectsSection = document.getElementById(effectsSectionId);
+	let effectsSection = document.getElementById(effectsSectionId);
 		if (!effectsSection) {
 			effectsSection = document.createElement("div");
 			effectsSection.id = effectsSectionId;
@@ -1266,19 +1288,23 @@ export class UIManager {
 		effectsSection.innerHTML = "";
 		const effects = status.effects || {};
 		console.log("UI.updateMenuDisplay effects:", effects);
-		if (Object.keys(effects).length === 0) {
-			const p = document.createElement("p");
-			p.textContent = "(現在、効果はありません)";
-			effectsSection.appendChild(p);
-		} else {
-			const ul = document.createElement("ul");
-			for (const key of Object.keys(effects)) {
-				const li = document.createElement("li");
-				const display = effects[key].displayName || key;
-				li.textContent = `${display} (${effects[key].turns}ターン)`;
-				ul.appendChild(li);
+		if (effectsSection) {
+			if (Object.keys(effects).length === 0) {
+				const p = document.createElement("p");
+				p.textContent = "(現在、効果はありません)";
+				effectsSection.appendChild(p);
+			} else {
+				const ul = document.createElement("ul");
+				for (const key of Object.keys(effects)) {
+					const entry = effects[key];
+					if (!entry) continue;
+					const li = document.createElement("li");
+					const display = entry.displayName || key;
+					li.textContent = `${display} (${entry.turns}ターン)`;
+					ul.appendChild(li);
+				}
+				effectsSection.appendChild(ul);
 			}
-			effectsSection.appendChild(ul);
 		}
 	}
 
@@ -1286,7 +1312,7 @@ export class UIManager {
 	 * メニュー内にメッセージを表示する（アイテム使用などで使う）
 	 * @param {string} text
 	 */
-	displayMenuMessage(text) {
+	displayMenuMessage(text: string) {
 		const menuContent = document.getElementById("menu-content");
 		if (!menuContent) return;
 		// Guard: do not show empty menu messages
@@ -1309,7 +1335,7 @@ export class UIManager {
 			// be opened during自由行動 (free action) periods. If the menu is
 			// currently hidden, fall back to showing the message in the main message
 			// area so the UI does not briefly reveal the overlay.
-			if (this.menuOverlay && this.menuOverlay.classList.contains("hidden")) {
+			if (this.menuOverlay?.classList.contains("hidden")) {
 				if (typeof this.showFloatingMessage === "function") {
 					// showFloatingMessage already handles click waits and visibility.
 					this.showFloatingMessage(text).catch(() => {});
@@ -1323,7 +1349,7 @@ export class UIManager {
 			/* ignore */
 		}
 
-		menuMsg.textContent = text;
+		menuMsg.textContent = String(text);
 		menuMsg.style.display = "block";
 	}
 
@@ -1337,7 +1363,7 @@ export class UIManager {
 			const menuContent = document.getElementById("menu-content");
 			if (!menuContent) return resolve();
 
-			const listener = (e) => {
+			const listener = () => {
 				// クリックが発生したらリスナーを解除して解決
 				menuContent.removeEventListener("click", listener);
 				// preventDefault や stopPropagation はここでは不要
@@ -1372,18 +1398,16 @@ export class UIManager {
 	 * @param {{ duration?: number }}
  options
 	 */
-	showTransientNotice(text, options = {}) {
-		/** @type {{ duration?: number }} */
-		// @ts-expect-error - widen options type for TS
-		options = options || {};
-		if (!text || ("" + text).trim() === "") return;
-		const dur = typeof options.duration === "number" ? options.duration : 1200;
+	showTransientNotice(text: string, options: { duration?: number } = {}) {
+		if (!text || text.trim() === "") return;
+		const dur = options.duration ?? 1200;
 		let el = document.getElementById("transient-notice");
 		if (!el) {
 			el = document.createElement("div");
 			el.id = "transient-notice";
 			el.className = "transient-notice";
-			document.getElementById("game-container").appendChild(el);
+			const gameContainer = document.getElementById("game-container");
+			if (gameContainer) gameContainer.appendChild(el);
 			el.addEventListener("click", () => {
 				el.classList.add("fadeout");
 				setTimeout(() => el.remove(), 220);
@@ -1393,7 +1417,7 @@ export class UIManager {
 		el.classList.remove("fadeout");
 		// 自動で消す
 		setTimeout(() => {
-			if (el && el.parentNode) {
+			if (el?.parentNode) {
 				el.classList.add("fadeout");
 				setTimeout(() => {
 					try {
@@ -1414,7 +1438,7 @@ export class UIManager {
  [options]
 	 * @returns {Promise<void>}
 	*/
-	async showFloatingMessage(text, options: { lineDelay?: number } = {}) {
+	async showFloatingMessage(text: string | undefined | null, options: { lineDelay?: number } = {}) {
 		console.log("UI.showFloatingMessage called:", text);
 		const lines = ("" + text).split("\n");
 
@@ -1433,7 +1457,7 @@ export class UIManager {
 			for (const line of lines) {
 				console.log("UI.showFloatingMessage line:", line);
 				this.characterName.textContent = "システム";
-				this.messageText.textContent = line;
+				this.messageText.textContent = String(line ?? "");
 				// クリックインジケーターを表示して、ユーザークリックで次へ進める
 				this.clickIndicator.style.display = "block";
 
@@ -1478,7 +1502,7 @@ export class UIManager {
 			try {
 				this.characterName.textContent = prevChar || "";
 				this.messageText.textContent = prevMsg || "";
-			} catch (e) {}
+			} catch (_e) {}
 			this.messageWindow.style.zIndex = origZ;
 			this.messageWindow.style.display = origDisplay;
 			this.clickIndicator.style.display = prevClick || "none";
@@ -1492,13 +1516,13 @@ export class UIManager {
 		this.menuButton.addEventListener("click", () => {
 			try {
 				if (typeof soundManager !== "undefined") soundManager.play("ui_action");
-			} catch (e) {}
+			} catch (_e) {}
 			this.openMenu();
 		});
 		this.menuCloseButton.addEventListener("click", () => {
 			try {
 				if (typeof soundManager !== "undefined") soundManager.play("ui_action");
-			} catch (e) {}
+			} catch (_e) {}
 			this.closeMenu();
 		});
 		if (this.menuCloseFloating)
@@ -1506,7 +1530,7 @@ export class UIManager {
 				try {
 					if (typeof soundManager !== "undefined")
 						soundManager.play("ui_action");
-				} catch (e) {}
+				} catch (_e) {}
 				this.closeMenu();
 			});
 
@@ -1521,7 +1545,7 @@ export class UIManager {
 				) {
 					try {
 						if (typeof soundManager !== "undefined") soundManager.play("error");
-					} catch (e) {}
+					} catch (_e) {}
 					this.showTransientNotice("メニューは自由行動時間のみ開けます。", {
 						duration: 1200,
 					});
@@ -1530,7 +1554,7 @@ export class UIManager {
 				try {
 					if (typeof soundManager !== "undefined")
 						soundManager.play("ui_action");
-				} catch (e) {}
+				} catch (_e) {}
 				await this.openMenuWindow("item");
 			});
 		}
@@ -1542,7 +1566,7 @@ export class UIManager {
 				) {
 					try {
 						if (typeof soundManager !== "undefined") soundManager.play("error");
-					} catch (e) {}
+					} catch (_e) {}
 					this.showTransientNotice("メニューは自由行動時間のみ開けます。", {
 						duration: 1200,
 					});
@@ -1551,7 +1575,7 @@ export class UIManager {
 				try {
 					if (typeof soundManager !== "undefined")
 						soundManager.play("ui_action");
-				} catch (e) {}
+				} catch (_e) {}
 				await this.openMenuWindow("history");
 			});
 		}
@@ -1563,7 +1587,7 @@ export class UIManager {
 				) {
 					try {
 						if (typeof soundManager !== "undefined") soundManager.play("error");
-					} catch (e) {}
+					} catch (_e) {}
 					this.showTransientNotice("メニューは自由行動時間のみ開けます。", {
 						duration: 1200,
 					});
@@ -1572,7 +1596,7 @@ export class UIManager {
 				try {
 					if (typeof soundManager !== "undefined")
 						soundManager.play("ui_action");
-				} catch (e) {}
+				} catch (_e) {}
 				await this.openMenuWindow("character");
 			});
 		}
@@ -1586,7 +1610,7 @@ export class UIManager {
 				) {
 					try {
 						if (typeof soundManager !== "undefined") soundManager.play("error");
-					} catch (e) {}
+					} catch (_e) {}
 					this.showTransientNotice("メニューは自由行動時間のみ開けます。", {
 						duration: 1200,
 					});
@@ -1595,7 +1619,7 @@ export class UIManager {
 				try {
 					if (typeof soundManager !== "undefined")
 						soundManager.play("ui_action");
-				} catch (e) {}
+				} catch (_e) {}
 				await this.openMenuWindow("report");
 			});
 		}
@@ -1605,13 +1629,14 @@ export class UIManager {
 			".menu-window .menu-window-close",
 		);
 		winCloses.forEach((btn) => {
-			btn.addEventListener("click", (e) => {
-				const win = e.target.closest(".menu-window");
+			btn.addEventListener("click", (_e) => {
+				// @ts-expect-error closest exists on EventTarget in runtime
+				const win = (_e.target as Element).closest(".menu-window");
 				try {
 					if (typeof soundManager !== "undefined")
 						soundManager.play("ui_action");
-				} catch (e) {}
-				this.closeMenuWindow(win);
+				} catch (_err) {}
+				this.closeMenuWindow(win as Element);
 			});
 		});
 
@@ -1621,7 +1646,7 @@ export class UIManager {
 				try {
 					if (typeof soundManager !== "undefined")
 						soundManager.play("ui_action");
-				} catch (e) {}
+				} catch (_e) {}
 				this.handleSaveGame();
 			});
 		}
@@ -1630,8 +1655,8 @@ export class UIManager {
 				try {
 					if (typeof soundManager !== "undefined")
 						soundManager.play("ui_action");
-				} catch (e) {}
-				this.loadGameFileInput && this.loadGameFileInput.click();
+				} catch (_e) {}
+				this.loadGameFileInput?.click();
 			});
 		}
 		if (this.loadGameFileInput) {
@@ -1641,9 +1666,9 @@ export class UIManager {
 		}
 
 		// Audio controls in menu (volume slider and mute button)
-		const volEl = /** @type {HTMLInputElement|null} */ (
-			document.getElementById("sound-volume")
-		);
+		const volEl = document.getElementById(
+			"sound-volume",
+		) as HTMLInputElement | null;
 		const muteBtn = document.getElementById("sound-mute");
 		if (volEl) {
 			// Restore saved volume if present
@@ -1658,13 +1683,12 @@ export class UIManager {
 					)
 						soundManager.setVolume(v);
 				}
-			} catch (e) {}
+			} catch (_e) {}
 
-			volEl.addEventListener("input", (evt) => {
-				const input = /** @type {HTMLInputElement} */ (
-					evt.currentTarget || evt.target
-				);
-				const v = parseFloat(String(input.value ?? ""));
+			volEl.addEventListener("input", (evt: Event) => {
+				const input = (evt.currentTarget ||
+					evt.target) as HTMLInputElement | null;
+				const v = parseFloat(String(input?.value ?? ""));
 				if (
 					typeof soundManager !== "undefined" &&
 					typeof soundManager.setVolume === "function"
@@ -1689,7 +1713,7 @@ export class UIManager {
 						muteBtn.textContent = m ? "ミュート解除" : "ミュート";
 					}
 				}
-			} catch (e) {}
+			} catch (_e) {}
 
 			muteBtn.addEventListener("click", () => {
 				if (typeof soundManager === "undefined") return;
@@ -1720,7 +1744,7 @@ export class UIManager {
 	 * - Enter で選択（ある場合）
 	 * - Escape または M でメニュー開閉
 	 */
-	_handleGlobalKeydown(e) {
+	_handleGlobalKeydown(e: KeyboardEvent) {
 		try {
 			// when menu overlay is visible, allow Esc to close
 			const key = e.key;
@@ -1740,8 +1764,8 @@ export class UIManager {
 						const last = openWindows[openWindows.length - 1];
 						try {
 							this.closeMenuWindow(last);
-						} catch (e) {
-							console.warn("closeMenuWindow error", e);
+						} catch (_e) {
+							console.warn("closeMenuWindow error", _e);
 						}
 						return;
 					}
@@ -1757,10 +1781,10 @@ export class UIManager {
 						: document.getElementById("menu-content");
 				if (container) {
 					const focusable = Array.from(
-						container.querySelectorAll(
+						container.querySelectorAll<HTMLElement>(
 							'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
 						),
-					).filter((el) => el.offsetParent !== null); // visible only
+					).filter((el) => el.offsetParent !== null) as HTMLElement[]; // visible only
 					if (focusable.length > 0) {
 						const idx = focusable.findIndex(
 							(el) => el === document.activeElement,
@@ -1770,8 +1794,8 @@ export class UIManager {
 							const next = idx + 1 >= focusable.length ? 0 : idx + 1;
 							focusable[next].focus();
 							// visual sync
-							focusable.forEach((el, i) => {
-								if (i === next) el.classList.add("focused");
+							focusable.forEach((el, _i) => {
+								if (_i === next) el.classList.add("focused");
 								else el.classList.remove("focused");
 							});
 							return;
@@ -1780,8 +1804,8 @@ export class UIManager {
 							e.preventDefault();
 							const prev = idx - 1 < 0 ? focusable.length - 1 : idx - 1;
 							focusable[prev].focus();
-							focusable.forEach((el, i) => {
-								if (i === prev) el.classList.add("focused");
+							focusable.forEach((el, _i) => {
+								if (_i === prev) el.classList.add("focused");
 								else el.classList.remove("focused");
 							});
 							return;
@@ -1791,7 +1815,7 @@ export class UIManager {
 							const target = idx >= 0 ? focusable[idx] : focusable[0];
 							if (target) target.click();
 							// ensure focused class on activation
-							focusable.forEach((el, i) => {
+							focusable.forEach((el, _i) => {
 								if (el === target) el.classList.add("focused");
 								else el.classList.remove("focused");
 							});
@@ -1854,10 +1878,9 @@ export class UIManager {
 						// If clickIndicator is visible or messageText not empty, dispatch click
 						try {
 							const indicator = this.clickIndicator;
-							const msgText =
-								this.messageText && this.messageText.textContent
-									? this.messageText.textContent.trim()
-									: "";
+							const msgText = this.messageText?.textContent
+								? this.messageText.textContent.trim()
+								: "";
 							const showIndicator =
 								indicator &&
 								window.getComputedStyle(indicator).display !== "none";
@@ -1867,7 +1890,7 @@ export class UIManager {
 								this.messageWindow.click();
 								return;
 							}
-						} catch (e) {}
+						} catch (_e) {}
 					}
 				}
 			} catch (e) {
@@ -1936,14 +1959,14 @@ export class UIManager {
 	 * @param {Element[]} choices
 	 * @param {number} index
 	 */
-	_setChoiceFocus(choices, index) {
+	_setChoiceFocus(choices: Element[], index: number) {
 		choices.forEach((b, i) => {
 			if (i === index) {
 				b.classList.add("focused");
 				// ensure visible
 				try {
 					b.scrollIntoView({ block: "nearest", inline: "nearest" });
-				} catch (e) {}
+				} catch (_e) {}
 			} else {
 				b.classList.remove("focused");
 			}
@@ -1969,7 +1992,7 @@ export class UIManager {
 	 * @param {Event|boolean} eventOrIsFromTitle - ファイル入力のchangeイベントまたはタイトル画面からの呼び出しかどうか
 	 * @param {boolean} [isFromTitle=false] - タイトル画面からの呼び出しかどうか
 	 */
-	handleLoadGame(eventOrIsFromTitle, isFromTitle = false) {
+	handleLoadGame(eventOrIsFromTitle: Event | boolean, isFromTitle = false) {
 		// Backwards-compatible support:
 		// - Called as handleLoadGame(changeEvent, boolean) from file input (menu)
 		// - Called as handleLoadGame(true) from title screen (legacy call). In that
@@ -2003,11 +2026,9 @@ export class UIManager {
 			return;
 		}
 
-		const event = /** @type {Event} */ (eventOrIsFromTitle);
-		const file =
-			event && event.target && "files" in event.target && event.target.files
-				? event.target.files[0]
-				: null;
+		const event = eventOrIsFromTitle as Event;
+		const target = event?.target as HTMLInputElement | null;
+		const file = target?.files && target.files.length > 0 ? target.files[0] : null;
 		if (!file) {
 			if (!isFromTitle) {
 				this.displayMenuMessage("ファイルが選択されていません。");
@@ -2016,21 +2037,18 @@ export class UIManager {
 		}
 
 		const reader = new FileReader();
-		reader.onload = (e) => {
+		reader.onload = (e: ProgressEvent<FileReader>) => {
 			try {
-				const result = e && e.target ? e.target.result : null;
+				const result = (e.target as FileReader | null)?.result ?? null;
 				if (typeof result !== "string") {
 					throw new Error("Unexpected FileReader result");
 				}
 				const loadedData = JSON.parse(result);
 
 				// ロード直後にゲームを開始または再開する共通ロジック
-				const startGameAfterLoad = (loadedStatus) => {
-					const playerName =
-						loadedStatus.characters &&
-						loadedStatus.characters.find((c) => c.id === "player")
-							? loadedStatus.characters.find((c) => c.id === "player").name
-							: "主人公";
+				const startGameAfterLoad = (loadedStatus: GameStatus) => {
+					const playerChar = loadedStatus?.characters?.find((c: Character) => c.id === "player");
+					const playerName = playerChar?.name ?? "主人公";
 
 					// グローバルな gameManager/ui がなければ初期化
 					if (typeof initializeGame !== "function") {

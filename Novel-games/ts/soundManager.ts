@@ -26,7 +26,8 @@ export class SoundManager {
 		try {
 			const AudioCtx = window.AudioContext || window.webkitAudioContext;
 			this.ctx = new AudioCtx();
-		} catch (e) {
+		} catch (_e) {
+			// AudioContext 生成が許可されない環境では null を維持して擬似再生に切り替える
 			this.ctx = null;
 		}
 
@@ -45,7 +46,7 @@ export class SoundManager {
 	 * candidate sources (prefer earlier entries). This allows providing both
 	 * .ogg and .mp3 to improve browser compatibility.
 	 */
-	load(key, src) {
+	load(key: string, src: string | string[]) {
 		try {
 			if (Array.isArray(src)) {
 				// try to create an Audio element with multiple sources using <audio>
@@ -83,7 +84,7 @@ export class SoundManager {
 		}
 	}
 
-	play(key) {
+	play(key: string) {
 		if (this.muted) return;
 
 		// Prefer loaded audio element
@@ -94,10 +95,10 @@ export class SoundManager {
 				const clone = audio.cloneNode(true) as HTMLAudioElement;
 				try {
 					clone.volume = this.volume;
-				} catch (e) {}
+				} catch (_e) {}
 				clone.play().catch(() => {});
 				return;
-			} catch (e) {
+			} catch (_e) {
 				// fallback to synthetic
 			}
 		}
@@ -120,7 +121,7 @@ export class SoundManager {
 					a.volume = this.volume;
 					a.play().catch(() => {});
 					return;
-				} catch (e) {}
+				} catch (_e) {}
 			}
 		}
 
@@ -139,12 +140,12 @@ export class SoundManager {
 	 * Register variation entries for a key. Each entry can be a function (to play via WebAudio)
 	 * or a string URL to an audio file.
 	 */
-	registerVariations(key, entries) {
+	registerVariations(key: string, entries: Array<(() => void) | string>) {
 		if (!Array.isArray(entries)) return;
 		this.variations[key] = entries.slice();
 	}
 
-	loop(key) {
+	loop(key: string) {
 		const audio = this.sounds[key];
 		if (audio) {
 			audio.loop = true;
@@ -154,7 +155,7 @@ export class SoundManager {
 		// WebAudio loop not implemented for synths in this simple manager
 	}
 
-	stop(key) {
+	stop(key: string) {
 		const audio = this.sounds[key];
 		if (audio) {
 			audio.pause();
@@ -162,17 +163,17 @@ export class SoundManager {
 		}
 	}
 
-	setVolume(v) {
+	setVolume(v: number) {
 		this.volume = Math.max(0, Math.min(1, v));
 		// propagate to loaded audio elements
 		for (const k of Object.keys(this.sounds)) {
 			try {
 				this.sounds[k].volume = this.volume;
-			} catch (e) {}
+			} catch (_e) {}
 		}
 	}
 
-	setMuted(state) {
+	setMuted(state: boolean) {
 		const next = !!state;
 		if (this.muted === next) return;
 		this.muted = next;
@@ -180,7 +181,7 @@ export class SoundManager {
 			for (const audio of Object.values(this.sounds)) {
 				try {
 					audio.pause();
-				} catch (e) {}
+				} catch (_e) {}
 			}
 		}
 	}
@@ -197,9 +198,14 @@ export class SoundManager {
 
 	// --- internal synthetic sounds ---
 	_prepareSynthetic() {
+		const ctx = this.ctx;
+		if (!ctx) {
+			// AudioContext が生成できなければ擬似効果音を定義できないため終了
+			return;
+		}
+
 		// click: create multiple small variations
-		this.synthetic["click_var_1"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.click_var_1 = () => {
 			const length = 0.03 + Math.random() * 0.02; // 30-50ms
 			const buffer = ctx.createBuffer(
 				1,
@@ -219,8 +225,7 @@ export class SoundManager {
 			src.start();
 		};
 
-		this.synthetic["click_var_2"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.click_var_2 = () => {
 			const now = ctx.currentTime;
 			const osc = ctx.createOscillator();
 			const gain = ctx.createGain();
@@ -241,8 +246,7 @@ export class SoundManager {
 			osc.stop(now + 0.08 + Math.random() * 0.06);
 		};
 
-		this.synthetic["click_var_3"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.click_var_3 = () => {
 			// short filtered noise pop
 			const bufferSize = Math.floor(
 				ctx.sampleRate * (0.02 + Math.random() * 0.04),
@@ -265,8 +269,7 @@ export class SoundManager {
 		};
 
 		// open: short rising sine
-		this.synthetic["open"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.open = () => {
 			const osc = ctx.createOscillator();
 			const gain = ctx.createGain();
 			osc.type = "sine";
@@ -282,41 +285,7 @@ export class SoundManager {
 		};
 
 		// close: short falling sine
-		this.synthetic["close"] = () => {
-			const ctx = this.ctx;
-			const osc = ctx.createOscillator();
-			const gain = ctx.createGain();
-			osc.type = "sine";
-			const now = ctx.currentTime;
-			osc.frequency.setValueAtTime(1000, now);
-			osc.frequency.exponentialRampToValueAtTime(300, now + 0.12);
-			gain.gain.setValueAtTime(0.0001, now);
-			gain.gain.exponentialRampToValueAtTime(0.12 * this.volume, now + 0.02);
-			gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-			osc.connect(gain).connect(ctx.destination);
-			osc.start();
-			osc.stop(now + 0.2);
-		};
-
-		// open and close remain as before
-		this.synthetic["open"] = () => {
-			const ctx = this.ctx;
-			const osc = ctx.createOscillator();
-			const gain = ctx.createGain();
-			osc.type = "sine";
-			const now = ctx.currentTime;
-			osc.frequency.setValueAtTime(400, now);
-			osc.frequency.exponentialRampToValueAtTime(1000, now + 0.12);
-			gain.gain.setValueAtTime(0.0001, now);
-			gain.gain.exponentialRampToValueAtTime(0.12 * this.volume, now + 0.02);
-			gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-			osc.connect(gain).connect(ctx.destination);
-			osc.start();
-			osc.stop(now + 0.2);
-		};
-
-		this.synthetic["close"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.close = () => {
 			const osc = ctx.createOscillator();
 			const gain = ctx.createGain();
 			osc.type = "sine";
@@ -332,8 +301,7 @@ export class SoundManager {
 		};
 
 		// --- status / feedback sounds ---
-		this.synthetic["stat_up"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.stat_up = () => {
 			const now = ctx.currentTime;
 			const o = ctx.createOscillator();
 			const g = ctx.createGain();
@@ -348,8 +316,7 @@ export class SoundManager {
 			o.stop(now + 0.14);
 		};
 
-		this.synthetic["stat_down"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.stat_down = () => {
 			const now = ctx.currentTime;
 			const o = ctx.createOscillator();
 			const g = ctx.createGain();
@@ -364,8 +331,7 @@ export class SoundManager {
 			o.stop(now + 0.16);
 		};
 
-		this.synthetic["money_up"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.money_up = () => {
 			const now = ctx.currentTime;
 			const g = ctx.createGain();
 			g.gain.setValueAtTime(0.0001, now);
@@ -381,8 +347,7 @@ export class SoundManager {
 			});
 		};
 
-		this.synthetic["money_down"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.money_down = () => {
 			const now = ctx.currentTime;
 			const o = ctx.createOscillator();
 			const g = ctx.createGain();
@@ -396,8 +361,7 @@ export class SoundManager {
 			o.stop(now + 0.12);
 		};
 
-		this.synthetic["cp_up"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.cp_up = () => {
 			const now = ctx.currentTime;
 			const o = ctx.createOscillator();
 			const g = ctx.createGain();
@@ -412,8 +376,7 @@ export class SoundManager {
 			o.stop(now + 0.14);
 		};
 
-		this.synthetic["cp_down"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.cp_down = () => {
 			const now = ctx.currentTime;
 			const o = ctx.createOscillator();
 			const g = ctx.createGain();
@@ -428,8 +391,7 @@ export class SoundManager {
 			o.stop(now + 0.14);
 		};
 
-		this.synthetic["item_get"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.item_get = () => {
 			const now = ctx.currentTime;
 			const freqs = [1200, 1500];
 			const g = ctx.createGain();
@@ -445,8 +407,7 @@ export class SoundManager {
 			});
 		};
 
-		this.synthetic["alert"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.alert = () => {
 			const now = ctx.currentTime;
 			const o = ctx.createOscillator();
 			const g = ctx.createGain();
@@ -461,8 +422,7 @@ export class SoundManager {
 		};
 
 		// generic ui action: softer, short pluck to avoid harsh 'click' sounds
-		this.synthetic["ui_action"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.ui_action = () => {
 			const now = ctx.currentTime;
 			// gentle sine pluck with lowpass to keep it soft
 			const osc = ctx.createOscillator();
@@ -482,8 +442,7 @@ export class SoundManager {
 		};
 
 		// error / buzzer: short descending sawtooth with slightly aggressive envelope
-		this.synthetic["error"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.error = () => {
 			const now = ctx.currentTime;
 			const o = ctx.createOscillator();
 			const g = ctx.createGain();
@@ -499,8 +458,7 @@ export class SoundManager {
 		};
 
 		// item use: distinct short sound (noise whoosh + metallic chime + subtle low thud)
-		this.synthetic["item_use"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.item_use = () => {
 			const now = ctx.currentTime;
 			// short filtered noise whoosh
 			const bufLen = Math.floor(ctx.sampleRate * (0.04 + Math.random() * 0.03));
@@ -556,8 +514,7 @@ export class SoundManager {
 		};
 
 		// game start: pleasant rising arpeggio
-		this.synthetic["game_start"] = () => {
-			const ctx = this.ctx;
+		this.synthetic.game_start = () => {
 			const now = ctx.currentTime;
 			const g = ctx.createGain();
 			g.gain.setValueAtTime(0.0001, now);
