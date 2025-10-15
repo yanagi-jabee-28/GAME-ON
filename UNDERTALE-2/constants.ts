@@ -40,3 +40,6 @@ export const ENTITY_DAMAGE = 10;
 
 /** プレイヤーステータス表示のフォントサイズ（CSSで使用する単位付き文字列） */
 export const PLAYER_STATUS_FONT_SIZE = "1rem";
+
+/** ハートの表示サイズ（CSS 単位付き文字列） */
+export const HEART_SIZE = "30px";

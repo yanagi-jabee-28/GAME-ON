@@ -1,4 +1,4 @@
-import { PLAYER_STATUS_FONT_SIZE } from "./constants.js";
+import { HEART_SIZE, PLAYER_STATUS_FONT_SIZE } from "./constants.js";
 import {
 	addEnemySymbol,
 	clearKeys,
@@ -44,6 +44,12 @@ loadSvg().then(() => {
 		if (status instanceof HTMLElement) {
 			status.style.setProperty("--player-font-size", PLAYER_STATUS_FONT_SIZE);
 		}
+	} catch {
+		// ignore
+	}
+	// set heart size CSS variable on root so CSS can use it
+	try {
+		document.documentElement.style.setProperty("--heart-size", HEART_SIZE);
 	} catch {
 		// ignore
 	}
