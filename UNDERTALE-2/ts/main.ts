@@ -81,10 +81,25 @@ loadSvg().then(() => {
 							dbg.applyPlayfieldSize();
 					} catch {}
 				});
-				centerPlayer(playfield);
+				// center after the resize finishes (transitionend will re-center)
 			} catch {}
 			// Start the spawn loop with the current pattern
 			startDemoScenario(playfield);
 		});
+	}
+});
+
+// When the playfield transition finishes, refresh spawn lines and recenter the heart
+playfield.addEventListener("transitionend", (ev) => {
+	if (ev.propertyName === "width" || ev.propertyName === "height") {
+		import("./debug.ts").then((dbg) => {
+			try {
+				if (typeof dbg.refreshSpawnLines === "function")
+					dbg.refreshSpawnLines();
+			} catch {}
+		});
+		try {
+			centerPlayer(playfield);
+		} catch {}
 	}
 });
