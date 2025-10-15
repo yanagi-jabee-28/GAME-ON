@@ -922,6 +922,17 @@
 					}
 				});
 
+				// When the heart is hidden (combat ended), restore the player overlay
+				document.addEventListener("player:heartHidden", () => {
+					try {
+						const overlay = document.getElementById("player-overlay");
+						if (overlay instanceof HTMLElement) {
+							overlay.textContent = "テスト";
+							overlay.style.visibility = "visible";
+						}
+					} catch {}
+				});
+
 				// click-to-select: clicking a button will set selection and trigger its action
 				buttons.forEach((b, idx) => {
 					b.addEventListener("click", (ev) => {
