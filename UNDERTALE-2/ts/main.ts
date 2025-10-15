@@ -77,7 +77,7 @@ loadSvg().then(() => {
 		"#action-menu .action-button:first-of-type",
 	) as HTMLButtonElement | null;
 	if (fightBtn) {
-		fightBtn.addEventListener("click", () => {
+		fightBtn.addEventListener("click", async () => {
 			try {
 				// request the heart to be shown after the resize finishes
 				pendingShowHeart = true;
@@ -87,6 +87,44 @@ loadSvg().then(() => {
 					if (overlay instanceof HTMLElement)
 						overlay.style.visibility = "hidden";
 				} catch {}
+				// show attack bar SVG in player layer BEFORE resizing
+				try {
+					const playerLayer = document.getElementById("player-layer");
+					if (playerLayer instanceof HTMLElement) {
+						let img = document.getElementById(
+							"attack-bar-overlay",
+						) as HTMLImageElement | null;
+						if (!img) {
+							img = document.createElement("img");
+							img.id = "attack-bar-overlay";
+							img.src = new URL(
+								"../assets/attack-bar.svg",
+								import.meta.url,
+							).href;
+							// size the image to fill the player layer exactly
+							img.removeAttribute("width");
+							img.removeAttribute("height");
+							img.style.position = "absolute";
+							img.style.left = "0";
+							img.style.top = "0";
+							img.style.width = "100%";
+							img.style.height = "100%";
+							img.style.objectFit = "cover";
+							img.style.pointerEvents = "none";
+							playerLayer.appendChild(img);
+						}
+					}
+				} catch {}
+
+				// keep the attack bar visible for 1 second before resizing
+				await new Promise((res) => setTimeout(res, 1000));
+
+				// remove attack bar overlay BEFORE resizing to prevent visual shift
+				try {
+					const existing = document.getElementById("attack-bar-overlay");
+					existing?.parentElement?.removeChild(existing);
+				} catch {}
+
 				// resize playfield to 240x240 on fight and update debug module state
 				playfield.style.width = "240px";
 				playfield.style.height = "240px";
@@ -125,6 +163,11 @@ playfield.addEventListener("transitionend", (ev) => {
 				heart.style.visibility = "visible";
 				// Notify UI that heart is now visible so selection images can be suppressed
 				document.dispatchEvent(new CustomEvent("player:heartShown"));
+				// remove attack bar overlay if present
+				try {
+					const existing = document.getElementById("attack-bar-overlay");
+					existing?.parentElement?.removeChild(existing);
+				} catch {}
 			}
 		} catch {}
 	}
