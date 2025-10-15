@@ -1,3 +1,12 @@
+import {
+	PLAYFIELD_INITIAL_HEIGHT,
+	PLAYFIELD_INITIAL_WIDTH,
+	PLAYFIELD_MAX_HEIGHT,
+	PLAYFIELD_MAX_WIDTH,
+	PLAYFIELD_MIN_HEIGHT,
+	PLAYFIELD_MIN_WIDTH,
+} from "./constants.js";
+
 /** デバッグ情報を描画するHTMLレイヤー */
 let debugLayer: HTMLElement | null = null;
 /** デバッグマーカー（エンティティのスポーン位置など）を格納する配列 */
@@ -23,16 +32,9 @@ let spawnLinesEnabled = true;
 /** スポーンマーカーの表示が有効かどうかのフラグ */
 let spawnMarkersEnabled = false;
 
-/** プレイフィールドサイズ変更の定数 */
-export const PLAYFIELD_MIN_WIDTH = 240;
-export const PLAYFIELD_MAX_WIDTH = 720;
-export const PLAYFIELD_MIN_HEIGHT = 240;
-export const PLAYFIELD_MAX_HEIGHT = 720;
-export const PLAYFIELD_SIZE_STEP = 40;
-
 /** 現在のプレイフィールドサイズ */
-export let playfieldWidth = PLAYFIELD_MIN_WIDTH;
-export let playfieldHeight = PLAYFIELD_MIN_HEIGHT;
+export let playfieldWidth = PLAYFIELD_INITIAL_WIDTH;
+export let playfieldHeight = PLAYFIELD_INITIAL_HEIGHT;
 /** スポーン制御に利用するプレイフィールド要素 */
 export let activePlayfield: HTMLElement | null = null;
 /** 現在のスポーンパターン */
@@ -61,8 +63,9 @@ export const setSpawnPattern = (pattern: SpawnPattern) => {
  */
 export const setActivePlayfield = (pf: HTMLElement) => {
 	activePlayfield = pf;
-	playfieldWidth = pf.clientWidth;
-	playfieldHeight = pf.clientHeight;
+	playfieldWidth = PLAYFIELD_INITIAL_WIDTH;
+	playfieldHeight = PLAYFIELD_INITIAL_HEIGHT;
+	applyPlayfieldSize();
 };
 
 /**

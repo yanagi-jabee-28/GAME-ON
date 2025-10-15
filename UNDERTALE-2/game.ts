@@ -1,4 +1,4 @@
-import { DIRECTION_MAP } from "./constants.js";
+import { DIRECTION_MAP, PLAYFIELD_SIZE_STEP } from "./constants.js";
 import {
 	applyPlayfieldSize,
 	changePlayfieldSize,
@@ -7,7 +7,6 @@ import {
 	isDebugEnabled,
 	isSpawnMarkersEnabled,
 	PATTERN_EDGE_MAP,
-	PLAYFIELD_SIZE_STEP,
 	refreshSpawnLines,
 	type SpawnPattern,
 	setActivePlayfield,

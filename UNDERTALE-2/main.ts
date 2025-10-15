@@ -1,4 +1,9 @@
-import { HEART_SIZE, PLAYER_STATUS_FONT_SIZE } from "./constants.js";
+import {
+	HEART_SIZE,
+	PLAYER_STATUS_FONT_SIZE,
+	PLAYFIELD_INITIAL_HEIGHT,
+	PLAYFIELD_INITIAL_WIDTH,
+} from "./constants.js";
 import {
 	addEnemySymbol,
 	clearKeys,
@@ -23,6 +28,10 @@ if (
 ) {
 	throw new Error("必要な要素が見つかりませんでした。");
 }
+
+// 初期プレイフィールドサイズを定数に揃える
+playfield.style.width = `${PLAYFIELD_INITIAL_WIDTH}px`;
+playfield.style.height = `${PLAYFIELD_INITIAL_HEIGHT}px`;
 
 addEnemySymbol("skull", "emoji", "☠");
 addEnemySymbol("fish", "emoji", "🐟️");

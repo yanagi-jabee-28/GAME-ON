@@ -47,3 +47,12 @@ export const HEART_SIZE = "30px";
 export const GAMEOVER_DELAY_MS = 700;
 /** 被ダメージ後の無敵時間（ミリ秒） */
 export const DAMAGE_COOLDOWN_MS = 500;
+
+/** プレイフィールドの最小・最大・初期サイズ、および変更ステップ（ピクセル） */
+export const PLAYFIELD_MIN_WIDTH = 240;
+export const PLAYFIELD_MAX_WIDTH = 720;
+export const PLAYFIELD_MIN_HEIGHT = 240;
+export const PLAYFIELD_MAX_HEIGHT = 720;
+export const PLAYFIELD_INITIAL_WIDTH = 240;
+export const PLAYFIELD_INITIAL_HEIGHT = 240;
+export const PLAYFIELD_SIZE_STEP = 40;
