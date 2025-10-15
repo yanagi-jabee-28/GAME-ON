@@ -269,18 +269,21 @@ export const setHeartOpacity = (wasHit: boolean) => {
 	if (wasHit) {
 		heartEl.style.opacity = `${0.3}`;
 		// clear any existing timer
- 		if (invulnerabilityTimer != null) {
- 			clearTimeout(invulnerabilityTimer);
- 			invulnerabilityTimer = null;
- 		}
- 		// compute remaining invulnerability time using lastDamageExpiry
- 		const remaining = Math.max(0, Math.ceil(lastDamageExpiry - performance.now()));
- 		invulnerabilityTimer = window.setTimeout(() => {
- 			heartEl.style.opacity = "1";
- 			invulnerabilityTimer = null;
- 		}, remaining || DAMAGE_COOLDOWN_MS);
- 		return;
- 	}
+		if (invulnerabilityTimer != null) {
+			clearTimeout(invulnerabilityTimer);
+			invulnerabilityTimer = null;
+		}
+		// compute remaining invulnerability time using lastDamageExpiry
+		const remaining = Math.max(
+			0,
+			Math.ceil(lastDamageExpiry - performance.now()),
+		);
+		invulnerabilityTimer = window.setTimeout(() => {
+			heartEl.style.opacity = "1";
+			invulnerabilityTimer = null;
+		}, remaining || DAMAGE_COOLDOWN_MS);
+		return;
+	}
 
 	// not hit => ensure opacity is full and cancel any pending timer
 	heartEl.style.opacity = "1";
