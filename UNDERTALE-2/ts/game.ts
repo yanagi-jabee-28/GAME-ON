@@ -15,7 +15,6 @@ import {
 } from "./debug.ts";
 import {
 	clearAllEntities,
-	detectCollisions,
 	getHomingEnabled,
 	getRemoveBulletsOnHit,
 	setHomingEnabled,
@@ -23,6 +22,7 @@ import {
 	spawnEntity,
 	updateEntities,
 } from "./entity.ts";
+import { detectCollisionsSafe } from "./entity-compat.ts";
 import { changeHeartColor, updatePlayerPosition } from "./player.ts";
 import type { EnemySymbol } from "./types.ts";
 
@@ -33,6 +33,10 @@ const enemySymbols: EnemySymbol[] = [];
 
 export const startGameLoop = (playfield: HTMLElement) => {
 	setActivePlayfield(playfield);
+
+	// Default: enable homing so entities will pursue the player unless toggled
+	setHomingEnabled(true);
+	console.log(`Homing default: ${getHomingEnabled() ? "ON" : "OFF"}`);
 	console.log(
 		`Bullet removal on hit (default): ${getRemoveBulletsOnHit() ? "ON" : "OFF"}`,
 	);
@@ -43,11 +47,10 @@ export const startGameLoop = (playfield: HTMLElement) => {
 		updatePlayerPosition(delta, pressedKeys, playfield);
 		updateEntities(delta, playfield);
 		try {
-			detectCollisions();
+			detectCollisionsSafe();
 		} catch (err) {
-			// Defensive: an individual entity may be undefined during updates.
-			// Log and continue so the game loop does not crash.
-			console.error("Error during collision detection:", err);
+			// If our safe wrapper still throws, log and continue - do not let the loop die.
+			console.error("Error during collision detection (safe):", err);
 		}
 		if (running) requestAnimationFrame(loop);
 	};
@@ -140,7 +143,7 @@ export const clearKeys = () => pressedKeys.clear();
 
 export const startDemoScenario = (
 	playfield?: HTMLElement,
-	pattern: SpawnPattern = "omnidirectional",
+	pattern: SpawnPattern = "top-only",
 ) => {
 	const pf = playfield ?? document.getElementById("playfield");
 	if (!(pf instanceof HTMLElement)) return;
