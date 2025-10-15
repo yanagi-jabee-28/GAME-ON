@@ -659,11 +659,19 @@
 
 			// Allow pressing 'R' to retry when gameover overlay is visible
 			document.addEventListener("keydown", (e) => {
-				if (e.key.toLowerCase() === "r") {
-					const overlay = document.getElementById("gameover-overlay");
-					if (overlay?.getAttribute("aria-hidden") === "false") {
-						window.location.reload();
-					}
+				// Accept 'R' or Space to retry when overlay visible. Space can appear as ' ' or 'Spacebar' (legacy),
+				// so check multiple properties. Use preventDefault to stop page scroll on Space.
+				const overlay = document.getElementById("gameover-overlay");
+				if (!overlay || overlay.getAttribute("aria-hidden") !== "false") return;
+				const key = e.key;
+				if (
+					key?.toLowerCase() === "r" ||
+					key === " " ||
+					key === "Spacebar" ||
+					e.code === "Space"
+				) {
+					e.preventDefault();
+					window.location.reload();
 				}
 			});
 

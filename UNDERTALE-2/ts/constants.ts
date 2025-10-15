@@ -46,7 +46,7 @@ export const PLAYER_STATUS_FONT_SIZE = "1rem";
 /** ハートの表示サイズ（CSS 単位付き文字列） */
 export const HEART_SIZE = "30px";
 /** 行動選択ボックスのフォントサイズ（CSS 単位付き文字列） */
-export const ACTION_BUTTON_FONT_SIZE = "1.1rem";
+export const ACTION_BUTTON_FONT_SIZE = "1.2rem";
 /** 破壊演出が終わった後、GAMEOVER 画面を表示するまでの待機時間（ミリ秒） */
 export const GAMEOVER_DELAY_MS = 700;
 /** 被ダメージ後の無敵時間（ミリ秒） */
