@@ -19,6 +19,10 @@ const heart = document.getElementById("heart");
 const entityLayer = document.getElementById("entity-layer");
 const enemyDisplay = document.getElementById("enemy-display");
 
+// When true, the click handler requested the heart be shown after the
+// playfield transition completes.
+let pendingShowHeart = false;
+
 if (
 	!(playfield instanceof HTMLElement) ||
 	!(heart instanceof HTMLElement) ||
@@ -68,8 +72,14 @@ loadSvg().then(() => {
 	if (fightBtn) {
 		fightBtn.addEventListener("click", () => {
 			try {
-				// make heart visible, then center and start spawning
-				heart.style.visibility = "visible";
+				// request the heart to be shown after the resize finishes
+				pendingShowHeart = true;
+				// hide player overlay text when fight begins
+				try {
+					const overlay = document.getElementById("player-overlay");
+					if (overlay instanceof HTMLElement)
+						overlay.style.visibility = "hidden";
+				} catch {}
 				// resize playfield to 240x240 on fight and update debug module state
 				playfield.style.width = "240px";
 				playfield.style.height = "240px";
@@ -100,6 +110,15 @@ playfield.addEventListener("transitionend", (ev) => {
 		});
 		try {
 			centerPlayer(playfield);
+		} catch {}
+		// If a click requested the heart to be shown, show it now.
+		try {
+			if (pendingShowHeart) {
+				pendingShowHeart = false;
+				heart.style.visibility = "visible";
+				// Notify UI that heart is now visible so selection images can be suppressed
+				document.dispatchEvent(new CustomEvent("player:heartShown"));
+			}
 		} catch {}
 	}
 });

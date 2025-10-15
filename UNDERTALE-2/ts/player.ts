@@ -78,6 +78,7 @@ export const getHeartElement = (): HTMLElement => {
 };
 export const getHeartSvg = () => heartSvg;
 export const getHeartPath = () => heartPath;
+export const getHeartColor = () => currentColor;
 
 export const getHp = () => hp;
 
@@ -262,6 +263,11 @@ export const changeHeartColor = () => {
 			heartPath.style.fill = currentColor;
 		}
 	}
+	document.dispatchEvent(
+		new CustomEvent("player:heartColorChange", {
+			detail: { color: currentColor },
+		}),
+	);
 };
 
 export const setHeartOpacity = (wasHit: boolean) => {
@@ -340,6 +346,11 @@ export const loadSvg = async () => {
 			heartPath = path;
 			heartPath.style.fill = currentColor;
 		}
+		document.dispatchEvent(
+			new CustomEvent("player:heartColorChange", {
+				detail: { color: currentColor },
+			}),
+		);
 		const playfield = document.getElementById("playfield");
 		if (!playfield) throw new Error("#playfield が見つかりません");
 		x = (playfield.clientWidth - getHeartElement().clientWidth) / 2;

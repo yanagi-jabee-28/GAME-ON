@@ -42,7 +42,13 @@ export const startGameLoop = (playfield: HTMLElement) => {
 		lastTimestamp = timestamp;
 		updatePlayerPosition(delta, pressedKeys, playfield);
 		updateEntities(delta, playfield);
-		detectCollisions();
+		try {
+			detectCollisions();
+		} catch (err) {
+			// Defensive: an individual entity may be undefined during updates.
+			// Log and continue so the game loop does not crash.
+			console.error("Error during collision detection:", err);
+		}
 		if (running) requestAnimationFrame(loop);
 	};
 	requestAnimationFrame(loop);
@@ -51,6 +57,8 @@ export const startGameLoop = (playfield: HTMLElement) => {
 		if (activeSpawnTimer !== null) {
 			window.clearInterval(activeSpawnTimer);
 			activeSpawnTimer = null;
+			// Notify UI that spawning has stopped
+			document.dispatchEvent(new CustomEvent("game:spawningStopped"));
 		}
 		try {
 			clearAllEntities();
@@ -70,9 +78,6 @@ export const handleKeyDown = (event: KeyboardEvent) => {
 	const key = event.key.toLowerCase();
 	if (DIRECTION_MAP[key as keyof typeof DIRECTION_MAP]) {
 		pressedKeys.add(key);
-		event.preventDefault();
-	} else if (key === " ") {
-		changeHeartColor();
 		event.preventDefault();
 	} else if (key === "t") {
 		const newValue = !getRemoveBulletsOnHit();
@@ -114,6 +119,14 @@ export const handleKeyDown = (event: KeyboardEvent) => {
 		event.preventDefault();
 	} else if (key === "M") {
 		clearDebugMarkers();
+		event.preventDefault();
+	} else if (key === "g") {
+		// debug: change heart color
+		try {
+			changeHeartColor();
+		} catch (err) {
+			console.error("changeHeartColor failed:", err);
+		}
 		event.preventDefault();
 	}
 };
@@ -193,6 +206,8 @@ export const startDemoScenario = (
 	};
 
 	activeSpawnTimer = window.setInterval(spawnOnce, 1600);
+	// Notify UI that spawning has started
+	document.dispatchEvent(new CustomEvent("game:spawningStarted"));
 };
 
 export const addEnemySymbol = (
