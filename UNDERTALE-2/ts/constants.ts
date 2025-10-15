@@ -48,7 +48,7 @@ export const HEART_SIZE = "30px";
 /** 破壊演出が終わった後、GAMEOVER 画面を表示するまでの待機時間（ミリ秒） */
 export const GAMEOVER_DELAY_MS = 700;
 /** 被ダメージ後の無敵時間（ミリ秒） */
-export const DAMAGE_COOLDOWN_MS = 500;
+export const DAMAGE_COOLDOWN_MS = 250;
 
 /** プレイフィールドの最小・最大・初期サイズ、変更ステップ（ピクセル） */
 export const PLAYFIELD_MIN_WIDTH = 240;
