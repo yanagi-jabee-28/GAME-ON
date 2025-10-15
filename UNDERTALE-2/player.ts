@@ -1,5 +1,6 @@
 import {
 	COLORS,
+	DAMAGE_COOLDOWN_MS,
 	DIRECTION_MAP,
 	GAMEOVER_DELAY_MS,
 	SPEED,
@@ -14,7 +15,6 @@ let currentColor = COLORS[currentIndex];
 // プレイヤーのHP管理
 const MAX_HP = 20;
 let hp = MAX_HP;
-const DAMAGE_COOLDOWN_MS = 500; // 被ダメージの無敵時間（ミリ秒）
 let lastDamageTime = 0;
 // プレイヤー死亡フラグ（HP=0 のとき移動を無効化する）
 let isDead = false;

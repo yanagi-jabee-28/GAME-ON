@@ -45,3 +45,5 @@ export const PLAYER_STATUS_FONT_SIZE = "1rem";
 export const HEART_SIZE = "30px";
 /** 破片演出が終わった後、GAMEOVER 画面を表示するまでの待機時間（ミリ秒） */
 export const GAMEOVER_DELAY_MS = 700;
+/** 被ダメージ後の無敵時間（ミリ秒） */
+export const DAMAGE_COOLDOWN_MS = 500;
