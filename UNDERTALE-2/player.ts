@@ -169,6 +169,23 @@ const triggerGameOver = async () => {
 				throw new Error("invalid svg");
 			svg.style.width = "100%";
 			svg.style.height = "100%";
+
+			// Apply current heart color to basic shape elements so the broking/broken
+			// SVGs match the heart color palette. Keep this non-fatal.
+			try {
+				const shapes = svg.querySelectorAll("path, circle, rect, polygon, ellipse");
+				shapes.forEach((el) => {
+					try {
+						if (!(el instanceof SVGElement)) return;
+						const attrFill = el.getAttribute("fill");
+						const inlineFill = (el.style?.fill ?? "").toLowerCase();
+						const hasFill =
+							(attrFill == null || attrFill.toLowerCase() !== "none") &&
+							inlineFill !== "none";
+						if (hasFill) el.style.fill = currentColor;
+					} catch {}
+				});
+			} catch {}
 			// ensure heart container is visible
 			heartEl.style.display = "";
 			heartEl.style.opacity = "1";

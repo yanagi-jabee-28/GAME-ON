@@ -36,7 +36,7 @@ export const DIRECTION_MAP: Record<string, Readonly<[number, number]>> = {
 };
 
 /** エンティティが与えるダメージ（プレイヤーに当たったとき） */
-export const ENTITY_DAMAGE = 5;
+export const ENTITY_DAMAGE = 10;
 
 /** プレイヤーステータス表示のフォントサイズ（CSSで使用する単位付き文字列） */
 export const PLAYER_STATUS_FONT_SIZE = "1rem";
