@@ -12,7 +12,7 @@ import {
 	startDemoScenario,
 	startGameLoop,
 } from "./game.ts";
-import { loadSvg } from "./player.ts";
+import { centerPlayer, loadSvg } from "./player.ts";
 
 const playfield = document.getElementById("playfield");
 const heart = document.getElementById("heart");
@@ -58,6 +58,22 @@ loadSvg().then(() => {
 	} catch {
 		// ignore
 	}
-	startDemoScenario(playfield);
+	// DO NOT start spawning automatically; start when user presses FIGHT
 	startGameLoop(playfield);
+
+	// Wire the on-screen Fight button to center the heart and begin spawning
+	const fightBtn = document.querySelector(
+		"#action-menu .action-button:first-of-type",
+	) as HTMLButtonElement | null;
+	if (fightBtn) {
+		fightBtn.addEventListener("click", () => {
+			try {
+				// make heart visible, then center and start spawning
+				heart.style.visibility = "visible";
+				centerPlayer(playfield);
+			} catch {}
+			// Start the spawn loop with the current pattern
+			startDemoScenario(playfield);
+		});
+	}
 });

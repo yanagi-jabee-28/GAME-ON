@@ -301,6 +301,18 @@ export const clampPlayerToBounds = (playfield: HTMLElement) => {
 	getHeartElement().style.transform = `translate(${x}px, ${y}px)`;
 };
 
+// Center the heart in the middle of the provided playfield and update internal coords
+export const centerPlayer = (playfield: HTMLElement) => {
+	try {
+		const heartEl = getHeartElement();
+		x = (playfield.clientWidth - heartEl.clientWidth) / 2;
+		y = (playfield.clientHeight - heartEl.clientHeight) / 2;
+		heartEl.style.transform = `translate(${x}px, ${y}px)`;
+	} catch (_err) {
+		// ignore
+	}
+};
+
 export const loadSvg = async () => {
 	try {
 		const url = new URL(
