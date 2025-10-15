@@ -27,46 +27,48 @@ const spawnHeartShards = (count = 12) => {
 		const container = getHeartElement();
 		const rect = container.getBoundingClientRect();
 		const shards: HTMLElement[] = [];
-		for (let i = 0; i < count; i++) {
-			const s = document.createElement("div");
-			s.className = "heart-shard";
-			// サイズをランダムにする
-			const size = 4 + Math.random() * 8; // px
-			s.style.width = `${size}px`;
-			s.style.height = `${size}px`;
-			s.style.background = currentColor || "#ff4d4d";
-			s.style.position = "absolute";
-			s.style.left = `${rect.width / 2 - size / 2}px`;
-			s.style.top = `${rect.height / 2 - size / 2}px`;
-			s.style.borderRadius = "20%";
-			s.style.pointerEvents = "none";
-			// initial transform
-			s.style.transform = "translate(0px,0px) scale(1)";
-			container.appendChild(s);
-			shards.push(s);
-			// animate using Web Animations API
-			const angle = Math.random() * Math.PI * 2;
-			const speed = 40 + Math.random() * 140; // px
-			const dx = Math.cos(angle) * speed;
-			const dy = Math.sin(angle) * speed - 20; // slight upward bias
-			const rotate = (Math.random() - 0.5) * 720;
-			const duration = 600 + Math.random() * 800; // ms
-			s.animate(
-				[
-					{ transform: `translate(0px,0px) rotate(0deg) scale(1)`, opacity: 1 },
+			// 均等な角度分布で破片を飛ばす（少しだけ角度と速度にジッターを入れる）
+			for (let i = 0; i < count; i++) {
+				const s = document.createElement("div");
+				s.className = "heart-shard";
+				const size = 4 + Math.random() * 8; // px
+				s.style.width = `${size}px`;
+				s.style.height = `${size}px`;
+				s.style.background = currentColor || "#ff4d4d";
+				s.style.position = "absolute";
+				s.style.left = `${rect.width / 2 - size / 2}px`;
+				s.style.top = `${rect.height / 2 - size / 2}px`;
+				s.style.borderRadius = "20%";
+				s.style.pointerEvents = "none";
+				s.style.transform = 'translate(0px,0px) scale(1)';
+				container.appendChild(s);
+				shards.push(s);
+
+				// 均等角度（ラジアン）
+				const baseAngle = (i / count) * Math.PI * 2;
+				// 小ジッターを加えて自然に見せる
+				const jitter = (Math.random() - 0.5) * (Math.PI / count);
+				const angle = baseAngle + jitter;
+				// 速度も少しバラつかせる
+				const speed = 60 + Math.random() * 120; // px
+				const dx = Math.cos(angle) * speed;
+				const dy = Math.sin(angle) * speed - 10; // 少し上向きのバイアス
+				const rotate = (Math.random() - 0.5) * 540;
+				const duration = 600 + Math.random() * 700; // ms
+
+				s.animate(
+					[
+						{ transform: `translate(0px,0px) rotate(0deg) scale(1)`, opacity: 1 },
+						{ transform: `translate(${dx}px, ${dy}px) rotate(${rotate}deg) scale(0.6)`, opacity: 0 },
+					],
 					{
-						transform: `translate(${dx}px, ${dy}px) rotate(${rotate}deg) scale(0.6)`,
-						opacity: 0,
+						duration,
+						easing: "cubic-bezier(.2,.8,.2,1)",
 					},
-				],
-				{
-					duration,
-					easing: "cubic-bezier(.2,.8,.2,1)",
-				},
-			).onfinish = () => {
-				if (s.parentElement === container) container.removeChild(s);
-			};
-		}
+				).onfinish = () => {
+					if (s.parentElement === container) container.removeChild(s);
+				};
+			}
 	} catch (err) {
 		// ignore DOM errors
 		console.error("spawnHeartShards failed", err);
