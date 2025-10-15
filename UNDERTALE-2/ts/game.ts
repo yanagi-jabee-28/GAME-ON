@@ -293,6 +293,22 @@ export const startDemoScenario = (
 };
 
 /**
+ * Stop the active spawning timer and clear existing entities without stopping the game loop.
+ */
+export const stopSpawning = () => {
+	if (activeSpawnTimer !== null) {
+		window.clearInterval(activeSpawnTimer);
+		activeSpawnTimer = null;
+		document.dispatchEvent(new CustomEvent("game:spawningStopped"));
+		try {
+			clearAllEntities();
+		} catch (err) {
+			console.error("Failed to clear entities on stopSpawning", err);
+		}
+	}
+};
+
+/**
  * 画面上部に敵のシンボル（絵文字または画像）を追加します。
  * @param {string} id - シンボルの一意のID。
  * @param {"emoji" | "image"} type - シンボルの種類。

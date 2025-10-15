@@ -21,6 +21,7 @@ import {
 	handleKeyUp,
 	startDemoScenario,
 	startGameLoop,
+	stopSpawning,
 } from "./game.ts";
 import { centerPlayer, loadSvg } from "./player.ts";
 
@@ -35,6 +36,8 @@ const enemyDisplay = document.getElementById("enemy-display");
  * 完了してからハートを表示するためのフラグ。
  */
 let pendingShowHeart = false;
+// combat timer id (ms) used to end combat after attack duration
+let combatTimer: number | null = null;
 
 // --- 必須要素の存在チェック ---
 if (
@@ -194,6 +197,36 @@ loadSvg().then(() => {
 
 			// デモ用のエンティティ出現シナリオを開始
 			startDemoScenario(playfield);
+
+			// Start a 10-second combat timer. When it expires, stop spawning,
+			// hide the heart and restore UI/playfield to pre-fight state.
+			try {
+				if (combatTimer) {
+					clearTimeout(combatTimer);
+					combatTimer = null;
+				}
+				combatTimer = window.setTimeout(() => {
+					try {
+						stopSpawning(); // clears entities and dispatches game:spawningStopped
+					} catch {}
+					try {
+						heart.style.visibility = "hidden";
+						document.dispatchEvent(new CustomEvent("player:heartHidden"));
+						// restore playfield size to initial
+						playfield.style.width = `${PLAYFIELD_INITIAL_WIDTH}px`;
+						playfield.style.height = `${PLAYFIELD_INITIAL_HEIGHT}px`;
+						import("./debug.ts").then((dbg) => {
+							try {
+								dbg.playfieldWidth = PLAYFIELD_INITIAL_WIDTH;
+								dbg.playfieldHeight = PLAYFIELD_INITIAL_HEIGHT;
+								if (typeof dbg.applyPlayfieldSize === "function")
+									dbg.applyPlayfieldSize();
+							} catch {}
+						});
+					} catch {}
+					combatTimer = null;
+				}, 10000);
+			} catch {}
 		});
 	}
 });

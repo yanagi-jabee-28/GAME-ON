@@ -749,6 +749,7 @@
 				const buttons = Array.from(menu.querySelectorAll(".action-button"));
 				let selectedIndex = 0;
 				let navEnabled = true; // when false, arrow-key selection is ignored (e.g., during spawning)
+				let actionEnabled = true; // when false, activating a selected action is ignored
 				const SVG_NS = "http://www.w3.org/2000/svg";
 				const HEART_ICON_VIEWBOX = "0 0 476.36792 399.95195";
 				const HEART_ICON_PATH =
@@ -882,8 +883,9 @@
 						e.preventDefault();
 						updateSelection(selectedIndex + 1);
 					} else if (key === "Enter" || key === " ") {
-						// activate current button
+						// activate current button (only when actions enabled)
 						e.preventDefault();
+						if (!actionEnabled) return;
 						const btn = buttons[selectedIndex];
 						if (btn) btn.click();
 					}
@@ -895,6 +897,21 @@
 				});
 				document.addEventListener("game:spawningStopped", () => {
 					navEnabled = true;
+					// re-enable actions when spawning stops
+					actionEnabled = true;
+					buttons.forEach((b) => {
+						if (b instanceof HTMLButtonElement) b.disabled = false;
+						b.classList.remove("disabled");
+					});
+				});
+
+				// disable action activation when heart becomes visible (combat started)
+				document.addEventListener("player:heartShown", () => {
+					actionEnabled = false;
+					buttons.forEach((b) => {
+						if (b instanceof HTMLButtonElement) b.disabled = true;
+						b.classList.add("disabled");
+					});
 				});
 
 				document.addEventListener("player:heartColorChange", (event) => {
@@ -914,7 +931,12 @@
 							updateSelection(idx);
 							return;
 						}
-						// if selected, proceed with default click behavior (no-op here, but keeps semantics)
+						// if selected, proceed with default click behavior
+						if (!actionEnabled) {
+							ev.preventDefault();
+							return;
+						}
+						// otherwise allow click
 					});
 				});
 			})();
