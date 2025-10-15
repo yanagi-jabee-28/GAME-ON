@@ -15,6 +15,7 @@ import {
 } from "./debug.ts";
 import {
 	clearAllEntities,
+	detectCollisions,
 	getHomingEnabled,
 	getRemoveBulletsOnHit,
 	setHomingEnabled,
@@ -22,7 +23,6 @@ import {
 	spawnEntity,
 	updateEntities,
 } from "./entity.ts";
-import { detectCollisionsSafe } from "./entity-compat.ts";
 import { changeHeartColor, updatePlayerPosition } from "./player.ts";
 import type { EnemySymbol } from "./types.ts";
 
@@ -47,10 +47,10 @@ export const startGameLoop = (playfield: HTMLElement) => {
 		updatePlayerPosition(delta, pressedKeys, playfield);
 		updateEntities(delta, playfield);
 		try {
-			detectCollisionsSafe();
+			detectCollisions();
 		} catch (err) {
-			// If our safe wrapper still throws, log and continue - do not let the loop die.
-			console.error("Error during collision detection (safe):", err);
+			// Defensive: an individual entity may still cause an error. Log and continue.
+			console.error("Error during collision detection:", err);
 		}
 		if (running) requestAnimationFrame(loop);
 	};
