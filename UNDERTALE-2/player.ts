@@ -11,6 +11,8 @@ const MAX_HP = 20;
 let hp = MAX_HP;
 const DAMAGE_COOLDOWN_MS = 500; // 被ダメージの無敵時間（ミリ秒）
 let lastDamageTime = 0;
+// プレイヤー死亡フラグ（HP=0 のとき移動を無効化する）
+let isDead = false;
 
 /** 現在のハート座標を返す */
 export const getPlayerPosition = () => ({ x, y });
@@ -53,8 +55,13 @@ export const takeDamage = (amount: number) => {
 	hp = Math.max(0, hp - amount);
 	updateHpUi();
 	// 被弾時のビジュアルフィードバックは呼び出し側で行うためここでは行わない
-	// HP が 0 になったらゲームオーバー処理を開始
-	if (hp === 0) {
+	// HP が 0 になったらゲーム処理を止め、プレイヤー移動を無効にしてからアニメを再生
+	if (hp === 0 && !isDead) {
+		isDead = true;
+		// まずゲーム側に停止を通知（game.ts がループを止め、スポーン等を停止します）
+		const stopEvt = new CustomEvent("gamestop", { detail: { hp } });
+		document.dispatchEvent(stopEvt);
+		// その後にビジュアルの破壊アニメーションを再生
 		triggerGameOver();
 	}
 	return true;
@@ -87,32 +94,62 @@ const triggerGameOver = async () => {
 			if (!svg || !(svg instanceof SVGSVGElement)) throw new Error('invalid svg');
 			svg.style.width = '100%';
 			svg.style.height = '100%';
+			// ensure heart container is visible
+			heartEl.style.display = '';
+			heartEl.style.opacity = '1';
 			heartEl.appendChild(svg);
 			return svg as SVGSVGElement;
 		};
 
-		// 砕け始めを表示
-		const brokingSvg = await loadAndAppend(brokingUrl);
+		// 砕け始めを表示。fetch が失敗した場合は画像要素で代替表示する
+		let brokingSvg: SVGSVGElement | null = null;
+		try {
+			brokingSvg = await loadAndAppend(brokingUrl);
+		} catch {
+			// fallback to <img>
+			const img = document.createElement('img');
+			img.src = brokingUrl;
+			img.style.width = '100%';
+			img.style.height = '100%';
+			heartEl.appendChild(img);
+			// wait a moment to simulate animation timing
+			await new Promise((res) => setTimeout(res, 500));
+			if (img.parentElement === heartEl) heartEl.removeChild(img);
+		}
 		// 500ms 表示してから壊れた状態へ差し替え
-		await new Promise((res) => setTimeout(res, 500));
-		if (brokingSvg.parentElement === heartEl) heartEl.removeChild(brokingSvg);
+		if (brokingSvg) {
+			await new Promise((res) => setTimeout(res, 500));
+			if (brokingSvg.parentElement === heartEl) heartEl.removeChild(brokingSvg);
+		}
 
 		// 最終破片を表示
 	// 最終破片を表示（heartSvg に保持しておく）
-	heartSvg = await loadAndAppend(brokenUrl);
-	const finalPath = heartSvg.querySelector('path');
-	if (finalPath instanceof SVGGeometryElement) heartPath = finalPath;
-	// 少しだけ表示してからイベントを発火（表示時間は任意で延長可能）
-	await new Promise((res) => setTimeout(res, 400));
+		// 最終破片を表示（heartSvg に保持しておく）
+		try {
+			heartSvg = await loadAndAppend(brokenUrl);
+			const finalPath = heartSvg.querySelector('path');
+			if (finalPath instanceof SVGGeometryElement) heartPath = finalPath;
+			// 少しだけ表示してからイベントを発火（表示時間は任意で延長可能）
+			await new Promise((res) => setTimeout(res, 400));
+		} catch {
+			// fallback to image for final broken state
+			const img = document.createElement('img');
+			img.src = brokenUrl;
+			img.style.width = '100%';
+			img.style.height = '100%';
+			heartEl.appendChild(img);
+			await new Promise((res) => setTimeout(res, 400));
+		}
 
-	// dispatch gameover event on document so game.ts can listen
-	const evt = new CustomEvent('gameover', { detail: { hp: hp } });
-	document.dispatchEvent(evt);
+	// After animation completes, dispatch 'gameover' so overlay can show
+	try {
+		const evt = new CustomEvent('gameover', { detail: { hp } });
+		document.dispatchEvent(evt);
+	} catch (err) {
+		console.error('failed to dispatch gameover event', err);
+	}
 	} catch (err) {
 		console.error('game over animation failed', err);
-		// それでも gameover イベントは発火する
-		const evt = new CustomEvent('gameover', { detail: { hp: hp } });
-		document.dispatchEvent(evt);
 	}
 };
 
@@ -127,6 +164,7 @@ export const updatePlayerPosition = (
 	pressedKeys: Set<string>,
 	playfield: HTMLElement,
 ) => {
+	if (isDead) return; // 死亡時は移動を無効化
 	let dx = 0;
 	let dy = 0;
 	pressedKeys.forEach((key) => {

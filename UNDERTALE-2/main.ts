@@ -1,3 +1,4 @@
+import { PLAYER_STATUS_FONT_SIZE } from "./constants.js";
 import {
 	addEnemySymbol,
 	clearKeys,
@@ -37,6 +38,15 @@ document.addEventListener("keyup", handleKeyUp, { passive: false });
 window.addEventListener("blur", clearKeys);
 
 loadSvg().then(() => {
+	// プレイヤーステータスのフォントサイズを定数から適用
+	try {
+		const status = document.getElementById("player-status");
+		if (status instanceof HTMLElement) {
+			status.style.setProperty("--player-font-size", PLAYER_STATUS_FONT_SIZE);
+		}
+	} catch {
+		// ignore
+	}
 	startDemoScenario(playfield);
 	startGameLoop(playfield);
 });

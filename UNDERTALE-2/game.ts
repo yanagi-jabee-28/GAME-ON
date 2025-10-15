@@ -66,20 +66,26 @@ export const startGameLoop = (playfield: HTMLElement) => {
 
 	requestAnimationFrame(loop);
 
-	// gameover イベントを受け取ったらループを停止し、スポーンをクリアする
-	const onGameOver = () => {
+	// gamestop: immediately stop the loop and clear entities (fired before animation)
+	const onGameStop = () => {
 		running = false;
 		if (activeSpawnTimer !== null) {
 			window.clearInterval(activeSpawnTimer);
 			activeSpawnTimer = null;
 		}
-		// HP が 0 になった瞬間にすべてのエンティティを削除
 		try {
 			clearAllEntities();
 		} catch (err) {
-			console.error("Failed to clear entities on gameover", err);
+			console.error("Failed to clear entities on gamestop", err);
 		}
-		console.log("Game over received - stopping loop and spawn timer");
+		console.log("Game stop received - stopping loop and spawn timer");
+	};
+	document.addEventListener("gamestop", onGameStop, { once: true });
+
+	// gameover: after animation completes - we don't need to stop loop again,
+	// but keep a listener to perform any UI tasks if necessary
+	const onGameOver = () => {
+		console.log("Game over animation completed");
 	};
 	document.addEventListener("gameover", onGameOver, { once: true });
 };
