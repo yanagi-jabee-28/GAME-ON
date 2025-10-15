@@ -4,6 +4,7 @@
 		"module": "ESNext",
 		"lib": ["ES2022", "DOM"],
 		"moduleResolution": "bundler",
+		"noEmit": true,
 		"allowImportingTsExtensions": true,
 		"verbatimModuleSyntax": true,
 		"allowJs": false,
