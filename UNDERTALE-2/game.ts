@@ -16,6 +16,7 @@ import {
 	toggleSpawnMarkers,
 } from "./debug.js";
 import {
+	clearAllEntities,
 	detectCollisions,
 	getHomingEnabled,
 	getRemoveBulletsOnHit,
@@ -72,9 +73,15 @@ export const startGameLoop = (playfield: HTMLElement) => {
 			window.clearInterval(activeSpawnTimer);
 			activeSpawnTimer = null;
 		}
-		console.log('Game over received - stopping loop and spawn timer');
+		// HP が 0 になった瞬間にすべてのエンティティを削除
+		try {
+			clearAllEntities();
+		} catch (err) {
+			console.error("Failed to clear entities on gameover", err);
+		}
+		console.log("Game over received - stopping loop and spawn timer");
 	};
-	document.addEventListener('gameover', onGameOver, { once: true });
+	document.addEventListener("gameover", onGameOver, { once: true });
 };
 
 /**

@@ -59,6 +59,18 @@ export const getRemoveBulletsOnHit = () => removeBulletsOnHit;
  */
 export const getHomingEnabled = () => homingEnabled;
 
+/** すべてのエンティティを即時に削除する（DOM 要素も除去） */
+export const clearAllEntities = () => {
+	for (const e of entities) {
+		try {
+			e.element.remove();
+		} catch {
+			// ignore
+		}
+	}
+	entities.length = 0;
+};
+
 /**
  * エンティティの衝突判定に使用するサンプルポイントを取得する
  * @param {Entity} entity - 対象のエンティティ
