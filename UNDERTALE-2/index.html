@@ -73,6 +73,15 @@
 				pointer-events: none;
 			}
 
+			/* 内側の描画コンテナ。プレイフィールドのボーダー幅（4px）を内側に反映して
+			   コンテンツ領域を明示するためのコンテナです。ここに攻撃バーやレイヤーを入れます。 */
+			.playfield-inner {
+				position: absolute;
+				inset: 4px; /* playfield の border 幅と合わせる */
+				overflow: visible;
+				pointer-events: none;
+			}
+
 			#enemy-display img {
 				width: 2.2rem;
 				height: 2.2rem;
@@ -482,14 +491,16 @@
 		<div id="game-root">
 			<!-- ゲーム画面 -->
 			<div id="playfield">
-				<!-- 敵を絵文字で表現する静的表示領域 -->
-				<div id="enemy-display"></div>
-				<!-- エンティティ（敵など）を描画するレイヤー -->
-				<div class="layer" id="entity-layer"></div>
-				<!-- プレイヤー（ハート）を描画するレイヤー -->
-				<div class="layer" id="player-layer">
-					<div id="heart"></div>
-					<div id="player-overlay">テスト</div>
+				<div class="playfield-inner">
+					<!-- 敵を絵文字で表現する静的表示領域 -->
+					<div id="enemy-display"></div>
+					<!-- エンティティ（敵など）を描画するレイヤー -->
+					<div class="layer" id="entity-layer"></div>
+					<!-- プレイヤー（ハート）を描画するレイヤー -->
+					<div class="layer" id="player-layer">
+						<div id="heart"></div>
+						<div id="player-overlay">テスト</div>
+					</div>
 				</div>
 			</div>
 			<!-- プレイヤー情報 -->

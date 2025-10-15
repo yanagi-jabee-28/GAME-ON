@@ -87,31 +87,72 @@ loadSvg().then(() => {
 					if (overlay instanceof HTMLElement)
 						overlay.style.visibility = "hidden";
 				} catch {}
-				// show attack bar SVG in player layer BEFORE resizing
+				// show attack bar SVG in the inner playfield BEFORE resizing
 				try {
-					const playerLayer = document.getElementById("player-layer");
-					if (playerLayer instanceof HTMLElement) {
-						let img = document.getElementById(
-							"attack-bar-overlay",
-						) as HTMLImageElement | null;
-						if (!img) {
-							img = document.createElement("img");
-							img.id = "attack-bar-overlay";
-							img.src = new URL(
-								"../assets/attack-bar.svg",
-								import.meta.url,
-							).href;
-							// size the image to fill the player layer exactly
-							img.removeAttribute("width");
-							img.removeAttribute("height");
-							img.style.position = "absolute";
-							img.style.left = "0";
-							img.style.top = "0";
-							img.style.width = "100%";
-							img.style.height = "100%";
-							img.style.objectFit = "cover";
-							img.style.pointerEvents = "none";
-							playerLayer.appendChild(img);
+					const inner = document.querySelector(
+						".playfield-inner",
+					) as HTMLElement | null;
+					if (inner) {
+						// avoid duplicating
+						if (!document.getElementById("attack-bar-overlay")) {
+							try {
+								const svgUrl = new URL(
+									"../assets/attack-bar.svg",
+									import.meta.url,
+								).href;
+								const resp = await fetch(svgUrl);
+								if (resp.ok) {
+									const text = await resp.text();
+									const parser = new DOMParser();
+									const doc = parser.parseFromString(text, "image/svg+xml");
+									const svg = doc.documentElement as unknown as SVGSVGElement;
+									// normalize sizing to fill the inner container
+									svg.setAttribute("preserveAspectRatio", "xMidYMid slice");
+									svg.style.position = "absolute";
+									svg.style.left = "0";
+									svg.style.top = "0";
+									svg.style.width = "100%";
+									svg.style.height = "100%";
+									svg.id = "attack-bar-overlay";
+									svg.setAttribute("aria-hidden", "true");
+									svg.style.pointerEvents = "none";
+									inner.appendChild(svg);
+								} else {
+									// fallback to a simple img if fetch failed
+									const img = document.createElement("img");
+									img.id = "attack-bar-overlay";
+									img.src = new URL(
+										"../assets/attack-bar.svg",
+										import.meta.url,
+									).href;
+									img.style.position = "absolute";
+									img.style.left = "0";
+									img.style.top = "0";
+									img.style.width = "100%";
+									img.style.height = "100%";
+									img.style.objectFit = "cover";
+									img.style.pointerEvents = "none";
+									inner.appendChild(img);
+								}
+							} catch {
+								// if anything goes wrong, fall back to img
+								try {
+									const innerImg = document.createElement("img");
+									innerImg.id = "attack-bar-overlay";
+									innerImg.src = new URL(
+										"../assets/attack-bar.svg",
+										import.meta.url,
+									).href;
+									innerImg.style.position = "absolute";
+									innerImg.style.left = "0";
+									innerImg.style.top = "0";
+									innerImg.style.width = "100%";
+									innerImg.style.height = "100%";
+									innerImg.style.objectFit = "cover";
+									innerImg.style.pointerEvents = "none";
+									inner.appendChild(innerImg);
+								} catch {}
+							}
 						}
 					}
 				} catch {}
