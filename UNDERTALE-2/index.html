@@ -177,7 +177,7 @@
 				--player-font-size: 1.5rem;
 				position: relative;
 				margin-top: 1.75rem;
-				margin-bottom: 1rem;
+				margin-bottom: 0.6rem;
 				padding: 0.6rem 1rem;
 				display: grid;
 				grid-template-columns: auto 240px auto;
@@ -265,6 +265,46 @@
 				justify-self: end;
 				font-weight: 800;
 				font-size: calc(var(--player-font-size) * 0.57);
+			}
+
+			/* 行動選択ボタンのコンテナ */
+			#action-menu {
+				width: 640px;
+				display: flex;
+				justify-content: space-between;
+				gap: 1.5rem;
+				margin-bottom: 1.6rem;
+				font-family: 'Press Start 2P', 'PixelMplus12', 'VT323', monospace;
+			}
+
+			.action-button {
+				flex: 1;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				padding: 0.9rem 0;
+				background: #000;
+				color: #ff9c1a;
+				border: 4px solid #ff9c1a;
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+				font-family: "VT323", "PixelMplus12", "Press Start 2P", "Consolas", "monospace";
+				font-size: 0.95rem;
+				cursor: pointer;
+				box-shadow: 0 0 0 1px #000 inset;
+				transition: transform 120ms ease, box-shadow 120ms ease;
+			}
+
+			.action-button:hover,
+			.action-button:focus-visible {
+				transform: translateY(-2px);
+				box-shadow: 0 0 0 1px #ff9c1a inset, 0 6px 12px rgba(0, 0, 0, 0.35);
+				outline: none;
+			}
+
+			.action-button:active {
+				transform: translateY(0);
+				box-shadow: 0 0 0 1px #ff9c1a inset, 0 2px 4px rgba(0, 0, 0, 0.4);
 			}
 
 			/* white framed box removed per user request */
@@ -381,6 +421,12 @@
 						>20&nbsp;/&nbsp;20</span
 					>
 				</div>
+			</div>
+			<div id="action-menu" role="group" aria-label="行動選択">
+				<button class="action-button" type="button">FIGHT</button>
+				<button class="action-button" type="button">ACT</button>
+				<button class="action-button" type="button">ITEM</button>
+				<button class="action-button" type="button">MERCY</button>
 			</div>
 			<!-- 操作説明 -->
 			<div id="instruction">
