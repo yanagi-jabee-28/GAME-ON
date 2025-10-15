@@ -750,6 +750,8 @@
 					svg.setAttribute("focusable", "false");
 					const path = document.createElementNS(SVG_NS, "path");
 					path.setAttribute("d", HEART_ICON_PATH);
+					// apply the original SVG's translate to vertically align the path inside the viewBox
+					path.setAttribute("transform", "translate(0.34846644,-37.808257)");
 					path.setAttribute("fill", color);
 					path.setAttribute("stroke", "#000");
 					path.setAttribute("stroke-width", "10");
