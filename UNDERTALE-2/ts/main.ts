@@ -70,6 +70,17 @@ loadSvg().then(() => {
 			try {
 				// make heart visible, then center and start spawning
 				heart.style.visibility = "visible";
+				// resize playfield to 240x240 on fight and update debug module state
+				playfield.style.width = "240px";
+				playfield.style.height = "240px";
+				import("./debug.ts").then((dbg) => {
+					try {
+						dbg.playfieldWidth = 240;
+						dbg.playfieldHeight = 240;
+						if (typeof dbg.applyPlayfieldSize === "function")
+							dbg.applyPlayfieldSize();
+					} catch {}
+				});
 				centerPlayer(playfield);
 			} catch {}
 			// Start the spawn loop with the current pattern

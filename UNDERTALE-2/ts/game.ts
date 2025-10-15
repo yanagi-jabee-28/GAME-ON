@@ -1,6 +1,5 @@
 import { DIRECTION_MAP, PLAYFIELD_SIZE_STEP } from "./constants.ts";
 import {
-	applyPlayfieldSize,
 	changePlayfieldSize,
 	clearDebugMarkers,
 	currentPattern,
@@ -133,9 +132,10 @@ export const startDemoScenario = (
 	const pf = playfield ?? document.getElementById("playfield");
 	if (!(pf instanceof HTMLElement)) return;
 
-	setActivePlayfield(pf);
+	// Do not override active playfield size here. The playfield should be
+	// configured by the caller (e.g. main.ts). Only update the spawn pattern
+	// and spawn lines based on the already-active playfield.
 	setSpawnPattern(pattern);
-	applyPlayfieldSize();
 	refreshSpawnLines();
 
 	if (activeSpawnTimer !== null) {
