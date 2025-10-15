@@ -15,7 +15,8 @@ let currentColor = COLORS[currentIndex];
 // プレイヤーのHP管理
 const MAX_HP = 20;
 let hp = MAX_HP;
-let lastDamageTime = 0;
+// 無敵が切れる時刻（performance.now のタイムスタンプ、ミリ秒）
+let lastDamageExpiry = 0;
 // プレイヤー死亡フラグ（HP=0 のとき移動を無効化する）
 let isDead = false;
 // 砕け始め（ヒビ）を表示する時間（ミリ秒）
@@ -115,8 +116,10 @@ const updateHpUi = () => {
 /** 指定量のダメージを与える。無敵時間内は false を返す */
 export const takeDamage = (amount: number) => {
 	const now = performance.now();
-	if (now - lastDamageTime < DAMAGE_COOLDOWN_MS) return false;
-	lastDamageTime = now;
+	// 現在時刻が無敵切れ時刻より前ならまだ無敵
+	if (now < lastDamageExpiry) return false;
+	// 次の無敵切れ時刻を設定
+	lastDamageExpiry = now + DAMAGE_COOLDOWN_MS;
 	hp = Math.max(0, hp - amount);
 	updateHpUi();
 	// 被弾時のビジュアルフィードバックは呼び出し側で行うためここでは行わない
