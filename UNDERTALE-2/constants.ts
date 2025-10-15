@@ -43,3 +43,5 @@ export const PLAYER_STATUS_FONT_SIZE = "1rem";
 
 /** ハートの表示サイズ（CSS 単位付き文字列） */
 export const HEART_SIZE = "30px";
+/** 破片演出が終わった後、GAMEOVER 画面を表示するまでの待機時間（ミリ秒） */
+export const GAMEOVER_DELAY_MS = 700;

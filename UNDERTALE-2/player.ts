@@ -1,4 +1,9 @@
-import { COLORS, DIRECTION_MAP, SPEED } from "./constants.js";
+import {
+	COLORS,
+	DIRECTION_MAP,
+	GAMEOVER_DELAY_MS,
+	SPEED,
+} from "./constants.js";
 
 let x = 0;
 let y = 0;
@@ -13,6 +18,60 @@ const DAMAGE_COOLDOWN_MS = 500; // 被ダメージの無敵時間（ミリ秒）
 let lastDamageTime = 0;
 // プレイヤー死亡フラグ（HP=0 のとき移動を無効化する）
 let isDead = false;
+// 砕け始め（ヒビ）を表示する時間（ミリ秒）
+const BROKING_DISPLAY_MS = 900;
+
+// ハート破片（パーティクル）を生成して飛ばす
+const spawnHeartShards = (count = 12) => {
+	try {
+		const container = getHeartElement();
+		const rect = container.getBoundingClientRect();
+		const shards: HTMLElement[] = [];
+		for (let i = 0; i < count; i++) {
+			const s = document.createElement("div");
+			s.className = "heart-shard";
+			// サイズをランダムにする
+			const size = 4 + Math.random() * 8; // px
+			s.style.width = `${size}px`;
+			s.style.height = `${size}px`;
+			s.style.background = currentColor || "#ff4d4d";
+			s.style.position = "absolute";
+			s.style.left = `${rect.width / 2 - size / 2}px`;
+			s.style.top = `${rect.height / 2 - size / 2}px`;
+			s.style.borderRadius = "20%";
+			s.style.pointerEvents = "none";
+			// initial transform
+			s.style.transform = "translate(0px,0px) scale(1)";
+			container.appendChild(s);
+			shards.push(s);
+			// animate using Web Animations API
+			const angle = Math.random() * Math.PI * 2;
+			const speed = 40 + Math.random() * 140; // px
+			const dx = Math.cos(angle) * speed;
+			const dy = Math.sin(angle) * speed - 20; // slight upward bias
+			const rotate = (Math.random() - 0.5) * 720;
+			const duration = 600 + Math.random() * 800; // ms
+			s.animate(
+				[
+					{ transform: `translate(0px,0px) rotate(0deg) scale(1)`, opacity: 1 },
+					{
+						transform: `translate(${dx}px, ${dy}px) rotate(${rotate}deg) scale(0.6)`,
+						opacity: 0,
+					},
+				],
+				{
+					duration,
+					easing: "cubic-bezier(.2,.8,.2,1)",
+				},
+			).onfinish = () => {
+				if (s.parentElement === container) container.removeChild(s);
+			};
+		}
+	} catch (err) {
+		// ignore DOM errors
+		console.error("spawnHeartShards failed", err);
+	}
+};
 
 /** 現在のハート座標を返す */
 export const getPlayerPosition = () => ({ x, y });
@@ -33,12 +92,16 @@ export const getHp = () => hp;
 /** HP表示をDOMに反映する */
 const updateHpUi = () => {
 	try {
-		const bar = document.querySelector('#player-status .status-hp-bar[role="progressbar"]') as HTMLElement | null;
-		const fill = bar?.querySelector('.status-hp-fill') as HTMLElement | null;
-		const value = document.querySelector('#player-status .status-hp-value') as HTMLElement | null;
+		const bar = document.querySelector(
+			'#player-status .status-hp-bar[role="progressbar"]',
+		) as HTMLElement | null;
+		const fill = bar?.querySelector(".status-hp-fill") as HTMLElement | null;
+		const value = document.querySelector(
+			"#player-status .status-hp-value",
+		) as HTMLElement | null;
 		if (!bar || !fill || !value) return;
-		bar.setAttribute('aria-valuenow', String(hp));
-		const max = Number(bar.getAttribute('aria-valuemax') ?? MAX_HP) || MAX_HP;
+		bar.setAttribute("aria-valuenow", String(hp));
+		const max = Number(bar.getAttribute("aria-valuemax") ?? MAX_HP) || MAX_HP;
 		const pct = max > 0 ? (hp / max) * 100 : 0;
 		fill.style.width = `${pct}%`;
 		value.textContent = `${hp}\u00A0/\u00A0${max}`;
@@ -80,8 +143,14 @@ const triggerGameOver = async () => {
 		}
 
 		// 砕け始めの SVG を読み込み、短時間表示
-		const brokingUrl = new URL("./assets/heart-shape-svgrepo-com-broking.svg", import.meta.url).href;
-		const brokenUrl = new URL("./assets/heart-shape-svgrepo-com-broken.svg", import.meta.url).href;
+		const brokingUrl = new URL(
+			"./assets/heart-shape-svgrepo-com-broking.svg",
+			import.meta.url,
+		).href;
+		const brokenUrl = new URL(
+			"./assets/heart-shape-svgrepo-com-broken.svg",
+			import.meta.url,
+		).href;
 
 		// helper to load an svg and append
 		const loadAndAppend = async (url: string) => {
@@ -89,14 +158,15 @@ const triggerGameOver = async () => {
 			if (!resp.ok) throw new Error(`SVG fetch failed: ${resp.status}`);
 			const text = await resp.text();
 			const parser = new DOMParser();
-			const doc = parser.parseFromString(text, 'image/svg+xml');
-			const svg = doc.querySelector('svg');
-			if (!svg || !(svg instanceof SVGSVGElement)) throw new Error('invalid svg');
-			svg.style.width = '100%';
-			svg.style.height = '100%';
+			const doc = parser.parseFromString(text, "image/svg+xml");
+			const svg = doc.querySelector("svg");
+			if (!svg || !(svg instanceof SVGSVGElement))
+				throw new Error("invalid svg");
+			svg.style.width = "100%";
+			svg.style.height = "100%";
 			// ensure heart container is visible
-			heartEl.style.display = '';
-			heartEl.style.opacity = '1';
+			heartEl.style.display = "";
+			heartEl.style.opacity = "1";
 			heartEl.appendChild(svg);
 			return svg as SVGSVGElement;
 		};
@@ -107,49 +177,63 @@ const triggerGameOver = async () => {
 			brokingSvg = await loadAndAppend(brokingUrl);
 		} catch {
 			// fallback to <img>
-			const img = document.createElement('img');
+			const img = document.createElement("img");
 			img.src = brokingUrl;
-			img.style.width = '100%';
-			img.style.height = '100%';
+			img.style.width = "100%";
+			img.style.height = "100%";
 			heartEl.appendChild(img);
 			// wait a moment to simulate animation timing
-			await new Promise((res) => setTimeout(res, 500));
+			await new Promise((res) => setTimeout(res, BROKING_DISPLAY_MS));
 			if (img.parentElement === heartEl) heartEl.removeChild(img);
 		}
 		// 500ms 表示してから壊れた状態へ差し替え
 		if (brokingSvg) {
-			await new Promise((res) => setTimeout(res, 500));
+			await new Promise((res) => setTimeout(res, BROKING_DISPLAY_MS));
 			if (brokingSvg.parentElement === heartEl) heartEl.removeChild(brokingSvg);
 		}
 
 		// 最終破片を表示
-	// 最終破片を表示（heartSvg に保持しておく）
+		// 最終破片を表示（heartSvg に保持しておく）
 		// 最終破片を表示（heartSvg に保持しておく）
 		try {
 			heartSvg = await loadAndAppend(brokenUrl);
-			const finalPath = heartSvg.querySelector('path');
+			const finalPath = heartSvg.querySelector("path");
 			if (finalPath instanceof SVGGeometryElement) heartPath = finalPath;
 			// 少しだけ表示してからイベントを発火（表示時間は任意で延長可能）
 			await new Promise((res) => setTimeout(res, 400));
+			// 破片を飛ばす
+			spawnHeartShards(14);
+			// 本体のSVGは破片を生成したら削除しておく（破片は DOM に残る）
+			if (heartSvg && heartSvg.parentElement === heartEl) {
+				heartEl.removeChild(heartSvg);
+				heartSvg = null;
+				heartPath = null;
+			}
 		} catch {
 			// fallback to image for final broken state
-			const img = document.createElement('img');
+			const img = document.createElement("img");
 			img.src = brokenUrl;
-			img.style.width = '100%';
-			img.style.height = '100%';
+			img.style.width = "100%";
+			img.style.height = "100%";
 			heartEl.appendChild(img);
 			await new Promise((res) => setTimeout(res, 400));
+			// 破片を飛ばす（フォールバック経路でも同様に）
+			spawnHeartShards(14);
+			// フォールバックで追加した img 本体は削除しておく
+			if (img.parentElement === heartEl) heartEl.removeChild(img);
 		}
 
-	// After animation completes, dispatch 'gameover' so overlay can show
-	try {
-		const evt = new CustomEvent('gameover', { detail: { hp } });
-		document.dispatchEvent(evt);
+		// After animation completes, wait a bit so the shard animation settles, then dispatch 'gameover' so overlay can show
+		try {
+			// 少し余裕を持って待機（破片アニメーションと視覚的余韻）
+			await new Promise((res) => setTimeout(res, GAMEOVER_DELAY_MS));
+			const evt = new CustomEvent("gameover", { detail: { hp } });
+			document.dispatchEvent(evt);
+		} catch (err) {
+			console.error("failed to dispatch gameover event", err);
+		}
 	} catch (err) {
-		console.error('failed to dispatch gameover event', err);
-	}
-	} catch (err) {
-		console.error('game over animation failed', err);
+		console.error("game over animation failed", err);
 	}
 };
 
