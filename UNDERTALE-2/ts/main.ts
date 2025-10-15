@@ -229,6 +229,345 @@ loadSvg().then(() => {
 			} catch {}
 		});
 	}
+
+	// --- 移動した index.html 内スクリプトの初期化処理 ---
+	try {
+		// HPバーの初期表示を aria 属性に基づき反映する
+		(function initHpBar() {
+			const bar = document.querySelector(
+				'#player-status .status-hp-bar[role="progressbar"]',
+			) as HTMLElement | null;
+			const fill = bar?.querySelector(".status-hp-fill") as HTMLElement | null;
+			if (!bar || !fill) return;
+			const now = Number(bar.getAttribute("aria-valuenow") ?? 0);
+			const max = Number(bar.getAttribute("aria-valuemax") ?? 100);
+			const pct =
+				!Number.isFinite(now) || !Number.isFinite(max) || max <= 0
+					? 0
+					: (now / max) * 100;
+			fill.style.width = `${pct}%`;
+		})();
+
+		// Action menu UI / keyboard navigation / overlay handlers
+		(() => {
+			// When player heart is shown, ensure selection images are suppressed and replaced with emoji
+			document.addEventListener("player:heartShown", () => {
+				const buttons = Array.from(
+					document.querySelectorAll("#action-menu .action-button"),
+				) as HTMLElement[];
+				buttons.forEach((b) => {
+					const icon = b.querySelector(".action-icon") as HTMLElement | null;
+					if (!icon) return;
+					const usesHeartIcon = icon.getAttribute("data-heart-icon") === "true";
+					if (!usesHeartIcon) return;
+					const img = icon.querySelector("img.action-icon-img");
+					if (img) {
+						img.remove();
+						icon.textContent = icon.getAttribute("data-emoji") || "";
+						icon.removeAttribute("aria-hidden");
+						icon.removeAttribute("data-heart-icon");
+					}
+					const svg = icon.querySelector("svg.action-icon-svg");
+					if (svg) {
+						svg.remove();
+						icon.textContent = icon.getAttribute("data-emoji") || "";
+						icon.removeAttribute("aria-hidden");
+						icon.removeAttribute("data-heart-icon");
+					}
+				});
+			});
+
+			// GAMEOVER overlay
+			document.addEventListener("gameover", () => {
+				const overlay = document.getElementById("gameover-overlay");
+				if (!overlay) return;
+				overlay.setAttribute("aria-hidden", "false");
+				const retry = document.getElementById("retry-button");
+				if (retry instanceof HTMLElement) {
+					retry.focus();
+					retry.addEventListener("click", () => {
+						window.location.reload();
+					});
+				}
+			});
+
+			// Allow pressing 'R' to retry when gameover overlay is visible
+			document.addEventListener("keydown", (e) => {
+				const overlay = document.getElementById("gameover-overlay");
+				if (!overlay || overlay.getAttribute("aria-hidden") !== "false") return;
+				const key = e.key;
+				if (
+					key?.toLowerCase() === "r" ||
+					key === " " ||
+					key === "Spacebar" ||
+					e.code === "Space"
+				) {
+					e.preventDefault();
+					window.location.reload();
+				}
+			});
+
+			// Action menu icon management API
+			const buttons = Array.from(
+				document.querySelectorAll("#action-menu .action-button"),
+			) as HTMLElement[];
+			function getIconEl(idx: number) {
+				const btn = buttons[idx];
+				if (!btn) return null;
+				return btn.querySelector(".action-icon") as HTMLElement | null;
+			}
+
+			type ActionMenu = {
+				setIcon(idx: number, imgSrc: string): void;
+				clearIcon(idx: number): void;
+				showIcon(idx: number, visible?: boolean): void;
+			};
+
+			(window as Window & { actionMenu?: ActionMenu }).actionMenu = {
+				setIcon(idx: number, imgSrc: string) {
+					const icon = getIconEl(idx);
+					if (!icon) return;
+					const existingSvg = icon.querySelector("svg.action-icon-svg");
+					if (existingSvg) existingSvg.remove();
+					const img = document.createElement("img");
+					img.src = imgSrc;
+					img.className = "action-icon-img";
+					img.alt = "";
+					icon.textContent = "";
+					icon.appendChild(img);
+					icon.removeAttribute("data-heart-icon");
+				},
+				clearIcon(idx: number) {
+					const icon = getIconEl(idx);
+					if (!icon) return;
+					const existingSvg = icon.querySelector("svg.action-icon-svg");
+					if (existingSvg) existingSvg.remove();
+					const existingImg = icon.querySelector("img.action-icon-img");
+					if (existingImg) existingImg.remove();
+					icon.textContent = icon.getAttribute("data-emoji") || "";
+					icon.removeAttribute("data-heart-icon");
+					icon.removeAttribute("aria-hidden");
+				},
+				showIcon(idx: number, visible = true) {
+					const icon = getIconEl(idx);
+					if (!icon) return;
+					icon.setAttribute("aria-hidden", visible ? "false" : "true");
+				},
+			};
+			// preserve original emoji as data attribute for clearIcon
+			buttons.forEach((b) => {
+				const icon = b.querySelector(".action-icon") as HTMLElement | null;
+				if (icon?.textContent) {
+					icon.setAttribute("data-emoji", icon.textContent.trim());
+				}
+			});
+
+			// Keyboard navigation for action menu
+			(() => {
+				let selectedIndex = 0;
+				let navEnabled = true;
+				let actionEnabled = true;
+				const SVG_NS = "http://www.w3.org/2000/svg";
+				const HEART_ICON_VIEWBOX = "0 0 476.36792 399.95195";
+				const HEART_ICON_PATH =
+					"m 238.15,437.221 v 0 C 449.09,352.067 530.371,154.668 437.481,69.515 344.582,-15.639 238.15,100.468 238.15,100.468 h -0.774 c 0,0 -106.44,-116.107 -199.331,-30.953 -92.889,85.143 -10.834,282.553 200.105,367.706 z";
+				const DEFAULT_HEART_COLOR = "hsl(0 100% 50%)";
+				let heartColor = DEFAULT_HEART_COLOR;
+
+				function isHeartVisible() {
+					const heartEl = document.getElementById("heart");
+					return Boolean(heartEl && heartEl.style.visibility === "visible");
+				}
+
+				function createHeartIconSvg(color: string) {
+					const svg = document.createElementNS(SVG_NS, "svg");
+					svg.setAttribute("viewBox", HEART_ICON_VIEWBOX);
+					svg.setAttribute("class", "action-icon-svg");
+					svg.setAttribute("role", "presentation");
+					svg.setAttribute("focusable", "false");
+					const path = document.createElementNS(SVG_NS, "path");
+					path.setAttribute("d", HEART_ICON_PATH);
+					path.setAttribute("transform", "translate(0.34846644,-37.808257)");
+					path.setAttribute("fill", color);
+					path.setAttribute("stroke", "#000");
+					path.setAttribute("stroke-width", "10");
+					path.setAttribute("stroke-linejoin", "round");
+					svg.appendChild(path);
+					return svg;
+				}
+
+				function restoreIcon(iconEl: HTMLElement | null) {
+					if (!iconEl) return;
+					if (iconEl.getAttribute("data-heart-icon") !== "true") return;
+					const existingSvg = iconEl.querySelector("svg.action-icon-svg");
+					if (existingSvg) existingSvg.remove();
+					const existingImg = iconEl.querySelector("img.action-icon-img");
+					if (existingImg) existingImg.remove();
+					iconEl.textContent = iconEl.getAttribute("data-emoji") || "";
+					iconEl.removeAttribute("aria-hidden");
+					iconEl.removeAttribute("data-heart-icon");
+				}
+
+				function applyHeartIcon(iconEl: HTMLElement | null) {
+					if (!iconEl) return;
+					const existingSvg = iconEl.querySelector("svg.action-icon-svg");
+					if (existingSvg) {
+						const path = existingSvg.querySelector("path");
+						if (path instanceof SVGGeometryElement) {
+							path.setAttribute("fill", heartColor);
+						}
+						iconEl.setAttribute("aria-hidden", "false");
+						iconEl.setAttribute("data-heart-icon", "true");
+						return;
+					}
+					iconEl.textContent = "";
+					iconEl.appendChild(createHeartIconSvg(heartColor));
+					iconEl.setAttribute("aria-hidden", "false");
+					iconEl.setAttribute("data-heart-icon", "true");
+				}
+
+				function syncSelectionHeartIcons(color: string) {
+					const paths = document.querySelectorAll(
+						"#action-menu svg.action-icon-svg path",
+					);
+					paths.forEach((path) => {
+						if (!(path instanceof SVGGeometryElement)) return;
+						const wrapper = path.closest(".action-icon") as HTMLElement | null;
+						if (!wrapper || wrapper.getAttribute("data-heart-icon") !== "true")
+							return;
+						path.setAttribute("fill", color);
+					});
+				}
+
+				function updateSelection(newIndex: number) {
+					if (newIndex < 0) newIndex = 0;
+					if (newIndex >= buttons.length) newIndex = buttons.length - 1;
+					if (selectedIndex === newIndex) return;
+					buttons[selectedIndex].classList.remove("selected");
+					const prevIcon = buttons[selectedIndex].querySelector(
+						".action-icon",
+					) as HTMLElement | null;
+					if (prevIcon) restoreIcon(prevIcon);
+					selectedIndex = newIndex;
+					buttons[selectedIndex].classList.add("selected");
+					const newIcon = buttons[selectedIndex].querySelector(
+						".action-icon",
+					) as HTMLElement | null;
+					if (newIcon) {
+						if (isHeartVisible()) {
+							restoreIcon(newIcon);
+						} else {
+							applyHeartIcon(newIcon);
+						}
+					}
+					const btn = buttons[selectedIndex];
+					if (btn instanceof HTMLElement) btn.focus({ preventScroll: true });
+				}
+
+				// initialize selection
+				buttons.forEach((b) => {
+					b.classList.remove("selected");
+				});
+				if (buttons.length) {
+					buttons[selectedIndex].classList.add("selected");
+					const initIcon = buttons[selectedIndex].querySelector(
+						".action-icon",
+					) as HTMLElement | null;
+					if (initIcon) {
+						if (!isHeartVisible()) {
+							applyHeartIcon(initIcon);
+						} else {
+							restoreIcon(initIcon);
+						}
+					}
+				}
+
+				// keyboard handling
+				document.addEventListener("keydown", (e) => {
+					const key = e.key;
+					if (
+						!navEnabled &&
+						(key === "ArrowLeft" ||
+							key === "ArrowRight" ||
+							key === "a" ||
+							key === "A" ||
+							key === "d" ||
+							key === "D")
+					) {
+						return;
+					}
+					if (key === "ArrowLeft" || key === "a" || key === "A") {
+						e.preventDefault();
+						updateSelection(selectedIndex - 1);
+					} else if (key === "ArrowRight" || key === "d" || key === "D") {
+						e.preventDefault();
+						updateSelection(selectedIndex + 1);
+					} else if (key === "Enter" || key === " ") {
+						e.preventDefault();
+						if (!actionEnabled) return;
+						const btn = buttons[selectedIndex];
+						if (btn) btn.click();
+					}
+				});
+
+				// Listen for spawning start/stop events to disable/enable navigation
+				document.addEventListener("game:spawningStarted", () => {
+					navEnabled = false;
+				});
+				document.addEventListener("game:spawningStopped", () => {
+					navEnabled = true;
+					actionEnabled = true;
+					buttons.forEach((b) => {
+						if (b instanceof HTMLButtonElement) b.disabled = false;
+						b.classList.remove("disabled");
+					});
+				});
+
+				// disable action activation when heart becomes visible (combat started)
+				document.addEventListener("player:heartShown", () => {
+					actionEnabled = false;
+					buttons.forEach((b) => {
+						if (b instanceof HTMLButtonElement) b.disabled = true;
+						b.classList.add("disabled");
+					});
+				});
+
+				document.addEventListener("player:heartColorChange", (event: Event) => {
+					const nextColor = (event as CustomEvent)?.detail?.color;
+					if (typeof nextColor === "string" && nextColor) {
+						heartColor = nextColor;
+						syncSelectionHeartIcons(heartColor);
+					}
+				});
+
+				// click-to-select
+				buttons.forEach((b, idx) => {
+					b.addEventListener("click", (ev) => {
+						if (selectedIndex !== idx) {
+							ev.preventDefault();
+							updateSelection(idx);
+							return;
+						}
+						if (!actionEnabled) {
+							ev.preventDefault();
+							return;
+						}
+					});
+				});
+			})();
+		})();
+
+		// When the heart is hidden (combat ended), restore the player overlay
+		document.addEventListener("player:heartHidden", () => {
+			try {
+				const overlay = document.getElementById("player-overlay");
+				if (overlay instanceof HTMLElement) {
+					overlay.textContent = "テスト";
+					overlay.style.visibility = "visible";
+				}
+			} catch {}
+		});
+	} catch {}
 });
 
 // プレイフィールドのCSSトランジション（サイズ変更アニメーション）が完了したときの処理
