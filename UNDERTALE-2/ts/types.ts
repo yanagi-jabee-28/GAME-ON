@@ -12,6 +12,7 @@ export type Entity = {
 	color: string;
 	lifetime: number;
 	collisionOpacity: number;
+	fading: boolean;
 };
 
 export type EntitySpawnOptions = {

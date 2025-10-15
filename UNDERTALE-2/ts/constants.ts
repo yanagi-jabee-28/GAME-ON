@@ -11,7 +11,7 @@ export const REMOVAL_MARGIN = 160;
 /** エンティティが消える前のフェードアウト時間 (秒) */
 export const FADE_DURATION = 0.5;
 /** エンティティの寿命 (秒) */
-export const LIFETIME = 5;
+export const LIFETIME = 4.5;
 
 /** ハートが巡回するカラーパレット */
 export const COLORS: string[] = [
