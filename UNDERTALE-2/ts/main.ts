@@ -1,4 +1,5 @@
 import {
+	ACTION_BUTTON_FONT_SIZE,
 	HEART_SIZE,
 	PLAYER_STATUS_FONT_SIZE,
 	PLAYFIELD_INITIAL_HEIGHT,
@@ -57,6 +58,12 @@ loadSvg().then(() => {
 	} catch {
 		// ignore
 	}
+	try {
+		document.documentElement.style.setProperty(
+			"--action-button-font-size",
+			ACTION_BUTTON_FONT_SIZE,
+		);
+	} catch {}
 	try {
 		document.documentElement.style.setProperty("--heart-size", HEART_SIZE);
 	} catch {
