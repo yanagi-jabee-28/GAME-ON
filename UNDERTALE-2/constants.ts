@@ -34,3 +34,6 @@ export const DIRECTION_MAP: Record<string, Readonly<[number, number]>> = {
 	arrowright: [1, 0],
 	d: [1, 0],
 };
+
+/** エンティティが与えるダメージ（プレイヤーに当たったとき） */
+export const ENTITY_DAMAGE = 10;

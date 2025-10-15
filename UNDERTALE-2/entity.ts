@@ -1,4 +1,5 @@
 import {
+	ENTITY_DAMAGE,
 	ENTITY_MIN_OPACITY,
 	FADE_DURATION,
 	LIFETIME,
@@ -11,6 +12,7 @@ import {
 	getHeartSvg,
 	getPlayerPosition,
 	setHeartOpacity,
+	takeDamage,
 } from "./player.js";
 import type { Entity, EntitySpawnOptions } from "./types.js";
 
@@ -397,6 +399,8 @@ export const detectCollisions = () => {
 		}
 
 		if (hit) {
+			// プレイヤーにヒットしたのでダメージを与える（成功した場合は無敵時間等が働いた）
+			const damaged = takeDamage(ENTITY_DAMAGE);
 			if (removeBulletsOnHit) {
 				// 衝突時にエンティティを削除する設定の場合
 				entity.element.remove();
@@ -404,8 +408,9 @@ export const detectCollisions = () => {
 			} else {
 				// 衝突したエンティティを半透明にする
 				entity.collisionOpacity = ENTITY_MIN_OPACITY;
-				heartWasHit = true;
 			}
+			// ダメージが反映された場合はハートの被弾フィードバックを有効にする
+			if (damaged) heartWasHit = true;
 		} else {
 			entity.collisionOpacity = 1; // 衝突していない場合は不透明度を元に戻す
 		}

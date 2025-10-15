@@ -48,6 +48,8 @@ export const startGameLoop = (playfield: HTMLElement) => {
 		`Bullet removal on hit (default): ${getRemoveBulletsOnHit() ? "ON" : "OFF"}`,
 	);
 
+	let running = true;
+
 	const loop = (timestamp: number) => {
 		// 前フレームからの経過秒数を算出
 		const delta = (timestamp - lastTimestamp) / 1000;
@@ -57,11 +59,22 @@ export const startGameLoop = (playfield: HTMLElement) => {
 		updatePlayerPosition(delta, pressedKeys, playfield);
 		updateEntities(delta, playfield);
 		detectCollisions();
-
 		// 次フレームをスケジュールしてループを継続
-		requestAnimationFrame(loop);
+		if (running) requestAnimationFrame(loop);
 	};
+
 	requestAnimationFrame(loop);
+
+	// gameover イベントを受け取ったらループを停止し、スポーンをクリアする
+	const onGameOver = () => {
+		running = false;
+		if (activeSpawnTimer !== null) {
+			window.clearInterval(activeSpawnTimer);
+			activeSpawnTimer = null;
+		}
+		console.log('Game over received - stopping loop and spawn timer');
+	};
+	document.addEventListener('gameover', onGameOver, { once: true });
 };
 
 /**
