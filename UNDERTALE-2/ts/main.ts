@@ -14,6 +14,8 @@ import {
 	COMBAT_DURATION_MS,
 	HEART_SIZE,
 	isConfirmKey,
+	isMoveLeftKey,
+	isMoveRightKey,
 	PLAYER_STATUS_FONT_SIZE,
 	PLAYFIELD_INITIAL_HEIGHT,
 	PLAYFIELD_INITIAL_WIDTH,
@@ -76,6 +78,17 @@ addEnemySymbol(
 );
 
 // --- グローバルイベントリスナーの登録 ---
+
+// スペースキーのデフォルト動作を完全に無効化
+document.addEventListener(
+	"keydown",
+	(e) => {
+		if (e.key === " " || e.key === "Spacebar") {
+			e.preventDefault();
+		}
+	},
+	{ passive: false },
+);
 
 // キーが押された時と離された時のイベントを捕捉
 document.addEventListener("keydown", handleKeyDown, { passive: false });
@@ -418,13 +431,18 @@ loadSvg().then(() => {
 				const overlay = document.getElementById("gameover-overlay");
 				if (!overlay || overlay.getAttribute("aria-hidden") !== "false") return;
 				const key = e.key;
+
+				// スペースキーを無効化（ブラウザのデフォルト動作を防ぐ）
+				if (key === " " || key === "Spacebar") {
+					e.preventDefault();
+					return;
+				}
+
 				if (key?.toLowerCase() === "r" || isConfirmKey(key)) {
 					e.preventDefault();
 					window.location.reload();
 				}
-			});
-
-			// Action menu icon management API
+			}); // Action menu icon management API
 			const buttons = Array.from(
 				document.querySelectorAll("#action-menu .action-button"),
 			) as HTMLElement[];
@@ -602,21 +620,20 @@ loadSvg().then(() => {
 				// keyboard handling
 				document.addEventListener("keydown", (e) => {
 					const key = e.key;
-					if (
-						!navEnabled &&
-						(key === "ArrowLeft" ||
-							key === "ArrowRight" ||
-							key === "a" ||
-							key === "A" ||
-							key === "d" ||
-							key === "D")
-					) {
+
+					// スペースキーを無効化（ブラウザのデフォルト動作を防ぐ）
+					if (key === " " || key === "Spacebar") {
+						e.preventDefault();
 						return;
 					}
-					if (key === "ArrowLeft" || key === "a" || key === "A") {
+
+					if (!navEnabled && (isMoveLeftKey(key) || isMoveRightKey(key))) {
+						return;
+					}
+					if (isMoveLeftKey(key)) {
 						e.preventDefault();
 						updateSelection(selectedIndex - 1);
-					} else if (key === "ArrowRight" || key === "d" || key === "D") {
+					} else if (isMoveRightKey(key)) {
 						e.preventDefault();
 						updateSelection(selectedIndex + 1);
 					} else if (isConfirmKey(key)) {
@@ -625,9 +642,7 @@ loadSvg().then(() => {
 						const btn = buttons[selectedIndex];
 						if (btn) btn.click();
 					}
-				});
-
-				// Listen for spawning start/stop events to disable/enable navigation
+				}); // Listen for spawning start/stop events to disable/enable navigation
 				document.addEventListener("game:spawningStarted", () => {
 					navEnabled = false;
 				});

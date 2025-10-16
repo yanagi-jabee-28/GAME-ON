@@ -57,19 +57,134 @@ export const COLORS: string[] = [
 ];
 
 /**
- * キーボードの入力キーと、それに対応する移動方向のベクトルを定義します。
+ * キーバインディング設定
+ * ゲーム内で使用するすべてのキーを機能ごとに定義します。
+ * ここでキーを追加・変更することで、ゲーム全体の操作を統一的に変更できます。
+ */
+export const KEY_BINDINGS = {
+	/** 決定キー（メニュー選択、メッセージ送り等） */
+	CONFIRM: ["z", "Enter"] as const,
+	/** キャンセルキー（メニューを戻る等） */
+	CANCEL: ["x", "Escape"] as const,
+	/** メニューキー */
+	MENU: ["c"] as const,
+	/** 上移動キー */
+	MOVE_UP: ["ArrowUp", "w", "W"] as const,
+	/** 下移動キー */
+	MOVE_DOWN: ["ArrowDown", "s", "S"] as const,
+	/** 左移動キー */
+	MOVE_LEFT: ["ArrowLeft", "a", "A"] as const,
+	/** 右移動キー */
+	MOVE_RIGHT: ["ArrowRight", "d", "D"] as const,
+} as const;
+
+/**
+ * キーから移動方向のベクトルを取得するマップ
+ * KEY_BINDINGSの移動キーから自動生成されます。
  * [x方向, y方向] の形式で、-1, 0, 1 のいずれかの値を持ちます。
- * これにより、矢印キーとWASDキーの両方で操作できるようになります。
  */
 export const DIRECTION_MAP: Record<string, Readonly<[number, number]>> = {
-	arrowup: [0, -1], // 上
-	w: [0, -1], // 上
-	arrowdown: [0, 1], // 下
-	s: [0, 1], // 下
-	arrowleft: [-1, 0], // 左
-	a: [-1, 0], // 左
-	arrowright: [1, 0], // 右
-	d: [1, 0], // 右
+	...Object.fromEntries(
+		KEY_BINDINGS.MOVE_UP.map((k: string) => [
+			k.toLowerCase(),
+			[0, -1] as const,
+		]),
+	),
+	...Object.fromEntries(
+		KEY_BINDINGS.MOVE_DOWN.map((k: string) => [
+			k.toLowerCase(),
+			[0, 1] as const,
+		]),
+	),
+	...Object.fromEntries(
+		KEY_BINDINGS.MOVE_LEFT.map((k: string) => [
+			k.toLowerCase(),
+			[-1, 0] as const,
+		]),
+	),
+	...Object.fromEntries(
+		KEY_BINDINGS.MOVE_RIGHT.map((k: string) => [
+			k.toLowerCase(),
+			[1, 0] as const,
+		]),
+	),
+};
+
+/**
+ * 指定されたキーが決定キーかどうかを判定します。
+ * @param key - チェックするキー
+ * @returns 決定キーの場合true
+ */
+export const isConfirmKey = (key: string): boolean => {
+	return KEY_BINDINGS.CONFIRM.includes(key as never);
+};
+
+/**
+ * 指定されたキーがキャンセルキーかどうかを判定します。
+ * @param key - チェックするキー
+ * @returns キャンセルキーの場合true
+ */
+export const isCancelKey = (key: string): boolean => {
+	return KEY_BINDINGS.CANCEL.includes(key as never);
+};
+
+/**
+ * 指定されたキーがメニューキーかどうかを判定します。
+ * @param key - チェックするキー
+ * @returns メニューキーの場合true
+ */
+export const isMenuKey = (key: string): boolean => {
+	return KEY_BINDINGS.MENU.includes(key as never);
+};
+
+/**
+ * 指定されたキーが上移動キーかどうかを判定します。
+ * @param key - チェックするキー
+ * @returns 上移動キーの場合true
+ */
+export const isMoveUpKey = (key: string): boolean => {
+	return KEY_BINDINGS.MOVE_UP.includes(key as never);
+};
+
+/**
+ * 指定されたキーが下移動キーかどうかを判定します。
+ * @param key - チェックするキー
+ * @returns 下移動キーの場合true
+ */
+export const isMoveDownKey = (key: string): boolean => {
+	return KEY_BINDINGS.MOVE_DOWN.includes(key as never);
+};
+
+/**
+ * 指定されたキーが左移動キーかどうかを判定します。
+ * @param key - チェックするキー
+ * @returns 左移動キーの場合true
+ */
+export const isMoveLeftKey = (key: string): boolean => {
+	return KEY_BINDINGS.MOVE_LEFT.includes(key as never);
+};
+
+/**
+ * 指定されたキーが右移動キーかどうかを判定します。
+ * @param key - チェックするキー
+ * @returns 右移動キーの場合true
+ */
+export const isMoveRightKey = (key: string): boolean => {
+	return KEY_BINDINGS.MOVE_RIGHT.includes(key as never);
+};
+
+/**
+ * 指定されたキーが移動キー（上下左右のいずれか）かどうかを判定します。
+ * @param key - チェックするキー
+ * @returns 移動キーの場合true
+ */
+export const isMoveKey = (key: string): boolean => {
+	return (
+		isMoveUpKey(key) ||
+		isMoveDownKey(key) ||
+		isMoveLeftKey(key) ||
+		isMoveRightKey(key)
+	);
 };
 
 /**
@@ -138,34 +253,3 @@ export const PLAYFIELD_SIZE_STEP = 40; // サイズ変更の単位
  * エンティティのホーミング（追尾）の強さ（曲がる力の倍率）
  */
 export const HOMING_FORCE = 2;
-
-/**
- * キーバインディング設定
- * ゲーム内で使用するキーを定義します。
- */
-export const KEY_BINDINGS = {
-	/** 決定キー（メニュー選択、メッセージ送り等） */
-	CONFIRM: ["z", "Enter"] as const,
-	/** キャンセルキー（メニューを戻る等） */
-	CANCEL: ["x", "Escape"] as const,
-	/** メニューキー */
-	MENU: ["c"] as const,
-} as const;
-
-/**
- * 指定されたキーが決定キーかどうかを判定します。
- * @param key - チェックするキー
- * @returns 決定キーの場合true
- */
-export const isConfirmKey = (key: string): boolean => {
-	return KEY_BINDINGS.CONFIRM.includes(key as never);
-};
-
-/**
- * 指定されたキーがキャンセルキーかどうかを判定します。
- * @param key - チェックするキー
- * @returns キャンセルキーの場合true
- */
-export const isCancelKey = (key: string): boolean => {
-	return KEY_BINDINGS.CANCEL.includes(key as never);
-};
