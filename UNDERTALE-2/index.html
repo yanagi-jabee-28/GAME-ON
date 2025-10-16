@@ -133,18 +133,18 @@
 				z-index: 4;
 			}
 
-		/* ハート本体のベーススタイル */
-		#heart {
-			position: absolute;
-			width: var(--heart-size, 21px);
-			height: var(--heart-size, 21px);
-			pointer-events: none;
-			user-select: none;
-			transform: translate(0, 0);
-			will-change: transform; /* パフォーマンス向上のため */
-			/* 初期は非表示。Fight 押下で表示する */
-			visibility: hidden;
-		} /* 敵エンティティ共通スタイル */
+			/* ハート本体のベーススタイル */
+			#heart {
+				position: absolute;
+				width: var(--heart-size, 21px);
+				height: var(--heart-size, 21px);
+				pointer-events: none;
+				user-select: none;
+				transform: translate(0, 0);
+				will-change: transform; /* パフォーマンス向上のため */
+				/* 初期は非表示。Fight 押下で表示する */
+				visibility: hidden;
+			} /* 敵エンティティ共通スタイル */
 			.entity {
 				position: absolute;
 				pointer-events: none;
