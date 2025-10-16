@@ -208,16 +208,18 @@ loadSvg().then(() => {
 						// オーバーレイを非表示
 						overlay.style.visibility = "hidden";
 
-						// 敵リスト非表示後は行動選択を再有効化
-						const enemyListHiddenEvent = new CustomEvent(
-							"combat:enemyListHidden",
-						);
-						document.dispatchEvent(enemyListHiddenEvent);
-
 						// キャンセルされた場合は、処理を中断して行動選択に戻る
 						if (userAction === "cancel") {
+							// キャンセル時のみ行動選択を再有効化
+							const enemyListHiddenEvent = new CustomEvent(
+								"combat:enemyListHidden",
+							);
+							document.dispatchEvent(enemyListHiddenEvent);
 							return;
 						}
+
+						// 決定キーの場合は行動選択を再有効化せず、
+						// そのまま攻撃バー表示に進む（無効状態を維持）
 					}
 				} catch (err) {
 					console.error("敵リスト表示エラー:", err);
