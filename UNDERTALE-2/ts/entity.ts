@@ -6,6 +6,7 @@ import {
 	ENTITY_DAMAGE,
 	ENTITY_MIN_OPACITY,
 	FADE_DURATION,
+	HOMING_FORCE,
 	LIFETIME,
 	REMOVAL_MARGIN,
 } from "./constants.ts";
@@ -293,7 +294,7 @@ export const updateEntities = (
 				const perpY = currentDirX;
 				// 法線ベクトルと目標方向ベクトルの内積で、曲がるべき方向を決定
 				const dot = perpX * targetDirX + perpY * targetDirY;
-				const force = originalSpeed * 2.5; // 曲がる力の強さ
+				const force = originalSpeed * HOMING_FORCE; // 曲がる力の強さ（定数で管理）
 				// 加速度を計算し、速度に加える
 				const accX = perpX * force * Math.sign(dot);
 				const accY = perpY * force * Math.sign(dot);

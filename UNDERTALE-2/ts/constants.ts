@@ -133,3 +133,8 @@ export const PLAYFIELD_MAX_HEIGHT = 720; // 最大高さ
 export const PLAYFIELD_INITIAL_WIDTH = 720; // 初期幅
 export const PLAYFIELD_INITIAL_HEIGHT = 240; // 初期高さ
 export const PLAYFIELD_SIZE_STEP = 40; // サイズ変更の単位
+
+/**
+ * エンティティのホーミング（追尾）の強さ（曲がる力の倍率）
+ */
+export const HOMING_FORCE = 2;
