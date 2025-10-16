@@ -190,9 +190,9 @@ const gameConfig = {
 		"🍇": 5,
 	},
 	// 当たりを揃えるライン。'top', 'middle', 'bottom', 'random' から選択。
-	winRowMode: "random",
+	winRowMode: "random" as "top" | "middle" | "bottom" | "random",
 	// 斜め当たりの方向。'down'(右下がり), 'up'(右上がり), 'random' から選択。
-	winDiagonalMode: "random",
+	winDiagonalMode: "random" as "down" | "up" | "random",
 
 	// --- デバッグ設定 ---
 	// 備考: 開発中にブラウザのコンソールにログを出力するための設定です。
@@ -275,17 +275,17 @@ const gameConfig = {
  * ------------------------------------------------------------------ */
 (function computePayoutTableFromWeights() {
 	const weights = gameConfig.winSymbolWeights || {};
-	const lemonKey = "🍋";
+	const lemonKey = "🍋" as const;
 	const lemonWeight = weights[lemonKey] || 1;
-	const table = {};
+	const table: Record<string, number> = {};
 	Object.keys(weights).forEach((sym) => {
-		// 比率の逆数（レモンを基準に）
-		const raw = lemonWeight / (weights[sym] || 1);
+		// 比率の逆数(レモンを基準に)
+		const raw = lemonWeight / (weights[sym as keyof typeof weights] || 1);
 		// 四捨五入して整数倍にする。最低 1 を保証。
 		const mult = Math.max(1, Math.round(raw));
 		table[sym] = mult;
 	});
-	gameConfig.payoutTable = table;
+	(gameConfig as { payoutTable: Record<string, number> }).payoutTable = table;
 })();
 
 export { gameConfig };

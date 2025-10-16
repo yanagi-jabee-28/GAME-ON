@@ -1,5 +1,5 @@
 // Local ambient declarations for GAME-SLOT-1
-import type { SlotGameConfig, SlotGameInstance } from "../types/slot";
+import type { SlotGameConfig, SlotGameInstance } from "./slot";
 
 declare global {
 	interface Window {

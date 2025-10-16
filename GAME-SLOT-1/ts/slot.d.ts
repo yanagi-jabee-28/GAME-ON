@@ -102,6 +102,27 @@ export interface SlotSoundManagerPublic {
 	setPerVolume(kind: keyof SlotAudioVolumes | string, volume: number): void;
 }
 
+export interface SlotReelConfig {
+	container: HTMLElement;
+	symbols: ReelSymbol[];
+	symbolHeight: number;
+	index: number;
+	element?: HTMLElement;
+	spinning?: boolean;
+	targetSymbol?: ReelSymbol;
+	targetRow?: "top" | "middle" | "bottom";
+	stopTime?: number;
+	stopDuration?: number;
+	stopStartY?: number;
+	stopEndY?: number;
+	stopEasing?: string;
+	animId?: number;
+	animationFrameId?: number | null;
+	velocity?: number;
+	animationMode?: "spin" | "stop";
+	totalHeight?: number;
+}
+
 export interface SlotGameInstance {
 	// minimal surface used by adapters and other games
 	isSpinning: boolean;
@@ -110,4 +131,7 @@ export interface SlotGameInstance {
 	startGame?: () => void;
 	stopReel?: (index: number) => void;
 	computeProbabilityReturnGreaterThanBet?: (bet: number) => number;
+	balance?: number;
+	creditConfig?: SlotCreditConfig;
+	debt?: number;
 }

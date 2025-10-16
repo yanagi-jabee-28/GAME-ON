@@ -3,7 +3,7 @@
  * - マスター音量と、音種別（spinStart/reelStop/win）ごとの個別音量をサポート
  * - 外部ファイル指定がある場合はプリロードして再生、なければ簡易合成音でフォールバック
  */
-import type { SlotAudioVolumes, SlotGameConfig } from "../types/slot";
+import type { SlotAudioVolumes, SlotGameConfig } from "./slot";
 
 export class SlotSoundManager {
 	config: Partial<SlotGameConfig>;
