@@ -32,6 +32,8 @@ import {
 	getEnemySymbols,
 	handleKeyDown,
 	handleKeyUp,
+	removeEnemyData,
+	removeEnemySymbol,
 	setEnemyData,
 	startDemoScenario,
 	startGameLoop,
@@ -483,7 +485,7 @@ loadSvg().then(() => {
 						// 選択された敵にダメージを適用
 						const selectedEnemy = (fightBtn as HTMLElement & { __selectedEnemy?: { id: string; name: string } }).__selectedEnemy;
 						if (selectedEnemy) {
-							const { damageEnemy, getEnemyData } = await import("./game.ts");
+							const { damageEnemy, getEnemyData, removeEnemySymbol, removeEnemyData } = await import("./game.ts");
 							const success = damageEnemy(selectedEnemy.id, attackDamage);
 							const enemyData = getEnemyData(selectedEnemy.id);
 							
@@ -505,6 +507,9 @@ loadSvg().then(() => {
 									resultText += `<br><span style="color:#fff;">${selectedEnemy.name} HP: ${enemyData.currentHp}/${enemyData.maxHp}</span>`;
 									if (enemyData.currentHp === 0) {
 										resultText += `<br><span style="color:#ff0;font-weight:bold;">${selectedEnemy.name}を倒した！</span>`;
+										// 敵を倒したらシンボルとデータを削除
+										removeEnemySymbol(selectedEnemy.id);
+										removeEnemyData(selectedEnemy.id);
 									}
 								}
 								
