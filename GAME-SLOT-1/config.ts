@@ -105,7 +105,7 @@ const gameConfig = {
 	//       `winSymbolWeights`とは役割が異なります。
 	//       重みが大きいほど、そのシンボルが選ばれやすくなります。
 	symbolProbabilities: [
-		{ symbol: "7️⃣", weight: 1 },
+		{ symbol: "7️⃣", weight: 100000 },
 		{ symbol: "BAR", weight: 10 },
 		{ symbol: "💎", weight: 15 },
 		{ symbol: "🍉", weight: 20 },
@@ -165,8 +165,10 @@ const gameConfig = {
 
 	// --- 当たり演出制御 ---
 	// 備考: ここで設定した確率で、水平または斜めの当たり演出が発動します。
-	winHorizontalProbability: 0.2, // 水平ラインで当たりを発生させる確率 (0.0 ~ 1.0)。
-	twinDiagonalProbability: 0.1, // 斜めラインで当たりを発生させる確率 (0.0 ~ 1.0)。
+	winHorizontalProbability: 1.0, // 当たりを100%にするため水平当たり確率を100%に設定
+	winDiagonalProbability: 0.0, // 斜めラインは無効化して水平当たりを確実にする
+	// 互換性のため、twinDiagonalProbability を同様に用意
+	twinDiagonalProbability: 0.0,
 
 	/* --- (旧方式: 後方互換のための参考) ---
 	 * かつては水平/斜めの区別がなく、単一の発動確率で制御していました。
@@ -177,7 +179,7 @@ const gameConfig = {
 	// 当たり演出時に、どの絵柄を揃えるかの重み付け。
 	// `symbolProbabilities`とは異なり、当たりが確定した際に使用されます。
 	winSymbolWeights: {
-		"7️⃣": 1,
+		"7️⃣": 100000,
 		BAR: 10,
 		"💎": 15,
 		"🍉": 20,

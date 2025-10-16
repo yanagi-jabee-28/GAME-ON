@@ -2419,6 +2419,25 @@ class SlotGame implements SlotGameInstance {
 			);
 			const filtered = common.filter((sym) => weights[sym] > 0);
 			if (filtered.length > 0) {
+				// 運任せではなく、最も重みの高いシンボルを優先して選択することで
+				// forced（演出による当たり）時に確実に揃えやすくします。
+				// ただし、weights の重みが全て等しい場合はランダム選択にフォールバックします。
+				let bestSym = filtered[0];
+				let bestW = weights[bestSym];
+				let allEqual = true;
+				for (const sym of filtered) {
+					if (weights[sym] > bestW) {
+						bestSym = sym;
+						bestW = weights[sym];
+						allEqual = false;
+					} else if (weights[sym] !== bestW) {
+						allEqual = false;
+					}
+				}
+				if (!allEqual) {
+					return bestSym;
+				}
+				// 全て同一重みの場合は従来の重み付きランダムで決定
 				const total = filtered.reduce((s, sym) => s + weights[sym], 0);
 				let r = Math.random() * total;
 				for (const sym of filtered) {
