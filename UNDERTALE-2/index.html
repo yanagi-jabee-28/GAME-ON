@@ -123,10 +123,12 @@
 				font-family:
 					"JF Dot Shinonome", "Noto Sans JP", "Hiragino Kaku Gothic ProN",
 					"Yu Gothic", "Meiryo", "Segoe UI", sans-serif;
-				font-size: 0.9rem;
+				font-size: var(--player-overlay-font-size, 0.9rem);
 				color: #fff;
 				pointer-events: none;
 				white-space: pre-line; /* 改行を反映 */
+				/* プレイグラウンドテキストの左に全角1文字分の余白を追加 */
+				padding-left: 1em;
 				line-height: 1.5;
 			}
 

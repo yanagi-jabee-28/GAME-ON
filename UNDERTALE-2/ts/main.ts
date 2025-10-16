@@ -17,6 +17,7 @@ import {
 	isConfirmKey,
 	isMoveLeftKey,
 	isMoveRightKey,
+	PLAYER_OVERLAY_FONT_SIZE,
 	PLAYER_STATUS_FONT_SIZE,
 	PLAYFIELD_INITIAL_HEIGHT,
 	PLAYFIELD_INITIAL_WIDTH,
@@ -109,6 +110,14 @@ loadSvg().then(() => {
 		if (status instanceof HTMLElement) {
 			status.style.setProperty("--player-font-size", PLAYER_STATUS_FONT_SIZE);
 		}
+	} catch {
+		// ignore
+	}
+	try {
+		document.documentElement.style.setProperty(
+			"--player-overlay-font-size",
+			PLAYER_OVERLAY_FONT_SIZE,
+		);
 	} catch {
 		// エラーが発生しても処理を続行
 	}
