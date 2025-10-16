@@ -23,13 +23,13 @@ Matter.Common.setDecomp(decomp); // 凹多角形を扱えるように設定
 
 // --- 共通ユーティリティ: 材料・ラベル・描画の適用を一元化 ---
 // GAME_CONFIG 内の objects からキーに対応する定義を返す（未定義なら空オブジェクト）
-function getObjectDef(key) {
-	return (GAME_CONFIG && GAME_CONFIG.objects && GAME_CONFIG.objects[key]) || {};
+function getObjectDef(key: string) {
+	return (GAME_CONFIG && GAME_CONFIG.objects && (GAME_CONFIG.objects as any)[key]) || {};
 }
 
 // Matter.Body 生成用オプションを、GAME_CONFIG のデフォルト + 呼び出し元の上書きで合成する
 // Matter.Body 作成時のオプションを GAME_CONFIG の定義と呼び出し側の上書きで合成して返す
-function makeBodyOptions(key, overrides: Record<string, unknown> = {}) {
+function makeBodyOptions(key: string, overrides: Record<string, unknown> = {}) {
 	const def = getObjectDef(key);
 	const baseOpts = Object.assign({}, def.options || {});
 	const baseRender = Object.assign({ layer: 1 }, def.render || {});
@@ -47,17 +47,17 @@ function makeBodyOptions(key, overrides: Record<string, unknown> = {}) {
 
 // 生成後の Body に label/material を再付与（複合ボディや parts にも波及）
 // 生成した body に対して label/material を再付与（parts があればそれらにも適用）
-function tagBodyWithDef(body, defOrKey) {
+function tagBodyWithDef(body: Matter.Body, defOrKey: string | Record<string, any>) {
 	const def =
 		typeof defOrKey === "string" ? getObjectDef(defOrKey) : defOrKey || {};
 	if (!body) return body;
 	if (def.label) body.label = def.label;
-	if (def.material) body.material = def.material;
+	if (def.material) (body as any).material = def.material;
 	if (Array.isArray(body.parts)) {
 		for (const p of body.parts) {
 			if (p === body) continue;
 			if (def.label) p.label = def.label;
-			if (def.material) p.material = def.material;
+			if (def.material) (p as any).material = def.material;
 		}
 	}
 	return body;
@@ -66,14 +66,14 @@ function tagBodyWithDef(body, defOrKey) {
 // JSON由来の材質文字列を正規化（'METAL2' or 'metal2' → GAME_MATERIALSの値、見つからなければそのまま）
 // JSON 由来の材質名を GAME_MATERIALS に照合して正規化（未定義は素通し）
 // JSON 由来の材質文字列を正規化して GAME_MATERIALS の値にマップする（見つからなければ素通し）
-function normalizeMaterialId(m) {
+function normalizeMaterialId(m: unknown) {
 	if (typeof m !== "string") return undefined;
 	const s = m.trim();
 	if (!s) return undefined;
 	const lut =
 		typeof GAME_MATERIALS !== "undefined" && GAME_MATERIALS
 			? GAME_MATERIALS
-			: {};
+			: ({} as Record<string, unknown>);
 	const lower = s.toLowerCase();
 	for (const [k, v] of Object.entries(lut)) {
 		if (String(k).toLowerCase() === lower) return v;
@@ -107,7 +107,7 @@ export function createBall(x: number, y: number, options: BallOptions = {}) {
 	const body = Matter.Bodies.circle(
 		x,
 		y,
-		ballConfig.radius,
+		ballConfig.radius ?? 10,
 		Object.assign({}, opt, options, { sleepThreshold: Infinity }),
 	);
 	return tagBodyWithDef(body, "ball");
@@ -137,12 +137,10 @@ export function getOffsets() {
 export function createBounds() {
 	const width = GAME_CONFIG.dimensions?.width || 650;
 	const height = GAME_CONFIG.dimensions?.height || 900;
-	const wallConfig = getObjectDef("wall");
-	const floorConfig = getObjectDef("floor");
 
 	const wallOptions = makeBodyOptions("wall");
 	const tpBodyCfg = (GAME_CONFIG.objects &&
-		GAME_CONFIG.objects.topPlateBody) || {
+		(GAME_CONFIG.objects as any).topPlateBody) || {
 		label: "top-plate",
 		material: (GAME_MATERIALS && GAME_MATERIALS.TOP_PLATE) || "top_plate",
 	};
@@ -191,7 +189,7 @@ export function createBounds() {
 				label: tpBodyCfg.label,
 				slop: tpSlop,
 			});
-			rect.material = tpBodyCfg.material;
+			(rect as any).material = tpBodyCfg.material;
 			bounds.push(rect);
 		} else if (tp.mode === "dome") {
 			// 半円: π..2π の環状セクタ
@@ -229,8 +227,8 @@ export function createBounds() {
 					true,
 					0.0001,
 				);
-				poly.label = tpBodyCfg.label;
-				poly.material = tpBodyCfg.material;
+				poly.label = tpBodyCfg.label ?? '';
+				(poly as any).material = tpBodyCfg.material;
 				poly.render = Object.assign(
 					{ visible: true },
 					topPlateOptions.render || {},
@@ -238,7 +236,7 @@ export function createBounds() {
 				bounds.push(poly);
 			} else {
 				// フォールバック: 連結クアッド（極小オーバーラップ）
-				const parts = [];
+				const parts: Matter.Body[] = [];
 				const delta = (end - start) / segs;
 				const eps = Math.max(delta * 0.003, 0.0015); // オーバーラップ角度（より小さく）
 				const plateOptions = {
@@ -284,16 +282,16 @@ export function createBounds() {
 						plateOptions,
 						false,
 					);
-					part.label = tpBodyCfg.label;
-					part.material = tpBodyCfg.material;
+					part.label = tpBodyCfg.label ?? '';
+					(part as any).material = tpBodyCfg.material;
 					parts.push(part);
 				}
 				const body = Matter.Body.create({
 					parts,
 					isStatic: true,
-					label: tpBodyCfg.label,
+					label: tpBodyCfg.label ?? '',
 				});
-				body.material = tpBodyCfg.material;
+				(body as any).material = tpBodyCfg.material;
 				body.render = Object.assign(
 					{ visible: true },
 					topPlateOptions.render || {},
@@ -310,9 +308,9 @@ export function createBounds() {
 					topY,
 					width,
 					thickness,
-					{ ...topPlateOptions, isStatic: true, label: tpBodyCfg.label },
+					{ ...topPlateOptions, isStatic: true, label: tpBodyCfg.label ?? '' },
 				);
-				rect.material = tpBodyCfg.material;
+				(rect as any).material = tpBodyCfg.material;
 				bounds.push(rect);
 			} else {
 				const totalAngle = 2 * Math.asin(Math.min(0.999, halfChordOverRadius));
@@ -354,8 +352,8 @@ export function createBounds() {
 						true,
 						0.0001,
 					);
-					poly.label = tpBodyCfg.label;
-					poly.material = tpBodyCfg.material;
+					poly.label = tpBodyCfg.label ?? '';
+					(poly as any).material = tpBodyCfg.material;
 					poly.render = Object.assign(
 						{ visible: true },
 						topPlateOptions.render || {},
@@ -363,7 +361,7 @@ export function createBounds() {
 					bounds.push(poly);
 				} else {
 					// フォールバック: 連結クアッド
-					const parts = [];
+					const parts: Matter.Body[] = [];
 					const delta = (end - start) / segs;
 					const eps = Math.max(delta * 0.003, 0.0015);
 					const plateOptions = {
@@ -409,16 +407,16 @@ export function createBounds() {
 							plateOptions,
 							false,
 						);
-						part.label = tpBodyCfg.label;
-						part.material = tpBodyCfg.material;
+						part.label = tpBodyCfg.label ?? '';
+						(part as any).material = tpBodyCfg.material;
 						parts.push(part);
 					}
 					const body = Matter.Body.create({
 						parts,
 						isStatic: true,
-						label: tpBodyCfg.label,
+						label: tpBodyCfg.label ?? '',
 					});
-					body.material = tpBodyCfg.material;
+					(body as any).material = tpBodyCfg.material;
 					body.render = Object.assign(
 						{ visible: true },
 						topPlateOptions.render || {},
@@ -450,7 +448,7 @@ export function createBounds() {
 
 // ワールドに境界群を一括追加（呼び出し箇所を簡潔に）
 // 生成した境界群をワールドに一括追加するユーティリティ
-export function addBoundsToWorld(bounds, world) {
+export function addBoundsToWorld(bounds: Matter.Body[], world: Matter.World) {
 	if (Array.isArray(bounds) && bounds.length) {
 		Matter.World.add(world, bounds);
 	}
@@ -478,7 +476,7 @@ export function createRectangle(spec: ObjectSpec = {}) {
 	const angleRad = (angleDeg * Math.PI) / 180;
 	const mat =
 		normalizeMaterialId(spec.material) || getObjectDef("rect").material;
-	const label = spec.label || getObjectDef("rect").label;
+	const label = spec.label ?? getObjectDef("rect").label;
 	const color =
 		spec.color ||
 		spec.fill ||
@@ -507,14 +505,14 @@ export function createRectangle(spec: ObjectSpec = {}) {
 	// 一方向衝突（one-way）メタデータの付与（spec.oneWay: {enabled:boolean, blockDir:'up'|'down'|'left'|'right'}）
 	if (spec.oneWay && typeof spec.oneWay === "object") {
 		const dir = String(
-			spec.oneWay.blockDir || spec.oneWay.dir || "",
+			(spec.oneWay as any).blockDir || (spec.oneWay as any).dir || "",
 		).toLowerCase();
-		const enabled = spec.oneWay.enabled !== false; // 省略時は有効
+		const enabled = (spec.oneWay as any).enabled !== false; // 省略時は有効
 		if (
 			enabled &&
 			(dir === "up" || dir === "down" || dir === "left" || dir === "right")
 		) {
-			body.oneWay = { enabled: true, blockDir: dir };
+			(body as any).oneWay = { enabled: true, blockDir: dir };
 		}
 	}
 	return body;
@@ -541,9 +539,9 @@ export function createDecorRectangle(spec: ObjectSpec = {}) {
 	body.isSensor = true;
 	body.isStatic = true;
 	// ラベルをdecorに統一（指定があれば尊重）
-	body.label = spec.label || getObjectDef("decor").label;
+	body.label = spec.label ?? getObjectDef("decor").label;
 	// マテリアルはDECOR
-	body.material = getObjectDef("decor").material;
+	(body as any).material = getObjectDef("decor").material;
 	return body;
 }
 
@@ -560,7 +558,7 @@ export function createPolygon(spec: ObjectSpec = {}) {
 	const angleRad = (angleDeg * Math.PI) / 180;
 	const mat =
 		normalizeMaterialId(spec.material) || getObjectDef("polygon").material;
-	const label = spec.label || getObjectDef("polygon").label;
+	const label = spec.label ?? getObjectDef("polygon").label;
 	const color =
 		spec.color ||
 		spec.fill ||
@@ -648,10 +646,10 @@ export function createPolygon(spec: ObjectSpec = {}) {
 		} catch (_) {
 			/* keep c */
 		}
-		const localVerts = worldVerts.map((v) => ({ x: v.x - c.x, y: v.y - c.y }));
+		const localVerts = worldVerts.map((v) => ({ x: v.x - c!.x, y: v.y - c!.y }));
 		body = Matter.Bodies.fromVertices(
-			c.x,
-			c.y,
+			c!.x,
+			c!.y,
 			[localVerts],
 			opts,
 			true,
@@ -699,14 +697,14 @@ export function createPolygon(spec: ObjectSpec = {}) {
 	// 一方向衝突（one-way）メタデータの付与
 	if (spec.oneWay && typeof spec.oneWay === "object") {
 		const dir = String(
-			spec.oneWay.blockDir || spec.oneWay.dir || "",
+			(spec.oneWay as any).blockDir || (spec.oneWay as any).dir || "",
 		).toLowerCase();
-		const enabled = spec.oneWay.enabled !== false;
+		const enabled = (spec.oneWay as any).enabled !== false;
 		if (
 			enabled &&
 			(dir === "up" || dir === "down" || dir === "left" || dir === "right")
 		) {
-			body.oneWay = { enabled: true, blockDir: dir };
+			(body as any).oneWay = { enabled: true, blockDir: dir };
 		}
 	}
 	return body;
@@ -725,8 +723,8 @@ export function createDecorPolygon(spec: ObjectSpec = {}) {
 	if (!body) return body;
 	body.isSensor = true;
 	body.isStatic = true;
-	body.label = spec.label || getObjectDef("decorPolygon").label;
-	body.material = getObjectDef("decorPolygon").material;
+	body.label = spec.label ?? getObjectDef("decorPolygon").label;
+	(body as any).material = getObjectDef("decorPolygon").material;
 	return body;
 }
 
@@ -766,11 +764,11 @@ export function createLaunchPadBody(spec: ObjectSpec = {}) {
  */
 // ペグ（釘）配置プリセットを読み込み、ワールドに追加する
 // 旧形式の配列と新形式の groups/points 両対応
-export function loadPegs(presetUrl, world) {
+export function loadPegs(presetUrl: string, world: Matter.World) {
 	const pegConfig = getObjectDef("peg");
 
-	const num = (v, d = 0) => (typeof v === "number" && isFinite(v) ? v : d);
-	const getColor = (obj) => obj?.color || obj?.render?.fillStyle;
+	const num = (v: any, d = 0) => (typeof v === "number" && isFinite(v) ? v : d);
+	const getColor = (obj: any) => obj?.color || obj?.render?.fillStyle;
 
 	(async () => {
 		try {
@@ -784,7 +782,7 @@ export function loadPegs(presetUrl, world) {
 
 			// 旧形式（配列） [{x,y}, ...] の互換処理
 			if (Array.isArray(data)) {
-				const pegObjects = data.map((peg) => {
+				const pegObjects = data.map((peg: any) => {
 					const color = getColor(peg);
 					const mat = normalizeMaterialId(peg?.material) || pegConfig.material;
 					const layer =
@@ -803,7 +801,7 @@ export function loadPegs(presetUrl, world) {
 					return Matter.Bodies.circle(
 						num(peg.x) + xOffset,
 						num(peg.y) + yOffset,
-						pegConfig.radius,
+						pegConfig.radius ?? 10,
 						opts,
 					);
 				});
@@ -826,7 +824,7 @@ export function loadPegs(presetUrl, world) {
 					? Number(global.layer)
 					: (pegConfig.render?.layer ?? 1);
 
-			const makeOptions = (material, color) =>
+			const makeOptions = (material: unknown, color: string) =>
 				makeBodyOptions(
 					"peg",
 					Object.assign(
@@ -836,8 +834,8 @@ export function loadPegs(presetUrl, world) {
 					),
 				);
 
-			const bodies = [];
-			groups.forEach((group) => {
+			const bodies: Matter.Body[] = [];
+			groups.forEach((group: any) => {
 				const gOffX = num(group?.offset?.x ?? group?.dx, 0);
 				const gOffY = num(group?.offset?.y ?? group?.dy, 0);
 				const gRadius = num(group?.radius, globalRadius);
@@ -853,7 +851,7 @@ export function loadPegs(presetUrl, world) {
 						? group.pegs
 						: [];
 
-				points.forEach((pt) => {
+				points.forEach((pt: any) => {
 					const px = num(pt.x) + gOffX + globalOffsetX + xOffset;
 					const py = num(pt.y) + gOffY + globalOffsetY + yOffset;
 					const radius = num(pt.radius, gRadius);
@@ -872,7 +870,7 @@ export function loadPegs(presetUrl, world) {
 					: Array.isArray(data?.pegs)
 						? data.pegs
 						: [];
-				points.forEach((pt) => {
+				points.forEach((pt: any) => {
 					const px = num(pt.x) + globalOffsetX + xOffset;
 					const py = num(pt.y) + globalOffsetY + yOffset;
 					const radius = num(pt.radius, globalRadius);
@@ -900,7 +898,7 @@ export function loadPegs(presetUrl, world) {
  * 回転役物（風車）の複合ボディ生成
  */
 // 風車などの回転役物を複合ボディとして生成する（複数パーツを組み合わせ）
-export function createRotatingYakumono(blueprint) {
+export function createRotatingYakumono(blueprint: Record<string, any>) {
 	const windDef = getObjectDef("windmill") || {};
 	const defaults = windDef.defaults || {};
 	const commonBodyOptions = getObjectDef("yakumono_blade") || {};
@@ -936,7 +934,7 @@ export function createRotatingYakumono(blueprint) {
 		material: bladeMaterial,
 	});
 
-	const parts = [];
+	const parts: Matter.Body[] = [];
 	const centerRadius = Math.max(0, Number(shape.centerRadius) || 0);
 	const numBlades = Math.max(
 		1,
@@ -991,7 +989,7 @@ export function createSensorCounter(spec: ObjectSpec = {}) {
 		spec.strokeStyle || spec.borderColor || spec.strokeColor || null;
 
 	// ヘルパ: 既存のカラー文字列のアルファだけを調整する（hex/rgb/rgba/hsl/hsla を簡易サポート）
-	function setColorAlpha(col, a) {
+	function setColorAlpha(col: string | null | undefined, a: number) {
 		if (!col || typeof col !== "string") return col;
 		const s = col.trim();
 		// rgba() / hsla()
@@ -1037,13 +1035,13 @@ export function createSensorCounter(spec: ObjectSpec = {}) {
 	}
 
 	// センサーオプション（物理干渉なし）
-	const sensorOptions = {
+	const sensorOptions: Matter.IBodyDefinition = {
 		isSensor: true,
 		isStatic: true,
 		label: `sensor_counter_${counterId}`,
 		material: GAME_MATERIALS.DECOR,
 		render: {
-			fillStyle: color,
+			fillStyle: color ?? undefined,
 			lineWidth: 2,
 			strokeStyle: strokeColor || undefined,
 			layer: layer,
@@ -1053,8 +1051,8 @@ export function createSensorCounter(spec: ObjectSpec = {}) {
 	const body = Matter.Bodies.rectangle(x, y, width, height, sensorOptions);
 
 	// カウントデータを初期化
-	if (!GAME_CONFIG.sensorCounters.counters[counterId]) {
-		GAME_CONFIG.sensorCounters.counters[counterId] = {
+	if (!(GAME_CONFIG.sensorCounters.counters as any)[counterId]) {
+		(GAME_CONFIG.sensorCounters.counters as any)[counterId] = {
 			enterCount: 0,
 			exitCount: 0,
 			currentInside: 0,
@@ -1079,9 +1077,9 @@ export function createSensorCounter(spec: ObjectSpec = {}) {
 				: removeOnPass
 					? "exit"
 					: null;
-		GAME_CONFIG.sensorCounters.counters[counterId].removeOnPass =
+		(GAME_CONFIG.sensorCounters.counters as any)[counterId].removeOnPass =
 			removeOn === "exit";
-		GAME_CONFIG.sensorCounters.counters[counterId].removeOn = removeOn; // 'enter' | 'exit' | null
+		(GAME_CONFIG.sensorCounters.counters as any)[counterId].removeOn = removeOn; // 'enter' | 'exit' | null
 
 		// パーティクルの色設定を保存: particleMode: 'ball'|'custom'|'default', particleColor: css string
 		const pmRaw =
@@ -1096,15 +1094,15 @@ export function createSensorCounter(spec: ObjectSpec = {}) {
 					: "ball";
 		const particleColor =
 			typeof spec.particleColor === "string" ? spec.particleColor : null;
-		GAME_CONFIG.sensorCounters.counters[counterId].particleMode = particleMode;
-		GAME_CONFIG.sensorCounters.counters[counterId].particleColor =
+		(GAME_CONFIG.sensorCounters.counters as any)[counterId].particleMode = particleMode;
+		(GAME_CONFIG.sensorCounters.counters as any)[counterId].particleColor =
 			particleColor;
 	} catch (_) {
 		/* no-op */
 	}
 
 	// センサー固有のデータをbodyに付与
-	body.sensorData = {
+	(body as any).sensorData = {
 		counterId: counterId,
 		isEntered: new Set(), // 現在領域内にいるボールのIDを追跡
 	};
@@ -1125,7 +1123,7 @@ export function createSensorCounterPolygon(spec: ObjectSpec = {}) {
 		spec.strokeStyle || spec.borderColor || spec.strokeColor || null;
 
 	// ヘルパは上で定義済みだが、このファイルのスコープは同じなので再利用可能
-	function setColorAlpha(col, a) {
+	function setColorAlpha(col: string | null | undefined, a: number) {
 		if (!col || typeof col !== "string") return col;
 		const s = col.trim();
 		const mRgba = s.match(/^rgba?\(([^)]+)\)$/i);
@@ -1166,15 +1164,15 @@ export function createSensorCounterPolygon(spec: ObjectSpec = {}) {
 	const angleRad = (angleDeg * Math.PI) / 180;
 
 	// センサーオプション（物理干渉なし）
-	const sensorOptions = {
+	const sensorOptions: Matter.IBodyDefinition = {
 		isSensor: true,
 		isStatic: true,
 		label: `sensor_counter_${counterId}`,
 		material: GAME_MATERIALS.DECOR,
 		render: {
-			fillStyle: color,
+			fillStyle: color ?? undefined,
 			lineWidth: 2,
-			strokeStyle: strokeColor,
+			strokeStyle: strokeColor ?? undefined,
 			layer: layer,
 		},
 	};
@@ -1246,10 +1244,10 @@ export function createSensorCounterPolygon(spec: ObjectSpec = {}) {
 		} catch (_) {
 			/* keep c */
 		}
-		const localVerts = worldVerts.map((v) => ({ x: v.x - c.x, y: v.y - c.y }));
+		const localVerts = worldVerts.map((v) => ({ x: v.x - c!.x, y: v.y - c!.y }));
 		body = Matter.Bodies.fromVertices(
-			c.x,
-			c.y,
+			c!.x,
+			c!.y,
 			[localVerts],
 			sensorOptions,
 			true,
@@ -1303,8 +1301,8 @@ export function createSensorCounterPolygon(spec: ObjectSpec = {}) {
 	if (angleRad) Matter.Body.setAngle(body, angleRad);
 
 	// カウントデータを初期化
-	if (!GAME_CONFIG.sensorCounters.counters[counterId]) {
-		GAME_CONFIG.sensorCounters.counters[counterId] = {
+	if (!(GAME_CONFIG.sensorCounters.counters as any)[counterId]) {
+		(GAME_CONFIG.sensorCounters.counters as any)[counterId] = {
 			enterCount: 0,
 			exitCount: 0,
 			currentInside: 0,
@@ -1313,7 +1311,7 @@ export function createSensorCounterPolygon(spec: ObjectSpec = {}) {
 	}
 
 	// センサー固有のデータをbodyに付与
-	body.sensorData = {
+	(body as any).sensorData = {
 		counterId: counterId,
 		isEntered: new Set(), // 現在領域内にいるボールのIDを追跡
 	};
@@ -1333,9 +1331,9 @@ export function createSensorCounterPolygon(spec: ObjectSpec = {}) {
 				: removeOnPass
 					? "exit"
 					: null;
-		GAME_CONFIG.sensorCounters.counters[counterId].removeOnPass =
+		(GAME_CONFIG.sensorCounters.counters as any)[counterId].removeOnPass =
 			removeOn === "exit";
-		GAME_CONFIG.sensorCounters.counters[counterId].removeOn = removeOn; // 'enter' | 'exit' | null
+		(GAME_CONFIG.sensorCounters.counters as any)[counterId].removeOn = removeOn; // 'enter' | 'exit' | null
 
 		const pmRaw =
 			typeof spec.particleMode === "string"
@@ -1349,8 +1347,8 @@ export function createSensorCounterPolygon(spec: ObjectSpec = {}) {
 					: "ball";
 		const particleColor =
 			typeof spec.particleColor === "string" ? spec.particleColor : null;
-		GAME_CONFIG.sensorCounters.counters[counterId].particleMode = particleMode;
-		GAME_CONFIG.sensorCounters.counters[counterId].particleColor =
+		(GAME_CONFIG.sensorCounters.counters as any)[counterId].particleMode = particleMode;
+		(GAME_CONFIG.sensorCounters.counters as any)[counterId].particleColor =
 			particleColor;
 	} catch (_) {
 		/* no-op */
@@ -1368,10 +1366,10 @@ export function createSensorCounterPolygon(spec: ObjectSpec = {}) {
  * - lifeMs: 存続時間(ms)
  */
 export function createParticleBurst(
-	world,
-	x,
-	y,
-	color,
+	world: Matter.World,
+	x: number,
+	y: number,
+	color: string,
 	count = 12,
 	lifeMs = 700,
 ) {
@@ -1381,7 +1379,7 @@ export function createParticleBurst(
 	const World = Matter.World;
 
 	// ヘルパ: 色文字列のアルファを指定して返す（rgb/rgba/hsl/hsla/hex を簡易サポート）
-	function setAlpha(col, a) {
+	function setAlpha(col: string | null | undefined, a: number) {
 		if (!col || typeof col !== "string") return `rgba(255,255,255,${a})`;
 		const s = col.trim();
 		// 1) HSLA/HSL: hsla(h, s%, l%, a?) or hsl(h, s%, l%)
@@ -1422,7 +1420,7 @@ export function createParticleBurst(
 		return `rgba(255,255,255,${a})`;
 	}
 
-	const parts = [];
+	const parts: Matter.Body[] = [];
 	for (let i = 0; i < count; i++) {
 		const r = Math.max(0.8, Math.random() * 2.2);
 		const ox = (Math.random() - 0.5) * 6;

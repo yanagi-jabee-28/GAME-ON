@@ -20,7 +20,7 @@ declare global {
 		SLOT_GAME_INSTANCE?: SlotGameInstance | null;
 		GAME_CONFIG?: SlotGameConfig;
 		counterId?: string;
-		getRotatorsSummary?: () => unknown;
+		getRotatorsSummary?: () => Array<{ kind: string; enabled: boolean }>;
 		setRotatorsSummary?: () => unknown;
 		setRotatorsEnabledByKind?: (kind: string, enabled: boolean) => void;
 		setRotatorEnabledById?: (id: string, enabled: boolean) => void;
@@ -32,7 +32,7 @@ declare global {
 		__pachi_stylesLoaded?: boolean;
 		__pachi_sizedReady?: boolean;
 		__pachi_init_logged__?: boolean;
-		__engine_for_devtools__?: unknown;
+		__engine_for_devtools__?: import("matter-js").Engine;
 		__render_for_devtools__?: unknown;
 		__recordPhysicsPerf__?: (frameMs: number) => void;
 		// Toast message timers
@@ -48,6 +48,32 @@ declare global {
 
 	interface Navigator {
 		deviceMemory?: number;
+	}
+
+	// Rotator設定の型定義
+	interface RotatorConfig {
+		springStiffness: number;
+		springDamping: number;
+		angularDamping?: number;
+		gravityBias?: number;
+		gravityAngleDeg?: number;
+		gravityAngle?: number;
+		gravityOffset?: number;
+		gravityRadius?: number;
+		restRad: number;
+	}
+
+	// Rotatorオブジェクトの型定義
+	interface Rotator {
+		body: import("matter-js").Body;
+		kind: string;
+		enabled: boolean;
+		config: RotatorConfig;
+		pivot?: {
+			x: number;
+			y: number;
+		};
+		zeroAngle?: number;
 	}
 
 	// global helper used by this folder

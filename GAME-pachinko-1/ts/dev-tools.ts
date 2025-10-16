@@ -13,7 +13,7 @@ import { GAME_CONFIG } from "../ts/config";
 			return typeof GAME_CONFIG !== "undefined"
 				? GAME_CONFIG
 				: window.GAME_CONFIG || undefined;
-		} catch (_) {
+		} catch (_: any) {
 			return window.GAME_CONFIG;
 		}
 	}
@@ -59,7 +59,7 @@ import { GAME_CONFIG } from "../ts/config";
 			if (ensureDevPanel()) {
 				try {
 					injectTimeScaleSlider();
-				} catch (_) {
+				} catch (_: any) {
 					/* no-op */
 				}
 				obs.disconnect();
@@ -81,7 +81,7 @@ import { GAME_CONFIG } from "../ts/config";
 		let lastTimeScale = Number(getCfg()?.physics?.timeScale ?? 1);
 
 		// 共通関数: timeScale更新
-		function updateTimeScale(value, unpause = true) {
+		function updateTimeScale(value: number, unpause = true) {
 			const cfg = getCfg();
 			if (cfg && cfg.physics) {
 				cfg.physics.timeScale = value;
@@ -90,7 +90,7 @@ import { GAME_CONFIG } from "../ts/config";
 		}
 
 		// 共通関数: スライダー同期
-		function syncSlider(value) {
+		function syncSlider(value: number) {
 			input.value = value.toString();
 			val.textContent = ` ${value.toFixed(2)}`;
 		}
@@ -218,10 +218,10 @@ import { GAME_CONFIG } from "../ts/config";
 				typeof window.getRotatorsSummary === "function"
 					? window.getRotatorsSummary()
 					: [];
-			const paddles = list.filter((r) => r.kind === "paddle");
-			const allOn = paddles.length ? paddles.every((r) => r.enabled) : false;
+			const paddles = (list as Array<{ kind: string; enabled: boolean }>).filter((r: { kind: string; enabled: boolean }) => r.kind === "paddle");
+			const allOn = paddles.length ? paddles.every((r: { kind: string; enabled: boolean }) => r.enabled) : false;
 			cb.checked = allOn;
-		} catch (_) {
+		} catch (_: any) {
 			cb.checked = false;
 		}
 		cb.addEventListener("change", () => {
@@ -229,13 +229,13 @@ import { GAME_CONFIG } from "../ts/config";
 				if (typeof window.setRotatorsEnabledByKind === "function") {
 					window.setRotatorsEnabledByKind("paddle", cb.checked);
 				}
-			} catch (_) {
+			} catch (_: any) {
 				/* no-op */
 			}
 		});
 
 		// 初期反映（エンジンが既にあれば値を適用）
-		const eng0 = getEngine();
+		const eng0 = getEngine() as Matter.Engine;
 		if (eng0 && eng0.timing) {
 			const v0 = Number(input.value);
 			updateTimeScale(v0);
@@ -244,15 +244,13 @@ import { GAME_CONFIG } from "../ts/config";
 
 	// main.js から Engine/Render が準備できたら受け取ってバインド
 	window.addEventListener("devtools:engine-ready", (e) => {
-		const ce = /** @type {CustomEvent} */ (e);
-		const engine = ce?.detail?.engine;
+		const ce = e as CustomEvent;
+		const engine = ce?.detail?.engine as Matter.Engine;
 		CURRENT_ENGINE = engine || CURRENT_ENGINE;
 		// UI が未生成なら生成
 		if (!document.getElementById("dev-timescale")) injectTimeScaleSlider();
 		// 現在のUI値をエンジンへ反映
-		const input = /** @type {HTMLInputElement | null} */ (
-			document.getElementById("dev-timescale")
-		);
+		const input = document.getElementById("dev-timescale") as HTMLInputElement | null;
 		if (input && engine && engine.timing) {
 			const v = Number(input.value);
 			const cfgNow = getCfg();
@@ -364,7 +362,7 @@ import { GAME_CONFIG } from "../ts/config";
 								}),
 							);
 						}
-					} catch (_) {
+					} catch (_: any) {
 						/* no-op */
 					}
 				});
@@ -407,7 +405,7 @@ import { GAME_CONFIG } from "../ts/config";
 								}),
 							);
 						}
-					} catch (_) {
+					} catch (_: any) {
 						/* no-op */
 					}
 				});
@@ -435,7 +433,7 @@ import { GAME_CONFIG } from "../ts/config";
 								}),
 							);
 						}
-					} catch (_) {
+					} catch (_: any) {
 						/* no-op */
 					}
 				});
@@ -562,12 +560,12 @@ import { GAME_CONFIG } from "../ts/config";
 	window.addEventListener("devtools:ball-spawned", () => {
 		try {
 			updateSensorCounters();
-		} catch (_) {
+		} catch (_: any) {
 			/* no-op */
 		}
 	});
 
-	window.addEventListener("devtools:sensor-updated", (e) => {
+	window.addEventListener("devtools:sensor-updated", () => {
 		try {
 			updateSensorCounters();
 		} catch (_) {

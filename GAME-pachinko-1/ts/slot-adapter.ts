@@ -1,7 +1,7 @@
-// Simple adapter to embed GAME-SLOT-1 into the pachinko page and provide a programmatic API.
+'''// Simple adapter to embed GAME-SLOT-1 into the pachinko page and provide a programmatic API.
 
-import { gameConfig } from "../../GAME-SLOT-1/config";
-import type { SlotGameInstance } from "../../types/slot";
+import { gameConfig } from "../../GAME-SLOT-1/ts/config";
+import type { SlotGameInstance } from "../../GAME-SLOT-1/ts/slot";
 
 // Diagnostic: mark adapter load and expose quick helpers for debugging
 try {
@@ -15,11 +15,11 @@ try {
 				typeof window.EmbeddedSlot.startSpin === "function"
 				? window.EmbeddedSlot.startSpin()
 				: null;
-		} catch (e) {
+		} catch (e: any) {
 			console.warn("[EmbeddedSlotAdapter] manual trigger error", e);
 		}
 	};
-} catch (e) {
+} catch (e: any) {
 	/* no-op */
 }
 // Configuration: selector within GAME-SLOT-1 index.html for the slot container
@@ -39,7 +39,7 @@ export function ensureEmbeddedSlotVisible() {
 		if (ab) ab.style.display = "";
 		ensureLampPanel();
 		return true;
-	} catch (_) {
+	} catch (_: any) {
 		return false;
 	}
 }
@@ -50,11 +50,11 @@ let __outstandingHits = 0; // ランプ点灯で表す「未消化のヒット�
 function __isSlotSpinning() {
 	try {
 		return !!(API && API._instance && API._instance.isSpinning);
-	} catch (_) {
+	} catch (_: any) {
 		return false;
 	}
 }
-function __tryStartOrQueueSpin(reason) {
+function __tryStartOrQueueSpin(_reason: string) {
 	try {
 		if (__isSlotSpinning()) {
 			__pendingQueuedSpins++;
@@ -62,7 +62,7 @@ function __tryStartOrQueueSpin(reason) {
 		}
 		API.startSpin();
 		return "started";
-	} catch (_) {
+	} catch (_: any) {
 		return "error";
 	}
 }
@@ -183,7 +183,7 @@ const API: {
 				} else {
 					console.debug("EmbeddedSlot: createSlotIn returned null");
 				}
-			} catch (e) {
+			} catch (e: any) {
 				console.warn("EmbeddedSlot: createSlotIn error", e);
 			}
 		}
@@ -218,7 +218,7 @@ const API: {
 									window
 								).SlotGame(slotEl, cfg);
 								API._instance = window.SLOT_GAME_INSTANCE;
-							} catch (instErr) {
+							} catch (instErr: any) {
 								window.__EmbeddedSlotLastError =
 									instErr &&
 									(instErr.stack || instErr.message || String(instErr));
@@ -233,11 +233,11 @@ const API: {
 							"EmbeddedSlot: fallback instantiation skipped because #slot-machine not found",
 						);
 					}
-				} catch (e) {
+				} catch (e: any) {
 					/* no-op */
 				}
 			}
-		} catch (_) {
+		} catch (_: any) {
 			/* no-op */
 		}
 		return true;
@@ -250,7 +250,7 @@ const API: {
 				API.init({ show: true });
 				API._instance =
 					/** @type {any} */ (window).SLOT_GAME_INSTANCE || API._instance;
-			} catch (e) {
+			} catch (e: any) {
 				window.__EmbeddedSlotLastError =
 					e && (e.stack || e.message || String(e));
 				console.warn("EmbeddedSlot: lazy init failed in startSpin:", e);
@@ -266,8 +266,8 @@ const API: {
 					if (API._instance) {
 						clearInterval(iv);
 						try {
-							API._instance.startGame();
-						} catch (e) {
+							API._instance?.startGame();
+						} catch (e: any) {
 							window.__EmbeddedSlotLastError =
 								e && (e.stack || e.message || String(e));
 						}
@@ -283,9 +283,9 @@ const API: {
 			}
 		}
 		try {
-			API._instance.startGame();
+			API._instance?.startGame();
 			return true;
-		} catch (e) {
+		} catch (e: any) {
 			window.__EmbeddedSlotLastError = e && (e.stack || e.message || String(e));
 			console.error("Failed to start embedded slot:", e);
 			return false;
@@ -299,19 +299,19 @@ const API: {
 				// best-effort: stop all reels immediately
 				for (let i = 0; i < (API._instance.reels || []).length; i++) {
 					try {
-						API._instance.stopReel(i);
-					} catch (e) {
+						API._instance?.stopReel(i);
+					} catch (e: any) {
 						/* ignore */
 					}
 				}
 			}
 			return true;
-		} catch (e) {
+		} catch (e: any) {
 			return false;
 		}
 	},
 
-	getInstance: () => API._instance,
+	getInstance: () => API._instance || null,
 	_instance: null,
 };
 
@@ -350,7 +350,7 @@ API.diagnose = () => {
 			console.log("createSlotIn returned:", inst);
 		}
 		console.groupEnd && console.groupEnd();
-	} catch (e) {
+	} catch (e: any) {
 		console.warn("EmbeddedSlot.diagnose error", e);
 	}
 };
@@ -430,11 +430,12 @@ function ensureLampPanel() {
 			) {
 				sliderInfo.parentNode.insertBefore(panel, sliderInfo);
 			}
-		} catch (_) {}
+		} catch (_: any) {}
 	}
 	return panel;
 }
 
+/*
 function lightNextLamp() {
 	const panel = ensureLampPanel();
 	const list = document.getElementById("winLampList");
@@ -462,9 +463,10 @@ function turnOffOldestLamp() {
 		if (cntEl) cntEl.textContent = `${lit}/6`;
 	}
 }
+*/
 
 // Always left-justify: first N lamps are red, the rest black
-function updateLampDisplay(desiredCount) {
+function updateLampDisplay(desiredCount: number) {
 	ensureLampPanel();
 	const list = document.getElementById("winLampList");
 	if (!list) return;
@@ -484,10 +486,10 @@ try {
 		try {
 			__outstandingHits++;
 			updateLampDisplay(__outstandingHits);
-		} catch (_) {}
+		} catch (_: any) {}
 		__tryStartOrQueueSpin("pachi:hit");
 	});
-} catch (_) {}
+} catch (_: any) {}
 
 // when slot fully stops, consume one queued spin if any
 try {
@@ -503,9 +505,9 @@ try {
 				__pendingQueuedSpins--;
 				API.startSpin();
 			}
-		} catch (_) {}
+		} catch (_: any) {}
 	});
-} catch (_) {}
+} catch (_: any) {}
 
 // Override slot's own win overlay with config-based message and adjusted amount
 try {
@@ -541,11 +543,11 @@ try {
 				const subEl = wm.querySelector(".sub");
 				if (subEl && msg) subEl.textContent = msg;
 			}
-		} catch (_) {
+		} catch (_: any) {
 			/* no-op */
 		}
 	});
-} catch (_) {
+} catch (_: any) {
 	/* no-op */
 }
 
@@ -576,7 +578,7 @@ if (typeof window !== "undefined" && window.addEventListener) {
 					}
 				}, 150);
 			}
-		} catch (_) {
+		} catch (_: any) {
 			/* no-op */
 		}
 	});
@@ -597,7 +599,7 @@ try {
 		if (ab2) ab2.style.display = "";
 		ensureLampPanel();
 	}
-} catch (e) {
+} catch (e: any) {
 	/* no-op */
 }
 
@@ -631,7 +633,7 @@ function applyPachinkoVolumeSettings() {
 	// Apply individual volumes
 	if (slotAudioCfg.volumes) {
 		for (const kind in slotAudioCfg.volumes) {
-			const volume = slotAudioCfg.volumes[kind];
+			const volume = (slotAudioCfg.volumes as any)[kind];
 			if (
 				typeof volume === "number" &&
 				typeof soundManager.setPerVolume === "function"
@@ -647,3 +649,4 @@ window.addEventListener("DOMContentLoaded", () => {
 	// A short delay ensures the slot instance and its sound manager are ready.
 	setTimeout(applyPachinkoVolumeSettings, 500);
 });
+''

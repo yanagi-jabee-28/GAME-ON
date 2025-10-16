@@ -79,6 +79,7 @@ interface LaunchConfig {
 	holdIntervalMs: number;
 	holdFirstShotDelayMs: number;
 	ammo: number;
+	currentAmmo?: number; // 現在の弾数（実行時に使用）
 	ammoGainOnSensor: number;
 	spawn: { x: number; yOffsetFromBottom: number };
 	pad: LaunchPadConfig;
@@ -110,6 +111,7 @@ interface ObjectsConfig {
 		randomColor?: boolean;
 		rotationsPerSecond?: number;
 		centerColor?: string;
+		centerFill?: string; // 中央部分の塗りつぶし色
 		bladeColor?: string;
 		defaults?: Record<string, unknown>;
 	};
@@ -126,9 +128,20 @@ interface PresetsConfig {
 	pegs: string;
 	objects: string;
 }
+interface SensorCounter {
+	enterCount: number;
+	exitCount: number;
+	currentInside: number;
+	totalPassed: number;
+	removeOn?: string | null;
+	removeOnPass?: boolean;
+	particleMode?: string | null;
+	particleColor?: string | null;
+}
+
 interface SensorCounters {
 	enabled: boolean;
-	counters: Record<string, unknown>;
+	counters: Record<string, SensorCounter>;
 }
 interface TopPlateConfig {
 	enabled: boolean;

@@ -474,7 +474,8 @@ function pachiInit() {
 					? window.devicePixelRatio || 1
 					: 1;
 			// CSS size: let the canvas fill the container element
-			const rect = container.getBoundingClientRect();
+		if (!container) return;
+		const rect = container.getBoundingClientRect();
 			const cw = Math.max(
 				0,
 				Math.round(container.clientWidth || rect.width || 0),
@@ -581,7 +582,33 @@ function pachiInit() {
 					} catch (_) {}
 					try {
 						if (container) {
-							container.style.visibility = "";
+								if (container) {
+									if (container) {
+										if (container) {
+											if (container) {
+												if (container) {
+													if (container) {
+														if (container) {
+															if (container) {
+																if (container) {
+																	if (container) {
+																		if (container) {
+																			if (container) {
+																				if (container) {
+																					container.style.visibility = "";
+																				}
+																			}
+																		}
+																	}
+																}
+															}
+														}
+													}
+												}
+											}
+										}
+									}
+								}
 						}
 					} catch (_) {}
 					hideLoadingOverlay();
@@ -863,11 +890,9 @@ function pachiInit() {
 									const a1 = p.steps[nextIndex].angleRad;
 									const t = st.moveMs ? p.phaseElapsed / st.moveMs : 1;
 									const ang = a0 + (a1 - a0) * Math.min(1, t);
-									setBodyAngleAroundPivot(
-										rot.body,
-										rot.pivot,
-										rot.zeroAngle + ang,
-									);
+									if (rot.pivot) {
+									setBodyAngleAroundPivot(rot.body, rot.pivot, (rot.zeroAngle ?? 0) + ang);
+									}
 									if (p.phaseElapsed >= st.moveMs) {
 										p.curIndex = nextIndex;
 										p.phase = "hold";
@@ -881,11 +906,9 @@ function pachiInit() {
 							}
 						} else {
 							if (!p.loop && p.elapsedMs >= p.durationMs) {
-								setBodyAngleAroundPivot(
-									rot.body,
-									rot.pivot,
-									rot.zeroAngle + p.endRad,
-								);
+								if (rot.pivot) {
+									setBodyAngleAroundPivot(rot.body, rot.pivot, (rot.zeroAngle ?? 0) + p.endRad);
+								}
 								continue;
 							}
 							p.elapsedMs += rotDeltaMs;
@@ -896,18 +919,14 @@ function pachiInit() {
 								const cycle = t * 2;
 								const dir = cycle <= 1 ? cycle : 2 - cycle;
 								const angle = p.startRad + (p.endRad - p.startRad) * dir;
-								setBodyAngleAroundPivot(
-									rot.body,
-									rot.pivot,
-									rot.zeroAngle + angle,
-								);
+								if (rot.pivot) {
+									setBodyAngleAroundPivot(rot.body, rot.pivot, (rot.zeroAngle ?? 0) + angle);
+								}
 							} else {
 								const angle = p.startRad + (p.endRad - p.startRad) * t;
-								setBodyAngleAroundPivot(
-									rot.body,
-									rot.pivot,
-									rot.zeroAngle + angle,
-								);
+								if (rot.pivot) {
+									setBodyAngleAroundPivot(rot.body, rot.pivot, (rot.zeroAngle ?? 0) + angle);
+								}
 							}
 						}
 					} else if (rot.mode === "inertial" && rot.inertial) {
@@ -934,8 +953,8 @@ function pachiInit() {
 							try {
 								// avoid hard snapping which causes visible jitter: translate a fraction
 								const pos = rot.body.position || { x: 0, y: 0 };
-								const dx = rot.pivot.x - pos.x;
-								const dy = rot.pivot.y - pos.y;
+								const dx = rot.pivot!.x - pos.x;
+								const dy = rot.pivot!.y - pos.y;
 								const distSq = dx * dx + dy * dy;
 								if (distSq > 2.25) {
 									// > 1.5 px
@@ -954,7 +973,7 @@ function pachiInit() {
 						const I = rot.body.inertia || 0;
 						if (I > 0) {
 							const cur = rot.body.angle || 0;
-							const target = rot.zeroAngle + rot.inertial.restRad;
+							const target = rot.zeroAngle! + rot.inertial.restRad;
 							let err = cur - target;
 							err = Math.atan2(Math.sin(err), Math.cos(err));
 							const omega = rot.body.angularVelocity || 0;
@@ -965,7 +984,7 @@ function pachiInit() {
 								rot.inertial.gravityAngleDeg ?? rot.inertial.gravityAngle ?? 90,
 							);
 							const gAngle = (gAngleDeg * Math.PI) / 180;
-							const gravityTarget = rot.zeroAngle + gAngle;
+							const gravityTarget = rot.zeroAngle! + gAngle;
 							let gravityTorque = 0;
 							if (gBias && Math.abs(gBias) > 0) {
 								const mass = rot.body && rot.body.mass ? rot.body.mass : 1;
@@ -990,7 +1009,7 @@ function pachiInit() {
 									Math.min(10000, gravityTorque),
 								);
 							}
-							const ad = Math.max(0, rot.inertial.angularDamping || 0);
+							const ad = Math.max(0, (rot.inertial as any).angularDamping || 0);
 							const torque = -k * err + -c * omega + gravityTorque;
 							// integrate desired angular acceleration -> torque/I
 							const angAcc = torque / I;
@@ -1025,8 +1044,8 @@ function pachiInit() {
 							}
 							try {
 								const pos = rot.body.position || { x: 0, y: 0 };
-								const dx = rot.pivot.x - pos.x;
-								const dy = rot.pivot.y - pos.y;
+								const dx = rot.pivot!.x - pos.x;
+								const dy = rot.pivot!.y - pos.y;
 								const distSq = dx * dx + dy * dy;
 								if (distSq > 2.25) {
 									const frac = 0.3;
@@ -1165,21 +1184,11 @@ function pachiInit() {
 			}
 			return n;
 		};
-		window.getRotatorsSummary = () => {
+		window.getRotatorsSummary = (): Array<{ kind: string; enabled: boolean }> => {
 			if (!Array.isArray(rotators)) return [];
 			return rotators
-				.map((r, i) =>
-					r
-						? {
-								index: i,
-								id: r.id,
-								kind: r.kind,
-								enabled: r.enabled,
-								mode: r.mode,
-							}
-						: null,
-				)
-				.filter(Boolean);
+				.filter((r) => !!r)
+				.map((r) => ({ kind: r!.kind || "", enabled: !!r!.enabled }));
 		};
 		window.toggleRotatorEnabled = (idOrIndex) => {
 			if (typeof idOrIndex === "number") {
@@ -1212,7 +1221,7 @@ function pachiInit() {
 
 	// helper: set compound body to an absolute angle around a pivot
 	// ボディをピボット中心で指定角度に設定する（小さな誤差を無視）
-	function setBodyAngleAroundPivot(body, pivot, targetAngleRad) {
+	function setBodyAngleAroundPivot(body: Matter.Body, pivot: { x: number; y: number }, targetAngleRad: number) {
 		const cur = body.angle || 0;
 		const delta = targetAngleRad - cur;
 		// wrap small numerical noise
@@ -1247,10 +1256,10 @@ function pachiInit() {
 
 	// プリセットから回転役物（風車等）を作成し、rotators 配列へ登録する
 	// rotators はループで駆動される
-	function initRotatorsFromPreset(preset) {
+	function initRotatorsFromPreset(preset: any) {
 		const items = Array.isArray(preset.rotators) ? preset.rotators : [];
 		return items
-			.map((item, idx) => {
+			.map((item: any, idx: number) => {
 				// 新タイプ 'paddle' は、風車ジオメトリを1枚ブレード前提で使う別名として扱う
 				const isWindmill = item.type === "windmill";
 				const isPaddle = item.type === "paddle";
@@ -1285,10 +1294,10 @@ function pachiInit() {
 					),
 				};
 				const body = createRotatingYakumono(blueprint);
-				World.add(world, body);
+				if (body) World.add(world, body);
 				// pivot は常に中心円の中心（設計図の x,y）
 				const pivot = { x: blueprint.x, y: blueprint.y };
-				const zeroAngle = body.angle || 0;
+				const zeroAngle = body ? body.angle || 0 : 0;
 				// 有効/無効（既定 true）とID（未指定は型+index）
 				const enabled = item.enabled !== false;
 				const id = String(
@@ -1306,7 +1315,7 @@ function pachiInit() {
 					const defMove = Number(rotCfg.moveMs) || 600;
 					const defHold = Number(rotCfg.holdMs);
 					const steps = seqIn
-						.map((s) => {
+						.map((s: any) => {
 							if (typeof s === "number") {
 								return {
 									angleDeg: s,
@@ -1325,7 +1334,7 @@ function pachiInit() {
 									: 300;
 							return { angleDeg, moveMs, holdMs };
 						})
-						.map((s) => ({
+						.map((s: any) => ({
 							angleRad: (s.angleDeg * Math.PI) / 180,
 							moveMs: Math.max(0, s.moveMs || 0),
 							holdMs: Math.max(0, s.holdMs || 0),
@@ -1333,8 +1342,8 @@ function pachiInit() {
 					if (!steps.length) return null;
 					const loop = rotCfg.loop !== false; // 既定: ループ
 					const offsetMs = Math.max(0, Number(rotCfg.offsetMs || 0));
-					const totalCycleMs =
-						steps.reduce((acc, st) => acc + st.holdMs + st.moveMs, 0) || 1;
+						const totalCycleMs =
+							steps.reduce((acc: number, st: { holdMs: number; moveMs: number }) => acc + st.holdMs + st.moveMs, 0) || 1;
 					const program = {
 						type: "seq",
 						steps,
@@ -1346,7 +1355,7 @@ function pachiInit() {
 						completed: false,
 					};
 					// 初期角
-					setBodyAngleAroundPivot(body, pivot, zeroAngle + steps[0].angleRad);
+						if (body) setBodyAngleAroundPivot(body, pivot, zeroAngle + steps[0].angleRad);
 					// オフセットがあれば消化
 					if (offsetMs) {
 						let remain = loop
@@ -1371,7 +1380,7 @@ function pachiInit() {
 								const a1 = steps[nextIndex].angleRad;
 								const t = st.moveMs ? program.phaseElapsed / st.moveMs : 1;
 								const ang = a0 + (a1 - a0) * Math.min(1, t);
-								setBodyAngleAroundPivot(body, pivot, zeroAngle + ang);
+								if (body) setBodyAngleAroundPivot(body, pivot, zeroAngle + ang);
 								if (program.phaseElapsed >= st.moveMs) {
 									program.curIndex = nextIndex;
 									program.phase = "hold";
@@ -1406,14 +1415,14 @@ function pachiInit() {
 					// 注意: ここでは独自の "stiffness/damping/sensitivity/gravityBias" 等の
 					// パラメータを使わず、純粋に Matter.js の質量・密度・衝突インパルス
 					// と world.gravity による挙動に任せる実装にする。
-					Body.setStatic(body, false);
+						if (body) Body.setStatic(body, false);
 					const restDeg = Number(rotCfg.restDeg ?? rotCfg.restAngleDeg ?? 0);
 					const restRad = (restDeg * Math.PI) / 180;
 					// ピボット固定（回転は Matter.js の力学に委ねる）
 					// use a softer pin (not perfectly rigid) to avoid harsh corrections
 					const pin = Constraint.create({
 						pointA: { x: pivot.x, y: pivot.y },
-						bodyB: body,
+						bodyB: body === null ? undefined : body,
 						pointB: { x: 0, y: 0 },
 						length: 0,
 						stiffness: 0.7,
@@ -1421,10 +1430,10 @@ function pachiInit() {
 					});
 					World.add(world, pin);
 					// apply a small air friction so rotations decay smoothly
-					body.frictionAir = Math.max(0.001, body.frictionAir || 0.02);
+						if (body) body.frictionAir = Math.max(0.001, body.frictionAir || 0.02);
 					// 初期角（あれば設定）
 					try {
-						setBodyAngleAroundPivot(body, pivot, zeroAngle + restRad);
+						if (body) setBodyAngleAroundPivot(body, pivot, zeroAngle + restRad);
 					} catch (_) {
 						/* no-op */
 					}
@@ -1478,7 +1487,7 @@ function pachiInit() {
 							elapsedMs: offsetMs,
 						};
 						// 初期角へ設定
-						setBodyAngleAroundPivot(body, pivot, zeroAngle + startRad);
+						if (body) setBodyAngleAroundPivot(body, pivot, zeroAngle + startRad);
 						return {
 							id,
 							kind,
@@ -1510,11 +1519,11 @@ function pachiInit() {
 	}
 
 	// 任意長方形（rectangles）をプリセットから初期化
-	function initRectanglesFromPreset(preset) {
+	function initRectanglesFromPreset(preset: any) {
 		const rects = Array.isArray(preset.rectangles) ? preset.rectangles : [];
 		if (!rects.length) return;
 		const bodies = rects
-			.map((r) =>
+			.map((r: any) =>
 				createRectangle(
 					Object.assign({}, r, {
 						x: (r.x || 0) + globalXOffset,
@@ -1527,13 +1536,13 @@ function pachiInit() {
 	}
 
 	// 装飾用（物理干渉なし）長方形をプリセットから初期化
-	function initDecorRectanglesFromPreset(preset) {
+	function initDecorRectanglesFromPreset(preset: any) {
 		const items = Array.isArray(preset.decorRectangles)
 			? preset.decorRectangles
 			: [];
 		if (!items.length) return;
 		const bodies = items
-			.map((r) =>
+			.map((r: any) =>
 				createDecorRectangle(
 					Object.assign({}, r, {
 						x: (r.x || 0) + globalXOffset,
@@ -1546,7 +1555,7 @@ function pachiInit() {
 	}
 
 	// 任意多角形（polygons）
-	function initPolygonsFromPreset(preset) {
+	function initPolygonsFromPreset(preset: any) {
 		const items = Array.isArray(preset.polygons) ? preset.polygons : [];
 		const defMode =
 			preset.polygonsDefaults?.coordMode ||
@@ -1554,7 +1563,7 @@ function pachiInit() {
 			preset.defaults?.polygon?.coordMode;
 		if (!items.length) return;
 		const bodies = items
-			.map((p) => {
+			.map((p: any) => {
 				const coordMode =
 					p.coordMode ||
 					p.pointsMode ||
@@ -1564,7 +1573,7 @@ function pachiInit() {
 				if (String(coordMode).toLowerCase() === "world") {
 					// world座標指定: points にオフセットを適用
 					const pts = Array.isArray(p.points)
-						? p.points.map((pt) => ({
+						? p.points.map((pt: any) => ({
 								x: (pt.x || 0) + globalXOffset,
 								y: (pt.y || 0) + globalYOffset,
 							}))
@@ -1585,7 +1594,7 @@ function pachiInit() {
 	}
 
 	// 装飾用多角形（非干渉）
-	function initDecorPolygonsFromPreset(preset) {
+	function initDecorPolygonsFromPreset(preset: any) {
 		const items = Array.isArray(preset.decorPolygons)
 			? preset.decorPolygons
 			: [];
@@ -1595,7 +1604,7 @@ function pachiInit() {
 			preset.defaults?.decorPolygon?.coordMode;
 		if (!items.length) return;
 		const bodies = items
-			.map((p) => {
+			.map((p: any) => {
 				const coordMode =
 					p.coordMode ||
 					p.pointsMode ||
@@ -1604,7 +1613,7 @@ function pachiInit() {
 					"local";
 				if (String(coordMode).toLowerCase() === "world") {
 					const pts = Array.isArray(p.points)
-						? p.points.map((pt) => ({
+						? p.points.map((pt: any) => ({
 								x: (pt.x || 0) + globalXOffset,
 								y: (pt.y || 0) + globalYOffset,
 							}))
@@ -1624,13 +1633,13 @@ function pachiInit() {
 	}
 
 	// センサー通過カウント用ボディをプリセットから初期化
-	function initSensorCountersFromPreset(preset) {
+	function initSensorCountersFromPreset(preset: any) {
 		const items = Array.isArray(preset.sensorCounters)
 			? preset.sensorCounters
 			: [];
 		if (!items.length) return;
 		const bodies = items
-			.map((s) =>
+			.map((s: any) =>
 				createSensorCounter(
 					Object.assign({}, s, {
 						x: (s.x || 0) + globalXOffset,
@@ -1643,13 +1652,13 @@ function pachiInit() {
 	}
 
 	// センサー通過カウント用ポリゴンボディをプリセットから初期化
-	function initSensorCounterPolygonsFromPreset(preset) {
+	function initSensorCounterPolygonsFromPreset(preset: any) {
 		const items = Array.isArray(preset.sensorCounterPolygons)
 			? preset.sensorCounterPolygons
 			: [];
 		if (!items.length) return;
 		const bodies = items
-			.map((s) => {
+			.map((s: any) => {
 				const coordMode =
 					s.coordMode ||
 					s.pointsMode ||
@@ -1658,7 +1667,7 @@ function pachiInit() {
 				if (String(coordMode).toLowerCase() === "world") {
 					// world座標指定: points にオフセットを適用
 					const pts = Array.isArray(s.points)
-						? s.points.map((pt) => ({
+						? s.points.map((pt: any) => ({
 								x: (pt.x || 0) + globalXOffset,
 								y: (pt.y || 0) + globalYOffset,
 							}))
@@ -1681,13 +1690,13 @@ function pachiInit() {
 	}
 
 	// プリセット適用ハンドラ（拡張しやすい登録方式）
-	function applyPresetWindmills(preset) {
+	function applyPresetWindmills(preset: any) {
 		rotators = initRotatorsFromPreset(preset);
 	}
-	function applyPresetRectangles(preset) {
+	function applyPresetRectangles(preset: any) {
 		initRectanglesFromPreset(preset);
 	}
-	function applyPresetDecorRectangles(preset) {
+	function applyPresetDecorRectangles(preset: any) {
 		initDecorRectanglesFromPreset(preset);
 	}
 	const presetApplicators = [
@@ -1699,7 +1708,7 @@ function pachiInit() {
 		initSensorCountersFromPreset,
 		initSensorCounterPolygonsFromPreset,
 	];
-	function applyPresetObjects(preset) {
+	function applyPresetObjects(preset: any) {
 		for (const fn of presetApplicators) {
 			try {
 				fn(preset);
@@ -1843,6 +1852,7 @@ function pachiInit() {
 	// If the container size is invalid (width/height === 0), retry a few times with delays.
 	function tryInitPosition(retries = 6, delayMs = 80) {
 		try {
+			if (!container) return false;
 			const c = container.getBoundingClientRect();
 			const valid = c && c.width > 0 && c.height > 0;
 			// debug dump (one-shot) to help diagnose mobile init timing
@@ -1874,7 +1884,33 @@ function pachiInit() {
 					/* no-op */
 				}
 				try {
-					container.style.visibility = "";
+					if (container) {
+						if (container) {
+							if (container) {
+								if (container) {
+									if (container) {
+										if (container) {
+											if (container) {
+												if (container) {
+													if (container) {
+														if (container) {
+															if (container) {
+																if (container) {
+																	if (container) {
+																		container.style.visibility = "";
+																	}
+																}
+															}
+														}
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
 				} catch (_) {}
 				return true;
 			}
@@ -1906,7 +1942,7 @@ function pachiInit() {
 						}
 					}
 				});
-				ro.observe(container);
+				if (container) ro.observe(container);
 				// give it a short grace period and continue retry polling as well
 			} catch (_) {
 				/* no-op */
@@ -2064,16 +2100,18 @@ function pachiInit() {
 				GAME_CONFIG.launch?.defaultAngle ??
 				90,
 		);
-		const sliderValue = Number(speedSlider.value);
+	const sliderValue = speedSlider ? Number(speedSlider.value) : 0;
 		const speed = computeSpeedFromSlider(sliderValue);
 		const decimals = Number.isFinite(GAME_CONFIG.launch?.speedPrecision)
 			? Math.max(0, Math.min(3, Number(GAME_CONFIG.launch.speedPrecision)))
 			: 1;
 		speedActual.textContent = ` (${speed.toFixed(decimals)} px/s)`;
 		if (angleVal) angleVal.textContent = angle.toFixed(1);
-		speedVal.textContent = sliderValue.toFixed(2);
+		if (speedVal) {
+			speedVal.textContent = sliderValue.toFixed(2);
+		}
 		// position arrow near bottom-left of container (use container-relative coords)
-		const rect = container.getBoundingClientRect();
+	const rect = container ? container.getBoundingClientRect() : { left: 0, top: 0, width: 0, height: 0 };
 		launchArrow.style.left = "24px";
 		launchArrow.style.top = rect.height - 80 + "px";
 		launchArrow.style.transform = `rotate(${-angle}deg)`; // negative because CSS y-axis
@@ -2083,7 +2121,7 @@ function pachiInit() {
 			updateArrow();
 			updateLaunchPadPosition();
 		});
-	speedSlider.addEventListener("input", updateArrow);
+	if (speedSlider) speedSlider.addEventListener("input", updateArrow);
 
 	// （未使用の UI ヘルパーは削除し、必要最小限のイベントのみを維持）
 	// insert speedActual after speedVal in DOM（中央揃えのラベルに付加）
@@ -2185,7 +2223,7 @@ function pachiInit() {
 	}
 
 	// 軽量トースト表示（main内ローカル, フェードイン/アウト対応）
-	function showToastMessage(msg, durationMs) {
+	function showToastMessage(msg: any, durationMs: any) {
 		try {
 			let el = document.getElementById("pachi-slot-toast");
 			if (!el) {
@@ -2259,7 +2297,7 @@ function pachiInit() {
 			const randomAngleOffset = (Math.random() * 2 - 1) * angleRandomness;
 			angleDeg += randomAngleOffset;
 		}
-		const sliderValue = Number(speedSlider.value || 0);
+	const sliderValue = speedSlider ? Number(speedSlider.value || 0) : 0;
 		const speedPxPerSec = computeSpeedFromSlider(sliderValue);
 		const angleRad = (angleDeg * Math.PI) / 180;
 		const velocity = {
@@ -2331,7 +2369,9 @@ function pachiInit() {
 			holdAccumMs = 0;
 			// 毎回ホールド開始時に初回ディレイを適用（0なら即時相当でスキップ）
 			holdFirstShotPending = holdFirstDelayMsCfg > 0;
-			speedSlider.classList.add("active");
+			if (speedSlider) {
+				speedSlider.classList.add("active");
+			}
 		}
 		function stopHold() {
 			if (!holdActive) return;
@@ -2339,11 +2379,15 @@ function pachiInit() {
 			holdAccumMs = 0;
 			holdFirstShotPending = false;
 			// 離したら強さを0へ
-			if (speedSlider) speedSlider.value = "0";
-			updateArrow();
-			speedSlider.classList.remove("active");
+			if (speedSlider) {
+				speedSlider.value = "0";
+				updateArrow();
+				speedSlider.classList.remove("active");
+			} else {
+				updateArrow();
+			}
 		}
-		speedSlider.addEventListener("pointerdown", startHold);
+		if (speedSlider) speedSlider.addEventListener("pointerdown", startHold);
 		window.addEventListener("pointerup", stopHold);
 		window.addEventListener("pointercancel", stopHold);
 		window.addEventListener("blur", stopHold);
@@ -2360,7 +2404,7 @@ function pachiInit() {
 			// 一方向壁（oneWay）: ボールの速度方向に応じて衝突を無効化
 			try {
 				const ballLabel = GAME_CONFIG.objects.ball.label;
-				function shouldDisableByOneWay(ball, other) {
+				function shouldDisableByOneWay(ball: any, other: any) {
 					if (!ball || !other || !other.oneWay || other.oneWay.enabled !== true)
 						return false;
 					const v = ball.velocity || { x: 0, y: 0 };
@@ -2388,8 +2432,8 @@ function pachiInit() {
 			// 材質に基づいた物理係数の動的適用
 			if (bodyA.material && bodyB.material) {
 				const interaction = getMaterialInteraction(
-					bodyA.material,
-					bodyB.material,
+					String((bodyA as any).material || ""),
+					String((bodyB as any).material || ""),
 				);
 				pair.restitution = interaction.restitution;
 				pair.friction = interaction.friction;
@@ -2441,7 +2485,7 @@ function pachiInit() {
 			const eff = GAME_CONFIG.effects?.floor || {};
 			const particleCfg =
 				eff && typeof eff === "object" && "particle" in eff ? eff.particle : {};
-			function handleFloorHit(ballBody) {
+				function handleFloorHit(ballBody: any) {
 				if (!ballBody) return;
 				try {
 					if (
@@ -2507,7 +2551,7 @@ function pachiInit() {
 	});
 
 	// センサー通過カウント処理関数
-	function handleSensorCounterCollision(bodyA, bodyB, eventType) {
+	function handleSensorCounterCollision(bodyA: any, bodyB: any, eventType: string) {
 		const ballLabel = GAME_CONFIG.objects.ball.label;
 		let sensorBody = null;
 		let ballBody = null;

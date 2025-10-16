@@ -11,12 +11,28 @@ declare module "matter-js" {
 			[key: string]: unknown;
 		};
 		material?: unknown; // Material property for collision handling
+		oneWay?: {
+			blockDir?: string;
+			dir?: string;
+			enabled?: boolean;
+		};
+		sensorData?: {
+			id?: string;
+			[key: string]: unknown;
+		};
 	}
 
 	namespace Engine {
 		interface ITiming {
 			isFixed?: boolean;
 		}
+	}
+
+	interface IEngine {
+		timing?: {
+			timeScale?: number;
+			[key: string]: unknown;
+		};
 	}
 
 	interface IBodyRenderOptions {
