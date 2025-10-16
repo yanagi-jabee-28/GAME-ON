@@ -252,4 +252,4 @@ export const PLAYFIELD_SIZE_STEP = 40; // サイズ変更の単位
 /**
  * エンティティのホーミング（追尾）の強さ（曲がる力の倍率）
  */
-export const HOMING_FORCE = 2;
+export const HOMING_FORCE = 150;
