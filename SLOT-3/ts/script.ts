@@ -38,9 +38,9 @@ const reelPositions = [0, 0, 0];
 const reelStrips: HTMLDivElement[] = [];
 
 // アニメーション設定
-const SPIN_DURATION = 2000; // スピン全体の時間（ミリ秒）
+const SPIN_DURATION = 1000; // スピン全体の時間（ミリ秒）
 const SPIN_SPEED = 25; // スピン速度（1フレームあたりの移動ピクセル数）
-const STOP_DELAY = 300; // 各リールが止まる間隔（ミリ秒）
+const STOP_DELAY = 500; // 各リールが止まる間隔（ミリ秒）
 
 const updateBalanceDisplay = () => {
 	balanceSpan.textContent = balance.toString();
@@ -120,7 +120,7 @@ function startReelSpin(reelIndex: number): Promise<void> {
 		let startY = 0; // 減速開始位置
 		let decelerationStartTime = 0;
 		let lastY = 0; // 前フレームの位置
-		const DECELERATION_DURATION = 1500; // 減速にかける時間（ミリ秒）
+		const DECELERATION_DURATION = 800; // 減速にかける時間（ミリ秒）
 		
 		// 高速回転アニメーション
 		const animate = (timestamp: number) => {
@@ -264,8 +264,13 @@ spinBtn.addEventListener("click", spin);
 
 // 初期化
 initializeReelStrips();
+
+// 初期位置を設定（各リールとも18番目のインデックス）
+const INITIAL_REEL_POSITION = 18;
 reels.forEach((_, index) => {
-	reelPositions[index] = 0;
+	const reelData = slotConfig.reelsData[index];
+	// リールデータの長さを超えないように調整
+	reelPositions[index] = INITIAL_REEL_POSITION % reelData.length;
 	updateReelDisplay(index);
 });
 
