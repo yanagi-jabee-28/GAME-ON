@@ -1,65 +1,78 @@
 /**
+ * ゲームのシステム定数を定義するファイルです。
+ * 
+ * 【config.ts との違い】
+ * - constants.ts: システム定数（UI、キーバインド、技術的パラメータ）
+ * - config.ts: ゲームバランス設定（プレイヤー/敵のステータス、ダメージ、攻撃パターン）
+ * 
+ * このファイルは主に技術的な定数やUI設定を扱います。
+ * ゲームバランスの調整は config.ts で行ってください。
+ */
+
+import {
+	PLAYER_CONFIG,
+	PLAYER_VISUAL_CONFIG,
+	ENTITY_CONFIG,
+	COMBAT_CONFIG,
+} from "./config.ts";
+
+// ========================================
+// ゲームバランス設定からの再エクスポート
+// （後方互換性のため、既存のコードが動作するように）
+// ========================================
+
+/** @deprecated config.ts の PLAYER_CONFIG.speed を使用してください */
+export const SPEED = PLAYER_CONFIG.speed;
+
+/** @deprecated config.ts の PLAYER_VISUAL_CONFIG.damageMinOpacity を使用してください */
+export const HEART_MIN_OPACITY = PLAYER_VISUAL_CONFIG.damageMinOpacity;
+
+/** @deprecated config.ts の ENTITY_CONFIG.collisionMinOpacity を使用してください */
+export const ENTITY_MIN_OPACITY = ENTITY_CONFIG.collisionMinOpacity;
+
+/** @deprecated config.ts の ENTITY_CONFIG.removalMargin を使用してください */
+export const REMOVAL_MARGIN = ENTITY_CONFIG.removalMargin;
+
+/** @deprecated config.ts の ENTITY_CONFIG.fadeDuration を使用してください */
+export const FADE_DURATION = ENTITY_CONFIG.fadeDuration;
+
+/** @deprecated config.ts の ENTITY_CONFIG.lifetime を使用してください */
+export const LIFETIME = ENTITY_CONFIG.lifetime;
+
+/** @deprecated config.ts の PLAYER_VISUAL_CONFIG.heartColors を使用してください */
+export const COLORS: string[] = [...PLAYER_VISUAL_CONFIG.heartColors];
+
+// ========================================
+// UI関連の定数
+// ========================================
+
+/**
  * プレイヤー領域（player-overlay）に表示するテキストのフォントサイズ
  * CSSの単位（rem, pxなど）を含む文字列で指定します。
  */
 export const PLAYER_OVERLAY_FONT_SIZE = "1.5rem";
-/**
- * ゲーム全体で共有される設定値を定義するファイルです。
- * これらの値を変更することで、ゲームの挙動を簡単に調整できます。
- */
 
 /**
- * プレイヤー（ハート）の移動速度 (ピクセル/秒)
- * この値を大きくすると、ハートが速く動きます。
+ * プレイヤーのステータス表示（名前、レベル、HP）の基本フォントサイズ
+ * CSSの単位（rem, pxなど）を含む文字列で指定します。
  */
-export const SPEED = 180;
+export const PLAYER_STATUS_FONT_SIZE = "1rem";
 
 /**
- * ハートがダメージを受けた際の最低不透明度
- * 0に近いほど透明になり、1に近いほど不透明になります。
- * 無敵状態の視覚的な表現に使われます。
+ * プレイヤー（ハート）の基本表示サイズ
+ * CSSの単位（rem, pxなど）を含む文字列で指定します。
  */
-export const HEART_MIN_OPACITY = 0.3;
+export const HEART_SIZE = "30px";
 
 /**
- * エンティティ（敵の攻撃）がハートと衝突した際の最低不透明度
- * 衝突時にエンティティが少し透明になる演出に使われます。
+ * 行動選択ボタン（FIGHT, ACTなど）の基本フォントサイズ
+ * CSSの単位（rem, pxなど）を含む文字列で指定します。
  */
-export const ENTITY_MIN_OPACITY = 0.3;
+export const ACTION_BUTTON_FONT_SIZE = "1.2rem";
 
-/**
- * プレイフィールドの画面外に出たエンティティを削除する際のマージン (ピクセル)
- * このマージン領域に入ったエンティティは、画面外とみなされて削除されます。
- * これにより、見えない場所でエンティティが無限に存在し続けるのを防ぎます。
- */
-export const REMOVAL_MARGIN = 160;
-
-/**
- * エンティティが消える前のフェードアウトにかかる時間 (秒)
- * エンティティは寿命が尽きる前に、この時間で徐々に透明になります。
- */
-export const FADE_DURATION = 0.5;
-
-/**
- * エンティティが画面内に存在し続ける時間 (秒)
- * この時間が経過すると、エンティティはフェードアウトを開始します。
- */
-export const LIFETIME = 4.5;
-
-/**
- * デバッグ用にハートの色を変更する際のカラーパレット
- * 'G'キーを押すと、この配列の順番でハートの色が変わります。
- */
-export const COLORS: string[] = [
-	"hsl(180 100% 50%)", // Cyan (シアン)
-	"hsl(30 100% 50%)", // Orange (オレンジ)
-	"hsl(220 100% 50%)", // Blue (青)
-	"hsl(285 100% 50%)", // Purple (紫)
-	"hsl(120 100% 50%)", // Green (緑)
-	"hsl(60 100% 50%)", // Yellow (黄)
-	"hsl(0 100% 50%)", // Red (赤)
-	"hsl(0 0% 100%)", // White (白)
-];
+// ========================================
+// キーバインディング設定
+// ========================================
 
 /**
  * キーバインディング設定
@@ -192,47 +205,25 @@ export const isMoveKey = (key: string): boolean => {
 	);
 };
 
-/**
- * エンティティがプレイヤーに与えるダメージ量
- * この値が大きいほど、1回の衝突で受けるダメージが増えます。
- */
-export const ENTITY_DAMAGE = 10;
+// ========================================
+// ゲームバランス定数（後方互換性のため）
+// ========================================
 
-/**
- * プレイヤーのステータス表示（名前、レベル、HP）の基本フォントサイズ
- * CSSの単位（rem, pxなど）を含む文字列で指定します。
- */
-export const PLAYER_STATUS_FONT_SIZE = "1rem";
+/** @deprecated config.ts の ENTITY_CONFIG.damage を使用してください */
+export const ENTITY_DAMAGE = ENTITY_CONFIG.damage;
 
-/**
- * プレイヤー（ハート）の基本表示サイズ
- * CSSの単位（rem, pxなど）を含む文字列で指定します。
- */
-export const HEART_SIZE = "30px";
+/** @deprecated config.ts の PLAYER_VISUAL_CONFIG.gameoverDelayMs を使用してください */
+export const GAMEOVER_DELAY_MS = PLAYER_VISUAL_CONFIG.gameoverDelayMs;
 
-/**
- * 行動選択ボタン（FIGHT, ACTなど）の基本フォントサイズ
- * CSSの単位（rem, pxなど）を含む文字列で指定します。
- */
-export const ACTION_BUTTON_FONT_SIZE = "1.2rem";
+/** @deprecated config.ts の PLAYER_CONFIG.invincibilityMs を使用してください */
+export const DAMAGE_COOLDOWN_MS = PLAYER_CONFIG.invincibilityMs;
 
-/**
- * プレイヤーのHPが0になった後、破壊演出を経て「GAMEOVER」画面が表示されるまでの待機時間 (ミリ秒)
- */
-export const GAMEOVER_DELAY_MS = 700;
+/** @deprecated config.ts の COMBAT_CONFIG.durationMs を使用してください */
+export const COMBAT_DURATION_MS = COMBAT_CONFIG.durationMs;
 
-/**
- * プレイヤーがダメージを受けた後の無敵時間 (ミリ秒)
- * この時間内は、連続してダメージを受けることはありません。
- */
-export const DAMAGE_COOLDOWN_MS = 250;
-
-/**
- * エンティティの攻撃が続く時間（戦闘の持続時間） (ミリ秒)
- * Fightボタンを押してから、エンティティの攻撃が終了するまでの時間です。
- * この時間が経過すると、エンティティの出現が停止し、通常状態に戻ります。
- */
-export const COMBAT_DURATION_MS = 10000;
+// ========================================
+// 攻撃バー（Attack Box）の設定
+// ========================================
 
 /**
  * 攻撃ボックスのサイズと速度に関する設定値
@@ -240,7 +231,13 @@ export const COMBAT_DURATION_MS = 10000;
 export const ATTACK_BOX_WIDTH = 20; // 攻撃ボックスの幅 (ピクセル)
 export const ATTACK_BOX_HEIGHT = 240; // 攻撃ボックスの高さ (ピクセル)
 export const ATTACK_BOX_SPEED = 720; // 攻撃ボックスの速度 (ピクセル/秒)
-export const ATTACK_BOX_DURATION_MS = 1000; // 攻撃ボックスのアニメーション時間 (ミリ秒)
+
+/** @deprecated config.ts の COMBAT_CONFIG.attackBarDurationMs を使用してください */
+export const ATTACK_BOX_DURATION_MS = COMBAT_CONFIG.attackBarDurationMs;
+
+// ========================================
+// プレイフィールド（ゲーム領域）の設定
+// ========================================
 
 /**
  * プレイフィールド（ゲーム領域）のサイズに関する設定値 (ピクセル)
@@ -254,7 +251,5 @@ export const PLAYFIELD_INITIAL_WIDTH = 720; // 初期幅
 export const PLAYFIELD_INITIAL_HEIGHT = 240; // 初期高さ
 export const PLAYFIELD_SIZE_STEP = 40; // サイズ変更の単位
 
-/**
- * エンティティのホーミング（追尾）の強さ（曲がる力の倍率）
- */
-export const HOMING_FORCE = 150;
+/** @deprecated config.ts の ENTITY_CONFIG.homingForce を使用してください */
+export const HOMING_FORCE = ENTITY_CONFIG.homingForce;

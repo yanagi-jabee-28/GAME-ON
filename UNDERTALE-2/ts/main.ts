@@ -27,6 +27,8 @@ import {
 import {
 	addEnemySymbol,
 	clearKeys,
+	damageEnemy,
+	getEnemyData,
 	getEnemySymbols,
 	handleKeyDown,
 	handleKeyUp,
@@ -295,8 +297,8 @@ loadSvg().then(() => {
 								}
 							};
 
-							let selectionResolve: ((v: "confirm" | "cancel") => void) | null = null;
-							const userAction = await new Promise<"confirm" | "cancel">((resolve) => {
+							let selectionResolve: ((v: "confirm" | "cancel" | { selected: number }) => void) | null = null;
+							const userAction = await new Promise<"confirm" | "cancel" | { selected: number }>((resolve) => {
 								selectionResolve = resolve;
 								document.addEventListener("keydown", handleSelectionKey);
 							});
@@ -317,12 +319,21 @@ loadSvg().then(() => {
 								return;
 							}
 
-							// confirmed: proceed, keep selected index for potential use
+							// confirmed: proceed with selected enemy
+							const selectedEnemyId = enemies[selected].id;
+							const selectedEnemyName = enemyNames[selectedEnemyId] || selectedEnemyId;
+							
 							// オーバーレイを非表示
 							overlay.style.visibility = "hidden";
 							
 							// 決定キーの場合は行動選択を再有効化せず、
 							// そのまま攻撃バー表示に進む（無効状態を維持）
+							
+							// 攻撃処理のために敵情報を保持
+							(fightBtn as HTMLElement & { __selectedEnemy?: { id: string; name: string } }).__selectedEnemy = {
+								id: selectedEnemyId,
+								name: selectedEnemyName,
+							};
 						} else {
 							setOverlayText(overlay, "(敵なし)");
 							overlay.style.visibility = "visible";
@@ -405,6 +416,8 @@ loadSvg().then(() => {
 				} catch {}
 
 				// 攻撃ボックスを表示してアニメーション開始
+				let attackDamage = 0;
+				let attackRank: "PERFECT" | "GOOD" | "OK" | "MISS" = "MISS";
 				try {
 					if (attackBox instanceof HTMLElement) {
 						// 攻撃ボックスの幅の半分だけ左にはみ出した位置から開始
@@ -419,9 +432,10 @@ loadSvg().then(() => {
 						const distance = PLAYFIELD_INITIAL_WIDTH; // 720px
 						const endX = startX + distance; // -10 + 720 = 710px
 						const duration = ATTACK_BOX_DURATION_MS; // 1000ms
+						const startTime = performance.now();
 
 						// Web Animations API を使ってアニメーション
-						attackBox.animate(
+						const animation = attackBox.animate(
 							[
 								{ transform: `translateX(${startX}px)` },
 								{ transform: `translateX(${endX}px)` },
@@ -433,19 +447,88 @@ loadSvg().then(() => {
 							},
 						);
 
-						// アニメーション完了後に非表示
-						setTimeout(() => {
-							if (attackBox instanceof HTMLElement) {
-								attackBox.style.visibility = "hidden";
+						// 決定キー入力を待つ
+						const timingResult = await new Promise<{ position: number; stopped: boolean }>((resolve) => {
+							let stopped = false;
+							const handleTiming = (e: KeyboardEvent) => {
+								if (isConfirmKey(e.key) && !stopped) {
+									e.preventDefault();
+									stopped = true;
+									const currentTime = performance.now();
+									const elapsed = currentTime - startTime;
+									// 位置を0.0～1.0の範囲で計算
+									const position = Math.min(elapsed / duration, 1.0);
+									// アニメーションを停止
+									animation.pause();
+									document.removeEventListener("keydown", handleTiming);
+									resolve({ position, stopped: true });
+								}
+							};
+							document.addEventListener("keydown", handleTiming);
+							
+							// アニメーション終了時に自動で終了
+							setTimeout(() => {
+								if (!stopped) {
+									document.removeEventListener("keydown", handleTiming);
+									resolve({ position: 1.0, stopped: false });
+								}
+							}, duration);
+						});
+
+						// 攻撃力と判定を計算
+						const { calculateAttackDamage, getAttackRank } = await import("./config.ts");
+						attackDamage = calculateAttackDamage(timingResult.position);
+						attackRank = getAttackRank(timingResult.position);
+
+						// 選択された敵にダメージを適用
+						const selectedEnemy = (fightBtn as HTMLElement & { __selectedEnemy?: { id: string; name: string } }).__selectedEnemy;
+						if (selectedEnemy) {
+							const { damageEnemy, getEnemyData } = await import("./game.ts");
+							const success = damageEnemy(selectedEnemy.id, attackDamage);
+							const enemyData = getEnemyData(selectedEnemy.id);
+							
+							// 結果を表示
+							const overlay = document.getElementById("player-overlay");
+							if (overlay instanceof HTMLElement) {
+								const rankColors = {
+									PERFECT: "#ff0", // 黄色
+									GOOD: "#0f0",    // 緑
+									OK: "#0ff",      // シアン
+									MISS: "#f00",    // 赤
+								};
+								const rankColor = rankColors[attackRank];
+								
+								let resultText = `<span style="color:${rankColor};font-weight:bold;">${attackRank}!</span>`;
+								resultText += `<br><span style="color:#fff;">ダメージ: ${attackDamage}</span>`;
+								
+								if (success && enemyData) {
+									resultText += `<br><span style="color:#fff;">${selectedEnemy.name} HP: ${enemyData.currentHp}/${enemyData.maxHp}</span>`;
+									if (enemyData.currentHp === 0) {
+										resultText += `<br><span style="color:#ff0;font-weight:bold;">${selectedEnemy.name}を倒した！</span>`;
+									}
+								}
+								
+								overlay.innerHTML = resultText;
+								overlay.style.visibility = "visible";
 							}
-						}, duration);
+
+							// 少し待ってから非表示
+							await new Promise((res) => setTimeout(res, 2000));
+							
+							const overlay2 = document.getElementById("player-overlay");
+							if (overlay2 instanceof HTMLElement) {
+								overlay2.style.visibility = "hidden";
+							}
+						}
+
+						// 攻撃ボックスを非表示
+						if (attackBox instanceof HTMLElement) {
+							attackBox.style.visibility = "hidden";
+						}
 					}
 				} catch (err) {
 					console.error("攻撃ボックスのアニメーションエラー:", err);
 				}
-
-				// 攻撃バーを1秒間表示
-				await new Promise((res) => setTimeout(res, 1000));
 
 				// プレイフィールドのリサイズ前に攻撃バーを削除
 				try {
@@ -511,21 +594,49 @@ loadSvg().then(() => {
 
 	// --- 移動した index.html 内スクリプトの初期化処理 ---
 	try {
-		// HPバーの初期表示を aria 属性に基づき反映する
-		(function initHpBar() {
+		// プレイヤーのステータスを設定から初期化
+		import("./config.ts").then(({ PLAYER_CONFIG }) => {
+			// 名前を設定
+			const nameElement = document.querySelector(
+				"#player-status .status-name",
+			) as HTMLElement | null;
+			if (nameElement) {
+				nameElement.textContent = PLAYER_CONFIG.name;
+			}
+			
+			// レベルを設定
+			const levelElement = document.querySelector(
+				"#player-status .status-level",
+			) as HTMLElement | null;
+			if (levelElement) {
+				const label = levelElement.querySelector(".status-label");
+				levelElement.textContent = "";
+				if (label) levelElement.appendChild(label);
+				levelElement.appendChild(
+					document.createTextNode(` ${PLAYER_CONFIG.level}`),
+				);
+			}
+			
+			// HPを設定
+			const hpValueElement = document.querySelector(
+				"#player-status .status-hp-value",
+			) as HTMLElement | null;
+			if (hpValueElement) {
+				hpValueElement.innerHTML = `${PLAYER_CONFIG.currentHp}&nbsp;/&nbsp;${PLAYER_CONFIG.maxHp}`;
+			}
+			
+			// HPバーを設定
 			const bar = document.querySelector(
 				'#player-status .status-hp-bar[role="progressbar"]',
 			) as HTMLElement | null;
 			const fill = bar?.querySelector(".status-hp-fill") as HTMLElement | null;
-			if (!bar || !fill) return;
-			const now = Number(bar.getAttribute("aria-valuenow") ?? 0);
-			const max = Number(bar.getAttribute("aria-valuemax") ?? 100);
-			const pct =
-				!Number.isFinite(now) || !Number.isFinite(max) || max <= 0
-					? 0
-					: (now / max) * 100;
-			fill.style.width = `${pct}%`;
-		})();
+			if (bar && fill) {
+				bar.setAttribute("aria-valuenow", String(PLAYER_CONFIG.currentHp));
+				bar.setAttribute("aria-valuemax", String(PLAYER_CONFIG.maxHp));
+				const pct = (PLAYER_CONFIG.currentHp / PLAYER_CONFIG.maxHp) * 100;
+				fill.style.width = `${pct}%`;
+			}
+		});
 
 		// Action menu UI / keyboard navigation / overlay handlers
 		(() => {
