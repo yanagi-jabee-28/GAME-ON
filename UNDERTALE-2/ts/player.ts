@@ -179,7 +179,7 @@ const triggerGameOver = async () => {
 
 		// 破壊演出用のSVG URL
 		const brokingUrl = new URL(
-			"../assets/heart-shape-svgrepo-com-broking.svg",
+			"../assets/heart-shape-svgrepo-com-breking.svg",
 			import.meta.url,
 		).href;
 		const brokenUrl = new URL(
