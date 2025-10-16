@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ja">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+		<title>SLOT-3 スロットゲーム</title>
+		<link rel="stylesheet" href="style.css" />
+	</head>
+	<body>
+		<div class="slot-container" id="slot-machine">
+			<div class="reels">
+				<div class="reel" id="reel-1">
+					<div class="reel-strip">
+						<!-- シンボルはJSで動的に生成 -->
+					</div>
+				</div>
+				<div class="reel" id="reel-2">
+					<div class="reel-strip">
+						<!-- シンボルはJSで動的に生成 -->
+					</div>
+				</div>
+				<div class="reel" id="reel-3">
+					<div class="reel-strip">
+						<!-- シンボルはJSで動的に生成 -->
+					</div>
+				</div>
+			</div>
+			<div class="controls">
+				<button id="spin-btn">スピン</button>
+				<span>ベット: <span id="bet">10</span></span>
+				<span>残高: <span id="balance">1000</span></span>
+			</div>
+			<div class="payout-area" id="payout-area">
+				<!-- 配当表をここに表示 -->
+			</div>
+		</div>
+		<script type="module" src="script.ts"></script>
+	</body>
+</html>
