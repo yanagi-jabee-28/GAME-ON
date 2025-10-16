@@ -13,6 +13,7 @@ import {
 	ATTACK_BOX_WIDTH,
 	COMBAT_DURATION_MS,
 	HEART_SIZE,
+	isCancelKey,
 	isConfirmKey,
 	isMoveLeftKey,
 	isMoveRightKey,
@@ -161,6 +162,12 @@ loadSvg().then(() => {
 				try {
 					const overlay = document.getElementById("player-overlay");
 					if (overlay instanceof HTMLElement) {
+						// 敵リスト表示中は行動選択を無効化
+						const enemyListShownEvent = new CustomEvent(
+							"combat:enemyListShown",
+						);
+						document.dispatchEvent(enemyListShownEvent);
+
 						// 敵シンボルを取得して名前リストを作成
 						const enemies = getEnemySymbols();
 						const enemyNames: { [key: string]: string } = {
@@ -180,26 +187,41 @@ loadSvg().then(() => {
 
 						overlay.style.visibility = "visible";
 
-						// 決定キーが押されるまで待機
-						await new Promise<void>((resolve) => {
-							const handleKeyPress = (e: KeyboardEvent) => {
-								if (isConfirmKey(e.key)) {
-									e.preventDefault();
-									document.removeEventListener("keydown", handleKeyPress);
-									resolve();
-								}
-							};
-							document.addEventListener("keydown", handleKeyPress);
-						});
+						// 決定キーまたはキャンセルキーが押されるまで待機
+						const userAction = await new Promise<"confirm" | "cancel">(
+							(resolve) => {
+								const handleKeyPress = (e: KeyboardEvent) => {
+									if (isConfirmKey(e.key)) {
+										e.preventDefault();
+										document.removeEventListener("keydown", handleKeyPress);
+										resolve("confirm");
+									} else if (isCancelKey(e.key)) {
+										e.preventDefault();
+										document.removeEventListener("keydown", handleKeyPress);
+										resolve("cancel");
+									}
+								};
+								document.addEventListener("keydown", handleKeyPress);
+							},
+						);
 
 						// オーバーレイを非表示
 						overlay.style.visibility = "hidden";
+
+						// 敵リスト非表示後は行動選択を再有効化
+						const enemyListHiddenEvent = new CustomEvent(
+							"combat:enemyListHidden",
+						);
+						document.dispatchEvent(enemyListHiddenEvent);
+
+						// キャンセルされた場合は、処理を中断して行動選択に戻る
+						if (userAction === "cancel") {
+							return;
+						}
 					}
 				} catch (err) {
 					console.error("敵リスト表示エラー:", err);
-				}
-
-				// 攻撃バーのSVGを表示する
+				} // 攻撃バーのSVGを表示する
 				try {
 					const inner = document.querySelector(
 						".playfield-inner",
@@ -642,9 +664,44 @@ loadSvg().then(() => {
 						const btn = buttons[selectedIndex];
 						if (btn) btn.click();
 					}
-				}); // Listen for spawning start/stop events to disable/enable navigation
+				});
+
+				// Listen for spawning start/stop events to disable/enable navigation
 				document.addEventListener("game:spawningStarted", () => {
 					navEnabled = false;
+				}); // Listen for enemy list shown/hidden events
+				// to disable/enable action menu during enemy list display
+				document.addEventListener("combat:enemyListShown", () => {
+					navEnabled = false;
+					actionEnabled = false;
+					buttons.forEach((b) => {
+						const icon = b.querySelector(".action-icon") as HTMLElement | null;
+						if (icon) restoreIcon(icon);
+						if (b instanceof HTMLButtonElement) b.disabled = true;
+						b.classList.add("disabled");
+					});
+				});
+				document.addEventListener("combat:enemyListHidden", () => {
+					navEnabled = true;
+					actionEnabled = true;
+					buttons.forEach((b) => {
+						if (b instanceof HTMLButtonElement) b.disabled = false;
+						b.classList.remove("disabled");
+					});
+					// 現在選択されているボタンのアイコンを復元
+					const currentBtn = buttons[selectedIndex];
+					if (currentBtn) {
+						const currentIcon = currentBtn.querySelector(
+							".action-icon",
+						) as HTMLElement | null;
+						if (currentIcon) {
+							if (isHeartVisible()) {
+								restoreIcon(currentIcon);
+							} else {
+								applyHeartIcon(currentIcon);
+							}
+						}
+					}
 				});
 
 				// Also listen for attack-bar (combat) overlay shown/hidden events
