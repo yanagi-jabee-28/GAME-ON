@@ -367,3 +367,9 @@ export const clearEnemySymbols = () => {
 	});
 	enemySymbols.length = 0;
 };
+
+/**
+ * 現在登録されているすべての敵シンボルの配列を取得します。
+ * @returns {EnemySymbol[]} 敵シンボルの配列。
+ */
+export const getEnemySymbols = () => enemySymbols;

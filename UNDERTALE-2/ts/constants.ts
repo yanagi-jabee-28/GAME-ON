@@ -138,3 +138,34 @@ export const PLAYFIELD_SIZE_STEP = 40; // サイズ変更の単位
  * エンティティのホーミング（追尾）の強さ（曲がる力の倍率）
  */
 export const HOMING_FORCE = 2;
+
+/**
+ * キーバインディング設定
+ * ゲーム内で使用するキーを定義します。
+ */
+export const KEY_BINDINGS = {
+	/** 決定キー（メニュー選択、メッセージ送り等） */
+	CONFIRM: ["z", "Enter"] as const,
+	/** キャンセルキー（メニューを戻る等） */
+	CANCEL: ["x", "Escape"] as const,
+	/** メニューキー */
+	MENU: ["c"] as const,
+} as const;
+
+/**
+ * 指定されたキーが決定キーかどうかを判定します。
+ * @param key - チェックするキー
+ * @returns 決定キーの場合true
+ */
+export const isConfirmKey = (key: string): boolean => {
+	return KEY_BINDINGS.CONFIRM.includes(key as never);
+};
+
+/**
+ * 指定されたキーがキャンセルキーかどうかを判定します。
+ * @param key - チェックするキー
+ * @returns キャンセルキーの場合true
+ */
+export const isCancelKey = (key: string): boolean => {
+	return KEY_BINDINGS.CANCEL.includes(key as never);
+};

@@ -13,6 +13,7 @@ import {
 	ATTACK_BOX_WIDTH,
 	COMBAT_DURATION_MS,
 	HEART_SIZE,
+	isConfirmKey,
 	PLAYER_STATUS_FONT_SIZE,
 	PLAYFIELD_INITIAL_HEIGHT,
 	PLAYFIELD_INITIAL_WIDTH,
@@ -20,6 +21,7 @@ import {
 import {
 	addEnemySymbol,
 	clearKeys,
+	getEnemySymbols,
 	handleKeyDown,
 	handleKeyUp,
 	startDemoScenario,
@@ -142,12 +144,47 @@ loadSvg().then(() => {
 				// ハート表示を予約
 				pendingShowHeart = true;
 
-				// 戦闘開始時にプレイヤーオーバーレイのテキストを隠す
+				// プレイヤーオーバーレイに敵リストを表示
 				try {
 					const overlay = document.getElementById("player-overlay");
-					if (overlay instanceof HTMLElement)
+					if (overlay instanceof HTMLElement) {
+						// 敵シンボルを取得して名前リストを作成
+						const enemies = getEnemySymbols();
+						const enemyNames: { [key: string]: string } = {
+							skull: "がいこつ",
+							fish: "さかな",
+							papyrus: "パピルス",
+						};
+
+						if (enemies.length > 0) {
+							const nameList = enemies
+								.map((e) => enemyNames[e.id] || e.id)
+								.join("\n");
+							overlay.textContent = nameList;
+						} else {
+							overlay.textContent = "(敵なし)";
+						}
+
+						overlay.style.visibility = "visible";
+
+						// 決定キーが押されるまで待機
+						await new Promise<void>((resolve) => {
+							const handleKeyPress = (e: KeyboardEvent) => {
+								if (isConfirmKey(e.key)) {
+									e.preventDefault();
+									document.removeEventListener("keydown", handleKeyPress);
+									resolve();
+								}
+							};
+							document.addEventListener("keydown", handleKeyPress);
+						});
+
+						// オーバーレイを非表示
 						overlay.style.visibility = "hidden";
-				} catch {}
+					}
+				} catch (err) {
+					console.error("敵リスト表示エラー:", err);
+				}
 
 				// 攻撃バーのSVGを表示する
 				try {
@@ -376,17 +413,12 @@ loadSvg().then(() => {
 				}
 			});
 
-			// Allow pressing 'R' to retry when gameover overlay is visible
+			// Allow pressing 'R' or confirm key to retry when gameover overlay is visible
 			document.addEventListener("keydown", (e) => {
 				const overlay = document.getElementById("gameover-overlay");
 				if (!overlay || overlay.getAttribute("aria-hidden") !== "false") return;
 				const key = e.key;
-				if (
-					key?.toLowerCase() === "r" ||
-					key === " " ||
-					key === "Spacebar" ||
-					e.code === "Space"
-				) {
+				if (key?.toLowerCase() === "r" || isConfirmKey(key)) {
 					e.preventDefault();
 					window.location.reload();
 				}
@@ -587,7 +619,7 @@ loadSvg().then(() => {
 					} else if (key === "ArrowRight" || key === "d" || key === "D") {
 						e.preventDefault();
 						updateSelection(selectedIndex + 1);
-					} else if (key === "Enter" || key === " ") {
+					} else if (isConfirmKey(key)) {
 						e.preventDefault();
 						if (!actionEnabled) return;
 						const btn = buttons[selectedIndex];

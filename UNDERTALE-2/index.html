@@ -126,6 +126,8 @@
 				font-size: 0.9rem;
 				color: #fff;
 				pointer-events: none;
+				white-space: pre-line; /* 改行を反映 */
+				line-height: 1.5;
 			}
 
 			/* デバッグ描画用レイヤー */
@@ -511,6 +513,59 @@
 				transform: translateY(2px);
 				box-shadow: 0 2px 0 rgba(0, 0, 0, 0.6);
 			}
+
+			/* 敵リスト表示オーバーレイ */
+			#enemy-list-overlay {
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100vw;
+				height: 100vh;
+				background: rgba(0, 0, 0, 0.92);
+				color: #fff;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-family:
+					"JF Dot Shinonome", "Noto Sans JP", "Hiragino Kaku Gothic ProN",
+					"Yu Gothic", "Meiryo", "Segoe UI", sans-serif;
+				z-index: 9998;
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 200ms ease;
+			}
+
+			#enemy-list-overlay[aria-hidden="false"] {
+				pointer-events: auto;
+				opacity: 1;
+			}
+
+			.enemy-list-inner {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 1.5rem;
+				max-width: 600px;
+				width: 90%;
+			}
+
+			.enemy-list-title {
+				font-size: 2rem;
+				font-weight: 700;
+				margin-bottom: 0.5rem;
+			}
+
+			#enemy-list-content {
+				font-size: 1.5rem;
+				line-height: 2;
+				text-align: center;
+			}
+
+			.enemy-list-prompt {
+				font-size: 1rem;
+				opacity: 0.7;
+				margin-top: 1rem;
+			}
 		</style>
 	</head>
 	<body>
@@ -634,6 +689,15 @@
 				<button id="retry-button" type="button" aria-label="Retry">
 					RETRY
 				</button>
+			</div>
+		</div>
+
+		<!-- 敵リスト表示オーバーレイ -->
+		<div id="enemy-list-overlay" aria-hidden="true">
+			<div class="enemy-list-inner">
+				<div class="enemy-list-title">敵:</div>
+				<div id="enemy-list-content"></div>
+				<div class="enemy-list-prompt">Press SPACE or ENTER to continue</div>
 			</div>
 		</div>
 
