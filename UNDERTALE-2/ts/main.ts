@@ -104,6 +104,17 @@ loadSvg().then(() => {
 		// ignore
 	}
 
+	// Register gamestop handler BEFORE startGameLoop so it runs first
+	// and sets isGameOver flag before game:spawningStopped is dispatched
+	document.addEventListener("gamestop", () => {
+		isGameOver = true;
+		// cancel any pending combat timer to avoid premature reset
+		if (combatTimer) {
+			clearTimeout(combatTimer);
+			combatTimer = null;
+		}
+	});
+
 	// ゲームのメインループを開始
 	startGameLoop(playfield);
 
@@ -306,14 +317,8 @@ loadSvg().then(() => {
 				});
 			});
 
-			// GAMEOVER overlay
+			// GAMEOVER overlay (after heart breaking animation)
 			document.addEventListener("gameover", () => {
-				isGameOver = true;
-				// cancel any pending combat timer to avoid premature reset
-				if (combatTimer) {
-					clearTimeout(combatTimer);
-					combatTimer = null;
-				}
 				pendingShowHeart = false;
 				const overlay = document.getElementById("gameover-overlay");
 				if (!overlay) return;
