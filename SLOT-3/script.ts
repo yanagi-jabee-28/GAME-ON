@@ -2,7 +2,7 @@
 import { type SlotSymbol, slotConfig } from "./config";
 
 const SYMBOL_HEIGHT = 120; // CSS変数 --symbol-height と同じ値
-const VISIBLE_SYMBOLS = 3; // 表示するシンボルの数（3×3）
+// const VISIBLE_SYMBOLS = 3; // 表示するシンボルの数（3×3）- 将来的に使用
 
 const reelIds = ["reel-1", "reel-2", "reel-3"] as const;
 const reelElements = reelIds.map((id) => document.getElementById(id));
