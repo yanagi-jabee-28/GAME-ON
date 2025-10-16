@@ -7,6 +7,8 @@
  * - ゲームループの開始
  * - UI要素（FIGHTボタンなど）へのイベント処理の紐付け
  */
+
+import { ENEMY_DATA_PRESETS } from "./config.ts";
 import {
 	ACTION_BUTTON_FONT_SIZE,
 	ATTACK_BOX_DURATION_MS,
@@ -15,10 +17,10 @@ import {
 	HEART_SIZE,
 	isCancelKey,
 	isConfirmKey,
-	isMoveUpKey,
 	isMoveDownKey,
 	isMoveLeftKey,
 	isMoveRightKey,
+	isMoveUpKey,
 	PLAYER_OVERLAY_FONT_SIZE,
 	PLAYER_STATUS_FONT_SIZE,
 	PLAYFIELD_INITIAL_HEIGHT,
@@ -40,7 +42,6 @@ import {
 	stopSpawning,
 } from "./game.ts";
 import { centerPlayer, loadSvg } from "./player.ts";
-import { ENEMY_DATA_PRESETS } from "./config.ts";
 
 // Helper: render text lines into player-overlay with per-character color support
 function setOverlayTextColored(
@@ -55,7 +56,11 @@ function setOverlayTextColored(
 			}
 			const chars = Array.from(line.text);
 			if (!line.color) return escapeHtml(line.text);
-			return chars.map((ch) => `<span style="color:${line.color}">${escapeHtml(ch)}</span>`).join("");
+			return chars
+				.map(
+					(ch) => `<span style="color:${line.color}">${escapeHtml(ch)}</span>`,
+				)
+				.join("");
 		})
 		.join("<br>");
 	overlay.innerHTML = html;
@@ -67,12 +72,16 @@ function setOverlayText(overlay: HTMLElement, text: string): void {
 }
 
 function escapeHtml(s: string) {
-	return s.replace(/[&<>"]+/g, (c) => ({
-		'&': '&amp;',
-		'<': '&lt;',
-		'>': '&gt;',
-		'"': '&quot;'
-	}[c] || c));
+	return s.replace(
+		/[&<>"]+/g,
+		(c) =>
+			({
+				"&": "&amp;",
+				"<": "&lt;",
+				">": "&gt;",
+				'"': "&quot;",
+			})[c] || c,
+	);
 }
 
 // --- HTML要素の取得 ---
@@ -234,14 +243,15 @@ loadSvg().then(() => {
 						if (enemies.length > 0) {
 							// selection index (start at 0 => first enemy)
 							let selected = 0;
-							
+
 							// SVG heart icon constants (same as action menu)
 							const SVG_NS = "http://www.w3.org/2000/svg";
 							const HEART_ICON_VIEWBOX = "0 0 476.36792 399.95195";
-							const HEART_ICON_PATH = "m 238.15,437.221 v 0 C 449.09,352.067 530.371,154.668 437.481,69.515 344.582,-15.639 238.15,100.468 238.15,100.468 h -0.774 c 0,0 -106.44,-116.107 -199.331,-30.953 -92.889,85.143 -10.834,282.553 200.105,367.706 z";
+							const HEART_ICON_PATH =
+								"m 238.15,437.221 v 0 C 449.09,352.067 530.371,154.668 437.481,69.515 344.582,-15.639 238.15,100.468 238.15,100.468 h -0.774 c 0,0 -106.44,-116.107 -199.331,-30.953 -92.889,85.143 -10.834,282.553 200.105,367.706 z";
 							const DEFAULT_HEART_COLOR = "hsl(0 100% 50%)";
 							let heartColor = DEFAULT_HEART_COLOR;
-							
+
 							// Listen for heart color changes
 							const handleHeartColorChange = (event: Event) => {
 								const nextColor = (event as CustomEvent)?.detail?.color;
@@ -250,27 +260,35 @@ loadSvg().then(() => {
 									renderEnemyList(); // re-render with new color
 								}
 							};
-							document.addEventListener("player:heartColorChange", handleHeartColorChange);
-							
+							document.addEventListener(
+								"player:heartColorChange",
+								handleHeartColorChange,
+							);
+
 							function createHeartIconSvg(color: string): string {
 								return `<svg viewBox="${HEART_ICON_VIEWBOX}" style="display:inline-block;width:0.8em;height:0.8em;vertical-align:middle;" role="presentation" focusable="false"><path d="${HEART_ICON_PATH}" transform="translate(0.34846644,-37.808257)" fill="${color}" stroke="#000" stroke-width="10" stroke-linejoin="round"/></svg>`;
 							}
 
 							function renderEnemyList() {
-								const html = enemies.map((e, idx) => {
-									const name = enemyNames[e.id] || e.id;
-									const isSelected = idx === selected;
-									const textColor = isSelected ? "#ff0" : "#fff"; // selected is yellow
-									// ハートは見えない状態で常に存在（スペースを確保）
-									const heartSvg = isSelected 
-										? createHeartIconSvg(heartColor) 
-										: `<span style="display:inline-block;width:0.8em;height:0.8em;vertical-align:middle;"></span>`;
-									const nameSpans = Array.from(name).map((ch) => 
-										`<span style="color:${textColor}">${escapeHtml(ch)}</span>`
-									).join("");
-									// ハートとテキストの間に固定スペース
-									return `${heartSvg}<span style="display:inline-block;width:0.3em;"></span>${nameSpans}`;
-								}).join("<br>");
+								const html = enemies
+									.map((e, idx) => {
+										const name = enemyNames[e.id] || e.id;
+										const isSelected = idx === selected;
+										const textColor = isSelected ? "#ff0" : "#fff"; // selected is yellow
+										// ハートは見えない状態で常に存在（スペースを確保）
+										const heartSvg = isSelected
+											? createHeartIconSvg(heartColor)
+											: `<span style="display:inline-block;width:0.8em;height:0.8em;vertical-align:middle;"></span>`;
+										const nameSpans = Array.from(name)
+											.map(
+												(ch) =>
+													`<span style="color:${textColor}">${escapeHtml(ch)}</span>`,
+											)
+											.join("");
+										// ハートとテキストの間に固定スペース
+										return `${heartSvg}<span style="display:inline-block;width:0.3em;"></span>${nameSpans}`;
+									})
+									.join("<br>");
 								overlay!.innerHTML = html;
 							}
 
@@ -280,7 +298,12 @@ loadSvg().then(() => {
 							const handleSelectionKey = (ev: KeyboardEvent) => {
 								const k = ev.key;
 								// prevent default action for navigation keys
-								if (isMoveUpKey(k) || isMoveDownKey(k) || isConfirmKey(k) || isCancelKey(k)) {
+								if (
+									isMoveUpKey(k) ||
+									isMoveDownKey(k) ||
+									isConfirmKey(k) ||
+									isCancelKey(k)
+								) {
 									ev.preventDefault();
 								}
 								if (isMoveUpKey(k)) {
@@ -299,14 +322,21 @@ loadSvg().then(() => {
 								}
 							};
 
-							let selectionResolve: ((v: "confirm" | "cancel" | { selected: number }) => void) | null = null;
-							const userAction = await new Promise<"confirm" | "cancel" | { selected: number }>((resolve) => {
+							let selectionResolve:
+								| ((v: "confirm" | "cancel" | { selected: number }) => void)
+								| null = null;
+							const userAction = await new Promise<
+								"confirm" | "cancel" | { selected: number }
+							>((resolve) => {
 								selectionResolve = resolve;
 								document.addEventListener("keydown", handleSelectionKey);
 							});
 
 							// Cleanup heart color listener
-							document.removeEventListener("player:heartColorChange", handleHeartColorChange);
+							document.removeEventListener(
+								"player:heartColorChange",
+								handleHeartColorChange,
+							);
 
 							// If cancelled, clear overlay and re-enable actions handled below
 							if (userAction === "cancel") {
@@ -323,23 +353,28 @@ loadSvg().then(() => {
 
 							// confirmed: proceed with selected enemy
 							const selectedEnemyId = enemies[selected].id;
-							const selectedEnemyName = enemyNames[selectedEnemyId] || selectedEnemyId;
-							
+							const selectedEnemyName =
+								enemyNames[selectedEnemyId] || selectedEnemyId;
+
 							// オーバーレイを非表示
 							overlay.style.visibility = "hidden";
-							
+
 							// 決定キーの場合は行動選択を再有効化せず、
 							// そのまま攻撃バー表示に進む（無効状態を維持）
-							
+
 							// 攻撃処理のために敵情報を保持
-							(fightBtn as HTMLElement & { __selectedEnemy?: { id: string; name: string } }).__selectedEnemy = {
+							(
+								fightBtn as HTMLElement & {
+									__selectedEnemy?: { id: string; name: string };
+								}
+							).__selectedEnemy = {
 								id: selectedEnemyId,
 								name: selectedEnemyName,
 							};
 						} else {
 							setOverlayText(overlay, "(敵なし)");
 							overlay.style.visibility = "visible";
-							
+
 							// 敵がいない場合も決定キー待ち
 							await new Promise<void>((resolve) => {
 								const handleKeyPress = (e: KeyboardEvent) => {
@@ -351,7 +386,7 @@ loadSvg().then(() => {
 								};
 								document.addEventListener("keydown", handleKeyPress);
 							});
-							
+
 							overlay.style.visibility = "hidden";
 						}
 					}
@@ -450,7 +485,10 @@ loadSvg().then(() => {
 						);
 
 						// 決定キー入力を待つ
-						const timingResult = await new Promise<{ position: number; stopped: boolean }>((resolve) => {
+						const timingResult = await new Promise<{
+							position: number;
+							stopped: boolean;
+						}>((resolve) => {
 							let stopped = false;
 							const handleTiming = (e: KeyboardEvent) => {
 								if (isConfirmKey(e.key) && !stopped) {
@@ -467,7 +505,7 @@ loadSvg().then(() => {
 								}
 							};
 							document.addEventListener("keydown", handleTiming);
-							
+
 							// アニメーション終了時に自動で終了
 							setTimeout(() => {
 								if (!stopped) {
@@ -478,31 +516,42 @@ loadSvg().then(() => {
 						});
 
 						// 攻撃力と判定を計算
-						const { calculateAttackDamage, getAttackRank } = await import("./config.ts");
+						const { calculateAttackDamage, getAttackRank } = await import(
+							"./config.ts"
+						);
 						attackDamage = calculateAttackDamage(timingResult.position);
 						attackRank = getAttackRank(timingResult.position);
 
 						// 選択された敵にダメージを適用
-						const selectedEnemy = (fightBtn as HTMLElement & { __selectedEnemy?: { id: string; name: string } }).__selectedEnemy;
+						const selectedEnemy = (
+							fightBtn as HTMLElement & {
+								__selectedEnemy?: { id: string; name: string };
+							}
+						).__selectedEnemy;
 						if (selectedEnemy) {
-							const { damageEnemy, getEnemyData, removeEnemySymbol, removeEnemyData } = await import("./game.ts");
+							const {
+								damageEnemy,
+								getEnemyData,
+								removeEnemySymbol,
+								removeEnemyData,
+							} = await import("./game.ts");
 							const success = damageEnemy(selectedEnemy.id, attackDamage);
 							const enemyData = getEnemyData(selectedEnemy.id);
-							
+
 							// 結果を表示
 							const overlay = document.getElementById("player-overlay");
 							if (overlay instanceof HTMLElement) {
 								const rankColors = {
 									PERFECT: "#ff0", // 黄色
-									GOOD: "#0f0",    // 緑
-									OK: "#0ff",      // シアン
-									MISS: "#f00",    // 赤
+									GOOD: "#0f0", // 緑
+									OK: "#0ff", // シアン
+									MISS: "#f00", // 赤
 								};
 								const rankColor = rankColors[attackRank];
-								
+
 								let resultText = `<span style="color:${rankColor};font-weight:bold;">${attackRank}!</span>`;
 								resultText += `<br><span style="color:#fff;">ダメージ: ${attackDamage}</span>`;
-								
+
 								if (success && enemyData) {
 									resultText += `<br><span style="color:#fff;">${selectedEnemy.name} HP: ${enemyData.currentHp}/${enemyData.maxHp}</span>`;
 									if (enemyData.currentHp === 0) {
@@ -512,14 +561,14 @@ loadSvg().then(() => {
 										removeEnemyData(selectedEnemy.id);
 									}
 								}
-								
+
 								overlay.innerHTML = resultText;
 								overlay.style.visibility = "visible";
 							}
 
 							// 少し待ってから非表示
 							await new Promise((res) => setTimeout(res, 2000));
-							
+
 							const overlay2 = document.getElementById("player-overlay");
 							if (overlay2 instanceof HTMLElement) {
 								overlay2.style.visibility = "hidden";
@@ -608,7 +657,7 @@ loadSvg().then(() => {
 			if (nameElement) {
 				nameElement.textContent = PLAYER_CONFIG.name;
 			}
-			
+
 			// レベルを設定
 			const levelElement = document.querySelector(
 				"#player-status .status-level",
@@ -621,7 +670,7 @@ loadSvg().then(() => {
 					document.createTextNode(` ${PLAYER_CONFIG.level}`),
 				);
 			}
-			
+
 			// HPを設定
 			const hpValueElement = document.querySelector(
 				"#player-status .status-hp-value",
@@ -629,7 +678,7 @@ loadSvg().then(() => {
 			if (hpValueElement) {
 				hpValueElement.innerHTML = `${PLAYER_CONFIG.currentHp}&nbsp;/&nbsp;${PLAYER_CONFIG.maxHp}`;
 			}
-			
+
 			// HPバーを設定
 			const bar = document.querySelector(
 				'#player-status .status-hp-bar[role="progressbar"]',

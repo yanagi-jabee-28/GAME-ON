@@ -1,19 +1,19 @@
 /**
  * ゲームのシステム定数を定義するファイルです。
- * 
+ *
  * 【config.ts との違い】
  * - constants.ts: システム定数（UI、キーバインド、技術的パラメータ）
  * - config.ts: ゲームバランス設定（プレイヤー/敵のステータス、ダメージ、攻撃パターン）
- * 
+ *
  * このファイルは主に技術的な定数やUI設定を扱います。
  * ゲームバランスの調整は config.ts で行ってください。
  */
 
 import {
+	COMBAT_CONFIG,
+	ENTITY_CONFIG,
 	PLAYER_CONFIG,
 	PLAYER_VISUAL_CONFIG,
-	ENTITY_CONFIG,
-	COMBAT_CONFIG,
 } from "./config.ts";
 
 // ========================================

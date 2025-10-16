@@ -1,14 +1,14 @@
 /**
  * このファイルは、ゲームバランスに関わる設定値を管理します。
- * 
+ *
  * 【constants.ts との違い】
  * - constants.ts: システム定数（UI、キーバインド、技術的パラメータ）
  * - config.ts: ゲームバランス設定（プレイヤー/敵のステータス、ダメージ、攻撃パターン）
- * 
+ *
  * このファイルで値を調整することで、ゲームの難易度やバランスを変更できます。
  */
 
-import type { EnemyData, EnemyAttackPattern } from "./types.ts";
+import type { EnemyAttackPattern, EnemyData } from "./types.ts";
 
 // ========================================
 // プレイヤー設定
@@ -95,7 +95,7 @@ export function calculateAttackDamage(position: number): number {
 	// 中央（0.5）からの距離を計算（0.0～0.5）
 	const distanceFromCenter = Math.abs(position - 0.5);
 	// 距離に応じて線形的に減衰（0.0が中央、0.5が端）
-	const damageRatio = 1 - (distanceFromCenter / 0.5);
+	const damageRatio = 1 - distanceFromCenter / 0.5;
 	// 最小値と最大値の範囲で計算
 	return Math.round(minDamage + (maxDamage - minDamage) * damageRatio);
 }
@@ -105,10 +105,12 @@ export function calculateAttackDamage(position: number): number {
  * @param position - 攻撃バーの位置（0.0～1.0、0.5が中央）
  * @returns 判定ランク（"PERFECT" | "GOOD" | "OK" | "MISS"）
  */
-export function getAttackRank(position: number): "PERFECT" | "GOOD" | "OK" | "MISS" {
+export function getAttackRank(
+	position: number,
+): "PERFECT" | "GOOD" | "OK" | "MISS" {
 	const { perfectRange, goodRange, okRange } = ATTACK_TIMING_CONFIG;
 	const distanceFromCenter = Math.abs(position - 0.5);
-	
+
 	if (distanceFromCenter <= perfectRange) return "PERFECT";
 	if (distanceFromCenter <= goodRange) return "GOOD";
 	if (distanceFromCenter <= okRange) return "OK";
