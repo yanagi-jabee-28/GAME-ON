@@ -9,6 +9,7 @@
  */
 import {
 	ACTION_BUTTON_FONT_SIZE,
+	COMBAT_DURATION_MS,
 	HEART_SIZE,
 	PLAYER_STATUS_FONT_SIZE,
 	PLAYFIELD_INITIAL_HEIGHT,
@@ -235,7 +236,7 @@ loadSvg().then(() => {
 			// デモ用のエンティティ出現シナリオを開始
 			startDemoScenario(playfield);
 
-			// Start a 10-second combat timer. When it expires, stop spawning,
+			// Start combat timer. When it expires, stop spawning,
 			// hide the heart and restore UI/playfield to pre-fight state.
 			try {
 				if (combatTimer) {
@@ -265,7 +266,7 @@ loadSvg().then(() => {
 						document.dispatchEvent(new CustomEvent("combat:timelineEnded"));
 					}
 					combatTimer = null;
-				}, 10000);
+				}, COMBAT_DURATION_MS);
 			} catch {}
 		});
 	}
