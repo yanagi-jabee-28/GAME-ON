@@ -38,6 +38,8 @@ const enemyDisplay = document.getElementById("enemy-display");
 let pendingShowHeart = false;
 // combat timer id (ms) used to end combat after attack duration
 let combatTimer: number | null = null;
+// flag indicating the game over sequence has started
+let isGameOver = false;
 
 // --- 必須要素の存在チェック ---
 if (
@@ -233,21 +235,24 @@ loadSvg().then(() => {
 					try {
 						stopSpawning(); // clears entities and dispatches game:spawningStopped
 					} catch {}
-					try {
-						heart.style.visibility = "hidden";
-						document.dispatchEvent(new CustomEvent("player:heartHidden"));
-						// restore playfield size to initial
-						playfield.style.width = `${PLAYFIELD_INITIAL_WIDTH}px`;
-						playfield.style.height = `${PLAYFIELD_INITIAL_HEIGHT}px`;
-						import("./debug.ts").then((dbg) => {
-							try {
-								dbg.playfieldWidth = PLAYFIELD_INITIAL_WIDTH;
-								dbg.playfieldHeight = PLAYFIELD_INITIAL_HEIGHT;
-								if (typeof dbg.applyPlayfieldSize === "function")
-									dbg.applyPlayfieldSize();
-							} catch {}
-						});
-					} catch {}
+					if (!isGameOver) {
+						try {
+							heart.style.visibility = "hidden";
+							document.dispatchEvent(new CustomEvent("player:heartHidden"));
+							// restore playfield size to initial
+							playfield.style.width = `${PLAYFIELD_INITIAL_WIDTH}px`;
+							playfield.style.height = `${PLAYFIELD_INITIAL_HEIGHT}px`;
+							import("./debug.ts").then((dbg) => {
+								try {
+									dbg.playfieldWidth = PLAYFIELD_INITIAL_WIDTH;
+									dbg.playfieldHeight = PLAYFIELD_INITIAL_HEIGHT;
+									if (typeof dbg.applyPlayfieldSize === "function")
+										dbg.applyPlayfieldSize();
+								} catch {}
+							});
+						} catch {}
+						document.dispatchEvent(new CustomEvent("combat:timelineEnded"));
+					}
 					combatTimer = null;
 				}, 10000);
 			} catch {}
@@ -303,6 +308,13 @@ loadSvg().then(() => {
 
 			// GAMEOVER overlay
 			document.addEventListener("gameover", () => {
+				isGameOver = true;
+				// cancel any pending combat timer to avoid premature reset
+				if (combatTimer) {
+					clearTimeout(combatTimer);
+					combatTimer = null;
+				}
+				pendingShowHeart = false;
 				const overlay = document.getElementById("gameover-overlay");
 				if (!overlay) return;
 				overlay.setAttribute("aria-hidden", "false");
@@ -546,29 +558,59 @@ loadSvg().then(() => {
 					// also disable action activation while attack bar is visible
 					actionEnabled = false;
 					buttons.forEach((b) => {
+						const icon = b.querySelector(".action-icon") as HTMLElement | null;
+						if (icon) restoreIcon(icon);
 						if (b instanceof HTMLButtonElement) b.disabled = true;
 						b.classList.add("disabled");
 					});
 				});
 				document.addEventListener("combat:attackBarHidden", () => {
+					// Keep disabled style until entities start spawning
+					// (no style changes here, wait for player:heartShown)
+				});
+				document.addEventListener("combat:timelineEnded", () => {
 					navEnabled = true;
-					// restore action activation when attack bar is hidden
 					actionEnabled = true;
 					buttons.forEach((b) => {
 						if (b instanceof HTMLButtonElement) b.disabled = false;
 						b.classList.remove("disabled");
 					});
+					const current = buttons[selectedIndex];
+					if (current) {
+						current.classList.remove("selected");
+						const currentIcon = current.querySelector(
+							".action-icon",
+						) as HTMLElement | null;
+						if (currentIcon) restoreIcon(currentIcon);
+					}
+					selectedIndex = 0;
+					const fightButton = buttons[0];
+					if (fightButton) {
+						fightButton.classList.add("selected");
+						const fightIcon = fightButton.querySelector(
+							".action-icon",
+						) as HTMLElement | null;
+						if (fightIcon) {
+							if (isHeartVisible()) {
+								restoreIcon(fightIcon);
+							} else {
+								applyHeartIcon(fightIcon);
+							}
+						}
+						fightButton.focus({ preventScroll: true });
+					}
 				});
 				document.addEventListener("game:spawningStopped", () => {
-					navEnabled = true;
-					actionEnabled = true;
-					buttons.forEach((b) => {
-						if (b instanceof HTMLButtonElement) b.disabled = false;
-						b.classList.remove("disabled");
-					});
-				});
-
-				// disable action activation when heart becomes visible (combat started)
+					// Only re-enable if not in game over state
+					if (!isGameOver) {
+						navEnabled = true;
+						actionEnabled = true;
+						buttons.forEach((b) => {
+							if (b instanceof HTMLButtonElement) b.disabled = false;
+							b.classList.remove("disabled");
+						});
+					}
+				}); // disable action activation when heart becomes visible (combat started)
 				document.addEventListener("player:heartShown", () => {
 					actionEnabled = false;
 					buttons.forEach((b) => {
@@ -604,6 +646,7 @@ loadSvg().then(() => {
 
 		// When the heart is hidden (combat ended), restore the player overlay
 		document.addEventListener("player:heartHidden", () => {
+			if (isGameOver) return;
 			try {
 				const overlay = document.getElementById("player-overlay");
 				if (overlay instanceof HTMLElement) {

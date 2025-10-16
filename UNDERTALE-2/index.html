@@ -398,6 +398,26 @@
 					0 2px 4px rgba(0, 0, 0, 0.4);
 			}
 
+			.action-button.disabled,
+			.action-button:disabled {
+				background: #1f120b;
+				color: #b6762a;
+				border-color: #b6762a;
+				cursor: not-allowed;
+				opacity: 0.65;
+				transform: none;
+				box-shadow: 0 0 0 1px #1f120b inset;
+			}
+
+			.action-button.disabled:hover,
+			.action-button.disabled:focus-visible,
+			.action-button:disabled:hover,
+			.action-button:disabled:focus-visible {
+				transform: none;
+				box-shadow: 0 0 0 1px #b6762a inset;
+				outline: none;
+			}
+
 			/* selected state when navigating with keyboard */
 			.action-button.selected {
 				/* visually lift and highlight the selected button */
