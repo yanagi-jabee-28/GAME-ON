@@ -135,6 +135,14 @@ Instructions regarding quality standards and methodologies when executing specif
 * プログラムにおけるコメントは、プログラミング初心者の方にも理解しやすい平易な表現を心がけます。また、「なぜこのコードを書いたのか」という意図や背景が明確に伝わるよう、実装の理由や判断基準を説明するコメントも適切に付加いたします。
 * TypeScriptを使用する場合は、意味のある厳密な型注釈を常に心がけ、安易な`any`型の使用は避けます。ジェネリクス、型エイリアス、ユニオン／インターセクション型、型ガードなどの高度な型機能を適切に活用し、型安全性と可読性の両立を図ります。また、自動テストにより型の意図が適切に維持されることを確認し、必要に応じて専用の型定義ファイル（.d.ts）やユーティリティ型を作成いたします。
 
+English
+
+* When specifying colors in code, documentation, or design guidelines, use the HSLA color format as the default unless otherwise required. This ensures clarity, flexibility, and accessibility in color management.
+
+日本語
+
+* コードやドキュメント、デザイン指針で色を指定する際は、特別な理由がない限りHSLA形式で設定してください。これにより、色管理の明確さ・柔軟性・アクセシビリティが向上します。
+
 ### Accuracy and Computational Resource Policy (For Developers) / 正確さと計算資源に関する方針（開発者向け）
 
 English
