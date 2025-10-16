@@ -53,7 +53,7 @@ const lines: HTMLElement[] = [];
 /** デバッグ表示全体の有効/無効フラグ (デフォルト: 有効) */
 let enabled = true;
 /** スポーンライン表示の有効/無効フラグ (デフォルト: 有効) */
-let spawnLinesEnabled = true;
+let spawnLinesEnabled = false;
 /** スポーンマーカー表示の有効/無効フラグ (デフォルト: 無効) */
 let spawnMarkersEnabled = false;
 

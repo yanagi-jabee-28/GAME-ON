@@ -10,6 +10,7 @@
 import {
 	ACTION_BUTTON_FONT_SIZE,
 	ATTACK_BOX_DURATION_MS,
+	ATTACK_BOX_WIDTH,
 	COMBAT_DURATION_MS,
 	HEART_SIZE,
 	PLAYER_STATUS_FONT_SIZE,
@@ -211,19 +212,24 @@ loadSvg().then(() => {
 				// 攻撃ボックスを表示してアニメーション開始
 				try {
 					if (attackBox instanceof HTMLElement) {
-						// 攻撃ボックスを初期位置にセット（左端）
-						attackBox.style.visibility = "visible";
-						attackBox.style.transform = "translateX(0px)";
+						// 攻撃ボックスの幅の半分だけ左にはみ出した位置から開始
+						// (攻撃ボックスの中心が枠線の中心に来るように)
+						const startX = -(ATTACK_BOX_WIDTH / 2); // -10px
 
-						// 720px を ATTACK_BOX_DURATION_MS ミリ秒で移動
+						// 攻撃ボックスを初期位置にセット（左端より少し外側）
+						attackBox.style.visibility = "visible";
+						attackBox.style.transform = `translateX(${startX}px)`;
+
+						// startXから720px移動する（終了位置は710px）
 						const distance = PLAYFIELD_INITIAL_WIDTH; // 720px
+						const endX = startX + distance; // -10 + 720 = 710px
 						const duration = ATTACK_BOX_DURATION_MS; // 1000ms
 
 						// Web Animations API を使ってアニメーション
 						attackBox.animate(
 							[
-								{ transform: "translateX(0px)" },
-								{ transform: `translateX(${distance}px)` },
+								{ transform: `translateX(${startX}px)` },
+								{ transform: `translateX(${endX}px)` },
 							],
 							{
 								duration: duration,
