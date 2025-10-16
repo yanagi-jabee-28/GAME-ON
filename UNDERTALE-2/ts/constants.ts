@@ -115,6 +115,14 @@ export const DAMAGE_COOLDOWN_MS = 250;
 export const COMBAT_DURATION_MS = 10000;
 
 /**
+ * 攻撃ボックスのサイズと速度に関する設定値
+ */
+export const ATTACK_BOX_WIDTH = 20; // 攻撃ボックスの幅 (ピクセル)
+export const ATTACK_BOX_HEIGHT = 240; // 攻撃ボックスの高さ (ピクセル)
+export const ATTACK_BOX_SPEED = 720; // 攻撃ボックスの速度 (ピクセル/秒)
+export const ATTACK_BOX_DURATION_MS = 1000; // 攻撃ボックスのアニメーション時間 (ミリ秒)
+
+/**
  * プレイフィールド（ゲーム領域）のサイズに関する設定値 (ピクセル)
  * これらは、ウィンドウサイズ変更の最小値、最大値、初期値、および変更ステップを定義します。
  */

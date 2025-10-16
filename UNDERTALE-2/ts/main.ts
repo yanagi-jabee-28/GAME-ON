@@ -9,6 +9,7 @@
  */
 import {
 	ACTION_BUTTON_FONT_SIZE,
+	ATTACK_BOX_DURATION_MS,
 	COMBAT_DURATION_MS,
 	HEART_SIZE,
 	PLAYER_STATUS_FONT_SIZE,
@@ -31,6 +32,7 @@ const playfield = document.getElementById("playfield");
 const heart = document.getElementById("heart");
 const entityLayer = document.getElementById("entity-layer");
 const enemyDisplay = document.getElementById("enemy-display");
+const attackBox = document.getElementById("attack-box");
 
 /**
  * FIGHTボタンが押された後、プレイフィールドのリサイズアニメーションが
@@ -124,7 +126,7 @@ loadSvg().then(() => {
 		"#action-menu .action-button:first-of-type",
 	) as HTMLButtonElement | null;
 
-	if (fightBtn) {
+	if (fightBtn && attackBox) {
 		fightBtn.addEventListener("click", async () => {
 			try {
 				// Prevent double-clicks: disable action buttons immediately (DOM only)
@@ -205,6 +207,41 @@ loadSvg().then(() => {
 						}
 					}
 				} catch {}
+
+				// 攻撃ボックスを表示してアニメーション開始
+				try {
+					if (attackBox instanceof HTMLElement) {
+						// 攻撃ボックスを初期位置にセット（左端）
+						attackBox.style.visibility = "visible";
+						attackBox.style.transform = "translateX(0px)";
+
+						// 720px を ATTACK_BOX_DURATION_MS ミリ秒で移動
+						const distance = PLAYFIELD_INITIAL_WIDTH; // 720px
+						const duration = ATTACK_BOX_DURATION_MS; // 1000ms
+
+						// Web Animations API を使ってアニメーション
+						attackBox.animate(
+							[
+								{ transform: "translateX(0px)" },
+								{ transform: `translateX(${distance}px)` },
+							],
+							{
+								duration: duration,
+								easing: "linear",
+								fill: "forwards",
+							},
+						);
+
+						// アニメーション完了後に非表示
+						setTimeout(() => {
+							if (attackBox instanceof HTMLElement) {
+								attackBox.style.visibility = "hidden";
+							}
+						}, duration);
+					}
+				} catch (err) {
+					console.error("攻撃ボックスのアニメーションエラー:", err);
+				}
 
 				// 攻撃バーを1秒間表示
 				await new Promise((res) => setTimeout(res, 1000));
