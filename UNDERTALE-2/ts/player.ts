@@ -313,13 +313,14 @@ export const updatePlayerPosition = (
 		y += dy * SPEED * deltaSeconds;
 
 		// プレイフィールドの範囲内に位置を制限 (クランプ)
-		const maxX = playfield.clientWidth - getHeartElement().clientWidth;
-		const maxY = playfield.clientHeight - getHeartElement().clientHeight;
+		const heartEl = getHeartElement();
+		const maxX = playfield.clientWidth - heartEl.clientWidth;
+		const maxY = playfield.clientHeight - heartEl.clientHeight;
 		x = Math.max(0, Math.min(x, maxX));
 		y = Math.max(0, Math.min(y, maxY));
 
 		// DOM要素の位置を更新
-		getHeartElement().style.transform = `translate(${x}px, ${y}px)`;
+		heartEl.style.transform = `translate(${x}px, ${y}px)`;
 	}
 };
 
@@ -400,6 +401,7 @@ export const clampPlayerToBounds = (playfield: HTMLElement) => {
 export const centerPlayer = (playfield: HTMLElement) => {
 	try {
 		const heartEl = getHeartElement();
+		// プレイフィールドの中央にハートを配置（ハートのサイズの半分を引いて中央揃え）
 		x = (playfield.clientWidth - heartEl.clientWidth) / 2;
 		y = (playfield.clientHeight - heartEl.clientHeight) / 2;
 		heartEl.style.transform = `translate(${x}px, ${y}px)`;
