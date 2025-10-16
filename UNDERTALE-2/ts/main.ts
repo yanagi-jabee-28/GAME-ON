@@ -15,6 +15,8 @@ import {
 	HEART_SIZE,
 	isCancelKey,
 	isConfirmKey,
+	isMoveUpKey,
+	isMoveDownKey,
 	isMoveLeftKey,
 	isMoveRightKey,
 	PLAYER_OVERLAY_FONT_SIZE,
@@ -33,6 +35,39 @@ import {
 	stopSpawning,
 } from "./game.ts";
 import { centerPlayer, loadSvg } from "./player.ts";
+
+// Helper: render text lines into player-overlay with per-character color support
+function setOverlayTextColored(
+	overlay: HTMLElement,
+	lines: Array<string | { text: string; color?: string }>,
+): void {
+	// Build HTML with spans for each character when color is specified
+	const html = lines
+		.map((line) => {
+			if (typeof line === "string") {
+				return escapeHtml(line);
+			}
+			const chars = Array.from(line.text);
+			if (!line.color) return escapeHtml(line.text);
+			return chars.map((ch) => `<span style="color:${line.color}">${escapeHtml(ch)}</span>`).join("");
+		})
+		.join("<br>");
+	overlay.innerHTML = html;
+}
+
+function setOverlayText(overlay: HTMLElement, text: string): void {
+	// preserve simple behavior
+	overlay.textContent = text;
+}
+
+function escapeHtml(s: string) {
+	return s.replace(/[&<>"]+/g, (c) => ({
+		'&': '&amp;',
+		'<': '&lt;',
+		'>': '&gt;',
+		'"': '&quot;'
+	}[c] || c));
+}
 
 // --- HTML要素の取得 ---
 const playfield = document.getElementById("playfield");
@@ -186,12 +221,66 @@ loadSvg().then(() => {
 						};
 
 						if (enemies.length > 0) {
-							const nameList = enemies
-								.map((e) => enemyNames[e.id] || e.id)
-								.join("\n");
-							overlay.textContent = nameList;
+							// selection index (start at 0 => first enemy)
+							let selected = 0;
+
+							function renderEnemyList() {
+								const lines = enemies.map((e, idx) => {
+									const name = enemyNames[e.id] || e.id;
+									const color = idx === selected ? "#ff0" : "#fff"; // selected is yellow
+									return { text: name, color };
+								});
+								setOverlayTextColored(overlay!, lines);
+							}
+
+							renderEnemyList();
+
+							// Listen for up/down/confirm/cancel during selection
+							const handleSelectionKey = (ev: KeyboardEvent) => {
+								const k = ev.key;
+								// prevent default action for navigation keys
+								if (isMoveUpKey(k) || isMoveDownKey(k) || isConfirmKey(k) || isCancelKey(k)) {
+									ev.preventDefault();
+								}
+								if (isMoveUpKey(k)) {
+									selected = (selected - 1 + enemies.length) % enemies.length;
+									renderEnemyList();
+								} else if (isMoveDownKey(k)) {
+									selected = (selected + 1) % enemies.length;
+									renderEnemyList();
+								} else if (isCancelKey(k)) {
+									// cancel selection - remove listener and resolve as cancel
+									document.removeEventListener("keydown", handleSelectionKey);
+									selectionResolve?.("cancel");
+								} else if (isConfirmKey(k)) {
+									document.removeEventListener("keydown", handleSelectionKey);
+									selectionResolve?.("confirm");
+								}
+							};
+
+							let selectionResolve: ((v: "confirm" | "cancel") => void) | null = null;
+							const userAction = await new Promise<"confirm" | "cancel">((resolve) => {
+								selectionResolve = resolve;
+								document.addEventListener("keydown", handleSelectionKey);
+							});
+
+							// If cancelled, clear overlay and re-enable actions handled below
+							if (userAction === "cancel") {
+								setOverlayText(overlay!, "(敵なし)");
+								// remove listener for safety (already removed on cancel path)
+								document.removeEventListener("keydown", handleSelectionKey);
+								// dispatch hidden event and exit
+								const enemyListHiddenEvent = new CustomEvent(
+									"combat:enemyListHidden",
+								);
+								document.dispatchEvent(enemyListHiddenEvent);
+								return;
+							}
+
+							// confirmed: proceed, keep selected index for potential use
+							// (overlay will be hidden later as existing flow)
 						} else {
-							overlay.textContent = "(敵なし)";
+							setOverlayText(overlay, "(敵なし)");
 						}
 
 						overlay.style.visibility = "visible";
@@ -814,7 +903,7 @@ loadSvg().then(() => {
 			try {
 				const overlay = document.getElementById("player-overlay");
 				if (overlay instanceof HTMLElement) {
-					overlay.textContent = "テスト";
+					setOverlayText(overlay, "テスト");
 					overlay.style.visibility = "visible";
 				}
 			} catch {}
