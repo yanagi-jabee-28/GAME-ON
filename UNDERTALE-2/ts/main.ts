@@ -113,6 +113,15 @@ loadSvg().then(() => {
 	if (fightBtn) {
 		fightBtn.addEventListener("click", async () => {
 			try {
+				// Prevent double-clicks: disable action buttons immediately (DOM only)
+				const allButtons = Array.from(
+					document.querySelectorAll("#action-menu .action-button"),
+				) as (HTMLElement | HTMLButtonElement)[];
+				allButtons.forEach((b) => {
+					if (b instanceof HTMLButtonElement) b.disabled = true;
+					b.classList.add("disabled");
+				});
+
 				// ハート表示を予約
 				pendingShowHeart = true;
 
@@ -129,7 +138,6 @@ loadSvg().then(() => {
 						".playfield-inner",
 					) as HTMLElement | null;
 					if (inner) {
-						// 既に存在する場合は追加しない
 						if (!document.getElementById("attack-bar-overlay")) {
 							try {
 								// SVGファイルを非同期で取得してDOMに挿入
@@ -154,6 +162,10 @@ loadSvg().then(() => {
 									svg.setAttribute("aria-hidden", "true");
 									svg.style.pointerEvents = "none";
 									inner.appendChild(svg);
+									// notify that the attack bar overlay is now visible (svg)
+									document.dispatchEvent(
+										new CustomEvent("combat:attackBarShown"),
+									);
 								} else {
 									// fetchに失敗した場合は<img>要素でフォールバック
 									const img = document.createElement("img");
@@ -161,12 +173,20 @@ loadSvg().then(() => {
 									img.src = svgUrl;
 									// ...同様のスタイル設定
 									inner.appendChild(img);
+									// notify that the attack bar overlay is now visible (img fallback)
+									document.dispatchEvent(
+										new CustomEvent("combat:attackBarShown"),
+									);
 								}
 							} catch {
 								// SVG処理でエラーが出た場合も<img>でフォールバック
 								const innerImg = document.createElement("img");
 								// ...同様の処理
 								inner.appendChild(innerImg);
+								// notify that the attack bar overlay is now visible (inner img fallback)
+								document.dispatchEvent(
+									new CustomEvent("combat:attackBarShown"),
+								);
 							}
 						}
 					}
@@ -178,7 +198,11 @@ loadSvg().then(() => {
 				// プレイフィールドのリサイズ前に攻撃バーを削除
 				try {
 					const existing = document.getElementById("attack-bar-overlay");
-					existing?.parentElement?.removeChild(existing);
+					if (existing?.parentElement) {
+						existing.parentElement.removeChild(existing);
+						// notify that the attack bar overlay was removed/hidden
+						document.dispatchEvent(new CustomEvent("combat:attackBarHidden"));
+					}
 				} catch {}
 
 				// プレイフィールドを戦闘用のサイズ (240x240) に変更
@@ -514,6 +538,27 @@ loadSvg().then(() => {
 				document.addEventListener("game:spawningStarted", () => {
 					navEnabled = false;
 				});
+
+				// Also listen for attack-bar (combat) overlay shown/hidden events
+				// so selection navigation is disabled while the attack-bar is visible.
+				document.addEventListener("combat:attackBarShown", () => {
+					navEnabled = false;
+					// also disable action activation while attack bar is visible
+					actionEnabled = false;
+					buttons.forEach((b) => {
+						if (b instanceof HTMLButtonElement) b.disabled = true;
+						b.classList.add("disabled");
+					});
+				});
+				document.addEventListener("combat:attackBarHidden", () => {
+					navEnabled = true;
+					// restore action activation when attack bar is hidden
+					actionEnabled = true;
+					buttons.forEach((b) => {
+						if (b instanceof HTMLButtonElement) b.disabled = false;
+						b.classList.remove("disabled");
+					});
+				});
 				document.addEventListener("game:spawningStopped", () => {
 					navEnabled = true;
 					actionEnabled = true;
@@ -597,7 +642,11 @@ playfield.addEventListener("transitionend", (ev) => {
 				// 攻撃バーが残っていれば削除
 				try {
 					const existing = document.getElementById("attack-bar-overlay");
-					existing?.parentElement?.removeChild(existing);
+					if (existing?.parentElement) {
+						existing.parentElement.removeChild(existing);
+						// notify that the attack bar overlay was removed/hidden (transition)
+						document.dispatchEvent(new CustomEvent("combat:attackBarHidden"));
+					}
 				} catch {}
 			}
 		} catch {}
