@@ -30,11 +30,13 @@ import {
 	getEnemySymbols,
 	handleKeyDown,
 	handleKeyUp,
+	setEnemyData,
 	startDemoScenario,
 	startGameLoop,
 	stopSpawning,
 } from "./game.ts";
 import { centerPlayer, loadSvg } from "./player.ts";
+import { ENEMY_DATA_PRESETS } from "./config.ts";
 
 // Helper: render text lines into player-overlay with per-character color support
 function setOverlayTextColored(
@@ -113,6 +115,11 @@ addEnemySymbol(
 	new URL("../assets/icons8-\u30d1\u30d4\u30eb\u30b9-100.png", import.meta.url)
 		.href,
 );
+
+// 敵データを初期化（プリセットから読み込み）
+for (const [id, data] of Object.entries(ENEMY_DATA_PRESETS)) {
+	setEnemyData(data);
+}
 
 // --- グローバルイベントリスナーの登録 ---
 
@@ -223,14 +230,44 @@ loadSvg().then(() => {
 						if (enemies.length > 0) {
 							// selection index (start at 0 => first enemy)
 							let selected = 0;
+							
+							// SVG heart icon constants (same as action menu)
+							const SVG_NS = "http://www.w3.org/2000/svg";
+							const HEART_ICON_VIEWBOX = "0 0 476.36792 399.95195";
+							const HEART_ICON_PATH = "m 238.15,437.221 v 0 C 449.09,352.067 530.371,154.668 437.481,69.515 344.582,-15.639 238.15,100.468 238.15,100.468 h -0.774 c 0,0 -106.44,-116.107 -199.331,-30.953 -92.889,85.143 -10.834,282.553 200.105,367.706 z";
+							const DEFAULT_HEART_COLOR = "hsl(0 100% 50%)";
+							let heartColor = DEFAULT_HEART_COLOR;
+							
+							// Listen for heart color changes
+							const handleHeartColorChange = (event: Event) => {
+								const nextColor = (event as CustomEvent)?.detail?.color;
+								if (typeof nextColor === "string" && nextColor) {
+									heartColor = nextColor;
+									renderEnemyList(); // re-render with new color
+								}
+							};
+							document.addEventListener("player:heartColorChange", handleHeartColorChange);
+							
+							function createHeartIconSvg(color: string): string {
+								return `<svg viewBox="${HEART_ICON_VIEWBOX}" style="display:inline-block;width:0.8em;height:0.8em;vertical-align:middle;" role="presentation" focusable="false"><path d="${HEART_ICON_PATH}" transform="translate(0.34846644,-37.808257)" fill="${color}" stroke="#000" stroke-width="10" stroke-linejoin="round"/></svg>`;
+							}
 
 							function renderEnemyList() {
-								const lines = enemies.map((e, idx) => {
+								const html = enemies.map((e, idx) => {
 									const name = enemyNames[e.id] || e.id;
-									const color = idx === selected ? "#ff0" : "#fff"; // selected is yellow
-									return { text: name, color };
-								});
-								setOverlayTextColored(overlay!, lines);
+									const isSelected = idx === selected;
+									const textColor = isSelected ? "#ff0" : "#fff"; // selected is yellow
+									// ハートは見えない状態で常に存在（スペースを確保）
+									const heartSvg = isSelected 
+										? createHeartIconSvg(heartColor) 
+										: `<span style="display:inline-block;width:0.8em;height:0.8em;vertical-align:middle;"></span>`;
+									const nameSpans = Array.from(name).map((ch) => 
+										`<span style="color:${textColor}">${escapeHtml(ch)}</span>`
+									).join("");
+									// ハートとテキストの間に固定スペース
+									return `${heartSvg}<span style="display:inline-block;width:0.3em;"></span>${nameSpans}`;
+								}).join("<br>");
+								overlay!.innerHTML = html;
 							}
 
 							renderEnemyList();
@@ -264,6 +301,9 @@ loadSvg().then(() => {
 								document.addEventListener("keydown", handleSelectionKey);
 							});
 
+							// Cleanup heart color listener
+							document.removeEventListener("player:heartColorChange", handleHeartColorChange);
+
 							// If cancelled, clear overlay and re-enable actions handled below
 							if (userAction === "cancel") {
 								setOverlayText(overlay!, "(敵なし)");
@@ -278,46 +318,29 @@ loadSvg().then(() => {
 							}
 
 							// confirmed: proceed, keep selected index for potential use
-							// (overlay will be hidden later as existing flow)
+							// オーバーレイを非表示
+							overlay.style.visibility = "hidden";
+							
+							// 決定キーの場合は行動選択を再有効化せず、
+							// そのまま攻撃バー表示に進む（無効状態を維持）
 						} else {
 							setOverlayText(overlay, "(敵なし)");
-						}
-
-						overlay.style.visibility = "visible";
-
-						// 決定キーまたはキャンセルキーが押されるまで待機
-						const userAction = await new Promise<"confirm" | "cancel">(
-							(resolve) => {
+							overlay.style.visibility = "visible";
+							
+							// 敵がいない場合も決定キー待ち
+							await new Promise<void>((resolve) => {
 								const handleKeyPress = (e: KeyboardEvent) => {
 									if (isConfirmKey(e.key)) {
 										e.preventDefault();
 										document.removeEventListener("keydown", handleKeyPress);
-										resolve("confirm");
-									} else if (isCancelKey(e.key)) {
-										e.preventDefault();
-										document.removeEventListener("keydown", handleKeyPress);
-										resolve("cancel");
+										resolve();
 									}
 								};
 								document.addEventListener("keydown", handleKeyPress);
-							},
-						);
-
-						// オーバーレイを非表示
-						overlay.style.visibility = "hidden";
-
-						// キャンセルされた場合は、処理を中断して行動選択に戻る
-						if (userAction === "cancel") {
-							// キャンセル時のみ行動選択を再有効化
-							const enemyListHiddenEvent = new CustomEvent(
-								"combat:enemyListHidden",
-							);
-							document.dispatchEvent(enemyListHiddenEvent);
-							return;
+							});
+							
+							overlay.style.visibility = "hidden";
 						}
-
-						// 決定キーの場合は行動選択を再有効化せず、
-						// そのまま攻撃バー表示に進む（無効状態を維持）
 					}
 				} catch (err) {
 					console.error("敵リスト表示エラー:", err);

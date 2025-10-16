@@ -77,3 +77,44 @@ export type EnemySymbol = {
 	/** シンボルに対応するHTML要素 (DOMに追加された後に設定される) */
 	element?: HTMLElement | Text;
 };
+
+/**
+ * 敵の攻撃パターンを定義する型（将来の拡張用）。
+ */
+export type EnemyAttackPattern = {
+	/** パターンのID */
+	id: string;
+	/** パターンの名前 */
+	name: string;
+	/** 生成するエンティティの設定 */
+	entities?: {
+		/** 形状 */
+		shape?: EntityShape;
+		/** 色 */
+		color?: string;
+		/** サイズ */
+		size?: number;
+		/** ダメージ量 */
+		damage?: number;
+	};
+};
+
+/**
+ * 敵のステータスとパラメータを定義する型。
+ */
+export type EnemyData = {
+	/** 敵のID（敵シンボルのIDと対応） */
+	id: string;
+	/** 敵の表示名 */
+	name: string;
+	/** 最大HP */
+	maxHp: number;
+	/** 現在のHP */
+	currentHp: number;
+	/** 攻撃力（将来の拡張用） */
+	attack?: number;
+	/** 防御力（将来の拡張用） */
+	defense?: number;
+	/** 使用する攻撃パターンのIDリスト（将来の拡張用） */
+	attackPatterns?: string[];
+};

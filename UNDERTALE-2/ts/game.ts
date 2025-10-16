@@ -31,7 +31,7 @@ import {
 	updateEntities,
 } from "./entity.ts";
 import { changeHeartColor, updatePlayerPosition } from "./player.ts";
-import type { EnemySymbol } from "./types.ts";
+import type { EnemyData, EnemySymbol } from "./types.ts";
 
 /** 前回のフレーム更新時刻のタイムスタンプ */
 let lastTimestamp = performance.now();
@@ -41,6 +41,8 @@ const pressedKeys = new Set<string>();
 let activeSpawnTimer: number | null = null;
 /** 画面上部に表示される敵シンボルのリスト */
 const enemySymbols: EnemySymbol[] = [];
+/** 敵のデータを管理するマップ（敵ID -> 敵データ） */
+const enemyDataMap = new Map<string, EnemyData>();
 
 /**
  * ゲームのメインループを開始します。
@@ -373,3 +375,83 @@ export const clearEnemySymbols = () => {
  * @returns {EnemySymbol[]} 敵シンボルの配列。
  */
 export const getEnemySymbols = () => enemySymbols;
+
+// ========================================
+// 敵データ管理
+// ========================================
+
+/**
+ * 敵のデータを登録または更新します。
+ * @param {EnemyData} enemyData - 登録する敵のデータ。
+ */
+export const setEnemyData = (enemyData: EnemyData) => {
+	enemyDataMap.set(enemyData.id, { ...enemyData });
+};
+
+/**
+ * 指定されたIDの敵データを取得します。
+ * @param {string} id - 敵のID。
+ * @returns {EnemyData | undefined} 敵のデータ、存在しない場合はundefined。
+ */
+export const getEnemyData = (id: string): EnemyData | undefined => {
+	return enemyDataMap.get(id);
+};
+
+/**
+ * すべての敵データを取得します。
+ * @returns {EnemyData[]} すべての敵データの配列。
+ */
+export const getAllEnemyData = (): EnemyData[] => {
+	return Array.from(enemyDataMap.values());
+};
+
+/**
+ * 指定されたIDの敵にダメージを与えます。
+ * @param {string} id - 敵のID。
+ * @param {number} damage - 与えるダメージ量。
+ * @returns {boolean} ダメージが適用された場合はtrue、敵が存在しない場合はfalse。
+ */
+export const damageEnemy = (id: string, damage: number): boolean => {
+	const enemy = enemyDataMap.get(id);
+	if (!enemy) return false;
+	
+	enemy.currentHp = Math.max(0, enemy.currentHp - damage);
+	
+	// HPが0になったらイベントを発火（将来的なUI更新用）
+	if (enemy.currentHp === 0) {
+		document.dispatchEvent(new CustomEvent("enemy:defeated", { 
+			detail: { id, name: enemy.name } 
+		}));
+	}
+	
+	return true;
+};
+
+/**
+ * 指定されたIDの敵のHPを回復します。
+ * @param {string} id - 敵のID。
+ * @param {number} amount - 回復量。
+ * @returns {boolean} 回復が適用された場合はtrue、敵が存在しない場合はfalse。
+ */
+export const healEnemy = (id: string, amount: number): boolean => {
+	const enemy = enemyDataMap.get(id);
+	if (!enemy) return false;
+	
+	enemy.currentHp = Math.min(enemy.maxHp, enemy.currentHp + amount);
+	return true;
+};
+
+/**
+ * 指定されたIDの敵データを削除します。
+ * @param {string} id - 削除する敵のID。
+ */
+export const removeEnemyData = (id: string) => {
+	enemyDataMap.delete(id);
+};
+
+/**
+ * すべての敵データをクリアします。
+ */
+export const clearAllEnemyData = () => {
+	enemyDataMap.clear();
+};
