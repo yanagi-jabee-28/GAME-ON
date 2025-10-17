@@ -1,4 +1,4 @@
-'''// Simple adapter to embed GAME-SLOT-1 into the pachinko page and provide a programmatic API.
+// Simple adapter to embed GAME-SLOT-1 into the pachinko page and provide a programmatic API.
 
 import { gameConfig } from "../../GAME-SLOT-1/ts/config";
 import type { SlotGameInstance } from "../../GAME-SLOT-1/ts/slot";

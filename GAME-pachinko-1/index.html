@@ -9,8 +9,8 @@
 		<link rel="stylesheet" href="../GAME-SLOT-1/style.css" />
 
 		<!-- Preload slot scripts and styles to reduce timing variance -->
-		<link rel="preload" href="../GAME-SLOT-1/script.ts" as="script" />
-		<link rel="modulepreload" href="../GAME-SLOT-1/script.ts" />
+		<link rel="preload" href="../GAME-SLOT-1/ts/script.ts" as="script" />
+		<link rel="modulepreload" href="../GAME-SLOT-1/ts/script.ts" />
 		<link rel="preload" href="ts/slot-adapter.ts" as="script" />
 		<link rel="modulepreload" href="ts/slot-adapter.ts" />
 	</head>
@@ -57,7 +57,7 @@
 		<script type="module" src="ts/dev-tools.ts"></script>
 		<!-- 開発用ツール -->
 		<!-- Load slot assets first so they can inject DOM before pachinko initializes -->
-		<script type="module" src="../GAME-SLOT-1/script.ts"></script>
+		<script type="module" src="../GAME-SLOT-1/ts/script.ts"></script>
 		<script type="module" src="ts/slot-adapter.ts"></script>
 		<script type="module" src="ts/layout.ts"></script>
 		<script type="module" src="ts/main.ts"></script>
