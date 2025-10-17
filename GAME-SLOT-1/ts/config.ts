@@ -5,6 +5,11 @@
  *          ゲームの見た目や挙動、確率などを変更したい場合は、まずこのファイルを確認・編集してください。
  */
 
+import reelSoundUrl from "../assets/リール.mp3?url";
+import buttonSoundUrl from "../assets/ボタン.mp3?url";
+import winSoundUrl from "../assets/ペカリ.mp3?url";
+
+
 // ゲーム全体の設定を管理するオブジェクト
 const gameConfig = {
 	// --- DOM要素のセレクタ ---
@@ -249,9 +254,9 @@ const gameConfig = {
 			win: 1.0,
 		},
 		files: {
-			spinStart: "assets/リール.mp3", // リール回転開始の音
-			reelStop: "assets/ボタン.mp3", // リール停止時の音
-			win: "assets/ペカリ.mp3", // 当たり時の音
+			spinStart: reelSoundUrl, // リール回転開始の音
+			reelStop: buttonSoundUrl, // リール停止時の音
+			win: winSoundUrl, // 当たり時の音
 		},
 	},
 
