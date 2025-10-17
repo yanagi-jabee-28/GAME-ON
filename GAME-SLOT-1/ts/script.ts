@@ -2025,7 +2025,10 @@ class SlotGame implements SlotGameInstance {
 					const finalY =
 						(((animTargetY % totalHeight!) + totalHeight!) % totalHeight!) -
 						totalHeight!;
-					reel.element?.style.transform = `translateY(${finalY}px)`;
+					// reel.elementの存在を確認してから代入
+					if (reel.element) {
+						reel.element.style.transform = `translateY(${finalY}px)`;
+					}
 					reel.spinning = false;
 					reel.element?.classList.remove("spinning"); // 回転中クラスを削除
 					// 目押しボタンの活性状態を更新（途中停止でも反映）
