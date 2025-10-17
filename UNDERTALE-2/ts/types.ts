@@ -8,7 +8,7 @@
  * エンティティの形状を表す型。
  * これにより、形状を文字列で指定する際にタイポなどを防ぐことができます。
  */
-export type EntityShape = "circle" | "square" | "star" | "triangle";
+export type EntityShape = "circle" | "square" | "star" | "triangle" | "beam";
 
 /**
  * ゲーム内に登場するエンティティ（敵の攻撃など）の構造を定義する型。
@@ -24,6 +24,10 @@ export type Entity = {
 	velocity: { x: number; y: number };
 	/** エンティティのサイズ (ピクセル) */
 	size: number;
+	/** ビーム専用の幅 (ピクセル、beamの場合のみ使用) */
+	width?: number;
+	/** ビーム専用の高さ (ピクセル、beamの場合のみ使用) */
+	height?: number;
 	/** 現在の回転角度 (ラジアン) */
 	rotation: number;
 	/** 回転速度 (ラジアン/秒) */
@@ -51,6 +55,10 @@ export type EntitySpawnOptions = {
 	velocity?: { x: number; y: number };
 	/** サイズ (省略時: 24) */
 	size?: number;
+	/** ビーム専用の幅 (省略時: size を使用) */
+	width?: number;
+	/** ビーム専用の高さ (省略時: size を使用) */
+	height?: number;
 	/** 形状 (省略時: 'circle') */
 	shape?: EntityShape;
 	/** 色 (省略時: 'hsl(0 0% 90%)') */

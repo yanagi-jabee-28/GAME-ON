@@ -37,6 +37,12 @@ let removeBulletsOnHit = true;
  */
 let homingEnabled = false;
 
+/** エンティティの描画幅を取得します。widthが指定されていればそちらを優先します。 */
+const getEntityWidth = (entity: Entity) => entity.width ?? entity.size;
+
+/** エンティティの描画高さを取得します。heightが指定されていればそちらを優先します。 */
+const getEntityHeight = (entity: Entity) => entity.height ?? entity.size;
+
 /**
  * 現在ゲーム内に存在するすべてのエンティティの配列を取得します。
  * @returns {Entity[]} エンティティの配列。
@@ -148,6 +154,23 @@ const isPointInEntity = (
 	rotationCos: number,
 	rotationSin: number,
 ) => {
+	// ビーム形状の場合は、幅と高さを使用
+	if (entity.shape === "beam") {
+		const halfWidth = (entity.width ?? entity.size) / 2;
+		const halfHeight = (entity.height ?? entity.size) / 2;
+		const centerX = entity.position.x + halfWidth;
+		const centerY = entity.position.y + halfHeight;
+		const dx = worldX - centerX;
+		const dy = worldY - centerY;
+
+		// 回転を打ち消してローカル座標に変換
+		const localX = rotationCos * dx + rotationSin * dy;
+		const localY = -rotationSin * dx + rotationCos * dy;
+
+		// 長方形の衝突判定
+		return Math.abs(localX) <= halfWidth && Math.abs(localY) <= halfHeight;
+	}
+
 	const radius = entity.size / 2;
 	const centerX = entity.position.x + radius;
 	const centerY = entity.position.y + radius;
@@ -201,18 +224,26 @@ export const spawnEntity = ({
 	position,
 	velocity = { x: 0, y: 0 },
 	size = 24,
+	width,
+	height,
 	shape = "circle",
 	color = "hsl(0 0% 90%)",
 	rotationSpeed = 0,
 }: EntitySpawnOptions) => {
+	// ビームの場合は幅と高さを設定（デフォルト: 幅200px, 高さ20px）
+	const actualWidth = shape === "beam" ? (width ?? 200) : (width ?? size);
+	const actualHeight = shape === "beam" ? (height ?? 20) : (height ?? size);
+
 	// DOM要素を作成
 	const element = document.createElement("div");
 	element.classList.add("entity");
 	if (shape === "circle") element.classList.add("entity--circle");
 	else if (shape === "star") element.classList.add("entity--star");
 	else if (shape === "triangle") element.classList.add("entity--triangle");
-	element.style.width = `${size}px`;
-	element.style.height = `${size}px`;
+	else if (shape === "beam") element.classList.add("entity--beam");
+
+	element.style.width = `${actualWidth}px`;
+	element.style.height = `${actualHeight}px`;
 	element.style.background = color;
 	element.style.transform = `translate(${position.x}px, ${position.y}px)`;
 
@@ -226,7 +257,9 @@ export const spawnEntity = ({
 		element,
 		position: { ...position },
 		velocity: { ...velocity },
-		size,
+		size: shape === "beam" ? Math.max(actualWidth, actualHeight) : size,
+		width: actualWidth,
+		height: actualHeight,
 		rotation: 0,
 		rotationSpeed,
 		shape,
@@ -260,6 +293,8 @@ export const updateEntities = (
 	// 配列を逆順にループすることで、ループ中に要素を削除してもインデックスがずれないようにする
 	for (let i = entities.length - 1; i >= 0; i--) {
 		const entity = entities[i];
+		const entityWidth = getEntityWidth(entity);
+		const entityHeight = getEntityHeight(entity);
 		entity.lifetime -= deltaSeconds;
 
 		// 寿命が尽きたら削除
@@ -276,8 +311,8 @@ export const updateEntities = (
 			const { x: playerX, y: playerY } = getPlayerPosition();
 			const playerCenterX = playerX + getHeartElement().clientWidth / 2;
 			const playerCenterY = playerY + getHeartElement().clientHeight / 2;
-			const entityCenterX = entity.position.x + entity.size / 2;
-			const entityCenterY = entity.position.y + entity.size / 2;
+			const entityCenterX = entity.position.x + entityWidth / 2;
+			const entityCenterY = entity.position.y + entityHeight / 2;
 			const dx = playerCenterX - entityCenterX;
 			const dy = playerCenterY - entityCenterY;
 			const dist = Math.hypot(dx, dy);
@@ -333,11 +368,15 @@ export const updateEntities = (
 		}
 
 		// 画面外に出たエンティティを削除
+		const entityLeft = entity.position.x;
+		const entityTop = entity.position.y;
+		const entityRight = entityLeft + entityWidth;
+		const entityBottom = entityTop + entityHeight;
 		const isOutOfBounds =
-			entity.position.x < -REMOVAL_MARGIN ||
-			entity.position.x > stageWidth + REMOVAL_MARGIN ||
-			entity.position.y < -REMOVAL_MARGIN ||
-			entity.position.y > stageHeight + REMOVAL_MARGIN;
+			entityRight < -REMOVAL_MARGIN ||
+			entityLeft > stageWidth + REMOVAL_MARGIN ||
+			entityBottom < -REMOVAL_MARGIN ||
+			entityTop > stageHeight + REMOVAL_MARGIN;
 		if (isOutOfBounds) {
 			entity.element.remove();
 			entities.splice(i, 1);
@@ -390,8 +429,10 @@ export const detectCollisions = () => {
 			// エンティティのバウンディングボックスを取得
 			const entityLeft = entity.position.x;
 			const entityTop = entity.position.y;
-			const entityRight = entityLeft + entity.size;
-			const entityBottom = entityTop + entity.size;
+			const entityWidth = getEntityWidth(entity);
+			const entityHeight = getEntityHeight(entity);
+			const entityRight = entityLeft + entityWidth;
+			const entityBottom = entityTop + entityHeight;
 			const rotationCos = Math.cos(entity.rotation);
 			const rotationSin = Math.sin(entity.rotation);
 

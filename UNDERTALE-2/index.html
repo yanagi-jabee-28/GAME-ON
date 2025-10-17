@@ -197,6 +197,12 @@
 				clip-path: polygon(50% 0%, 0% 86.6%, 100% 86.6%);
 			}
 
+			/* ビーム型エンティティ（長い長方形） */
+			.entity--beam {
+				border-radius: 2px; /* わずかな角丸で見た目を柔らかく */
+				box-shadow: 0 0 8px currentColor; /* 発光効果 */
+			}
+
 			/* 操作説明のテキスト */
 			#instruction {
 				font-size: 0.95rem;
@@ -630,6 +636,24 @@
 				<button class="action-button" type="button">
 					<span class="action-icon" aria-hidden="false">❌</span
 					><span class="action-label">MERCY</span>
+				</button>
+			</div>
+			<!-- テスト用ボタン -->
+			<div
+				style="
+					margin-top: 1rem;
+					display: flex;
+					gap: 0.5rem;
+					justify-content: center;
+				"
+			>
+				<button
+					id="spawn-beam-button"
+					class="action-button"
+					type="button"
+					style="font-size: 0.9rem; padding: 0.5rem 1rem"
+				>
+					<span class="action-label">ビームテスト</span>
 				</button>
 			</div>
 			<!-- 操作説明 -->

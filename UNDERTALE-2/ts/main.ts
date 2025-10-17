@@ -1136,3 +1136,25 @@ playfield.addEventListener("transitionend", (ev) => {
 		} catch {}
 	}
 });
+
+// ビームテストボタンのイベントリスナーを追加
+document.addEventListener("DOMContentLoaded", () => {
+	const beamButton = document.getElementById("spawn-beam-button");
+	if (beamButton) {
+		beamButton.addEventListener("click", () => {
+			import("./entity.ts").then((entityModule) => {
+				// 画面左側から右に向かってビームを生成
+				entityModule.spawnEntity({
+					position: { x: -220, y: 100 }, // 画面外左側から開始
+					velocity: { x: 150, y: 0 }, // 右方向に移動
+					shape: "beam",
+					width: 200, // 幅200px
+					height: 20, // 高さ20px
+					color: "#ff6b6b", // 赤色
+					rotationSpeed: 0,
+				});
+				console.log("ビームを生成しました");
+			});
+		});
+	}
+});
