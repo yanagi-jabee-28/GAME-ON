@@ -16,6 +16,7 @@ import {
 	getHeartPath,
 	getHeartSvg,
 	getPlayerPosition,
+	isHeartActive,
 	setHeartOpacity,
 	takeDamage,
 } from "./player.ts";
@@ -389,6 +390,7 @@ export const updateEntities = (
  * この関数は、ゲームループ内で毎フレーム呼び出されます。
  */
 export const detectCollisions = () => {
+	if (!isHeartActive()) return;
 	// 安全対策：不正なデータを持つエンティティを事前に除去
 	for (let i = entities.length - 1; i >= 0; i--) {
 		const e = entities[i];

@@ -41,7 +41,7 @@ import {
 	startGameLoop,
 	stopSpawning,
 } from "./game.ts";
-import { centerPlayer, loadSvg } from "./player.ts";
+import { centerPlayer, loadSvg, setHeartActive } from "./player.ts";
 
 // Helper: render text lines into player-overlay with per-character color support
 function setOverlayTextColored(
@@ -625,6 +625,7 @@ loadSvg().then(() => {
 					if (!isGameOver) {
 						try {
 							heart.style.visibility = "hidden";
+							setHeartActive(false);
 							document.dispatchEvent(new CustomEvent("player:heartHidden"));
 							// restore playfield size to initial
 							playfield.style.width = `${PLAYFIELD_INITIAL_WIDTH}px`;
@@ -1121,6 +1122,7 @@ playfield.addEventListener("transitionend", (ev) => {
 			if (pendingShowHeart) {
 				pendingShowHeart = false;
 				heart.style.visibility = "visible";
+				setHeartActive(true);
 				// ハートが表示されたことを他のUI部分に通知
 				document.dispatchEvent(new CustomEvent("player:heartShown"));
 				// 攻撃バーが残っていれば削除

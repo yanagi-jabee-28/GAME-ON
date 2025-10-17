@@ -40,6 +40,8 @@ let isDead = false;
 let invulnerabilityTimer: number | null = null;
 /** ハートが「壊れかけている」画像を表示する時間 (ミリ秒) */
 const BROKING_DISPLAY_MS = 900;
+/** ハートがプレイフィールド上に実体化しているかどうか */
+let heartActive = false;
 
 /**
  * ハートが破壊されたときに、破片が飛び散るアニメーションを生成します。
@@ -111,6 +113,10 @@ export const getHeartSvg = () => heartSvg;
 export const getHeartPath = () => heartPath;
 export const getHeartColor = () => currentColor;
 export const getHp = () => hp;
+export const isHeartActive = () => heartActive;
+export const setHeartActive = (active: boolean) => {
+	heartActive = active;
+};
 
 /**
  * HPバーとテキスト表示を現在のHPに合わせて更新します。
@@ -143,6 +149,7 @@ const updateHpUi = () => {
  * @returns {boolean} - ダメージが実際に適用された場合はtrue。
  */
 export const takeDamage = (amount: number) => {
+	if (!heartActive) return false;
 	const now = performance.now();
 	// 無敵時間中かチェック
 	if (now < lastDamageExpiry) return false;
@@ -169,6 +176,7 @@ export const takeDamage = (amount: number) => {
  */
 const triggerGameOver = async () => {
 	try {
+		heartActive = false;
 		const heartEl = getHeartElement();
 		// 元のハートSVGを削除
 		if (heartSvg && heartSvg.parentElement === heartEl) {
@@ -289,6 +297,7 @@ export const updatePlayerPosition = (
 	playfield: HTMLElement,
 ) => {
 	if (isDead) return; // 死亡中は移動不可
+	if (!heartActive) return; // 実体化していない間は移動しない
 
 	let dx = 0;
 	let dy = 0;
