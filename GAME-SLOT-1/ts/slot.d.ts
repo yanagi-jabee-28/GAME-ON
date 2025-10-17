@@ -53,7 +53,6 @@ export interface SlotGameConfig {
 	uiScale: number;
 	symbolDuplicationFactor: number;
 	reelsData: ReelData[];
-	symbolProbabilities: Array<{ symbol: ReelSymbol; weight: number }>;
 	initialReelPositions: number[];
 	initialIsAutoMode: boolean;
 	autoSpeed: number;
