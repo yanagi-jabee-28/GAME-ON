@@ -10,6 +10,7 @@
  */
 
 import {
+	BLASTER_CONFIG,
 	COMBAT_CONFIG,
 	ENTITY_CONFIG,
 	PLAYER_CONFIG,
@@ -41,6 +42,9 @@ export const LIFETIME = ENTITY_CONFIG.lifetime;
 
 /** @deprecated config.ts の PLAYER_VISUAL_CONFIG.heartColors を使用してください */
 export const COLORS: string[] = [...PLAYER_VISUAL_CONFIG.heartColors];
+
+/** ブラスター設定へのアクセスを提供します */
+export { BLASTER_CONFIG };
 
 // ========================================
 // UI関連の定数

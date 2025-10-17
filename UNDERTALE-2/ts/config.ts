@@ -140,6 +140,24 @@ export const ENTITY_CONFIG = {
 } as const;
 
 /**
+ * ブラスター攻撃の設定
+ */
+export const BLASTER_CONFIG = {
+	/** ブラスターが与えるダメージ量 */
+	damage: 18,
+	/** 予兆表示時間 (ミリ秒) */
+	telegraphDurationMs: 600,
+	/** 本体の滞在時間 (ミリ秒)。0.5秒 = 500ms 以上に設定し、再ヒットを許可 */
+	beamDurationMs: 600,
+	/** ビームの太さ (ピクセル) */
+	thickness: 80,
+	/** ビームおよび予兆の基本色 */
+	color: "hsla(44 98% 68% / 1)",
+	/** 衝突時に自動で削除しない */
+	removeOnHit: false,
+} as const;
+
+/**
  * 敵の初期データ設定。
  * 各敵のHP、攻撃力、防御力などのパラメータをここで定義します。
  */

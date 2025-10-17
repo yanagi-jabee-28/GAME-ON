@@ -1139,24 +1139,33 @@ playfield.addEventListener("transitionend", (ev) => {
 	}
 });
 
-// ビームテストボタンのイベントリスナーを追加
-document.addEventListener("DOMContentLoaded", () => {
-	const beamButton = document.getElementById("spawn-beam-button");
-	if (beamButton) {
-		beamButton.addEventListener("click", () => {
-			import("./entity.ts").then((entityModule) => {
-				// 画面左側から右に向かってビームを生成
-				entityModule.spawnEntity({
-					position: { x: -220, y: 100 }, // 画面外左側から開始
-					velocity: { x: 260, y: 0 }, // 右方向に高速移動
-					shape: "beam",
-					width: 200, // 幅200px
-					height: 20, // 高さ20px
-					color: "#ff6b6b", // 赤色
-					rotationSpeed: 0,
-				});
-				console.log("ビームを生成しました");
+// Alt+B（Shift/Controlで変化）でブラスター攻撃を試験的に発生させる
+document.addEventListener("keydown", (event) => {
+	if (event.repeat) return;
+	if (!event.altKey) return;
+	const key = event.key?.toLowerCase();
+	if (key !== "b") return;
+	event.preventDefault();
+	import("./entity.ts").then(({ spawnBlasterAttack }) => {
+		try {
+			const side = event.ctrlKey
+				? event.shiftKey
+					? "bottom"
+					: "top"
+				: event.shiftKey
+					? "right"
+					: "left";
+			const offsetRatio = event.metaKey ? 0.5 : Math.random();
+			spawnBlasterAttack({
+				side,
+				offsetRatio,
+				thickness: event.metaKey ? 96 : 72,
 			});
-		});
-	}
+			console.info(
+				`Blaster attack triggered (side=${side}, offset=${offsetRatio.toFixed(2)})`,
+			);
+		} catch (err) {
+			console.error("Failed to trigger blaster attack", err);
+		}
+	});
 });

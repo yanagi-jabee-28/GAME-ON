@@ -203,6 +203,99 @@
 				box-shadow: 0 0 8px currentColor; /* 発光効果 */
 			}
 
+			/* ブラスター攻撃用の派生スタイル */
+			.entity--blaster {
+				position: absolute;
+				mix-blend-mode: screen;
+				box-shadow: 0 0 36px var(--blaster-color, hsla(44, 98%, 68%, 1));
+				border-radius: 6px;
+			}
+
+			.entity--blaster-horizontal::after,
+			.entity--blaster-vertical::after {
+				content: "";
+				position: absolute;
+				inset: 10%;
+				border-radius: 4px;
+				background: radial-gradient(
+					circle at center,
+					color-mix(
+							in srgb,
+							var(--blaster-color, hsla(44, 98%, 68%, 1)) 85%,
+							transparent
+						)
+						0%,
+					color-mix(
+							in srgb,
+							var(--blaster-color, hsla(44, 98%, 68%, 1)) 20%,
+							transparent
+						)
+						60%,
+					transparent 100%
+				);
+				opacity: 0.9;
+			}
+
+			.entity--blaster-horizontal {
+				transform-origin: center;
+			}
+
+			.entity--blaster-vertical {
+				transform-origin: center;
+			}
+
+			/* ブラスター予兆マーカー */
+			.blaster-telegraph {
+				position: absolute;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				pointer-events: none;
+				border-radius: 18px;
+				border: 2px solid var(--blaster-color, hsla(44, 98%, 68%, 1));
+				background: hsla(44, 98%, 68%, 0.12);
+				box-shadow:
+					0 0 12px hsla(44, 98%, 68%, 0.6),
+					0 0 32px hsla(44, 98%, 68%, 0.35);
+				animation: blaster-telegraph-pulse 260ms ease-in-out infinite alternate;
+			}
+
+			.blaster-telegraph::before {
+				content: "";
+				display: block;
+				width: 44%;
+				height: 44%;
+				border-radius: 50%;
+				background: var(--blaster-color, hsla(44, 98%, 68%, 1));
+				box-shadow: 0 0 18px var(--blaster-color, hsla(44, 98%, 68%, 1));
+				opacity: 0.85;
+			}
+
+			.blaster-telegraph--left,
+			.blaster-telegraph--top {
+				transform: translate(-6px, -6px);
+			}
+
+			.blaster-telegraph--right,
+			.blaster-telegraph--bottom {
+				transform: translate(6px, 6px);
+			}
+
+			@keyframes blaster-telegraph-pulse {
+				0% {
+					opacity: 0.65;
+					box-shadow:
+						0 0 10px hsla(44, 98%, 68%, 0.45),
+						0 0 26px hsla(44, 98%, 68%, 0.22);
+				}
+				100% {
+					opacity: 1;
+					box-shadow:
+						0 0 16px hsla(44, 98%, 68%, 0.8),
+						0 0 48px hsla(44, 98%, 68%, 0.45);
+				}
+			}
+
 			/* 操作説明のテキスト */
 			#instruction {
 				font-size: 0.95rem;
@@ -638,24 +731,6 @@
 					><span class="action-label">MERCY</span>
 				</button>
 			</div>
-			<!-- テスト用ボタン -->
-			<div
-				style="
-					margin-top: 1rem;
-					display: flex;
-					gap: 0.5rem;
-					justify-content: center;
-				"
-			>
-				<button
-					id="spawn-beam-button"
-					class="action-button"
-					type="button"
-					style="font-size: 0.9rem; padding: 0.5rem 1rem"
-				>
-					<span class="action-label">ビームテスト</span>
-				</button>
-			</div>
 			<!-- 操作説明 -->
 			<div id="instruction">
 				<strong>操作方法（キー一覧）:</strong>
@@ -681,6 +756,15 @@
 					<li>
 						<strong>スポーンマーカー:</strong>
 						<code>P</code> でスポーンマーカーの表示を切り替えます。
+					</li>
+					<li>
+						<strong>ブラスター攻撃テスト:</strong>
+						<code>Alt</code> + <code>B</code>
+						でブラスター攻撃（予兆付き）を発生させます。
+						<code>Shift</code> の同時押しで右向き、
+						<code>Ctrl</code>（または<code>Control</code>）で上向き、
+						両方同時で下向きになります。 <code>Meta</code>（Windowsキー /
+						Command）を加えると中央・太め固定で発射します。
 					</li>
 					<li>
 						<strong>削除モード:</strong>

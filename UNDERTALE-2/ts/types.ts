@@ -36,6 +36,10 @@ export type Entity = {
 	shape: EntityShape;
 	/** エンティティの色 */
 	color: string;
+	/** このエンティティが与えるダメージ量 */
+	damage: number;
+	/** 衝突時に削除されるかどうか */
+	removeOnHit: boolean;
 	/** 残りの寿命 (秒) */
 	lifetime: number;
 	/** 衝突時に適用される不透明度 (0.0 ~ 1.0) */
@@ -65,6 +69,32 @@ export type EntitySpawnOptions = {
 	color?: string;
 	/** 回転速度 (省略時: 0) */
 	rotationSpeed?: number;
+	/** エンティティの存続時間（秒）。省略時はデフォルト寿命。 */
+	lifetime?: number;
+	/** エンティティが与えるダメージ。省略時は既定値。 */
+	damage?: number;
+	/** 衝突時に削除するかどうか。省略時はtrue。 */
+	removeOnHit?: boolean;
+};
+
+/** ブラスター攻撃の生成オプション */
+export type BlasterSpawnOptions = {
+	/** 発射する辺。省略時は left。 */
+	side?: "left" | "right" | "top" | "bottom";
+	/** プレイフィールドに対する位置（0〜1）。省略時は中央付近（ランダム）。 */
+	offsetRatio?: number;
+	/** 予兆の表示時間（ミリ秒）。 */
+	telegraphDurationMs?: number;
+	/** ビーム本体の表示時間（ミリ秒）。 */
+	beamDurationMs?: number;
+	/** ビームの太さ（ピクセル）。 */
+	thickness?: number;
+	/** 表示色（HSLA推奨）。 */
+	color?: string;
+	/** ブラスターが与えるダメージ量。 */
+	damage?: number;
+	/** 衝突時に即削除するか。 */
+	removeOnHit?: boolean;
 };
 
 /**

@@ -27,6 +27,7 @@ import {
 	getRemoveBulletsOnHit,
 	setHomingEnabled,
 	setRemoveBulletsOnHit,
+	spawnBlasterAttack,
 	spawnEntity,
 	updateEntities,
 } from "./entity.ts";
@@ -238,6 +239,19 @@ export const startDemoScenario = (
 		const edgeLabel = edges[Math.floor(Math.random() * edges.length)] ?? "top";
 		const speed = 80 + Math.random() * 60;
 
+		// 一定確率でブラスター攻撃を発生させる
+		if (Math.random() < 0.18) {
+			const hue = Math.floor(Math.random() * 360);
+			spawnBlasterAttack({
+				side: edgeLabel as "top" | "right" | "bottom" | "left",
+				offsetRatio: Math.random(),
+				color: `hsla(${hue} 92% 68% / 1)`,
+				thickness: 60 + Math.random() * 30,
+				beamDurationMs: 1100,
+			});
+			return;
+		}
+
 		// 出現位置を決定
 		let position: { x: number; y: number };
 		// 狙うターゲット座標をプレイフィールド中央付近に設定
@@ -414,16 +428,18 @@ export const getAllEnemyData = (): EnemyData[] => {
 export const damageEnemy = (id: string, damage: number): boolean => {
 	const enemy = enemyDataMap.get(id);
 	if (!enemy) return false;
-	
+
 	enemy.currentHp = Math.max(0, enemy.currentHp - damage);
-	
+
 	// HPが0になったらイベントを発火（将来的なUI更新用）
 	if (enemy.currentHp === 0) {
-		document.dispatchEvent(new CustomEvent("enemy:defeated", { 
-			detail: { id, name: enemy.name } 
-		}));
+		document.dispatchEvent(
+			new CustomEvent("enemy:defeated", {
+				detail: { id, name: enemy.name },
+			}),
+		);
 	}
-	
+
 	return true;
 };
 
@@ -436,7 +452,7 @@ export const damageEnemy = (id: string, damage: number): boolean => {
 export const healEnemy = (id: string, amount: number): boolean => {
 	const enemy = enemyDataMap.get(id);
 	if (!enemy) return false;
-	
+
 	enemy.currentHp = Math.min(enemy.maxHp, enemy.currentHp + amount);
 	return true;
 };

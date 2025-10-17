@@ -3,6 +3,7 @@
  * 生成、更新、削除、および衝突判定に関するロジックを管理します。
  */
 import {
+	BLASTER_CONFIG,
 	ENTITY_DAMAGE,
 	ENTITY_MIN_OPACITY,
 	FADE_DURATION,
@@ -20,7 +21,11 @@ import {
 	setHeartOpacity,
 	takeDamage,
 } from "./player.ts";
-import type { Entity, EntitySpawnOptions } from "./types.ts";
+import type {
+	BlasterSpawnOptions,
+	Entity,
+	EntitySpawnOptions,
+} from "./types.ts";
 
 /** ゲーム内に存在するすべてのエンティティを格納する配列 */
 const entities: Entity[] = [];
@@ -43,6 +48,10 @@ const getEntityWidth = (entity: Entity) => entity.width ?? entity.size;
 
 /** エンティティの描画高さを取得します。heightが指定されていればそちらを優先します。 */
 const getEntityHeight = (entity: Entity) => entity.height ?? entity.size;
+
+/** 値を指定範囲に丸め込みます。 */
+const clamp = (value: number, min: number, max: number) =>
+	Math.min(Math.max(value, min), max);
 
 /**
  * 現在ゲーム内に存在するすべてのエンティティの配列を取得します。
@@ -230,10 +239,16 @@ export const spawnEntity = ({
 	shape = "circle",
 	color = "hsl(0 0% 90%)",
 	rotationSpeed = 0,
+	lifetime,
+	damage,
+	removeOnHit,
 }: EntitySpawnOptions) => {
 	// ビームの場合は幅と高さを設定（デフォルト: 幅200px, 高さ20px）
 	const actualWidth = shape === "beam" ? (width ?? 200) : (width ?? size);
 	const actualHeight = shape === "beam" ? (height ?? 20) : (height ?? size);
+	const resolvedDamage = damage ?? ENTITY_DAMAGE;
+	// ダメージ未指定時は既定値を採用し、既存攻撃との整合を取る
+	const resolvedRemoveOnHit = removeOnHit ?? true;
 
 	// DOM要素を作成
 	const element = document.createElement("div");
@@ -265,7 +280,9 @@ export const spawnEntity = ({
 		rotationSpeed,
 		shape,
 		color,
-		lifetime: LIFETIME,
+		damage: resolvedDamage,
+		removeOnHit: resolvedRemoveOnHit,
+		lifetime: lifetime ?? LIFETIME,
 		collisionOpacity: 1,
 		fading: false,
 	};
@@ -276,6 +293,148 @@ export const spawnEntity = ({
 		debug.markSpawn(position, `id:${entity.id}`);
 	}
 	return entity;
+};
+
+/** ブラスター攻撃を生成します。予兆を経て画面全体に伸びる矩形を表示します。 */
+export const spawnBlasterAttack = ({
+	side = "left",
+	offsetRatio,
+	telegraphDurationMs,
+	beamDurationMs,
+	thickness,
+	color,
+	damage,
+	removeOnHit,
+}: BlasterSpawnOptions = {}) => {
+	const playfield = document.getElementById("playfield");
+	const layer = document.getElementById("entity-layer");
+	if (!(playfield instanceof HTMLElement) || !(layer instanceof HTMLElement))
+		return;
+
+	const {
+		damage: defaultDamage,
+		telegraphDurationMs: defaultTelegraphMs,
+		beamDurationMs: defaultBeamMs,
+		thickness: defaultThickness,
+		color: defaultColor,
+		removeOnHit: defaultRemoveOnHit,
+	} = BLASTER_CONFIG;
+	// 毎回設定を読んでブラスターのバランス調整を一括管理する
+
+	const resolvedTelegraph = telegraphDurationMs ?? defaultTelegraphMs;
+	const resolvedBeamDuration = beamDurationMs ?? defaultBeamMs;
+	const resolvedThickness = thickness ?? defaultThickness;
+	const resolvedColor = color ?? defaultColor;
+	const resolvedDamage = damage ?? defaultDamage;
+	const resolvedRemoveOnHit = removeOnHit ?? defaultRemoveOnHit;
+
+	const stageWidth = playfield.clientWidth;
+	const stageHeight = playfield.clientHeight;
+	const telegraphSize = Math.max(resolvedThickness * 1.15, 56);
+	const axisLength =
+		side === "left" || side === "right" ? stageHeight : stageWidth;
+	const ratio =
+		offsetRatio != null && Number.isFinite(offsetRatio)
+			? clamp(offsetRatio, 0, 1)
+			: Math.random();
+	const center = clamp(
+		ratio * axisLength,
+		telegraphSize / 2,
+		axisLength - telegraphSize / 2,
+	);
+
+	const telegraph = document.createElement("div");
+	telegraph.className = `blaster-telegraph blaster-telegraph--${side}`;
+	telegraph.style.width = `${telegraphSize}px`;
+	telegraph.style.height = `${telegraphSize}px`;
+	telegraph.style.setProperty("--blaster-color", resolvedColor);
+
+	if (side === "left" || side === "right") {
+		telegraph.style.top = `${center - telegraphSize / 2}px`;
+		const offset =
+			side === "left" ? -telegraphSize * 0.6 : stageWidth - telegraphSize * 0.4;
+		telegraph.style.left = `${offset}px`;
+	} else {
+		telegraph.style.left = `${center - telegraphSize / 2}px`;
+		const offset =
+			side === "top" ? -telegraphSize * 0.6 : stageHeight - telegraphSize * 0.4;
+		telegraph.style.top = `${offset}px`;
+	}
+
+	layer.appendChild(telegraph);
+
+	const overshoot = 120;
+	const beamLifetimeSeconds = Math.max(resolvedBeamDuration, 120) / 1000;
+
+	const spawnBeam = () => {
+		if (telegraph.parentElement) telegraph.remove();
+
+		let width: number;
+		let height: number;
+		let x: number;
+		let y: number;
+
+		if (side === "left" || side === "right") {
+			width = stageWidth + overshoot * 2;
+			height = resolvedThickness;
+			x = -overshoot;
+			y = center - resolvedThickness / 2;
+		} else {
+			width = resolvedThickness;
+			height = stageHeight + overshoot * 2;
+			y = -overshoot;
+			x = center - resolvedThickness / 2;
+		}
+
+		const entity = spawnEntity({
+			position: { x, y },
+			velocity: { x: 0, y: 0 },
+			shape: "beam",
+			width,
+			height,
+			color: resolvedColor,
+			rotationSpeed: 0,
+			lifetime: beamLifetimeSeconds,
+			damage: resolvedDamage,
+			removeOnHit: resolvedRemoveOnHit,
+		});
+		entity.element.classList.add("entity--blaster");
+		entity.element.dataset.blasterSide = side;
+		entity.element.classList.add(
+			side === "left" || side === "right"
+				? "entity--blaster-horizontal"
+				: "entity--blaster-vertical",
+		);
+		entity.element.style.setProperty("--blaster-color", resolvedColor);
+		const gradientDirection =
+			side === "left"
+				? "90deg"
+				: side === "right"
+					? "270deg"
+					: side === "top"
+						? "180deg"
+						: "0deg";
+		const gradient = `linear-gradient(${gradientDirection}, color-mix(in srgb, ${resolvedColor} 6%, transparent) 0%, color-mix(in srgb, ${resolvedColor} 85%, transparent) 45%, color-mix(in srgb, ${resolvedColor} 15%, transparent) 100%)`;
+		entity.element.style.background = gradient;
+		entity.element.style.boxShadow = `0 0 36px ${resolvedColor}`;
+		entity.element.animate(
+			[
+				{ opacity: 0, filter: "brightness(1.25)" },
+				{ opacity: 1, filter: "brightness(1)" },
+			],
+			{ duration: 120, easing: "linear", fill: "forwards" },
+		);
+	};
+
+	const telegraphTimer = window.setTimeout(spawnBeam, resolvedTelegraph);
+	// 念のため、予兆が長時間残らないように安全策を設定
+	window.setTimeout(
+		() => {
+			window.clearTimeout(telegraphTimer);
+			if (telegraph.parentElement) telegraph.remove();
+		},
+		resolvedTelegraph + resolvedBeamDuration + 800,
+	);
 };
 
 /**
@@ -510,12 +669,16 @@ export const detectCollisions = () => {
 			// エンティティを半透明にする
 			entity.collisionOpacity = ENTITY_MIN_OPACITY;
 			// プレイヤーにダメージを与える
-			const wasDamaged = takeDamage(ENTITY_DAMAGE);
+			const damageAmount = entity.damage ?? ENTITY_DAMAGE;
+			// 攻撃ごとのダメージ設定を優先し、未設定時のみ従来値を使用
+			const wasDamaged = takeDamage(damageAmount);
 			// ハートの無敵演出（点滅）を開始
 			setHeartOpacity(wasDamaged);
 
 			// 衝突時にエンティティを削除する設定が有効な場合
-			if (wasDamaged && removeBulletsOnHit) {
+			const shouldRemoveOnHit = entity.removeOnHit;
+			// ブラスターは持続するため removeOnHit=false を尊重する
+			if (wasDamaged && removeBulletsOnHit && shouldRemoveOnHit) {
 				try {
 					entity.element.remove();
 				} catch {}
