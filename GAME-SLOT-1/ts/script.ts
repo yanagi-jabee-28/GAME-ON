@@ -4,14 +4,14 @@
  *        リールの生成、回転アニメーション、停止制御、ゲームモードの切り替えなどを担当します。
  */
 
+import { SlotSoundManager } from "./audio.ts";
+import { gameConfig } from "./config.ts";
 import type {
 	SlotCreditConfig,
 	SlotGameConfig,
 	SlotGameInstance,
 	SlotReelConfig,
 } from "./slot.d.ts";
-import { SlotSoundManager } from "./audio.ts";
-import { gameConfig } from "./config.ts";
 
 // --- 共通ユーティリティ（純粋関数群） --------------------------------------
 /** 数値を[min,max]にクランプ */
@@ -79,14 +79,13 @@ class UIManager {
 		try {
 			const Win = /** @type {any} */ (window);
 			if (
-				Win &&
-				Win.activeSlotGame &&
+				Win?.activeSlotGame &&
 				typeof Win.activeSlotGame.computeProbabilityReturnGreaterThanBet ===
 					"function"
 			) {
 				return Win.activeSlotGame.computeProbabilityReturnGreaterThanBet(bet);
 			}
-		} catch (e) {
+		} catch (_e) {
 			// ignore and fallthrough
 		}
 		// フォールバック: 実装が見つからない場合は 0 を返す（安全なデフォルト）
@@ -98,8 +97,7 @@ class UIManager {
 	 */
 	getElements() {
 		// Be defensive: allow config.selectors to be missing when embedded. Fall back to common IDs.
-		const sel =
-			this.config && this.config.selectors ? this.config.selectors : {};
+		const sel = this.config?.selectors ? this.config.selectors : {};
 		const slotCandidate =
 			document.querySelector(sel.slotMachine || "#slot-machine") ||
 			document.getElementById("slot-machine");
@@ -210,7 +208,7 @@ class UIManager {
 		try {
 			const t = document.getElementById("toast");
 			if (t) t.textContent = msg;
-		} catch (e) {}
+		} catch (_e) {}
 	}
 
 	/**
@@ -218,10 +216,10 @@ class UIManager {
 	 */
 	updateBetConstraints() {
 		try {
-			if (this.elements && this.elements.slotContainer) {
+			if (this.elements?.slotContainer) {
 				/* noop for typing */
 			}
-		} catch (e) {}
+		} catch (_e) {}
 	}
 
 	/**
@@ -320,7 +318,7 @@ class SlotGame implements SlotGameInstance {
 		try {
 			const Win = /** @type {any} */ (window);
 			Win.activeSlotGame = this;
-		} catch (e) {
+		} catch (_e) {
 			/* ignore */
 		}
 		// サウンドマネージャを初期化（設定に基づく）
@@ -330,7 +328,7 @@ class SlotGame implements SlotGameInstance {
 		const uiScale = Number(this.config.uiScale) || 1;
 		try {
 			document.documentElement.style.setProperty("--ui-scale", String(uiScale));
-		} catch (e) {
+		} catch (_e) {
 			// サーバサイド等で document が存在しない場合は無視
 		}
 		// 内部計算で使う symbolHeight をスケール（元の設定値は config.symbolHeight が基準）
@@ -473,7 +471,7 @@ class SlotGame implements SlotGameInstance {
 				navigator.clipboard
 					?.writeText(pw)
 					.then(() => {
-						alert("パスワードをクリップボードにコピーしました:\n" + pw);
+						alert(`パスワードをクリップボードにコピーしました:\n${pw}`);
 					})
 					.catch(() => {
 						prompt("以下のパスワードをコピーしてください:", pw);
@@ -513,7 +511,7 @@ class SlotGame implements SlotGameInstance {
 		// 目押しボタンの初期状態を反映
 		this.updateManualButtonsUI();
 		// 開発者モードパネルを準備（表示はトグル可能）
-		if (this.config && this.config.devPanelEnabled) {
+		if (this.config?.devPanelEnabled) {
 			this.renderDevPanel();
 		}
 		// Ctrl+D で開発者パネル表示/非表示を切り替え
@@ -543,7 +541,7 @@ class SlotGame implements SlotGameInstance {
 			// リアルタイムで有効上限を反映・切り詰め（SlotGame の状態を参照して計算）
 			try {
 				this.updateBetConstraints();
-			} catch (e) {}
+			} catch (_e) {}
 			// dev panel 更新
 			this.updateDevPanel();
 		});
@@ -554,7 +552,7 @@ class SlotGame implements SlotGameInstance {
 			el.setAttribute("inputmode", "numeric");
 			el.setAttribute("pattern", "\\d*");
 			el.setAttribute("min", String(minBet));
-		} catch (e) {
+		} catch (_e) {
 			/* ignore */
 		}
 
@@ -579,7 +577,7 @@ class SlotGame implements SlotGameInstance {
 			// 値が変更されたら上限表示を更新
 			try {
 				this.updateAvailableMaxDisplay();
-			} catch (e) {}
+			} catch (_e) {}
 		});
 		// 初期サイズ
 		resize();
@@ -613,7 +611,7 @@ class SlotGame implements SlotGameInstance {
 		// 初回の動的制約反映
 		try {
 			this.updateBetConstraints();
-		} catch (e) {}
+		} catch (_e) {}
 	}
 
 	/**
@@ -629,12 +627,12 @@ class SlotGame implements SlotGameInstance {
 		let effectiveMax = configMax;
 		try {
 			const Win = /** @type {any} */ (window);
-			const sg = Win && Win.activeSlotGame ? Win.activeSlotGame : null;
+			const sg = Win?.activeSlotGame ? Win.activeSlotGame : null;
 			let available = 0;
 			let bal = 0;
 			if (sg) {
 				bal = Number(sg.balance) || 0;
-				if (sg.creditConfig && sg.creditConfig.enabled) {
+				if (sg.creditConfig?.enabled) {
 					available = Math.max(
 						0,
 						(sg.creditConfig.creditLimit || 0) - (sg.debt || 0),
@@ -645,7 +643,7 @@ class SlotGame implements SlotGameInstance {
 				minBet,
 				Math.min(configMax, Math.floor(bal + available)),
 			);
-		} catch (e) {
+		} catch (_e) {
 			// フォールバック: 設定のみ
 			effectiveMax = Math.max(
 				minBet,
@@ -663,12 +661,12 @@ class SlotGame implements SlotGameInstance {
 				this._showToast(
 					`賭け金を利用可能上限 ¥${effectiveMax} に自動調整しました`,
 				);
-			} catch (e) {}
+			} catch (_e) {}
 		}
 		// 利用可能上限の表示を更新
 		try {
 			this.updateAvailableMaxDisplay(effectiveMax);
-		} catch (e) {}
+		} catch (_e) {}
 	}
 
 	// キャッシュした要素とヘルパー
@@ -697,8 +695,8 @@ class SlotGame implements SlotGameInstance {
 					if (el?.setPointerCapture && pe.pointerId) {
 						el.setPointerCapture(pe.pointerId);
 					}
-				} catch (err) {}
-				this._startContinuousAdjust && this._startContinuousAdjust(+1);
+				} catch (_err) {}
+				this._startContinuousAdjust?.(+1);
 			});
 			this.elStepUp.addEventListener("pointerup", (e) => {
 				this._suppressNextClick = !!this._continuousStarted;
@@ -711,14 +709,14 @@ class SlotGame implements SlotGameInstance {
 							}
 						).releasePointerCapture(e.pointerId);
 					}
-				} catch (err) {}
-				this._stopContinuousAdjust && this._stopContinuousAdjust();
+				} catch (_err) {}
+				this._stopContinuousAdjust?.();
 			});
 			this.elStepUp.addEventListener("pointercancel", () => {
-				this._stopContinuousAdjust && this._stopContinuousAdjust();
+				this._stopContinuousAdjust?.();
 			});
 			this.elStepUp.addEventListener("pointerleave", () => {
-				this._stopContinuousAdjust && this._stopContinuousAdjust();
+				this._stopContinuousAdjust?.();
 			});
 		}
 		if (this.elStepDown) {
@@ -739,7 +737,7 @@ class SlotGame implements SlotGameInstance {
 							el as HTMLElement & { setPointerCapture: (id: number) => void }
 						).setPointerCapture(e.pointerId);
 					}
-				} catch (err) {}
+				} catch (_err) {}
 				this._startContinuousAdjust?.(-1);
 			});
 			this.elStepDown.addEventListener("pointerup", (e) => {
@@ -753,22 +751,22 @@ class SlotGame implements SlotGameInstance {
 							}
 						).releasePointerCapture(e.pointerId);
 					}
-				} catch (err) {}
+				} catch (_err) {}
 				this._stopContinuousAdjust?.();
 			});
 			this.elStepDown.addEventListener("pointercancel", () => {
 				this._suppressNextClick = !!this._continuousStarted;
-				this._stopContinuousAdjust && this._stopContinuousAdjust();
+				this._stopContinuousAdjust?.();
 			});
 			this.elStepDown.addEventListener("pointerleave", () => {
 				this._suppressNextClick = !!this._continuousStarted;
-				this._stopContinuousAdjust && this._stopContinuousAdjust();
+				this._stopContinuousAdjust?.();
 			});
 			this.elStepDown.addEventListener("pointercancel", () => {
-				this._stopContinuousAdjust && this._stopContinuousAdjust();
+				this._stopContinuousAdjust?.();
 			});
 			this.elStepDown.addEventListener("pointerleave", () => {
-				this._stopContinuousAdjust && this._stopContinuousAdjust();
+				this._stopContinuousAdjust?.();
 			});
 		}
 	}
@@ -877,10 +875,15 @@ class SlotGame implements SlotGameInstance {
 			(acc, r) => acc.filter((sym: string) => r.symbols.includes(sym)),
 			Object.keys(weights),
 		);
-		const filtered = commonSymbols.filter((sym: string) => (weights[sym] || 0) > 0);
+		const filtered = commonSymbols.filter(
+			(sym: string) => (weights[sym] || 0) > 0,
+		);
 		let forcedExpectedMult = 0;
 		if (filtered.length > 0) {
-			const totalW = filtered.reduce((s: number, sym: string) => s + weights[sym], 0);
+			const totalW = filtered.reduce(
+				(s: number, sym: string) => s + weights[sym],
+				0,
+			);
 			for (const sym of filtered) {
 				const pSym = weights[sym] / totalW;
 				forcedExpectedMult += pSym * Number(this.payoutTable[sym] || 0);
@@ -1179,7 +1182,7 @@ class SlotGame implements SlotGameInstance {
 	 */
 	bindEvents() {
 		// スタート/ストップボタンがクリックされたらhandleActionメソッドを実行
-		if (this.ui && this.ui.elements && this.ui.elements.actionBtn) {
+		if (this.ui?.elements?.actionBtn) {
 			this.ui.elements.actionBtn.addEventListener("click", () =>
 				this.handleAction(),
 			);
@@ -1189,16 +1192,15 @@ class SlotGame implements SlotGameInstance {
 			);
 		}
 		// モード切り替えボタンがクリックされたらtoggleModeメソッドを実行
-		if (this.ui && this.ui.elements && this.ui.elements.modeBtn) {
+		if (this.ui?.elements?.modeBtn) {
 			this.ui.elements.modeBtn.addEventListener("click", () =>
 				this.toggleMode(),
 			);
 		} else {
 			// not fatal; embedded adapters may omit mode button
-			console.debug &&
-				console.debug(
-					"SlotGame.bindEvents: modeBtn not found, mode toggle disabled",
-				);
+			console.debug?.(
+				"SlotGame.bindEvents: modeBtn not found, mode toggle disabled",
+			);
 		}
 
 		// 個別停止ボタン: 目押しモード時のみ動作、回転中のみ有効
@@ -1266,7 +1268,7 @@ class SlotGame implements SlotGameInstance {
 			) {
 				this.slotContainer.appendChild(this.leverEl);
 			}
-		} catch (e) {
+		} catch (_e) {
 			/* ignore */
 		}
 
@@ -1354,7 +1356,7 @@ class SlotGame implements SlotGameInstance {
 
 		// 利用可能な借入額を見積もる（まだ借入処理は行わない）
 		let available = 0;
-		if (this.creditConfig && this.creditConfig.enabled) {
+		if (this.creditConfig?.enabled) {
 			available = Math.max(
 				0,
 				(this.creditConfig.creditLimit || 0) - (this.debt || 0),
@@ -1375,7 +1377,7 @@ class SlotGame implements SlotGameInstance {
 						`入力されたベット ${prev} は利用可能額を超えているため、${bet} に自動調整しました。`,
 					);
 				}
-			} catch (e) {
+			} catch (_e) {
 				/* ignore */
 			}
 			// もし切り詰め後も最低ベット未満なら開始不可
@@ -1390,7 +1392,7 @@ class SlotGame implements SlotGameInstance {
 				this.ui.setActionBtnDisabled(false);
 				try {
 					this.updateManualButtonsUI();
-				} catch (e) {}
+				} catch (_e) {}
 				return;
 			}
 		}
@@ -1431,7 +1433,7 @@ class SlotGame implements SlotGameInstance {
 				this.ui.setActionBtnDisabled(false);
 				try {
 					this.updateManualButtonsUI();
-				} catch (e) {}
+				} catch (_e) {}
 				return;
 			}
 
@@ -1450,7 +1452,7 @@ class SlotGame implements SlotGameInstance {
 				this.ui.setActionBtnDisabled(false);
 				try {
 					this.updateManualButtonsUI();
-				} catch (e) {}
+				} catch (_e) {}
 				return;
 			}
 
@@ -1480,7 +1482,7 @@ class SlotGame implements SlotGameInstance {
 						`所持金が不足しているため、ベットを ${prevBet} → ${bet} に自動調整しました。`,
 					);
 				}
-			} catch (e) {
+			} catch (_e) {
 				/* ignore */
 			}
 		}
@@ -1496,7 +1498,7 @@ class SlotGame implements SlotGameInstance {
 		// サウンド: スピン開始
 		try {
 			this.soundManager?.playSpinStart();
-		} catch (e) {
+		} catch (_e) {
 			/* ignore */
 		}
 
@@ -1508,7 +1510,7 @@ class SlotGame implements SlotGameInstance {
 		// サウンド: 回転ループ開始
 		try {
 			this.soundManager?.loopStart();
-		} catch (e) {}
+		} catch (_e) {}
 
 		if (this.isAutoMode) {
 			// 自動モードの場合: スタートボタンを一時的に無効化し、自動停止タイマーを設定
@@ -1684,10 +1686,10 @@ class SlotGame implements SlotGameInstance {
 			// スケジュール実行（優先度: 当たりターゲット > 設定stopTargets > 通常）
 			scheduled.forEach(({ i, time }) => {
 				const configuredTarget = useTargetsThisSpin
-					? targets.find((t: { reelIndex: number }) => t.reelIndex === i) || null
+					? targets.find((t: { reelIndex: number }) => t.reelIndex === i) ||
+						null
 					: null;
-				const target =
-					(spinTargets && spinTargets[i]) || configuredTarget || null;
+				const target = spinTargets?.[i] || configuredTarget || null;
 				setTimeout(() => this.stopReel(i, target), time);
 			});
 		} else {
@@ -1706,7 +1708,7 @@ class SlotGame implements SlotGameInstance {
 	startReel(index: number, speed: number) {
 		const reel = this.reels[index];
 		reel.spinning = true; // このリールが回転中であることを示すフラグを立てる
-		reel.element!.classList.add("spinning"); // リールが回転中であることを示すクラスを追加
+		reel.element?.classList.add("spinning"); // リールが回転中であることを示すクラスを追加
 
 		// 現在のY座標を取得し、回転方向に応じて内部的な位置`pos`を初期化
 		// `pos`は、リールの全高を考慮した無限スクロールのための仮想的な位置です。
@@ -1736,12 +1738,12 @@ class SlotGame implements SlotGameInstance {
 			// 補足: totalHeight は重複分を含む 2 周（または指定周）相当です。mod により継ぎ目を不可視化します。
 			pos = (pos + currentSpeed) % reel.totalHeight!;
 
-			// `pos`から実際のY座標`newY`を計算し、`transform: translateY()`に適用
-			// 回転方向によって計算方法が異なります。
-			const newY = this.config.reverseRotation ? pos - reel.totalHeight! : -pos;
-			reel.element!.style.transform = `translateY(${newY}px)`;
-
-			// 次のフレームで再度animate関数を呼び出す
+		// `pos`から実際のY座標`newY`を計算し、`transform: translateY()`に適用
+		// 回転方向によって計算方法が異なります。
+		const newY = this.config.reverseRotation ? pos - reel.totalHeight! : -pos;
+		if (reel.element) {
+			reel.element.style.transform = `translateY(${newY}px)`;
+		}			// 次のフレームで再度animate関数を呼び出す
 			reel.animationFrameId = requestAnimationFrame(animate);
 		};
 		requestAnimationFrame(animate); // アニメーションを開始
@@ -1795,7 +1797,8 @@ class SlotGame implements SlotGameInstance {
 			// position の意味: top=表示上端にシンボルの先頭、middle=1つ下、bottom=2つ下に該当するようにオフセットを設ける
 			const validPositions = ["top", "middle", "bottom"];
 			let chosenPosition = validPositions.includes(target.position ?? "")
-				? (target.position ?? validPositions[Math.floor(Math.random() * validPositions.length)])
+				? (target.position ??
+					validPositions[Math.floor(Math.random() * validPositions.length)])
 				: validPositions[Math.floor(Math.random() * validPositions.length)];
 			let positionOffset = 0;
 			if (chosenPosition === "middle") positionOffset = 1;
@@ -1843,7 +1846,14 @@ class SlotGame implements SlotGameInstance {
 
 				// position が未指定の場合は seam（表示領域の継ぎ目）を回避しつつ距離が最短の候補を選ぶ
 				if (!validPositions.includes(target.position ?? "")) {
-					const candidates: Array<{pos: string; y: number; dist: number; wraps: boolean; topIdx: number; baseY: number}> = [];
+					const candidates: Array<{
+						pos: string;
+						y: number;
+						dist: number;
+						wraps: boolean;
+						topIdx: number;
+						baseY: number;
+					}> = [];
 					for (const pos of validPositions) {
 						const offset = pos === "middle" ? 1 : pos === "bottom" ? 2 : 0;
 						const topIdx =
@@ -1993,15 +2003,15 @@ class SlotGame implements SlotGameInstance {
 				const progress = Math.min(elapsed / duration, 1);
 				const easedProgress = this.getStopEasingFn()(progress);
 
-				// 仮想座標上の進行（前方に単調増加/減少）
-				const virtualY = startY + (animTargetY - startY) * easedProgress;
-				// 表示用に [-H, 0] へ正規化して適用（フリッカー防止）
-				const displayY =
-					(((virtualY % totalHeight!) + totalHeight!) % totalHeight!) -
-					totalHeight!;
-				reel.element!.style.transform = `translateY(${displayY}px)`;
-
-				// 追加ログ（デフォルトOFF）
+			// 仮想座標上の進行（前方に単調増加/減少）
+			const virtualY = startY + (animTargetY - startY) * easedProgress;
+			// 表示用に [-H, 0] へ正規化して適用（フリッカー防止）
+			const displayY =
+				(((virtualY % totalHeight!) + totalHeight!) % totalHeight!) -
+				totalHeight!;
+			if (reel.element) {
+				reel.element.style.transform = `translateY(${displayY}px)`;
+			}				// 追加ログ（デフォルトOFF）
 				if (this.config.debug?.frameLogs) {
 					console.log(
 						`Reel ${index} Stop Anim: startY=${startY.toFixed(2)}px, targetY=${animTargetY.toFixed(2)}px, elapsed=${elapsed.toFixed(2)}ms, progress=${progress.toFixed(2)}, easedProgress=${easedProgress.toFixed(2)}, virtualY=${virtualY.toFixed(2)}px, displayY=${displayY.toFixed(2)}px`,
@@ -2015,21 +2025,21 @@ class SlotGame implements SlotGameInstance {
 					const finalY =
 						(((animTargetY % totalHeight!) + totalHeight!) % totalHeight!) -
 						totalHeight!;
-					reel.element!.style.transform = `translateY(${finalY}px)`;
+					reel.element?.style.transform = `translateY(${finalY}px)`;
 					reel.spinning = false;
-					reel.element!.classList.remove("spinning"); // 回転中クラスを削除
+					reel.element?.classList.remove("spinning"); // 回転中クラスを削除
 					// 目押しボタンの活性状態を更新（途中停止でも反映）
 					try {
 						this.updateManualButtonsUI();
-					} catch (e) {}
+					} catch (_e) {}
 					// サウンド: リール停止
 					try {
 						this.soundManager?.playReelStop();
-					} catch (e) {}
+					} catch (_e) {}
 					// 右端リール（最後のリール）が停止したタイミングで回転ループを停止する
 					try {
 						if (index === this.reels.length - 1) this.soundManager?.loopStop();
-					} catch (e) {}
+					} catch (_e) {}
 					this.checkAllStopped();
 				}
 			};
@@ -2053,7 +2063,8 @@ class SlotGame implements SlotGameInstance {
 				const pos = currentY + totalHeight!;
 				remainder = pos % symbolHeight;
 			} else {
-				const posMod = ((-currentY % totalHeight!) + totalHeight!) % totalHeight!;
+				const posMod =
+					((-currentY % totalHeight!) + totalHeight!) % totalHeight!;
 				remainder = posMod % symbolHeight;
 			}
 			const distanceToNext = (symbolHeight - remainder) % symbolHeight;
@@ -2151,7 +2162,7 @@ class SlotGame implements SlotGameInstance {
 			// サウンド: 回転ループ停止
 			try {
 				this.soundManager?.loopStop();
-			} catch (e) {}
+			} catch (_e) {}
 			this.ui.setActionBtnText("▶ スタート"); // ボタンテキストを「スタート」に戻す
 			this.ui.setActionBtnDisabled(false); // ボタンを有効化
 			this.updateManualButtonsUI();
@@ -2171,14 +2182,14 @@ class SlotGame implements SlotGameInstance {
 					// サウンド: 当たり
 					try {
 						this.soundManager?.playWin();
-					} catch (e) {}
+					} catch (_e) {}
 					this.balance += payout;
 					this.updateBalanceUI();
 					console.log(`Win! payout=¥${payout}, new balance=¥${this.balance}`);
 					// 勝利メッセージを表示
 					try {
 						this.showWinMessage(payout);
-					} catch (e) {}
+					} catch (_e) {}
 					// ゲーム外から視覚フィードバックを付けられるよう、カスタムイベントを発火
 					try {
 						window.dispatchEvent(
@@ -2258,7 +2269,7 @@ class SlotGame implements SlotGameInstance {
 		if (el) el.textContent = this.formatCurrency(this.balance);
 		try {
 			this.ui.updateBetConstraints();
-		} catch (e) {}
+		} catch (_e) {}
 	}
 
 	/**
@@ -2269,7 +2280,7 @@ class SlotGame implements SlotGameInstance {
 		if (el) el.textContent = this.formatCurrency(this.debt);
 		try {
 			this.ui.updateBetConstraints();
-		} catch (e) {}
+		} catch (_e) {}
 	}
 
 	/**
@@ -2362,7 +2373,7 @@ class SlotGame implements SlotGameInstance {
 			const obj = JSON.parse(json);
 			if (!obj || typeof obj.b !== "number") throw new Error("invalid");
 			return obj;
-		} catch (e) {
+		} catch (_e) {
 			throw new Error("パスワードの形式が不正です");
 		}
 	}
@@ -2436,7 +2447,10 @@ class SlotGame implements SlotGameInstance {
 					return bestSym;
 				}
 				// 全て同一重みの場合は従来の重み付きランダムで決定
-				const total = filtered.reduce((s: number, sym: string) => s + weights[sym], 0);
+				const total = filtered.reduce(
+					(s: number, sym: string) => s + weights[sym],
+					0,
+				);
 				let r = Math.random() * total;
 				for (const sym of filtered) {
 					r -= weights[sym];
@@ -2502,7 +2516,6 @@ class SlotGame implements SlotGameInstance {
 				return this.easeOutQuad;
 			case "sine":
 				return this.easeOutSine;
-			case "cubic":
 			default:
 				return this.easeOutCubic;
 		}
@@ -2517,7 +2530,6 @@ class SlotGame implements SlotGameInstance {
 				return 2;
 			case "sine": // sin(t*pi/2) => d/dt = (pi/2)cos(t*pi/2), t=0 => pi/2
 				return Math.PI / 2;
-			case "cubic":
 			default: // 1 - (1-t)^3 => d/dt = 3 - 6t + 3t^2, t=0 => 3
 				return 3;
 		}
@@ -2579,7 +2591,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	} else {
 		// Non-fatal: when embedded into another app the slot HTML may be injected later by an adapter.
 		// Keep SlotGame constructor available so embedder can instantiate programmatically.
-		if (console && console.debug)
+		if (console?.debug)
 			console.debug(
 				"SlotGame: no matching element for",
 				gameConfig.selectors.slotMachine,
