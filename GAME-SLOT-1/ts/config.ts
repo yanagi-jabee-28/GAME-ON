@@ -218,16 +218,16 @@ const gameConfig = {
 	sounds: {
 		enabled: true,
 		volume: 0.2, // マスター音量 0.0 - 1.0
-		// 種別ごとの相対音量（マスター×各値） 0.0 - 1.0
+		// 種別ごとの相対音量(マスター×各値) 0.0 - 1.0
 		volumes: {
 			spinStart: 1.0,
-			reelStop: 0.5, // 既定で半分（ご要望反映）
+			reelStop: 0.5, // 既定で半分(ご要望反映)
 			win: 1.0,
 		},
 		files: {
-			spinStart: "", // 例: 'assets/sfx/spin-start.mp3'
-			reelStop: "", // 例: 'assets/sfx/stop.wav'
-			win: "", // 例: 'assets/sfx/win.mp3'
+			spinStart: "assets/リール.mp3", // リール回転開始の音
+			reelStop: "assets/ボタン.mp3", // リール停止時の音
+			win: "assets/ペカリ.mp3", // 当たり時の音
 		},
 	},
 

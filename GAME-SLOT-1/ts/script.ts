@@ -2182,16 +2182,13 @@ class SlotGame implements SlotGameInstance {
 					console.log(`Debt repaid: ¥${repay}, remaining debt=¥${this.debt}`);
 				}
 				if (payout > 0) {
-					// サウンド: 当たり
-					try {
-						this.soundManager?.playWin();
-					} catch (_e) {}
 					this.balance += payout;
 					this.updateBalanceUI();
 					console.log(`Win! payout=¥${payout}, new balance=¥${this.balance}`);
-					// 勝利メッセージを表示
+					// 勝利メッセージを表示と同時に当たり音を再生
 					try {
 						this.showWinMessage(payout);
+						this.soundManager?.playWin();
 					} catch (_e) {}
 					// ゲーム外から視覚フィードバックを付けられるよう、カスタムイベントを発火
 					try {
