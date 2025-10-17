@@ -100,6 +100,10 @@ let pendingShowHeart = false;
 let combatTimer: number | null = null;
 // flag indicating the game over sequence has started
 let isGameOver = false;
+// flag indicating all enemies have been defeated
+let isGameCleared = false;
+
+const isGameFinished = () => isGameOver || isGameCleared;
 
 // --- 必須要素の存在チェック ---
 if (
@@ -111,6 +115,34 @@ if (
 	// ゲームの実行に必要な要素が見つからない場合は、エラーを投げて処理を中断
 	throw new Error("必要な要素が見つかりませんでした。");
 }
+
+/**
+ * 全敵撃破後の共通処理をまとめます。
+ * 進行中のタイマーとスポーンを停止し、ゲームクリアイベントを通知します。
+ */
+const handleGameClear = () => {
+	if (isGameCleared) return;
+	isGameCleared = true;
+	pendingShowHeart = false;
+	if (combatTimer !== null) {
+		clearTimeout(combatTimer);
+		combatTimer = null;
+	}
+	try {
+		stopSpawning();
+	} catch {}
+	try {
+		clearKeys();
+	} catch {}
+	try {
+		setHeartActive(false);
+		heart.style.visibility = "hidden";
+		document.dispatchEvent(new CustomEvent("player:heartHidden"));
+	} catch {}
+	document.dispatchEvent(
+		new CustomEvent("gameclear", { detail: { remaining: 0 } }),
+	);
+};
 
 // --- ゲームの初期設定 ---
 
@@ -130,7 +162,7 @@ addEnemySymbol(
 );
 
 // 敵データを初期化（プリセットから読み込み）
-for (const [id, data] of Object.entries(ENEMY_DATA_PRESETS)) {
+for (const data of Object.values(ENEMY_DATA_PRESETS)) {
 	setEnemyData(data);
 }
 
@@ -192,6 +224,7 @@ loadSvg().then(() => {
 	// and sets isGameOver flag before game:spawningStopped is dispatched
 	document.addEventListener("gamestop", () => {
 		isGameOver = true;
+		isGameCleared = false;
 		// cancel any pending combat timer to avoid premature reset
 		if (combatTimer) {
 			clearTimeout(combatTimer);
@@ -226,6 +259,7 @@ loadSvg().then(() => {
 				try {
 					const overlay = document.getElementById("player-overlay");
 					if (overlay instanceof HTMLElement) {
+						const overlayEl = overlay;
 						// 敵リスト表示中は行動選択を無効化
 						const enemyListShownEvent = new CustomEvent(
 							"combat:enemyListShown",
@@ -245,7 +279,6 @@ loadSvg().then(() => {
 							let selected = 0;
 
 							// SVG heart icon constants (same as action menu)
-							const SVG_NS = "http://www.w3.org/2000/svg";
 							const HEART_ICON_VIEWBOX = "0 0 476.36792 399.95195";
 							const HEART_ICON_PATH =
 								"m 238.15,437.221 v 0 C 449.09,352.067 530.371,154.668 437.481,69.515 344.582,-15.639 238.15,100.468 238.15,100.468 h -0.774 c 0,0 -106.44,-116.107 -199.331,-30.953 -92.889,85.143 -10.834,282.553 200.105,367.706 z";
@@ -289,7 +322,7 @@ loadSvg().then(() => {
 										return `${heartSvg}<span style="display:inline-block;width:0.3em;"></span>${nameSpans}`;
 									})
 									.join("<br>");
-								overlay!.innerHTML = html;
+								overlayEl.innerHTML = html;
 							}
 
 							renderEnemyList();
@@ -340,7 +373,7 @@ loadSvg().then(() => {
 
 							// If cancelled, clear overlay and re-enable actions handled below
 							if (userAction === "cancel") {
-								setOverlayText(overlay!, "(敵なし)");
+								setOverlayText(overlayEl, "(敵なし)");
 								// remove listener for safety (already removed on cancel path)
 								document.removeEventListener("keydown", handleSelectionKey);
 								// dispatch hidden event and exit
@@ -357,7 +390,7 @@ loadSvg().then(() => {
 								enemyNames[selectedEnemyId] || selectedEnemyId;
 
 							// オーバーレイを非表示
-							overlay.style.visibility = "hidden";
+							overlayEl.style.visibility = "hidden";
 
 							// 決定キーの場合は行動選択を再有効化せず、
 							// そのまま攻撃バー表示に進む（無効状態を維持）
@@ -372,8 +405,8 @@ loadSvg().then(() => {
 								name: selectedEnemyName,
 							};
 						} else {
-							setOverlayText(overlay, "(敵なし)");
-							overlay.style.visibility = "visible";
+							setOverlayText(overlayEl, "(敵なし)");
+							overlayEl.style.visibility = "visible";
 
 							// 敵がいない場合も決定キー待ち
 							await new Promise<void>((resolve) => {
@@ -387,7 +420,7 @@ loadSvg().then(() => {
 								document.addEventListener("keydown", handleKeyPress);
 							});
 
-							overlay.style.visibility = "hidden";
+							overlayEl.style.visibility = "hidden";
 						}
 					}
 				} catch (err) {
@@ -559,6 +592,11 @@ loadSvg().then(() => {
 										// 敵を倒したらシンボルとデータを削除
 										removeEnemySymbol(selectedEnemy.id);
 										removeEnemyData(selectedEnemy.id);
+										const remainingEnemies = getEnemySymbols().length;
+										if (remainingEnemies === 0) {
+											// 全敵撃破後は即座にゲームクリア処理へ移行
+											handleGameClear();
+										}
 									}
 								}
 
@@ -608,42 +646,44 @@ loadSvg().then(() => {
 				});
 			} catch {}
 
-			// デモ用のエンティティ出現シナリオを開始
-			startDemoScenario(playfield);
+			// デモ用のエンティティ出現シナリオとタイマーは、ゲーム継続中のみ起動
+			if (!isGameFinished()) {
+				startDemoScenario(playfield);
 
-			// Start combat timer. When it expires, stop spawning,
-			// hide the heart and restore UI/playfield to pre-fight state.
-			try {
-				if (combatTimer) {
-					clearTimeout(combatTimer);
-					combatTimer = null;
-				}
-				combatTimer = window.setTimeout(() => {
-					try {
-						stopSpawning(); // clears entities and dispatches game:spawningStopped
-					} catch {}
-					if (!isGameOver) {
-						try {
-							heart.style.visibility = "hidden";
-							setHeartActive(false);
-							document.dispatchEvent(new CustomEvent("player:heartHidden"));
-							// restore playfield size to initial
-							playfield.style.width = `${PLAYFIELD_INITIAL_WIDTH}px`;
-							playfield.style.height = `${PLAYFIELD_INITIAL_HEIGHT}px`;
-							import("./debug.ts").then((dbg) => {
-								try {
-									dbg.playfieldWidth = PLAYFIELD_INITIAL_WIDTH;
-									dbg.playfieldHeight = PLAYFIELD_INITIAL_HEIGHT;
-									if (typeof dbg.applyPlayfieldSize === "function")
-										dbg.applyPlayfieldSize();
-								} catch {}
-							});
-						} catch {}
-						document.dispatchEvent(new CustomEvent("combat:timelineEnded"));
+				// Start combat timer. When it expires, stop spawning,
+				// hide the heart and restore UI/playfield to pre-fight state.
+				try {
+					if (combatTimer) {
+						clearTimeout(combatTimer);
+						combatTimer = null;
 					}
-					combatTimer = null;
-				}, COMBAT_DURATION_MS);
-			} catch {}
+					combatTimer = window.setTimeout(() => {
+						try {
+							stopSpawning(); // clears entities and dispatches game:spawningStopped
+						} catch {}
+						if (!isGameFinished()) {
+							try {
+								heart.style.visibility = "hidden";
+								setHeartActive(false);
+								document.dispatchEvent(new CustomEvent("player:heartHidden"));
+								// restore playfield size to initial
+								playfield.style.width = `${PLAYFIELD_INITIAL_WIDTH}px`;
+								playfield.style.height = `${PLAYFIELD_INITIAL_HEIGHT}px`;
+								import("./debug.ts").then((dbg) => {
+									try {
+										dbg.playfieldWidth = PLAYFIELD_INITIAL_WIDTH;
+										dbg.playfieldHeight = PLAYFIELD_INITIAL_HEIGHT;
+										if (typeof dbg.applyPlayfieldSize === "function")
+											dbg.applyPlayfieldSize();
+									} catch {}
+								});
+							} catch {}
+							document.dispatchEvent(new CustomEvent("combat:timelineEnded"));
+						}
+						combatTimer = null;
+					}, COMBAT_DURATION_MS);
+				} catch {}
+			}
 		});
 	}
 
@@ -731,16 +771,47 @@ loadSvg().then(() => {
 				const retry = document.getElementById("retry-button");
 				if (retry instanceof HTMLElement) {
 					retry.focus();
-					retry.addEventListener("click", () => {
-						window.location.reload();
-					});
+					retry.addEventListener(
+						"click",
+						() => {
+							window.location.reload();
+						},
+						{ once: true },
+					);
 				}
 			});
 
-			// Allow pressing 'R' or confirm key to retry when gameover overlay is visible
+			// GAME CLEAR overlay（敵全滅時の表示）
+			document.addEventListener("gameclear", () => {
+				pendingShowHeart = false;
+				const overlay = document.getElementById("gameclear-overlay");
+				if (!overlay) return;
+				overlay.setAttribute("aria-hidden", "false");
+				const button = document.getElementById("gameclear-button");
+				if (button instanceof HTMLElement) {
+					button.focus();
+					button.addEventListener(
+						"click",
+						() => {
+							window.location.reload();
+						},
+						{ once: true },
+					);
+				}
+			});
+
+			// Allow pressing 'R' or confirm key to reload when any end overlay is visible
 			document.addEventListener("keydown", (e) => {
-				const overlay = document.getElementById("gameover-overlay");
-				if (!overlay || overlay.getAttribute("aria-hidden") !== "false") return;
+				const overlays = [
+					document.getElementById("gameover-overlay"),
+					document.getElementById("gameclear-overlay"),
+				];
+				const visible = overlays.find(
+					(ov): ov is HTMLElement =>
+						ov instanceof HTMLElement &&
+						ov.getAttribute("aria-hidden") === "false",
+				);
+				if (!visible) return;
 				const key = e.key;
 
 				// スペースキーを無効化（ブラウザのデフォルト動作を防ぐ）
@@ -1043,8 +1114,8 @@ loadSvg().then(() => {
 					}
 				});
 				document.addEventListener("game:spawningStopped", () => {
-					// Only re-enable if not in game over state
-					if (!isGameOver) {
+					// ゲームが終了していない場合のみ再有効化
+					if (!isGameFinished()) {
 						navEnabled = true;
 						actionEnabled = true;
 						buttons.forEach((b) => {
@@ -1053,6 +1124,14 @@ loadSvg().then(() => {
 						});
 					}
 				}); // disable action activation when heart becomes visible (combat started)
+				document.addEventListener("gameclear", () => {
+					navEnabled = false;
+					actionEnabled = false;
+					buttons.forEach((b) => {
+						if (b instanceof HTMLButtonElement) b.disabled = true;
+						b.classList.add("disabled");
+					});
+				});
 				document.addEventListener("player:heartShown", () => {
 					actionEnabled = false;
 					buttons.forEach((b) => {
@@ -1088,7 +1167,7 @@ loadSvg().then(() => {
 
 		// When the heart is hidden (combat ended), restore the player overlay
 		document.addEventListener("player:heartHidden", () => {
-			if (isGameOver) return;
+			if (isGameFinished()) return;
 			try {
 				const overlay = document.getElementById("player-overlay");
 				if (overlay instanceof HTMLElement) {

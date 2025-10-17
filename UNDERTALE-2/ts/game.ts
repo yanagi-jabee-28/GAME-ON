@@ -5,6 +5,8 @@
  * - エンティティの出現（スポーン）シナリオ
  * - 敵シンボルの表示管理
  */
+
+import { SPAWN_CONFIG } from "./config.ts";
 import { DIRECTION_MAP, PLAYFIELD_SIZE_STEP } from "./constants.ts";
 import {
 	changePlayfieldSize,
@@ -108,8 +110,9 @@ export const startGameLoop = (playfield: HTMLElement) => {
 		console.log("Game stop received - stopping loop and spawn timer");
 	};
 
-	// 'gamestop' イベントを一度だけリッスン
+	// 'gamestop' および 'gameclear' でゲームループを停止する
 	document.addEventListener("gamestop", onGameStop, { once: true });
+	document.addEventListener("gameclear", onGameStop, { once: true });
 
 	/** ゲームオーバーになったときの処理 */
 	const onGameOver = () => {
@@ -239,8 +242,8 @@ export const startDemoScenario = (
 		const edgeLabel = edges[Math.floor(Math.random() * edges.length)] ?? "top";
 		const speed = 80 + Math.random() * 60;
 
-		// 一定確率でブラスター攻撃を発生させる
-		if (Math.random() < 0.18) {
+		// ブラスター出現を SPAWN_CONFIG に従って判定
+		if (Math.random() < (SPAWN_CONFIG?.blasterChance ?? 0.18)) {
 			const hue = Math.floor(Math.random() * 360);
 			spawnBlasterAttack({
 				side: edgeLabel as "top" | "right" | "bottom" | "left",
@@ -284,19 +287,34 @@ export const startDemoScenario = (
 			y: (vector.y / vectorLength) * speed,
 		};
 
+		// 図形の重み付きサンプリングによる形状選択
+		const weights = SPAWN_CONFIG?.entityShapeWeights ?? {
+			circle: 40,
+			square: 25,
+			triangle: 20,
+			star: 15,
+		};
+		const shape = (() => {
+			const entries = Object.entries(weights);
+			const total = entries.reduce((s, [, w]) => s + Number(w), 0);
+			let r = Math.random() * total;
+			for (const [k, w] of entries) {
+				r -= Number(w);
+				if (r <= 0) return k as "circle" | "square" | "triangle" | "star";
+			}
+			return entries[entries.length - 1][0] as
+				| "circle"
+				| "square"
+				| "triangle"
+				| "star";
+		})();
+
 		// ランダムなプロパティでエンティティを生成
 		spawnEntity({
 			position,
 			velocity,
 			size: 20 + Math.random() * 16,
-			shape:
-				Math.random() > 0.5
-					? "circle"
-					: Math.random() > 0.5
-						? "square"
-						: Math.random() > 0.5
-							? "star"
-							: "triangle",
+			shape: shape,
 			color: `hsl(${Math.floor(Math.random() * 360)} 80% 60%)`,
 			rotationSpeed: (Math.random() - 0.5) * Math.PI,
 		});

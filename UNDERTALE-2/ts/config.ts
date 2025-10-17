@@ -146,15 +146,32 @@ export const BLASTER_CONFIG = {
 	/** ブラスターが与えるダメージ量 */
 	damage: 2,
 	/** 予兆表示時間 (ミリ秒) */
-	telegraphDurationMs: 600,
+	telegraphDurationMs: 1000,
 	/** 本体の滞在時間 (ミリ秒)。0.5秒 = 500ms 以上に設定し、再ヒットを許可 */
-	beamDurationMs: 600,
+	beamDurationMs: 500,
 	/** ビームの太さ (ピクセル) */
-	thickness: 80,
+	thickness: 40,
 	/** ビームおよび予兆の基本色 */
 	color: "hsla(44 98% 68% / 1)",
 	/** 衝突時に自動で削除しない */
 	removeOnHit: false,
+} as const;
+
+/**
+ * スポーン確率に関する設定
+ * - blasterChance: ブラスター攻撃を選ぶ確率 (0.0 - 1.0)
+ * - entityShapeWeights: 円/四角/三角/星 等の出現重み (相対値)
+ */
+export const SPAWN_CONFIG = {
+	/** ブラスターが選ばれる確率 (0.0 - 1.0) */
+	blasterChance: 0.9,
+	/** 図形エンティティの出現重み。キーは shape 名、値は相対重み */
+	entityShapeWeights: {
+		circle: 40,
+		square: 25,
+		triangle: 20,
+		star: 15,
+	},
 } as const;
 
 /**
