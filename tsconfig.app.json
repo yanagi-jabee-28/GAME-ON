@@ -7,10 +7,9 @@
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
 		"composite": true,
 		"baseUrl": ".",
-		"paths": {
-			"vite/client": ["types/vite/client"]
-		},
-		"typeRoots": ["./types", "./node_modules/@types"],
+		"types": ["vite/client"],
+
+		// "typeRoots": ["./types", "./node_modules/@types"],
 		"skipLibCheck": true,
 		"allowJs": true,
 		"checkJs": true,
