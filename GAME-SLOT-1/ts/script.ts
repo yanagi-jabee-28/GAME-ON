@@ -1232,15 +1232,25 @@ class SlotGame implements SlotGameInstance {
 						ae.isContentEditable)
 				)
 					return;
+				let reelIndex = -1;
 				if (e.key === "1") {
 					e.preventDefault();
-					this.handleManualStopButton(0);
+					reelIndex = 0;
 				} else if (e.key === "2") {
 					e.preventDefault();
-					this.handleManualStopButton(1);
+					reelIndex = 1;
 				} else if (e.key === "3") {
 					e.preventDefault();
-					this.handleManualStopButton(2);
+					reelIndex = 2;
+				}
+				if (reelIndex >= 0) {
+					this.handleManualStopButton(reelIndex);
+					// キー押下後にボタンからフォーカスを外して「押されたまま」の見た目を防止
+					const btns = this.ui.elements.stopBtns || [];
+					const btn = btns[reelIndex];
+					if (btn instanceof HTMLButtonElement) {
+						btn.blur();
+					}
 				}
 			}
 		});

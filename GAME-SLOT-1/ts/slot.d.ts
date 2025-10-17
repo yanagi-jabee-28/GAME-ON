@@ -73,10 +73,20 @@ export interface SlotGameConfig {
 		position?: "top" | "middle" | "bottom";
 	}>;
 	targetActivationProbability: number;
-	winActivationProbability?: number; // alias for targetActivationProbability
-	winHorizontalProbability: number;
-	winDiagonalProbability?: number; // alias for twinDiagonalProbability
-	twinDiagonalProbability: number;
+	
+	// 新しい簡単設定（v2）
+	winProbability?: number; // 全体の当たり確率 0.0-1.0
+	winTypeRatio?: {
+		horizontal: number; // 水平ラインの割合
+		diagonal: number;   // 斜めラインの割合
+	};
+	
+	// 以下は自動計算される（直接設定も可能だが非推奨）
+	winActivationProbability?: number; // 旧式：後方互換用
+	winHorizontalProbability?: number; // 自動計算: winProbability * winTypeRatio.horizontal
+	winDiagonalProbability?: number;   // 自動計算: winProbability * winTypeRatio.diagonal
+	twinDiagonalProbability?: number;  // 自動計算: winProbability * winTypeRatio.diagonal
+	
 	autoStopTimeRandomness?: number;
 	winSymbolWeights: Record<ReelSymbol, number>;
 	winRowMode: "top" | "middle" | "bottom" | "random";

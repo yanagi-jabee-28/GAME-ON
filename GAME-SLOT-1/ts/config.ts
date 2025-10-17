@@ -105,7 +105,7 @@ const gameConfig = {
 	//       `winSymbolWeights`とは役割が異なります。
 	//       重みが大きいほど、そのシンボルが選ばれやすくなります。
 	symbolProbabilities: [
-		{ symbol: "7️⃣", weight: 100000 },
+		{ symbol: "7️⃣", weight: 1 },
 		{ symbol: "BAR", weight: 10 },
 		{ symbol: "💎", weight: 15 },
 		{ symbol: "🍉", weight: 20 },
@@ -161,25 +161,48 @@ const gameConfig = {
 
 	// `stopTargets`の設定を有効にする確率 (0.0 ~ 1.0)。
 	// 1.0にすると常に狙い撃ちを試みます。開発中のテストに便利です。
-	targetActivationProbability: 1,
+	targetActivationProbability: 0,
 
 	// --- 当たり演出制御 ---
-	// 備考: ここで設定した確率で、水平または斜めの当たり演出が発動します。
-	winHorizontalProbability: 1.0, // 当たりを100%にするため水平当たり確率を100%に設定
-	winDiagonalProbability: 0.0, // 斜めラインは無効化して水平当たりを確実にする
-	// 互換性のため、twinDiagonalProbability を同様に用意
-	twinDiagonalProbability: 0.0,
+	// ========================================
+	// 【簡単設定】当たり確率を直感的に設定
+	// ========================================
+	// 全体の当たり確率（0.0 ~ 1.0）
+	// 例: 0.1 = 10%で当たり、0.5 = 50%で当たり、1.0 = 100%必ず当たり
+	// 
+	// 💡 設定例:
+	//    winProbability: 0.2   → 20%の確率で当たり（通常のスロット）
+	//    winProbability: 0.5   → 50%の確率で当たり（当たりやすい）
+	//    winProbability: 1.0   → 100%必ず当たり（現在の設定・テスト用）
+	winProbability: 0.5,
+	
+	// 当たりの種類の割合（合計が1.0になるように設定）
+	// 水平ラインと斜めラインの比率を指定します
+	// 
+	// 💡 設定例:
+	//    { horizontal: 1.0, diagonal: 0.0 } → 水平ラインのみ（現在の設定）
+	//    { horizontal: 0.7, diagonal: 0.3 } → 水平70%、斜め30%
+	//    { horizontal: 0.5, diagonal: 0.5 } → 水平と斜め半々
+	//    { horizontal: 0.0, diagonal: 1.0 } → 斜めラインのみ
+	winTypeRatio: {
+		horizontal: 0.5, // 水平ラインの割合
+		diagonal: 0.5,   // 斜めラインの割合
+	},
 
-	/* --- (旧方式: 後方互換のための参考) ---
-	 * かつては水平/斜めの区別がなく、単一の発動確率で制御していました。
-	 * 二軸化により挙動が分かりやすくなったため非推奨です。
-	 * 例: // winActivationProbability: 0.5,
-	 */
+	// ========================================
+	// 【詳細設定】以下は自動計算されます
+	// ========================================
+	// 備考: winProbability と winTypeRatio から自動的に計算されるため、
+	//       以下の値は手動で変更しないでください。
+	//       変更しても、起動時に上書きされます。
+	// winHorizontalProbability: (自動計算: winProbability * winTypeRatio.horizontal)
+	// winDiagonalProbability:   (自動計算: winProbability * winTypeRatio.diagonal)
+	// twinDiagonalProbability:  (自動計算: winProbability * winTypeRatio.diagonal)
 
 	// 当たり演出時に、どの絵柄を揃えるかの重み付け。
 	// `symbolProbabilities`とは異なり、当たりが確定した際に使用されます。
 	winSymbolWeights: {
-		"7️⃣": 100000,
+		"7️⃣": 1,
 		BAR: 10,
 		"💎": 15,
 		"🍉": 20,
@@ -264,6 +287,39 @@ const gameConfig = {
 		},
 	},
 };
+
+/* ------------------------------------------------------------------
+ * 以下: 簡単設定から詳細設定への自動計算
+ * winProbability と winTypeRatio から、実際の確率値を計算します。
+ * ------------------------------------------------------------------ */
+(function computeWinProbabilities() {
+	const totalProb = gameConfig.winProbability || 0;
+	const ratio = gameConfig.winTypeRatio || { horizontal: 1, diagonal: 0 };
+	const total = (ratio.horizontal || 0) + (ratio.diagonal || 0);
+	
+	// 比率の合計が0の場合は警告を出してデフォルト値を使用
+	if (total === 0) {
+		console.warn('[SlotConfig] winTypeRatio の合計が0です。デフォルト値（水平100%）を使用します。');
+		(gameConfig as any).winHorizontalProbability = totalProb;
+		(gameConfig as any).winDiagonalProbability = 0;
+		(gameConfig as any).twinDiagonalProbability = 0;
+		return;
+	}
+	
+	// 正規化した比率を使って確率を計算
+	const horizRatio = (ratio.horizontal || 0) / total;
+	const diagRatio = (ratio.diagonal || 0) / total;
+	
+	(gameConfig as any).winHorizontalProbability = totalProb * horizRatio;
+	(gameConfig as any).winDiagonalProbability = totalProb * diagRatio;
+	(gameConfig as any).twinDiagonalProbability = totalProb * diagRatio;
+	
+	// 計算結果をコンソールに表示（設定確認用）
+	console.log('[SlotConfig] 🎰 当たり確率設定:');
+	console.log(`  📊 全体の当たり確率: ${(totalProb * 100).toFixed(1)}%`);
+	console.log(`  ➡️  水平ライン: ${((gameConfig as any).winHorizontalProbability * 100).toFixed(1)}%`);
+	console.log(`  ↘️  斜めライン: ${((gameConfig as any).winDiagonalProbability * 100).toFixed(1)}%`);
+})();
 
 /* ------------------------------------------------------------------
  * 以下: winSymbolWeights の逆数比から payoutTable を計算して
