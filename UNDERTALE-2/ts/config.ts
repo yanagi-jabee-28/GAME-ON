@@ -126,7 +126,7 @@ export function getAttackRank(
  */
 export const ENTITY_CONFIG = {
 	/** エンティティが与えるダメージ量 */
-	damage: 10,
+	damage: 2,
 	/** エンティティの寿命 (秒) */
 	lifetime: 4.5,
 	/** 消滅前のフェードアウト時間 (秒) */
