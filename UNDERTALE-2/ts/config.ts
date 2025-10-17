@@ -144,7 +144,7 @@ export const ENTITY_CONFIG = {
  */
 export const BLASTER_CONFIG = {
 	/** ブラスターが与えるダメージ量 */
-	damage: 18,
+	damage: 2,
 	/** 予兆表示時間 (ミリ秒) */
 	telegraphDurationMs: 600,
 	/** 本体の滞在時間 (ミリ秒)。0.5秒 = 500ms 以上に設定し、再ヒットを許可 */
