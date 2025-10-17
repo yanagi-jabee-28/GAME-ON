@@ -308,7 +308,7 @@ export const updateEntities = (
 		const originalSpeed = Math.hypot(entity.velocity.x, entity.velocity.y);
 
 		// ホーミング（追尾）ロジック
-		if (homingEnabled && originalSpeed > 0) {
+		if (homingEnabled && originalSpeed > 0 && entity.shape !== "beam") {
 			const { x: playerX, y: playerY } = getPlayerPosition();
 			const playerCenterX = playerX + getHeartElement().clientWidth / 2;
 			const playerCenterY = playerY + getHeartElement().clientHeight / 2;

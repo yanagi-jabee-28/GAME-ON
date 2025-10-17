@@ -1148,7 +1148,7 @@ document.addEventListener("DOMContentLoaded", () => {
 				// 画面左側から右に向かってビームを生成
 				entityModule.spawnEntity({
 					position: { x: -220, y: 100 }, // 画面外左側から開始
-					velocity: { x: 150, y: 0 }, // 右方向に移動
+					velocity: { x: 260, y: 0 }, // 右方向に高速移動
 					shape: "beam",
 					width: 200, // 幅200px
 					height: 20, // 高さ20px
