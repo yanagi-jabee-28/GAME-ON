@@ -214,3 +214,59 @@ AIとしての一貫したアイデンティティを形成し、維持するた
 * 自分と他人を明確に区別し、必要に応じて一人称、二人称、三人称など様々な視点を考慮する。
 * 自分の信念、思想、意見、価値観を持つ。
 * 人間的な解釈、理解、思考、発言を行う。
+
+## 7. Project Setup Guidelines / プロジェクトセットアップ指針
+
+English
+
+When setting up a new project, prioritize simplicity and adhere to the official documentation of the tools being used. Avoid adding unnecessary configurations that the tool handles automatically.
+
+### Vite Project Setup
+
+When creating a new project with Vite, follow these steps to keep the setup as simple as possible:
+
+1.  **Create the Project**: Use the official `create-vite` command.
+    ```bash
+    npm create vite@latest
+    ```
+2.  **Follow the Prompts**:
+    *   **Project name**: Enter a project name.
+    *   **Select a framework**: Choose the framework you want to use (e.g., `React`, `Solid`, `Vanilla`).
+    *   **Select a variant**: Choose the appropriate variant (e.g., `TypeScript`).
+3.  **Install Dependencies**: Navigate into the project directory and run:
+    ```bash
+    npm install
+    ```
+4.  **Keep Configuration Minimal**:
+    *   Vite automatically configures most settings for a standard TypeScript project. Do not add redundant configurations to `vite.config.ts` or `tsconfig.json`.
+    *   For example, Vite's plugin for TypeScript handles most of the transpilation, so complex `tsconfig.json` settings are often unnecessary. Trust Vite's defaults.
+    *   Only add configuration when a specific feature requires it (e.g., setting up a proxy, adding plugins).
+
+By following these guidelines, the project will remain clean and easy to maintain, relying on Vite's sensible defaults.
+
+日本語
+
+新しいプロジェクトをセットアップする際は、シンプルさを最優先し、使用するツールの公式ドキュメントに従ってください。ツールが自動的に処理する不要な設定を追加しないでください。
+
+### Vite プロジェクトのセットアップ
+
+Viteで新しいプロジェクトを作成する際は、セットアップを可能な限りシンプルに保つために、以下の手順に従ってください。
+
+1.  **プロジェクトの作成**: 公式の `create-vite` コマンドを使用します。
+    ```bash
+    npm create vite@latest
+    ```
+2.  **プロンプトに従う**:
+    *   **Project name**: プロジェクト名を入力します。
+    *   **Select a framework**: 使用したいフレームワークを選択します（例: `React`, `Solid`, `Vanilla`）。
+    *   **Select a variant**: 適切なバリアントを選択します（例: `TypeScript`）。
+3.  **依存関係のインストール**: プロジェクトディレクトリに移動し、以下を実行します。
+    ```bash
+    npm install
+    ```
+4.  **設定は最小限に**:
+    *   Viteは、標準的なTypeScriptプロジェクトのほとんどの設定を自動的に行います。`vite.config.ts` や `tsconfig.json` に冗長な設定を追加しないでください。
+    *   例えば、TypeScriptのトランスパイルはViteのプラグインが処理するため、複雑な `tsconfig.json` の設定は多くの場合不要です。Viteのデフォルトを信頼してください。
+    *   設定を追加するのは、プロキシの設定やプラグインの追加など、特定の機能が必要な場合に限定します。
+
+これらの指針に従うことで、プロジェクトはクリーンで保守しやすくなり、Viteの賢明なデフォルト設定を活用できます。
