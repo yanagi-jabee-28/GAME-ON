@@ -9,7 +9,8 @@ const audioFiles = Object.keys(audioModules)
 	.sort()
 	.map((k) => audioModules[k]);
 
-// 音声再生用関数
+// 再生中のAudioインスタンスを管理
+let playingAudios: HTMLAudioElement[] = [];
 // ブラウザの自動再生ポリシーに対応するため、ユーザー操作でオーディオコンテキストをアンロックする
 let audioUnlocked = false;
 async function ensureAudioUnlocked(): Promise<void> {
@@ -32,13 +33,16 @@ async function ensureAudioUnlocked(): Promise<void> {
 }
 
 function playAudio(index: number) {
-	// まずアンロックを試みる
 	ensureAudioUnlocked();
 	const audio = new Audio(audioFiles[index]);
+	playingAudios.push(audio);
 	audio.play().catch((err) => {
-		// 自動再生ポリシーでブロックされた場合、ユーザー操作を待つ
 		console.warn("Audio play blocked, will wait for user gesture", err);
 	});
+	// 再生終了時にplayingAudiosから除去
+	audio.onended = () => {
+		playingAudios = playingAudios.filter((a) => a !== audio);
+	};
 }
 
 // 各ボタンにイベントリスナーを設定
@@ -166,7 +170,11 @@ function playAudioAsync(index: number): Promise<void> {
 	return new Promise((resolve) => {
 		ensureAudioUnlocked();
 		const audio = new Audio(audioFiles[index]);
-		audio.onended = () => resolve();
+		playingAudios.push(audio);
+		audio.onended = () => {
+			playingAudios = playingAudios.filter((a) => a !== audio);
+			resolve();
+		};
 		audio.play();
 	});
 }
@@ -183,6 +191,14 @@ if (loopBtn) {
 		if (isLooping) {
 			// ループ中なら停止
 			isLooping = false;
+			// 再生中の音声を即座に停止
+			playingAudios.forEach((a) => {
+				a.pause();
+				a.currentTime = 0;
+			});
+			playingAudios = [];
+			// 停止直後にボタンテキストを即座に戻す
+			loopBtn.textContent = "ループ再生";
 		} else {
 			// ループ開始
 			loopPlay();
