@@ -6,4 +6,9 @@ import App from "./App";
 
 const root = document.getElementById("root");
 
-render(() => <App />, root!);
+// rootが存在しない場合はエラーをスローする
+if (!root) {
+	throw new Error("Root element not found");
+}
+
+render(() => <App />, root);
