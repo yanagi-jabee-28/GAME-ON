@@ -8,7 +8,7 @@
  * - UI要素（FIGHTボタンなど）へのイベント処理の紐付け
  */
 
-import { ENEMY_DATA_PRESETS } from "./config.ts";
+import { BLASTER_CONFIG, ENEMY_DATA_PRESETS } from "./config.ts";
 import {
 	ACTION_BUTTON_FONT_SIZE,
 	ATTACK_BOX_DURATION_MS,
@@ -29,42 +29,15 @@ import {
 import {
 	addEnemySymbol,
 	clearKeys,
-	damageEnemy,
-	getEnemyData,
 	getEnemySymbols,
 	handleKeyDown,
 	handleKeyUp,
-	removeEnemyData,
-	removeEnemySymbol,
 	setEnemyData,
 	startDemoScenario,
 	startGameLoop,
 	stopSpawning,
 } from "./game.ts";
 import { centerPlayer, loadSvg, setHeartActive } from "./player.ts";
-
-// Helper: render text lines into player-overlay with per-character color support
-function setOverlayTextColored(
-	overlay: HTMLElement,
-	lines: Array<string | { text: string; color?: string }>,
-): void {
-	// Build HTML with spans for each character when color is specified
-	const html = lines
-		.map((line) => {
-			if (typeof line === "string") {
-				return escapeHtml(line);
-			}
-			const chars = Array.from(line.text);
-			if (!line.color) return escapeHtml(line.text);
-			return chars
-				.map(
-					(ch) => `<span style="color:${line.color}">${escapeHtml(ch)}</span>`,
-				)
-				.join("");
-		})
-		.join("<br>");
-	overlay.innerHTML = html;
-}
 
 function setOverlayText(overlay: HTMLElement, text: string): void {
 	// preserve simple behavior
@@ -1238,7 +1211,7 @@ document.addEventListener("keydown", (event) => {
 			spawnBlasterAttack({
 				side,
 				offsetRatio,
-				thickness: event.metaKey ? 96 : 72,
+				thickness: event.metaKey ? 96 : BLASTER_CONFIG.thickness,
 			});
 			console.info(
 				`Blaster attack triggered (side=${side}, offset=${offsetRatio.toFixed(2)})`,

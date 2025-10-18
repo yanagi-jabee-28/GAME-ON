@@ -150,7 +150,7 @@ export const BLASTER_CONFIG = {
 	/** 本体の滞在時間 (ミリ秒)。0.5秒 = 500ms 以上に設定し、再ヒットを許可 */
 	beamDurationMs: 500,
 	/** ビームの太さ (ピクセル) */
-	thickness: 40,
+	thickness: 20,
 	/** ビームおよび予兆の基本色 */
 	color: "hsla(44 98% 68% / 1)",
 	/** 衝突時に自動で削除しない */
@@ -182,8 +182,8 @@ export const ENEMY_DATA_PRESETS: Record<string, EnemyData> = {
 	skull: {
 		id: "skull",
 		name: "がいこつ",
-		maxHp: 30,
-		currentHp: 30,
+		maxHp: 95,
+		currentHp: 95,
 		attack: 5,
 		defense: 0,
 		attackPatterns: ["basic"],
@@ -191,8 +191,8 @@ export const ENEMY_DATA_PRESETS: Record<string, EnemyData> = {
 	fish: {
 		id: "fish",
 		name: "さかな",
-		maxHp: 20,
-		currentHp: 20,
+		maxHp: 80,
+		currentHp: 80,
 		attack: 3,
 		defense: 2,
 		attackPatterns: ["basic"],
@@ -200,8 +200,8 @@ export const ENEMY_DATA_PRESETS: Record<string, EnemyData> = {
 	papyrus: {
 		id: "papyrus",
 		name: "パピルス",
-		maxHp: 50,
-		currentHp: 50,
+		maxHp: 80,
+		currentHp: 80,
 		attack: 8,
 		defense: 5,
 		attackPatterns: ["basic", "special"],

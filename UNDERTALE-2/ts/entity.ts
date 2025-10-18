@@ -43,6 +43,14 @@ let removeBulletsOnHit = true;
  */
 let homingEnabled = false;
 
+/** 戦闘終了後など、一時的にブラスター本体の生成を抑止するフラグ */
+let blasterSpawningSuppressed = false;
+
+/** ブラスターの生成可否を切り替えます（予兆→本体の生成を抑止） */
+export const suppressBlasterSpawns = (suppress: boolean) => {
+	blasterSpawningSuppressed = suppress;
+};
+
 /** エンティティの描画幅を取得します。widthが指定されていればそちらを優先します。 */
 const getEntityWidth = (entity: Entity) => entity.width ?? entity.size;
 
@@ -94,6 +102,37 @@ export const clearAllEntities = () => {
 	}
 	// 配列を空にする
 	entities.length = 0;
+};
+
+/**
+ * 画面上の全てのブラスター（予兆・本体）を即時に除去します。
+ * - 予兆: .blaster-telegraph を全削除
+ * - 本体: shape === "beam"（および .entity--blaster）を配列・DOMから削除
+ */
+export const removeAllBlasters = () => {
+	try {
+		const telegraphs =
+			document.querySelectorAll<HTMLElement>(".blaster-telegraph");
+		telegraphs.forEach((el) => {
+			try {
+				el.remove();
+			} catch {}
+		});
+	} catch {}
+	for (let i = entities.length - 1; i >= 0; i--) {
+		const ent = entities[i];
+		if (!ent) continue;
+		// ブラスター本体（ビーム）は shape === 'beam' として生成される
+		// 念のためクラス名でも判定
+		const isBlaster =
+			ent.shape === "beam" || ent.element.classList.contains("entity--blaster");
+		if (isBlaster) {
+			try {
+				ent.element.remove();
+			} catch {}
+			entities.splice(i, 1);
+		}
+	}
 };
 
 /**
@@ -367,6 +406,11 @@ export const spawnBlasterAttack = ({
 	const beamLifetimeSeconds = Math.max(resolvedBeamDuration, 120) / 1000;
 
 	const spawnBeam = () => {
+		// 戦闘終了などで生成抑止中なら、予兆だけ消して本体は生成しない
+		if (blasterSpawningSuppressed) {
+			if (telegraph.parentElement) telegraph.remove();
+			return;
+		}
 		if (telegraph.parentElement) telegraph.remove();
 
 		let width: number;

@@ -6,7 +6,7 @@
  * - 敵シンボルの表示管理
  */
 
-import { SPAWN_CONFIG } from "./config.ts";
+import { BLASTER_CONFIG, SPAWN_CONFIG } from "./config.ts";
 import { DIRECTION_MAP, PLAYFIELD_SIZE_STEP } from "./constants.ts";
 import {
 	changePlayfieldSize,
@@ -27,10 +27,12 @@ import {
 	detectCollisions,
 	getHomingEnabled,
 	getRemoveBulletsOnHit,
+	removeAllBlasters,
 	setHomingEnabled,
 	setRemoveBulletsOnHit,
 	spawnBlasterAttack,
 	spawnEntity,
+	suppressBlasterSpawns,
 	updateEntities,
 } from "./entity.ts";
 import { changeHeartColor, updatePlayerPosition } from "./player.ts";
@@ -225,6 +227,11 @@ export const startDemoScenario = (
 	const pf = playfield ?? document.getElementById("playfield");
 	if (!(pf instanceof HTMLElement)) return;
 
+	// 戦闘開始時はブラスター生成抑止を解除
+	try {
+		suppressBlasterSpawns(false);
+	} catch {}
+
 	// スポーンパターンを設定し、ラインを再描画
 	setSpawnPattern(pattern);
 	refreshSpawnLines();
@@ -249,7 +256,7 @@ export const startDemoScenario = (
 				side: edgeLabel as "top" | "right" | "bottom" | "left",
 				offsetRatio: Math.random(),
 				color: `hsla(${hue} 92% 68% / 1)`,
-				thickness: 60 + Math.random() * 30,
+				thickness: BLASTER_CONFIG.thickness,
 				beamDurationMs: 1100,
 			});
 			return;
@@ -339,6 +346,13 @@ export const stopSpawning = () => {
 		} catch (err) {
 			console.error("Failed to clear entities on stopSpawning", err);
 		}
+		// 攻撃時間終了時は、残存するブラスターを即時除去し、以降のブラスター生成を抑止
+		try {
+			removeAllBlasters();
+		} catch {}
+		try {
+			suppressBlasterSpawns(true);
+		} catch {}
 	}
 };
 
