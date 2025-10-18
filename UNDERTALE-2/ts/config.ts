@@ -164,7 +164,7 @@ export const BLASTER_CONFIG = {
  */
 export const SPAWN_CONFIG = {
 	/** ブラスターが選ばれる確率 (0.0 - 1.0) */
-	blasterChance: 0.9,
+	blasterChance: 0.7,
 	/** 図形エンティティの出現重み。キーは shape 名、値は相対重み */
 	entityShapeWeights: {
 		circle: 40,
@@ -200,7 +200,7 @@ export const ENEMY_DATA_PRESETS: Record<string, EnemyData> = {
 	papyrus: {
 		id: "papyrus",
 		name: "パピルス",
-		maxHp: 80,
+		maxHp: 99,
 		currentHp: 80,
 		attack: 8,
 		defense: 5,

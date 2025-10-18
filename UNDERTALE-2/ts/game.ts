@@ -25,6 +25,7 @@ import {
 import {
 	clearAllEntities,
 	detectCollisions,
+	getEntities,
 	getHomingEnabled,
 	getRemoveBulletsOnHit,
 	removeAllBlasters,
@@ -327,8 +328,41 @@ export const startDemoScenario = (
 		});
 	};
 
+	// 既存のブラスターが存在する場合、追加でブラスターが出現する可能性を追加
+	const trySpawnAdditionalBlaster = () => {
+		const activeBlasters = getEntities().filter(
+			(ent) =>
+				ent.shape === "beam" ||
+				ent.element.classList.contains("entity--blaster"),
+		);
+		const blasterCount = activeBlasters.length;
+
+		// 既存ブラスター数に応じて追加確率を設定（0個: 0%, 1個: 15%, 2個以上: 8%）
+		let additionalChance = 0;
+		if (blasterCount === 1) additionalChance = 0.15;
+		else if (blasterCount >= 2) additionalChance = 0.08;
+
+		if (Math.random() < additionalChance) {
+			const edges = PATTERN_EDGE_MAP[currentPattern];
+			const edgeLabel =
+				edges[Math.floor(Math.random() * edges.length)] ?? "top";
+			const hue = Math.floor(Math.random() * 360);
+
+			spawnBlasterAttack({
+				side: edgeLabel as "top" | "right" | "bottom" | "left",
+				offsetRatio: Math.random(),
+				color: `hsla(${hue} 92% 68% / 1)`,
+				thickness: BLASTER_CONFIG.thickness,
+				beamDurationMs: 1100,
+			});
+		}
+	};
+
 	// 一定間隔で spawnOnce を呼び出すタイマーを設定
-	activeSpawnTimer = window.setInterval(spawnOnce, 1600);
+	activeSpawnTimer = window.setInterval(() => {
+		spawnOnce();
+		trySpawnAdditionalBlaster();
+	}, 1600);
 	// UIにスポーンが開始したことを通知
 	document.dispatchEvent(new CustomEvent("game:spawningStarted"));
 };
