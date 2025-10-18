@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ja">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Intro Audio Player</title>
+		<style>
+			body {
+				font-family: Arial, sans-serif;
+				text-align: center;
+				padding: 20px;
+			}
+			button {
+				padding: 10px 20px;
+				font-size: 16px;
+				cursor: pointer;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Intro Audio Player</h1>
+		<p>四国めたんの紹介音声を順番に再生します。</p>
+		<button id="playButton">再生開始</button>
+		<button id="stopButton">停止</button>
+		<button id="loopToggle">ループ: OFF</button>
+		<audio id="audioPlayer"></audio>
+
+		<script>
+			// オーディオファイルのリスト（将来の拡張用に配列で管理）
+			const audioFiles = [
+				"intro/assets/001_四国めたん（ノーマル）_こちらは、5Eのク….wav",
+				"intro/assets/002_四国めたん（ノーマル）_5Eでは創造工学実….wav",
+				"intro/assets/003_四国めたん（ノーマル）_創造工学実習とは、….wav",
+				"intro/assets/004_四国めたん（ノーマル）_それぞれの想像力を….wav",
+				"intro/assets/005_四国めたん（ノーマル）_ぜひお楽しみくださ….wav",
+			];
+
+			let currentIndex = 0;
+			let isLooping = false; // ループフラグ（将来拡張用）
+			const audioPlayer = document.getElementById("audioPlayer");
+			const playButton = document.getElementById("playButton");
+			const stopButton = document.getElementById("stopButton");
+			const loopToggle = document.getElementById("loopToggle");
+
+			// 再生開始ボタン
+			playButton.addEventListener("click", () => {
+				currentIndex = 0; // 最初から再生
+				playNext();
+			});
+
+			// 停止ボタン
+			stopButton.addEventListener("click", () => {
+				audioPlayer.pause();
+				audioPlayer.currentTime = 0;
+				currentIndex = 0;
+			});
+
+			// ループトグルボタン（将来拡張用）
+			loopToggle.addEventListener("click", () => {
+				isLooping = !isLooping;
+				loopToggle.textContent = `ループ: ${isLooping ? "ON" : "OFF"}`;
+			});
+
+			// 次のオーディオを再生する関数
+			function playNext() {
+				if (currentIndex < audioFiles.length) {
+					audioPlayer.src = audioFiles[currentIndex];
+					audioPlayer.play();
+					currentIndex++;
+				} else {
+					if (isLooping) {
+						currentIndex = 0; // ループ時は最初に戻る
+						playNext();
+					} else {
+						alert("すべての音声が再生されました。");
+					}
+				}
+			}
+
+			// オーディオが終了したら次のものを再生
+			audioPlayer.addEventListener("ended", () => {
+				playNext();
+			});
+		</script>
+	</body>
+</html>
