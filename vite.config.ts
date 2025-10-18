@@ -11,6 +11,7 @@ export default defineConfig({
 		rollupOptions: {
 			input: {
 				main: resolve(__dirname, "index.html"),
+				intro: resolve(__dirname, "intro/index.html"),
 				"GAME-DICE-1": resolve(__dirname, "GAME-DICE-1/index.html"),
 				"GAME-SLOT-1": resolve(__dirname, "GAME-SLOT-1/index.html"),
 				"CC-LEMON-1": resolve(__dirname, "CC-LEMON-1/index.html"),
