@@ -9,7 +9,7 @@ import {
 	type ParentProps,
 	useContext,
 } from "solid-js";
-import type { Operation } from "../the-ten/logic/calculation";
+import type { OperationDefinition } from "../the-ten/config";
 
 // 配置先を表す型と、enum風の定数をエクスポート
 export const OperationPlace = {
@@ -20,14 +20,18 @@ export const OperationPlace = {
 export type OperationPlace =
 	(typeof OperationPlace)[keyof typeof OperationPlace];
 
+type OperationEntry<Ids extends number> = {
+	id: Ids;
+} & OperationDefinition;
+
 export type OperationSlotsApi<Ids extends number> = {
 	leftId: Accessor<Ids | null>;
 	rightId: Accessor<Ids | null>;
 	reserveIds: Accessor<Ids[]>;
 
-	leftOperation: Accessor<{ id: Ids; name: string; op: Operation } | null>;
-	rightOperation: Accessor<{ id: Ids; name: string; op: Operation } | null>;
-	reserveOperations: Accessor<Array<{ id: Ids; name: string; op: Operation }>>;
+	leftOperation: Accessor<OperationEntry<Ids> | null>;
+	rightOperation: Accessor<OperationEntry<Ids> | null>;
+	reserveOperations: Accessor<Array<OperationEntry<Ids>>>;
 
 	moveTo: (id: Ids, place: OperationPlace) => boolean;
 	reset: () => void;
@@ -52,7 +56,7 @@ export type OperationSlotsApi<Ids extends number> = {
  * slots.swap(); // 左右を入れ替え
  */
 const createOperationSlots = <Ids extends number>(
-	operations: Record<Ids, { name: string; op: Operation }>,
+	operations: Record<Ids, OperationDefinition>,
 	initial?: { left?: Ids | null; right?: Ids | null },
 ): OperationSlotsApi<Ids> => {
 	// operationsからID一覧を取り出して昇順に整列
@@ -118,7 +122,7 @@ const createOperationSlots = <Ids extends number>(
 			});
 			return true;
 		}
-    // リザーブ
+		// リザーブ
 		if (current === OperationPlace.Left) setLeftId(() => null);
 		else if (current === OperationPlace.Right) setRightId(() => null);
 		return true;
@@ -162,7 +166,7 @@ export function useOperationSlots<
 
 export function OperationSlotsProvider<Ids extends number>(
 	props: ParentProps<{
-		operations: Record<Ids, { name: string; op: Operation }>;
+		operations: Record<Ids, OperationDefinition>;
 		initial?: { left?: Ids | null; right?: Ids | null };
 	}>,
 ): JSX.Element {

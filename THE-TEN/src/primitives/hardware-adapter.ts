@@ -160,8 +160,11 @@ export const createDisplay = (
 	};
 };
 
-export const createOperationInput = <Ids extends number>(
-	operations: Record<Ids, { name: string; op: Operation }>,
+export const createOperationInput = <
+	Ids extends number,
+	Def extends { op: Operation },
+>(
+	operations: Record<Ids, Def>,
 ): IOperationReader & {
 	operationId: Accessor<Ids | null>;
 	setOperationId: Setter<Ids | null>;

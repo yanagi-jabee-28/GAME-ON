@@ -22,12 +22,15 @@ export const PIN_BUTTON = 18;
 export const PIN_CORRECT_LED = 20;
 export const PIN_WRONG_LED = 19;
 
-export const OPERATIONS: Record<number, {
+export type OperationDefinition = {
 	name: string;
+	symbol: string;
 	op: Operation;
-}> = {
-	1: { name: "ADD", op: add }, // 0b001
-	2: { name: "SUBTRACT", op: subtract }, // 0b010
-	4: { name: "MULTIPLY", op: multiply }, // 0b100
-	5: { name: "DIVIDE", op: divide }, // 0b101
+};
+
+export const OPERATIONS: Record<number, OperationDefinition> = {
+	1: { name: "ADD", symbol: "+", op: add }, // 0b001
+	2: { name: "SUBTRACT", symbol: "-", op: subtract }, // 0b010
+	4: { name: "MULTIPLY", symbol: "*", op: multiply }, // 0b100
+	5: { name: "DIVIDE", symbol: "/", op: divide }, // 0b101
 };
