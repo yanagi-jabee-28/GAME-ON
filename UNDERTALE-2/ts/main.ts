@@ -213,6 +213,28 @@ loadSvg().then(() => {
 		"#action-menu .action-button:first-of-type",
 	) as HTMLButtonElement | null;
 
+	// MERCY（見逃す）ボタン: 押したら無条件でゲームクリア
+	const mercyBtn = document.querySelector(
+		"#action-menu .action-button:nth-of-type(4)",
+	) as HTMLButtonElement | null;
+	if (mercyBtn) {
+		mercyBtn.addEventListener("click", () => {
+			if (isGameFinished()) return;
+			// 二重起動防止のため全ボタンを即時無効化
+			try {
+				const allButtons = Array.from(
+					document.querySelectorAll("#action-menu .action-button"),
+				) as (HTMLElement | HTMLButtonElement)[];
+				allButtons.forEach((b) => {
+					if (b instanceof HTMLButtonElement) b.disabled = true;
+					b.classList.add("disabled");
+				});
+			} catch {}
+			// 無条件でゲームクリア処理へ
+			handleGameClear();
+		});
+	}
+
 	if (fightBtn && attackBox) {
 		fightBtn.addEventListener("click", async () => {
 			try {

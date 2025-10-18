@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="ja">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<title>創造工学実験 - シラバス</title>
+		<style>
+			:root {
+				--bg: #f8fafc;
+				--card: #ffffff;
+				--muted: #64748b;
+				--accent: #3b82f6;
+				--accent-2: #2563eb;
+				--glass: rgba(0, 0, 0, 0.04);
+			}
+			html,
+			body {
+				height: 100%;
+			}
+			body {
+				font-family:
+					"Noto Sans JP",
+					ui-sans-serif,
+					system-ui,
+					-apple-system,
+					"Segoe UI",
+					Roboto,
+					"Helvetica Neue",
+					Arial;
+				line-height: 1.6;
+				background: var(--bg);
+				color: #1e293b;
+				padding: 32px;
+			}
+			.container {
+				max-width: 900px;
+				margin: 0 auto;
+			}
+			header {
+				display: flex;
+				gap: 16px;
+				align-items: center;
+				margin-bottom: 20px;
+			}
+			.title {
+				font-size: 28px;
+				font-weight: 700;
+				letter-spacing: -0.02em;
+			}
+			.subtitle {
+				color: var(--muted);
+				font-size: 13px;
+			}
+			.card {
+				background: var(--card);
+				border-radius: 12px;
+				padding: 22px;
+				margin-bottom: 18px;
+				box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+				border: 1px solid rgba(0, 0, 0, 0.05);
+			}
+			h2 {
+				margin-top: 6px;
+				margin-bottom: 12px;
+				color: var(--accent-2);
+			}
+			table {
+				width: 100%;
+				border-collapse: collapse;
+				margin: 8px 0;
+				font-size: 14px;
+			}
+			td,
+			th {
+				padding: 10px;
+				border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+			}
+			th {
+				background: rgba(0, 0, 0, 0.02);
+				text-align: left;
+			}
+			.grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 12px;
+			}
+			.badge {
+				display: inline-block;
+				background: var(--glass);
+				border-radius: 999px;
+				padding: 6px 10px;
+				font-size: 13px;
+				color: var(--muted);
+				border: 1px solid rgba(0, 0, 0, 0.05);
+			}
+			.section-title {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
+			.rubric {
+				overflow: auto;
+			}
+			.timeline {
+				border-left: 3px solid rgba(0, 0, 0, 0.05);
+				padding-left: 14px;
+				margin-left: 6px;
+			}
+			.week {
+				margin-bottom: 10px;
+			}
+			.footer {
+				font-size: 13px;
+				color: var(--muted);
+				margin-top: 18px;
+			}
+			@media (max-width: 720px) {
+				.grid {
+					grid-template-columns: 1fr;
+				}
+				.container {
+					padding: 0 12px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<header>
+				<div>
+					<div class="title">創造工学実験</div>
+					<div class="subtitle">長野工業高等専門学校 — 令和06年度</div>
+				</div>
+				<div style="margin-left: auto; text-align: right">
+					<div class="badge">科目番号: 0038</div>
+					<div style="height: 6px"></div>
+					<div class="badge">履修単位: 4</div>
+				</div>
+			</header>
+
+			<section class="card">
+				<div class="section-title">
+					<h2>基礎情報</h2>
+					<div class="badge">専門 / 必修</div>
+				</div>
+				<table>
+					<tr>
+						<th>学校</th>
+						<td>長野工業高等専門学校</td>
+					</tr>
+					<tr>
+						<th>開講年度</th>
+						<td>令和06年度 (2024年度)</td>
+					</tr>
+					<tr>
+						<th>授業科目</th>
+						<td>創造工学実験</td>
+					</tr>
+					<tr>
+						<th>授業形態</th>
+						<td>実験・実習</td>
+					</tr>
+					<tr>
+						<th>開設学科 / 対象学年</th>
+						<td>電気電子工学科 / 4年</td>
+					</tr>
+					<tr>
+						<th>開設期 / 週時間数</th>
+						<td>通年 / 4時間</td>
+					</tr>
+					<tr>
+						<th>担当教員</th>
+						<td>渡辺 誠一, 春日 貴志, 百瀬 成空</td>
+					</tr>
+				</table>
+			</section>
+
+			<section class="card">
+				<h2>到達目標</h2>
+				<p>
+					学習・教育目標
+					(E-1)：創造作品を発案し，必要な技術や情報について調査または実習し，設計を行い，適切な報告書を提出すること（50%）により達成する。
+				</p>
+				<p>
+					学習・教育目標
+					(E-2)：前期で設計した創造作品の設計仕様に基づいて部品を発注し，グループで協力して製作・評価・発表・報告書作成を行うこと（50%）により達成する。
+				</p>
+			</section>
+
+			<section class="card rubric">
+				<h2>ルーブリック（簡易）</h2>
+				<table>
+					<thead>
+						<tr>
+							<th>評価項目</th>
+							<th>理想</th>
+							<th>標準</th>
+							<th>未達成</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>創造作品の発案</td>
+							<td>自らのアイディアで発案できる</td>
+							<td>発案できる</td>
+							<td>発案できない</td>
+						</tr>
+						<tr>
+							<td>技術や情報の調査</td>
+							<td>積極的に調査・実習し設計に活かせる</td>
+							<td>必要な調査・実習を行い設計できる</td>
+							<td>調査や設計ができない</td>
+						</tr>
+						<tr>
+							<td>グループ内での問題解決</td>
+							<td>他者も手伝い責任感を持って取り組める</td>
+							<td>役割を理解し協調して取り組める</td>
+							<td>取り組めない</td>
+						</tr>
+						<tr>
+							<td>期限内での製作</td>
+							<td>期限内に完成＋改善も行う</td>
+							<td>仕様に基づき期限内に完成できる</td>
+							<td>期限内に完成できない</td>
+						</tr>
+						<tr>
+							<td>報告書の作成</td>
+							<td>図や文章で的確に報告できる</td>
+							<td>図や文章で報告できる</td>
+							<td>報告が不十分</td>
+						</tr>
+					</tbody>
+				</table>
+			</section>
+
+			<section class="card">
+				<h2>教育方法・概要</h2>
+				<p>
+					電気電子技術を利用した創造作品のアイデアを発案し，調査・予備実験を行い，設計・製作・評価・発表・報告書作成を通じてデザイン能力を養う。実務経験のある教員による実習形式で行う。
+				</p>
+				<ul>
+					<li>資料調査，設計，製作等をチームで行う。</li>
+					<li>成果のプレゼンテーションを行う。</li>
+					<li>複数回の実験レポートは期限内提出。</li>
+				</ul>
+			</section>
+
+			<section class="card">
+				<h2>授業計画（週次）</h2>
+				<div class="grid">
+					<div>
+						<h3>前期</h3>
+						<div class="timeline">
+							<div class="week">
+								<strong>1週:</strong> ガイダンス，創造作品アイデアの発案
+							</div>
+							<div class="week">
+								<strong>2週:</strong> アイデア候補の検討とアイデアシート作成1
+							</div>
+							<div class="week">
+								<strong>3週:</strong> アイデア候補の検討とアイデアシート作成2
+							</div>
+							<div class="week">
+								<strong>4週:</strong> アイデア候補のポスター発表
+							</div>
+							<div class="week">
+								<strong>5週:</strong> ワンチップマイコンのアセンブラ演習1
+							</div>
+							<div class="week">
+								<strong>6週:</strong> ワンチップマイコンのアセンブラ演習2
+							</div>
+							<div class="week"><strong>7週:</strong> スペックシート作成1</div>
+							<div class="week"><strong>8週:</strong> スペックシート作成2</div>
+							<div class="week"><strong>9週:</strong> 詳細設計1</div>
+							<div class="week"><strong>10週:</strong> 詳細設計2</div>
+							<div class="week"><strong>11週:</strong> 詳細設計3</div>
+							<div class="week"><strong>12週:</strong> 詳細設計4</div>
+							<div class="week"><strong>13週:</strong> 詳細設計5</div>
+							<div class="week">
+								<strong>14週:</strong> 詳細設計書のまとめ・成果発表会準備
+							</div>
+							<div class="week"><strong>15週:</strong> 成果発表会</div>
+						</div>
+					</div>
+					<div>
+						<h3>後期</h3>
+						<div class="timeline">
+							<div class="week">
+								<strong>1週:</strong> ガイダンスと製作工程表・分担表作成
+							</div>
+							<div class="week">
+								<strong>2週:</strong> 部品の確認，ブレッドボードで動作確認
+							</div>
+							<div class="week"><strong>3週〜7週:</strong> 製作 (複数週)</div>
+							<div class="week"><strong>8週:</strong> 中間報告書の作成</div>
+							<div class="week"><strong>9週〜10週:</strong> 製作継続</div>
+							<div class="week">
+								<strong>11週〜12週:</strong> 創造作品の評価
+							</div>
+							<div class="week">
+								<strong>13週:</strong> アイデアコンテストの準備
+							</div>
+							<div class="week"><strong>14週:</strong> アイデアコンテスト</div>
+							<div class="week"><strong>15週:</strong> 製作報告書の作成</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<section class="card">
+				<h2>評価割合</h2>
+				<table>
+					<tr>
+						<th>項目</th>
+						<th>割合</th>
+					</tr>
+					<tr>
+						<td>報告書</td>
+						<td>50</td>
+					</tr>
+					<tr>
+						<td>実習評価</td>
+						<td>40</td>
+					</tr>
+					<tr>
+						<td>プレゼンテーション</td>
+						<td>10</td>
+					</tr>
+					<tr>
+						<th>合計</th>
+						<th>100</th>
+					</tr>
+				</table>
+				<p class="footer">
+					前期配点 (D-1): 報告書 25 / 実習 25 / プレゼン 0 — 後期配点 (D-2):
+					報告書 25 / 実習 15 / プレゼン 10
+				</p>
+			</section>
+
+			<div style="text-align: center; color: var(--muted); margin-top: 18px">
+				印刷や共有用にこのページを PDF に変換できます。
+			</div>
+		</div>
+	</body>
+</html>
