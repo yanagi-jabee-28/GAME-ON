@@ -150,17 +150,22 @@ export const BLASTER_CONFIG = {
 	/** 本体の滞在時間 (ミリ秒)。0.5秒 = 500ms 以上に設定し、再ヒットを許可 */
 	beamDurationMs: 500,
 	/** ビームの太さ (ピクセル) */
-	thickness: 20,
+	thickness: 50,
 	/** ビームおよび予兆の基本色 */
 	color: "hsla(44 98% 68% / 1)",
 	/** 衝突時に自動で削除しない */
 	removeOnHit: false,
+	/** プレイヤーを狙う精度 (0.0 - 1.0)。1.0で完全にプレイヤーを狙い、0.0で完全ランダム */
+	targetingAccuracy: 0.7,
+	/** 左右交互に狙う際のオフセット量（プレイフィールド幅の比率）。0.5 = 50% */
+	alternatingOffset: 0.5,
 } as const;
 
 /**
  * スポーン確率に関する設定
  * - blasterChance: ブラスター攻撃を選ぶ確率 (0.0 - 1.0)
  * - entityShapeWeights: 円/四角/三角/星 等の出現重み (相対値)
+ * - spawnIntervalMs: エンティティ生成の間隔（ミリ秒）。値を小さくすると頻度が上がる
  */
 export const SPAWN_CONFIG = {
 	/** ブラスターが選ばれる確率 (0.0 - 1.0) */
@@ -172,6 +177,8 @@ export const SPAWN_CONFIG = {
 		triangle: 20,
 		star: 15,
 	},
+	/** エンティティ生成の間隔（ミリ秒）。値を小さくすると頻度が上がる */
+	spawnIntervalMs: 1000,
 } as const;
 
 /**

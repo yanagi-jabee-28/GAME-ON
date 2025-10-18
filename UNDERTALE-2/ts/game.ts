@@ -36,7 +36,11 @@ import {
 	suppressBlasterSpawns,
 	updateEntities,
 } from "./entity.ts";
-import { changeHeartColor, updatePlayerPosition } from "./player.ts";
+import {
+	changeHeartColor,
+	getPlayerPosition,
+	updatePlayerPosition,
+} from "./player.ts";
 import type { EnemyData, EnemySymbol } from "./types.ts";
 
 /** 前回のフレーム更新時刻のタイムスタンプ */
@@ -45,6 +49,8 @@ let lastTimestamp = performance.now();
 const pressedKeys = new Set<string>();
 /** エンティティを定期的に生成するタイマーのID */
 let activeSpawnTimer: number | null = null;
+/** ブラスターの左右交互狙い用のフラグ（true: 右側, false: 左側） */
+let blasterTargetRight = true;
 /** 画面上部に表示される敵シンボルのリスト */
 const enemySymbols: EnemySymbol[] = [];
 /** 敵のデータを管理するマップ（敵ID -> 敵データ） */
@@ -253,9 +259,55 @@ export const startDemoScenario = (
 		// ブラスター出現を SPAWN_CONFIG に従って判定
 		if (Math.random() < (SPAWN_CONFIG?.blasterChance ?? 0.18)) {
 			const hue = Math.floor(Math.random() * 360);
+
+			// プレイヤー位置を取得してブラスターの狙いを計算
+			let targetOffset = 0.5; // デフォルトは中央
+
+			try {
+				const playerPos = getPlayerPosition();
+				const playfieldRect = document
+					.querySelector(".playfield")
+					?.getBoundingClientRect();
+
+				if (playfieldRect) {
+					// プレイヤーの相対位置（0.0 - 1.0）を計算
+					let playerOffsetRatio = 0.5;
+
+					if (edgeLabel === "top" || edgeLabel === "bottom") {
+						// 上下のエッジの場合、X座標の位置を使用
+						playerOffsetRatio =
+							(playerPos.x - playfieldRect.left) / playfieldRect.width;
+
+						// 左右交互に狙う：右側なら+オフセット、左側なら-オフセット
+						const sideOffset = blasterTargetRight
+							? BLASTER_CONFIG.alternatingOffset
+							: -BLASTER_CONFIG.alternatingOffset;
+						playerOffsetRatio += sideOffset;
+
+						// 次回は反対側を狙う
+						blasterTargetRight = !blasterTargetRight;
+					} else {
+						// 左右のエッジの場合、Y座標の位置を使用
+						playerOffsetRatio =
+							(playerPos.y - playfieldRect.top) / playfieldRect.height;
+					}
+
+					// 精度に基づいてランダム性を加える
+					const accuracy = BLASTER_CONFIG.targetingAccuracy;
+					const randomOffset = (Math.random() - 0.5) * (1 - accuracy);
+					targetOffset = Math.max(
+						0,
+						Math.min(1, playerOffsetRatio + randomOffset),
+					);
+				}
+			} catch {
+				// エラー時はランダムな位置にフォールバック
+				targetOffset = Math.random();
+			}
+
 			spawnBlasterAttack({
 				side: edgeLabel as "top" | "right" | "bottom" | "left",
-				offsetRatio: Math.random(),
+				offsetRatio: targetOffset,
 				color: `hsla(${hue} 92% 68% / 1)`,
 				thickness: BLASTER_CONFIG.thickness,
 				beamDurationMs: 1100,
@@ -348,9 +400,49 @@ export const startDemoScenario = (
 				edges[Math.floor(Math.random() * edges.length)] ?? "top";
 			const hue = Math.floor(Math.random() * 360);
 
+			// プレイヤー位置を取得してブラスターの狙いを計算
+			let targetOffset = Math.random(); // デフォルトはランダム
+
+			try {
+				const playerPos = getPlayerPosition();
+				const playfieldRect = document
+					.querySelector(".playfield")
+					?.getBoundingClientRect();
+
+				if (playfieldRect) {
+					let playerOffsetRatio = 0.5;
+					if (edgeLabel === "top" || edgeLabel === "bottom") {
+						playerOffsetRatio =
+							(playerPos.x - playfieldRect.left) / playfieldRect.width;
+
+						// 左右交互に狙う：右側なら+オフセット、左側なら-オフセット
+						const sideOffset = blasterTargetRight
+							? BLASTER_CONFIG.alternatingOffset
+							: -BLASTER_CONFIG.alternatingOffset;
+						playerOffsetRatio += sideOffset;
+
+						// 次回は反対側を狙う
+						blasterTargetRight = !blasterTargetRight;
+					} else {
+						playerOffsetRatio =
+							(playerPos.y - playfieldRect.top) / playfieldRect.height;
+					}
+
+					const accuracy = BLASTER_CONFIG.targetingAccuracy;
+					const randomOffset = (Math.random() - 0.5) * (1 - accuracy);
+					targetOffset = Math.max(
+						0,
+						Math.min(1, playerOffsetRatio + randomOffset),
+					);
+				}
+			} catch {
+				// エラー時はランダムな位置にフォールバック
+				targetOffset = Math.random();
+			}
+
 			spawnBlasterAttack({
 				side: edgeLabel as "top" | "right" | "bottom" | "left",
-				offsetRatio: Math.random(),
+				offsetRatio: targetOffset,
 				color: `hsla(${hue} 92% 68% / 1)`,
 				thickness: BLASTER_CONFIG.thickness,
 				beamDurationMs: 1100,
@@ -362,7 +454,7 @@ export const startDemoScenario = (
 	activeSpawnTimer = window.setInterval(() => {
 		spawnOnce();
 		trySpawnAdditionalBlaster();
-	}, 1600);
+	}, SPAWN_CONFIG.spawnIntervalMs);
 	// UIにスポーンが開始したことを通知
 	document.dispatchEvent(new CustomEvent("game:spawningStarted"));
 };
