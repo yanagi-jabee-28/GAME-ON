@@ -39,6 +39,7 @@ const OperationSlot = (props: {
 		<Droppable droppableId={props.place} class={cn("size-fit bg-neutral-100")}>
 			<Show
 				when={props.operation()}
+				keyed
 				fallback={
 					<CardShape
 						class={cn(
@@ -52,7 +53,7 @@ const OperationSlot = (props: {
 					</CardShape>
 				}
 			>
-				{(operation) => <OperatorCard operation={operation()} />}
+				{(operation) => <OperatorCard operation={operation} />}
 			</Show>
 		</Droppable>
 	);

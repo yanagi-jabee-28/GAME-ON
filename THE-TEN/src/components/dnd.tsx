@@ -15,13 +15,12 @@ export const Draggable = <Id extends number>(
 		cn(
 			"transition-colors",
 			local.class,
-			draggable.isActiveDraggable &&
-				"outline-2 outline-blue-500 shadow-lg rounded-lg",
-			"data-[drag-state]:z-30"
+			draggable.isActiveDraggable && "opacity-0",
 		);
 	return (
 		<div
-			use:draggable={draggable}
+			// DragOverlayを使用するため、元の要素にはtransformを適用しない
+			use:draggable={() => ({ skipTransform: true })}
 			class={className()}
 			data-draggable-id={local.draggableId}
 			data-drag-state={draggable.isActiveDraggable ? "active" : undefined}

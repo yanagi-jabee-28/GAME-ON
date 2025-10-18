@@ -64,6 +64,22 @@ const createOperationSlots = <Ids extends number>(
 		.map((k) => Number(k) as Ids)
 		.sort((a, b) => (a as number) - (b as number));
 
+	// 各IDに対応するエントリオブジェクトを事前に生成して固定参照として保持
+	// これにより、同じIDのカードが常に同一のオブジェクトインスタンスを参照し、
+	// solid-dndの内部状態が正しく維持される
+	const operationEntries = new Map<Ids, OperationEntry<Ids>>();
+	for (const id of allIds) {
+		operationEntries.set(id, { id, ...operations[id] });
+	}
+
+	const getEntry = (id: Ids): OperationEntry<Ids> => {
+		const entry = operationEntries.get(id);
+		if (!entry) {
+			throw new Error(`Operation ID ${id} not found in operations map`);
+		}
+		return entry;
+	};
+
 	const [leftId, setLeftId] = createSignal<Ids | null>(initial?.left ?? null);
 	const [rightId, setRightId] = createSignal<Ids | null>(
 		initial?.right ?? null,
@@ -75,20 +91,18 @@ const createOperationSlots = <Ids extends number>(
 		return allIds.filter((id) => id !== l && id !== r);
 	});
 
-	const getOp = (id: Ids) => operations[id];
-
 	const leftOperation = createMemo(() => {
 		const id = leftId();
-		return id == null ? null : { id, ...getOp(id) };
+		return id == null ? null : getEntry(id);
 	});
 
 	const rightOperation = createMemo(() => {
 		const id = rightId();
-		return id == null ? null : { id, ...getOp(id) };
+		return id == null ? null : getEntry(id);
 	});
 
 	const reserveOperations = createMemo(() =>
-		reserveIds().map((id) => ({ id, ...getOp(id) })),
+		reserveIds().map((id) => getEntry(id)),
 	);
 
 	// 統一移動API：id を place（left/right/reserve）へ移動する
