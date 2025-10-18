@@ -1,0 +1,19 @@
+{
+	"compilerOptions": {
+		// Solid
+		"jsx": "preserve",
+		"jsxImportSource": "solid-js",
+
+		// 解析系
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"strict": true,
+		"noEmit": true,
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"skipLibCheck": true,
+
+		"types": ["vite/client"],
+	},
+	"include": ["src"]
+}

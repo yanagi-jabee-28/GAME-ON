@@ -2,11 +2,12 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
+import solid from "vite-plugin-solid";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-	plugins: [tailwindcss()],
+	plugins: [tailwindcss(), solid()],
 	build: {
 		rollupOptions: {
 			input: {
@@ -23,6 +24,7 @@ export default defineConfig({
 				"Finger-smash-1": resolve(__dirname, "Finger-smash-1/index.html"),
 				"Number-BATTLE-3": resolve(__dirname, "Number-BATTLE-3/index.html"),
 				"Division-Game-1": resolve(__dirname, "Division-Game-1/index.html"),
+				"THE-TEN": resolve(__dirname, "THE-TEN/index.html"),
 			},
 		},
 	},

@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@font-face {
+	font-family: "DSEG7 Modern";
+	src:
+		local("DSEG7 Modern"),
+		url("./assets/DSEG7Modern-LightItalic.woff2") format("woff2"),;
+}
+@theme {
+	--font-seg: "DSEG7 Modern", monospace;
+}
+
+body {
+	@apply bg-white;
+}
+
