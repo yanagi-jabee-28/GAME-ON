@@ -95,3 +95,9 @@ declare global {
 		__pachi_stylesheetTimeout?: boolean;
 	}
 }
+
+// Viteでメディアファイルをインポート可能にするための宣言
+declare module "*.mp3" {
+	const src: string;
+	export default src;
+}

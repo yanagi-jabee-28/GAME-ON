@@ -1,17 +1,44 @@
-// 音声ファイルのパス一覧
-const audioFiles = [
-	"assets/01-001_四国めたん（ノーマル）_こちらは、5Eのク….mp3",
-	"assets/02-002_四国めたん（ノーマル）_5Eでは創造工学実….mp3",
-	"assets/03-003_四国めたん（ノーマル）_創造工学実習とは、….mp3",
-	"assets/04-004_四国めたん（ノーマル）_それぞれの想像力を….mp3",
-	"assets/05-005_四国めたん（ノーマル）_ぜひお楽しみくださ….mp3",
-];
+// Vite経由で扱うためにアセットをimport（ビルド後のパス解決が正しく行われる）
+// 動的に assets 内の mp3 をすべて読み込む。ファイル名に特殊文字が含まれていても glob を使えば解決できる。
+const audioModules = import.meta.glob("./assets/*.mp3", {
+	eager: true,
+	as: "url",
+}) as Record<string, string>;
+// ファイル名の先頭が番号になっているため、キーをソートして順序を保証する
+const audioFiles = Object.keys(audioModules)
+	.sort()
+	.map((k) => audioModules[k]);
 
 // 音声再生用関数
+// ブラウザの自動再生ポリシーに対応するため、ユーザー操作でオーディオコンテキストをアンロックする
+let audioUnlocked = false;
+async function ensureAudioUnlocked(): Promise<void> {
+	if (audioUnlocked) return;
+	// Chromeなどはユーザー操作時にのみ再生を許可する
+	try {
+		const a = new Audio();
+		// 空のデータを再生してみて失敗しなければアンロック
+		await a
+			.play()
+			.catch(() => Promise.reject(new Error("user-gesture required")));
+		// 再生できたら停止して巻き戻す
+		a.pause();
+		a.currentTime = 0;
+		audioUnlocked = true;
+	} catch {
+		// ユーザー操作が必要
+		// 何もしない。再生ボタンがユーザー操作として呼ばれるときに再試行される
+	}
+}
+
 function playAudio(index: number) {
-	// Audioオブジェクトを生成し、再生
+	// まずアンロックを試みる
+	ensureAudioUnlocked();
 	const audio = new Audio(audioFiles[index]);
-	audio.play();
+	audio.play().catch((err) => {
+		// 自動再生ポリシーでブロックされた場合、ユーザー操作を待つ
+		console.warn("Audio play blocked, will wait for user gesture", err);
+	});
 }
 
 // 各ボタンにイベントリスナーを設定
@@ -137,6 +164,7 @@ function getDragAfterElement(container: Element, y: number): Element | null {
 // Promiseで音声再生が終わるまで待つ
 function playAudioAsync(index: number): Promise<void> {
 	return new Promise((resolve) => {
+		ensureAudioUnlocked();
 		const audio = new Audio(audioFiles[index]);
 		audio.onended = () => resolve();
 		audio.play();
