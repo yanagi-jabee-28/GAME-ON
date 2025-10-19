@@ -9,6 +9,15 @@ const audioFiles = Object.keys(audioModules)
 	.sort()
 	.map((k) => audioModules[k]);
 
+// 音声ファイルを事前にプリロードしてキャッシュ（頭切れ防止）
+const preloadedAudios: HTMLAudioElement[] = [];
+audioFiles.forEach((url) => {
+	const audio = new Audio(url);
+	audio.preload = "auto";
+	audio.load();
+	preloadedAudios.push(audio);
+});
+
 // 再生中のAudioインスタンスを管理
 let playingAudios: HTMLAudioElement[] = [];
 // ブラウザの自動再生ポリシーに対応するため、ユーザー操作でオーディオコンテキストをアンロックする
@@ -35,10 +44,25 @@ async function ensureAudioUnlocked(): Promise<void> {
 function playAudio(index: number) {
 	ensureAudioUnlocked();
 	const audio = new Audio(audioFiles[index]);
+	audio.preload = "auto";
 	playingAudios.push(audio);
-	audio.play().catch((err) => {
-		console.warn("Audio play blocked, will wait for user gesture", err);
-	});
+	audio.load();
+
+	// より確実な再生のため、loadeddataイベントを待つ
+	const attemptPlay = () => {
+		audio.play().catch((err) => {
+			console.warn("Audio play blocked, will wait for user gesture", err);
+		});
+	};
+
+	if (audio.readyState >= 2) {
+		// すでに読み込み済みなら即座に再生
+		attemptPlay();
+	} else {
+		// loadeddataイベントを待って再生（canplaythroughより早く発火）
+		audio.addEventListener("loadeddata", attemptPlay, { once: true });
+	}
+
 	// 再生終了時にplayingAudiosから除去
 	audio.onended = () => {
 		playingAudios = playingAudios.filter((a) => a !== audio);
@@ -170,12 +194,26 @@ function playAudioAsync(index: number): Promise<void> {
 	return new Promise((resolve) => {
 		ensureAudioUnlocked();
 		const audio = new Audio(audioFiles[index]);
+		audio.preload = "auto";
 		playingAudios.push(audio);
+		audio.load();
+
+		const attemptPlay = () => {
+			audio.play();
+		};
+
+		if (audio.readyState >= 2) {
+			// すでに読み込み済みなら即座に再生
+			attemptPlay();
+		} else {
+			// loadeddataイベントを待って再生
+			audio.addEventListener("loadeddata", attemptPlay, { once: true });
+		}
+
 		audio.onended = () => {
 			playingAudios = playingAudios.filter((a) => a !== audio);
 			resolve();
 		};
-		audio.play();
 	});
 }
 

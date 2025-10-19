@@ -1,3 +1,6 @@
+// プレイヤー進路予測用の前回座標を保持
+let prevPlayerPos: { x: number; y: number } | null = null;
+
 /**
  * このファイルは、ゲームのメインロジックと進行を管理します。
  * - ゲームループの開始と管理
@@ -305,12 +308,59 @@ export const startDemoScenario = (
 				targetOffset = Math.random();
 			}
 
-			spawnBlasterAttack({
-				side: edgeLabel as "top" | "right" | "bottom" | "left",
-				offsetRatio: targetOffset,
-				color: `hsla(${hue} 92% 68% / 1)`,
-				thickness: BLASTER_CONFIG.thickness,
-				beamDurationMs: 1100,
+			// --- 難易度アップ: 進路予測型ブラスター＋複数本同時発射（重複防止） ---
+			// プレイヤーの速度ベクトルを推定
+			let predictedOffset = targetOffset;
+			try {
+				const playerPos = getPlayerPosition();
+				if (prevPlayerPos) {
+					const vx = playerPos.x - prevPlayerPos.x;
+					const vy = playerPos.y - prevPlayerPos.y;
+					// 予測時間（例: 0.3秒）
+					const predictT = 0.3;
+					const playfieldRect = document
+						.querySelector(".playfield")
+						?.getBoundingClientRect();
+					if (playfieldRect) {
+						let futureOffsetRatio = 0.5;
+						if (edgeLabel === "top" || edgeLabel === "bottom") {
+							// X方向の未来位置
+							const futureX = playerPos.x + vx * predictT;
+							futureOffsetRatio =
+								(futureX - playfieldRect.left) / playfieldRect.width;
+						} else {
+							// Y方向の未来位置
+							const futureY = playerPos.y + vy * predictT;
+							futureOffsetRatio =
+								(futureY - playfieldRect.top) / playfieldRect.height;
+						}
+						predictedOffset = Math.max(0, Math.min(1, futureOffsetRatio));
+					}
+				}
+				prevPlayerPos = { ...playerPos };
+			} catch {
+				// エラー時はtargetOffsetのまま
+			}
+
+			// 3本の座標を分散（進路予測・中央・端）
+			const ratios = [
+				predictedOffset, // 進路予測
+				0.5, // 中央
+				predictedOffset < 0.5 ? 0.85 : 0.15, // 端
+			];
+			// 近い値はスキップ（0.15未満の差は除外）
+			const used: number[] = [];
+			ratios.forEach((r, i) => {
+				if (used.every((u) => Math.abs(u - r) > 0.15)) {
+					spawnBlasterAttack({
+						side: edgeLabel as "top" | "right" | "bottom" | "left",
+						offsetRatio: r,
+						color: `hsla(${(hue + i * 40) % 360} 92% 68% / 1)`,
+						thickness: BLASTER_CONFIG.thickness,
+						beamDurationMs: 1100,
+					});
+					used.push(r);
+				}
 			});
 			return;
 		}
