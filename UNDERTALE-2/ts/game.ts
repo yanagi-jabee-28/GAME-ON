@@ -1,6 +1,9 @@
 // プレイヤー進路予測用の前回座標を保持
 let prevPlayerPos: { x: number; y: number } | null = null;
 
+/** ブラスターの連続出現を防ぐフラグ */
+let canSpawnBlaster = true;
+
 /**
  * 前回のプレイヤー位置からブラスターのoffsetRatioを計算します。
  * @param side ブラスターの出現側
@@ -284,7 +287,10 @@ export const startDemoScenario = (
 		const speed = 80 + Math.random() * 60;
 
 		// ブラスター出現を SPAWN_CONFIG に従って判定
-		if (Math.random() < (SPAWN_CONFIG?.blasterChance ?? 0.18)) {
+		if (
+			canSpawnBlaster &&
+			Math.random() < (SPAWN_CONFIG?.blasterChance ?? 0.18)
+		) {
 			const hue = Math.floor(Math.random() * 360);
 
 			// 前回のプレイヤー位置を狙う
@@ -302,6 +308,18 @@ export const startDemoScenario = (
 				thickness: BLASTER_CONFIG.thickness,
 				beamDurationMs: 1100,
 			});
+
+			// ブラスターの消滅後、次の出現まで待つ
+			canSpawnBlaster = false;
+			setTimeout(
+				() => {
+					canSpawnBlaster = true;
+				},
+				BLASTER_CONFIG.telegraphDurationMs +
+					BLASTER_CONFIG.beamDurationMs +
+					BLASTER_CONFIG.intervalMs,
+			);
+
 			return;
 		}
 
@@ -384,7 +402,7 @@ export const startDemoScenario = (
 		if (blasterCount === 1) additionalChance = 0.15;
 		else if (blasterCount >= 2) additionalChance = 0.08;
 
-		if (Math.random() < additionalChance) {
+		if (canSpawnBlaster && Math.random() < additionalChance) {
 			const edges = PATTERN_EDGE_MAP[currentPattern];
 			const edgeLabel =
 				edges[Math.floor(Math.random() * edges.length)] ?? "top";
@@ -406,6 +424,17 @@ export const startDemoScenario = (
 				thickness: BLASTER_CONFIG.thickness,
 				beamDurationMs: 1100,
 			});
+
+			// ブラスターの消滅後、次の出現まで待つ
+			canSpawnBlaster = false;
+			setTimeout(
+				() => {
+					canSpawnBlaster = true;
+				},
+				BLASTER_CONFIG.telegraphDurationMs +
+					BLASTER_CONFIG.beamDurationMs +
+					BLASTER_CONFIG.intervalMs,
+			);
 		}
 	};
 

@@ -159,6 +159,8 @@ export const BLASTER_CONFIG = {
 	targetingAccuracy: 0.7,
 	/** 左右交互に狙う際のオフセット量（プレイフィールド幅の比率）。0.5 = 50% */
 	alternatingOffset: 0.5,
+	/** 前回のブラスター消滅後、次のブラスターが出現するまでの間隔 (ミリ秒) */
+	intervalMs: 200,
 } as const;
 
 /**
