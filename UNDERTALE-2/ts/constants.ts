@@ -40,6 +40,12 @@ export const FADE_DURATION = ENTITY_CONFIG.fadeDuration;
 /** @deprecated config.ts の ENTITY_CONFIG.lifetime を使用してください */
 export const LIFETIME = ENTITY_CONFIG.lifetime;
 
+/** @deprecated config.ts の ENTITY_CONFIG.homingForce を使用してください */
+export const HOMING_FORCE = ENTITY_CONFIG.homingForce;
+
+/** @deprecated config.ts の ENTITY_CONFIG.damage を使用してください */
+export const ENTITY_DAMAGE = ENTITY_CONFIG.damage;
+
 /** @deprecated config.ts の PLAYER_VISUAL_CONFIG.heartColors を使用してください */
 export const COLORS: string[] = [...PLAYER_VISUAL_CONFIG.heartColors];
 
@@ -213,9 +219,6 @@ export const isMoveKey = (key: string): boolean => {
 // ゲームバランス定数（後方互換性のため）
 // ========================================
 
-/** @deprecated config.ts の ENTITY_CONFIG.damage を使用してください */
-export const ENTITY_DAMAGE = ENTITY_CONFIG.damage;
-
 /** @deprecated config.ts の PLAYER_VISUAL_CONFIG.gameoverDelayMs を使用してください */
 export const GAMEOVER_DELAY_MS = PLAYER_VISUAL_CONFIG.gameoverDelayMs;
 
@@ -254,6 +257,3 @@ export const PLAYFIELD_MAX_HEIGHT = 720; // 最大高さ
 export const PLAYFIELD_INITIAL_WIDTH = 720; // 初期幅
 export const PLAYFIELD_INITIAL_HEIGHT = 240; // 初期高さ
 export const PLAYFIELD_SIZE_STEP = 40; // サイズ変更の単位
-
-/** @deprecated config.ts の ENTITY_CONFIG.homingForce を使用してください */
-export const HOMING_FORCE = ENTITY_CONFIG.homingForce;

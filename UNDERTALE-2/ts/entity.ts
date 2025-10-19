@@ -625,8 +625,8 @@ export const detectCollisions = () => {
 		const entity = entities[i];
 		if (!entity || !entity.position) continue;
 
-		// フェードアウト中のエンティティは衝突判定をスキップ
-		if (entity.fading) {
+		// フェードアウト中のエンティティは衝突判定をスキップ（ただしブラスターのビームは除く）
+		if (entity.fading && entity.shape !== "beam") {
 			continue;
 		}
 

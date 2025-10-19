@@ -128,7 +128,7 @@ export const ENTITY_CONFIG = {
 	/** エンティティが与えるダメージ量 */
 	damage: 2,
 	/** エンティティの寿命 (秒) */
-	lifetime: 4.5,
+	lifetime: 2.0,
 	/** 消滅前のフェードアウト時間 (秒) */
 	fadeDuration: 0.5,
 	/** 衝突時の最低不透明度 (0.0 ~ 1.0) */
@@ -137,6 +137,12 @@ export const ENTITY_CONFIG = {
 	homingForce: 150,
 	/** 画面外削除のマージン (ピクセル) */
 	removalMargin: 160,
+	/** エンティティの最小速度 (ピクセル/秒) */
+	speedMin: 120,
+	/** エンティティの最大速度 (ピクセル/秒) */
+	speedMax: 200,
+	/** プレイヤーを狙う精度 (0.0 - 1.0)。1.0で完全にプレイヤーを狙い、0.0で完全ランダム */
+	targetingAccuracy: 0.6,
 } as const;
 
 /**

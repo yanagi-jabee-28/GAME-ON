@@ -34,7 +34,7 @@ const getOffsetRatioFromPrevPos = (
  * - 敵シンボルの表示管理
  */
 
-import { BLASTER_CONFIG, SPAWN_CONFIG } from "./config.ts";
+import { BLASTER_CONFIG, ENTITY_CONFIG, SPAWN_CONFIG } from "./config.ts";
 import { DIRECTION_MAP, PLAYFIELD_SIZE_STEP } from "./constants.ts";
 import {
 	changePlayfieldSize,
@@ -284,7 +284,9 @@ export const startDemoScenario = (
 		const height = pf.clientHeight;
 		const edges = PATTERN_EDGE_MAP[currentPattern];
 		const edgeLabel = edges[Math.floor(Math.random() * edges.length)] ?? "top";
-		const speed = 80 + Math.random() * 60;
+		const speed =
+			ENTITY_CONFIG.speedMin +
+			Math.random() * (ENTITY_CONFIG.speedMax - ENTITY_CONFIG.speedMin);
 
 		// ブラスター出現を SPAWN_CONFIG に従って判定
 		if (
@@ -325,10 +327,16 @@ export const startDemoScenario = (
 
 		// 出現位置を決定
 		let position: { x: number; y: number };
-		// 狙うターゲット座標をプレイフィールド中央付近に設定
-		const target = {
+		// 狙うターゲット座標をプレイヤー位置とランダムのブレンドで設定
+		const randomTarget = {
 			x: width / 2 + (Math.random() - 0.5) * width * 0.6,
 			y: height / 2 + (Math.random() - 0.5) * height * 0.6,
+		};
+		const playerTarget = prevPlayerPos ?? { x: width / 2, y: height / 2 };
+		const accuracy = ENTITY_CONFIG.targetingAccuracy;
+		const target = {
+			x: playerTarget.x * accuracy + randomTarget.x * (1 - accuracy),
+			y: playerTarget.y * accuracy + randomTarget.y * (1 - accuracy),
 		};
 		switch (edgeLabel) {
 			case "top":
