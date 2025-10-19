@@ -70,7 +70,7 @@ function playAudio(index: number) {
 }
 
 // 各ボタンにイベントリスナーを設定
-for (let i = 0; i < 6; i++) {
+for (let i = 0; i < audioFiles.length; i++) {
 	const btn = document.getElementById(`btn${i + 1}`);
 	if (btn) {
 		btn.addEventListener("click", () => playAudio(i));
